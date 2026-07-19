@@ -1,0 +1,13 @@
+{
+  "name": "ai-dotfiles",
+  "private": true,
+  "type": "module",
+  "description": "Shareable Codex and AI agent configuration files.",
+  "scripts": {
+    "check": "node export.js --dry-run",
+    "build": "node export.js --write"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

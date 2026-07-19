@@ -1,0 +1,7 @@
+# Paths are relative to both the home directory and this repository.
+# Add only files and directories that are safe to publish.
+paths:
+  - .codex/AGENTS.md
+  - .codex/config.toml
+  - .agents/skills/prompt-design
+  - .agents/scripts/check-lf.mjs

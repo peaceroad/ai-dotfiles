@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prompt Design"
+  short_description: "Design, review, and revise model-facing instructions"
+  default_prompt: "Use $prompt-design to design, review, or revise this model-facing instruction for its target runtime; default OpenAI and Codex work to current GPT-5.6 guidance unless another target is named, preserve intent and required procedures, make no edits for review-only requests, and return a validated ready-to-use result when changes are requested."

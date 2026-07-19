@@ -1,0 +1,299 @@
+############################################################
+# Shared settings start here.
+# NOTE: k_taka's Codex config.toml on native Windows 11 environment.
+# NOTE: The `# Shared...` statement specifies the public area designated by `@peaceroad/ai-dotfiles/export.js`.
+############################################################
+
+# デフォルトのモデル
+model = "gpt-5.6-sol"
+
+# モデルの推論レベル。モデルによって利用可能な値が異なる。
+# "none"、"minimal"、"low"、"medium"、"high"、"xhigh"、"max"、"ultra"
+model_reasoning_effort = "medium"
+
+# コミュニケーションスタイル。他に "friendly"、"pragmatic"、"none"
+personality = "pragmatic"
+
+# リクエストの処理速度・料金クラス。利用可能な値はモデルやログイン方式によって異なる。
+# Fastを永続的に有効にする場合は、service_tier = "fast" と [features] の fast_mode = true を設定する。
+# service_tier = "default"
+
+# 応答時の説明度合。 "low"、"medium"、"high"
+model_verbosity = "medium"
+
+# Codexの組み込みベース指示をファイル内容で置き換える。
+# このグローバルconfig.tomlでは、相対パスは ~/.codex/ を基準に解決される。
+# model_instructions_fileによるベース指示と、AGENTS.mdによるカスタムインストラクションは別レイヤーとして併用される。
+# 複数のAGENTS.mdが適用される場合、指示が競合すると対象ファイルに近いプロジェクト側のAGENTS.mdが優先される。
+# model_instructions_file = "instructions.md"
+
+# ツールによるWeb検索。ローカルコマンドのネットワーク権限とは別レイヤー。
+# disabled: 無効
+# cached: OpenAIが事前取得した検索キャッシュを使用
+# indexed: 外部Webアクセスが必要な場合も、検索インデックスによるゲートを通す
+# live: 最新のWebにアクセス
+# 注意：最新情報を取得しなくても済む場合には、cachedなどを十分か検討したほうが安全。
+web_search = "live"
+
+# 承認プロセス。
+# "untrusted": 信頼済みと判断されないコマンドについて承認を求める
+# "on-request": Permission profileの範囲内では実行、範囲外の操作が必要な場合に承認を求める
+# "never": 承認を求めない。許可範囲内はそのまま実行し、許可範囲外は承認を求めず失敗する
+# 注意：neverでは、許可済みのファイル操作・通信が確認なしで実行される。
+# github.comへの通信を許可した認証済み環境では、Git pushなどの外部変更も実行され得る。
+approval_policy = "never"
+
+# Permission profileでローカルコマンドのファイルアクセスとネットワークを制御する
+default_permissions = "workspace-with-agents"
+
+# CodexアプリがComputer Useのターン終了を通知するためのローカル設定。
+# "turn-ended" は補助プログラムの必須サブコマンド。
+# アプリが自動生成するマシン固有設定なので、公開・手編集しない。
+############################################################
+# Shared settings end here.
+# Note: The following top-level settings are automatically configured by Codex and should not be exposed.
+############################################################
+
+############################################################
+# Shared settings start here.
+############################################################
+
+# CodexアプリのWindows環境におけるサンドボックス設定
+# elevated: 管理者権限でセットアップする、Codex推奨のWindows隔離方式。
+# エージェントのコマンド自体を管理者として実行する意味ではない。
+# unelevated: 管理者権限を使えない場合や、elevatedのセットアップに失敗する場合のフォールバック。
+# ユーザープロファイル以下にあるツールを実行する場合には、unelevatedにしたほうが広く利用できる。
+# Permission profileを使う場合、unelevatedでは管理者権限が必要な操作は失敗するため、elevatedにして、ユーザープロファイル以下のツール実行に必要な権限をPermission profileで許可することになる。
+[windows]
+sandbox = "elevated"
+
+# エージェント権限 workspace-with-agents の説明
+[permissions.workspace-with-agents]
+description = "ワークスペース、~/.agents、プロジェクト内の.agents/.codex、および許可した開発キャッシュを編集し、ネットワークアクセスは許可ドメインのみに制限。 / Edits the workspace, ~/.agents, project .agents/.codex directories, and approved development caches with allowlisted network access."
+
+# workspace-with-agents:
+# ワークスペース、~/.agents、プロジェクト内の.agents/.codex、
+# および許可した開発キャッシュへの書き込みを許可し、
+# ネットワークアクセスは許可ドメインだけに制限する。
+[permissions.workspace-with-agents.filesystem]
+":minimal" = "read"            # Codexや一般的なコマンド実行に必要最低限のシステム領域
+":tmpdir" = "write"            # $TMPDIR、Windowsでは通常一時ディレクトリ
+":slash_tmp" = "write"         # /tmpが存在する環境での/tmp
+# ":workspace_roots" = "write" # 現在のワークスペースルート（ルートのみの設定なら）
+"~/.agents" = "write"          # ユーザープロファイルの.agentsディレクトリ
+
+"~/AppData/Roaming/npm" = "read"            # npmでグローバルインストールしたCLI
+"~/AppData/Local/Programs/Python" = "read"  # ユーザー領域にインストールしたPython本体
+"~/AppData/Roaming/Python" = "read"         # pip --userでインストールしたパッケージとCLI
+"~/AppData/Local/pip/Cache" = "write"       # pipのダウンロード・ビルドキャッシュ。
+"~/AppData/Local/npm-cache" = "write"       # npm・npxのキャッシュ
+"~/.bun/bin" = "read"                       # Bun本体の実行
+"~/.bun/install/cache" = "write"            # パッケージキャッシュは書き込み
+"~/.deno/bin" = "read"                      # Deno本体の実行
+"~/AppData/Local/deno" = "write"            # Denoの依存関係キャッシュ
+
+"~/AppData/Local/pnpm/store" = "write"      # pnpmのパッケージストアとキャッシュ
+"~/AppData/Local/pnpm-cache" = "write"
+
+"~/.local/bin" = "read"                     # uv本体は実行のみ、
+"~/AppData/Local/uv/cache" = "write"        # 依存関係キャッシュは書き込み可能
+
+# Java / Mavenを使用する場合に有効化する。
+# settings.xmlには認証情報が入る可能性があるため、
+# ~/.m2全体ではなく依存関係とWrapperのキャッシュだけを許可する。
+# "~/.m2/repository" = "write"
+# "~/.m2/wrapper" = "write"
+
+# Java / Gradleを使用する場合に有効化する。
+# gradle.propertiesには認証情報が入る可能性があるため、
+# ~/.gradle全体ではなく実行に必要なキャッシュ領域だけを許可する。
+# "~/.gradle/caches" = "write"
+# "~/.gradle/wrapper" = "write"
+# "~/.gradle/daemon" = "write"
+# "~/.gradle/native" = "write"
+# "~/.gradle/notifications" = "write"
+# "~/.gradle/jdks" = "write"
+
+# .NET SDK本体はC:\Program Files\dotnetにあり、:minimalによる読み取りで利用できる。
+# dotnet restoreがワークスペース外へパッケージを書き込むため、NuGetキャッシュだけ許可する。
+"~/.nuget/packages" = "write"
+
+# Rustを導入した場合に有効化する。
+# Cargo本体・ツールチェーンは読み取り、依存関係キャッシュは書き込みを許可する。
+# "~/.cargo/bin" = "read"
+# "~/.rustup" = "read"
+# "~/.cargo/registry" = "write"
+# "~/.cargo/git" = "write"
+
+# PHP Composerを導入した場合に、実際のキャッシュ位置を確認して有効化する。
+# 認証情報を保存するauth.jsonやCOMPOSER_AUTHとは分離すること。
+# "~/AppData/Local/Composer" = "write"
+
+# `**`を含むglobパターンをWindowsで事前展開する最大深さ。
+# 1以上。値を大きくすると起動時のスキャン量が増える。
+# 深いモノレポでは、必要に応じて5程度への引き上げを検討する。
+glob_scan_max_depth = 3
+
+# 現在のワークスペースへの書き込み権限（ルート以下を細かく制御するなら）
+# ワークスペースの.git, .agents, .codexディレクトリはデフォルトで書き込みできない。
+[permissions.workspace-with-agents.filesystem.":workspace_roots"]
+"." = "write"        # ワークスペース全体を書き込み可能にする
+".git" = "read"      # status・diff・logなどは可。add・commit・branch・switch・merge・rebaseなど、Gitメタデータを変更する操作は不可
+
+# NOTE: Windows版Codexでは、バージョンやサンドボックス状態によって、
+# 保護対象の`.agents`と`.codex`に明示的なwriteルールを設定しても、
+# Deny Write ACLが優先される場合がある。
+
+# NOTE: `.agents`自体をwriteにすると、Windows版Codexでは書き込みルートとして
+# `.agents/.agents`や`.agents/.codex`などが再帰的に展開される場合がある。
+# ループを避けつつ、各ワークスペースの既存`.agents`配下だけを書き込み可能にする。
+".agents/**" = "write" # デフォルトの保護を明示的に解除する
+
+# NOTE: `.codex`配下には、将来、プロジェクト固有の設定・フック・MCP設定など、
+# 次回以降のCodexの動作に影響するファイルが置かれる可能性がある。
+# そのリスクを理解したうえで、プロジェクト内のCodex設定も編集できるようwriteを許可する。
+# `.codex`自体ではなく配下を指定し、`.codex/.codex`などの再帰展開を避ける。
+".codex/**" = "write" # デフォルトの保護を明示的に解除する
+
+# 実際の認証情報・接続情報が入る可能性がある.env系ファイルは、
+# ワークスペースが書き込み可能でも読み書き禁止にする。
+# denyでは再帰globを使用できる。
+".env" = "deny"
+".env.*" = "deny"
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+
+# ワークスペース直下にある、秘密値を含まないテンプレートだけは
+# 具体的なファイル名で読み取り可能にする。
+# NOTE: read/writeの再帰globは環境間の移植性が低い。
+# 手元のWindows環境では、readに`**/.env.example`を指定しても、
+# denyの読み取り例外として期待どおり適用されなかった。
+".env.example" = "read"
+".env.sample" = "read"
+".env.template" = "read"
+
+# エージェントによるネットワーク操作に関する設定。
+[permissions.workspace-with-agents.network]
+enabled = true      # 許可するかどうか。true, false
+mode = "limited"    # モード。制限付き（"limited"）、全許可（"full"）
+
+# 許可するドメインのリスト。
+[permissions.workspace-with-agents.network.domains]
+# GitHub
+"github.com" = "allow"
+"api.github.com" = "allow"
+"raw.githubusercontent.com" = "allow"
+"codeload.github.com" = "allow"
+"release-assets.githubusercontent.com" = "allow"
+"objects.githubusercontent.com" = "allow"
+
+# npm installを使う場合
+"registry.npmjs.org" = "allow"
+
+# Deno / JSR
+# "jsr.io" = "allow"
+# "npm.jsr.io" = "allow"
+
+# pip installを使う場合
+"pypi.org" = "allow"
+"files.pythonhosted.org" = "allow"
+
+# Maven Central
+# "repo.maven.apache.org" = "allow"
+
+# Gradleを使う場合
+# "plugins.gradle.org" = "allow"
+# "services.gradle.org" = "allow"
+# "plugins-artifacts.gradle.org" = "allow"
+
+# NuGet / .NET
+# "api.nuget.org" = "allow"  # dotnet restoreおよびNuGetクライアントが利用するV3 API
+# "data.nuget.org" = "allow" # NuGetの脆弱性情報。パッケージのダウンロード用途ではない
+
+# Rust / Cargo
+# crates.ioのAPI・パッケージ取得先と、標準のsparse index。
+# "crates.io" = "allow"
+# "index.crates.io" = "allow"
+# "static.crates.io" = "allow"
+
+# Ruby / RubyGems・Bundler
+# "rubygems.org" = "allow"
+
+# PHP / Composer・Packagist
+# "packagist.org" = "allow"
+# "repo.packagist.org" = "allow"
+
+[shell_environment_policy]
+# Codexが起動するコマンドへ、親プロセスの環境変数をどこまで渡すか。
+# all: すべて引き継ぐ（既定値）。PATHや各種開発ツールの設定をそのまま利用しやすい。
+# core: OSやシェルの実行に必要な基本的な環境変数だけを引き継ぐ。
+# none: 親プロセスの環境変数を引き継がない。
+# 現在は、ローカルの開発ツールを問題なく使えることを優先してallを明示する。
+inherit = "all"
+
+# false（既定値）では、変数名にKEY、SECRET、TOKENを含む環境変数を自動的に除外する。
+# 判定対象は変数名だけで、変数の内容が秘密情報かどうかは検査しない。
+# そのため、別の名前で保存された秘密情報は自動除外されない。
+ignore_default_excludes = false
+
+# 既定の変数名フィルターだけでは除外できない秘密情報を追加指定する。
+# パターンは大文字・小文字を区別しないglobとして解釈される。
+#
+# KEY・SECRET・TOKENを含む変数は、上のignore_default_excludes = falseにより
+# Codex標準のフィルターですでに除外されるため、ここでは重複指定しない。
+#
+# 依存関係の復元にプライベートレジストリの認証が必要な場合も、
+# 認証情報を常時Codexへ渡すのではなく、必要な作業だけユーザー側で実行するか、
+# 用途と対象を限定した別設定で明示的に許可する。
+exclude = [
+  # 一般的な認証・セッション情報
+  "*PASSWORD*",
+  "*PASSWD*",
+  "*CREDENTIAL*",
+  "*COOKIE*",
+  "*JWT*",
+  "*BEARER*",
+
+  # データベース・外部サービスの接続情報
+  "DATABASE_URL",
+  "REDIS_URL",
+  "MONGODB_URI",
+  "*CONNECTION_STRING*",
+  "*_DSN",
+
+  # Python: pip・uvのURLには認証情報が埋め込まれる場合がある
+  "PIP_INDEX_URL",
+  "PIP_EXTRA_INDEX_URL",
+  "UV_INDEX_URL",
+  "UV_EXTRA_INDEX_URL",
+
+  # Node.js: npm・Yarnの認証情報
+  "NPM_CONFIG_*AUTH*",
+  "YARN_NPM_AUTH_*",
+
+  # PHP: Composerの認証情報をJSONで保持する変数
+  "COMPOSER_AUTH",
+
+  # Ruby: Bundlerのホスト別認証情報
+  "BUNDLE_GEMS__*",
+
+  # .NET: Azure ArtifactsなどのNuGetフィード認証情報
+  "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS",
+
+  # 秘密値や認証ファイルへの参照
+  "KUBECONFIG",
+  "DOCKER_CONFIG",
+  "NETRC",
+
+  # 値自体は秘密鍵ではないが、外部認証を可能にするエージェント接続
+  "SSH_AUTH_SOCK",
+  "SSH_AGENT_PID",
+  "SSH_ASKPASS",
+  "GIT_ASKPASS",
+  "GPG_AGENT_INFO",
+]
+
+############################################################
+# Shared settings end here.
+# NOTE: Everything below is local-only and must not be exported.
+############################################################
