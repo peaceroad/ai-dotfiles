@@ -77,9 +77,15 @@ description = "ワークスペース、~/.agents、プロジェクト内の.agen
 # ネットワークアクセスは許可ドメインだけに制限する。
 [permissions.workspace-with-agents.filesystem]
 ":minimal" = "read"            # Codexや一般的なコマンド実行に必要最低限のシステム領域
-":tmpdir" = "write"            # $TMPDIR、Windowsでは通常一時ディレクトリ
-":slash_tmp" = "write"         # /tmpが存在する環境での/tmp
+
+# OS一時ディレクトリはワークスペース外にあり、生成物の追跡・後処理がしにくい。
+# また、書き込み可能でもサンドボックスにより再帰削除が拒否される場合がったため、
+# 既定では書き込みを許可しないことにする。
+# ":tmpdir" = "write"            # $TMPDIR、Windowsでは通常一時ディレクトリ
+# ":slash_tmp" = "write"         # /tmpが存在する環境での/tmp
+
 # ":workspace_roots" = "write" # 現在のワークスペースルート（ルートのみの設定なら）
+
 "~/.agents" = "write"          # ユーザープロファイルの.agentsディレクトリ
 
 "~/AppData/Roaming/npm" = "read"            # npmでグローバルインストールしたCLI
@@ -91,10 +97,8 @@ description = "ワークスペース、~/.agents、プロジェクト内の.agen
 "~/.bun/install/cache" = "write"            # パッケージキャッシュは書き込み
 "~/.deno/bin" = "read"                      # Deno本体の実行
 "~/AppData/Local/deno" = "write"            # Denoの依存関係キャッシュ
-
 "~/AppData/Local/pnpm/store" = "write"      # pnpmのパッケージストアとキャッシュ
 "~/AppData/Local/pnpm-cache" = "write"
-
 "~/.local/bin" = "read"                     # uv本体は実行のみ、
 "~/AppData/Local/uv/cache" = "write"        # 依存関係キャッシュは書き込み可能
 
