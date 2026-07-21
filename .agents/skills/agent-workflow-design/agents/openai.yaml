@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Workflow Design"
+  short_description: "Design and review bounded agent workflows"
+  default_prompt: "Use $agent-workflow-design to design or review this agent workflow, including triggers, state, evidence, loop control, stop conditions, recovery, and human approval boundaries; preserve the intended outcome, separate prompt rules from runtime controls, and return an implementation-ready design when changes are requested."
