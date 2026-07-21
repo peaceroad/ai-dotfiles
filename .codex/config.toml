@@ -69,7 +69,7 @@ sandbox = "elevated"
 
 # エージェント権限 workspace-with-agents の説明
 [permissions.workspace-with-agents]
-description = "ワークスペース、~/.agents、プロジェクト内の.agents/.codex、および許可した開発キャッシュを編集し、ネットワークアクセスは許可ドメインのみに制限。 / Edits the workspace, ~/.agents, project .agents/.codex directories, and approved development caches with allowlisted network access."
+description = "ワークスペース、~/.agents、および許可した開発キャッシュを編集し、ネットワークアクセスは許可ドメインのみに制限。 / Edits the workspace, ~/.agents, and approved development caches with allowlisted network access."
 
 # workspace-with-agents:
 # ワークスペース、~/.agents、プロジェクト内の.agents/.codex、
@@ -79,7 +79,7 @@ description = "ワークスペース、~/.agents、プロジェクト内の.agen
 ":minimal" = "read"            # Codexや一般的なコマンド実行に必要最低限のシステム領域
 
 # OS一時ディレクトリはワークスペース外にあり、生成物の追跡・後処理がしにくい。
-# また、書き込み可能でもサンドボックスにより再帰削除が拒否される場合がったため、
+# また、書き込み可能でもサンドボックスにより再帰削除が拒否される場合があったため、
 # 既定では書き込みを許可しないことにする。
 # ":tmpdir" = "write"            # $TMPDIR、Windowsでは通常一時ディレクトリ
 # ":slash_tmp" = "write"         # /tmpが存在する環境での/tmp
@@ -136,13 +136,26 @@ description = "ワークスペース、~/.agents、プロジェクト内の.agen
 # `**`を含むglobパターンをWindowsで事前展開する最大深さ。
 # 1以上。値を大きくすると起動時のスキャン量が増える。
 # 深いモノレポでは、必要に応じて5程度への引き上げを検討する。
-glob_scan_max_depth = 3
+# glob_scan_max_depth = 3
 
 # 現在のワークスペースへの書き込み権限（ルート以下を細かく制御するなら）
 # ワークスペースの.git, .agents, .codexディレクトリはデフォルトで書き込みできない。
 [permissions.workspace-with-agents.filesystem.":workspace_roots"]
 "." = "write"        # ワークスペース全体を書き込み可能にする
-".git" = "read"      # status・diff・logなどは可。add・commit・branch・switch・merge・rebaseなど、Gitメタデータを変更する操作は不可
+
+
+# NOTE (2026-07-22):
+# Windows版Codexでは、存在しないパスを個別のfilesystem権限として指定すると、
+# サンドボックスの権限準備時に、そのパスが空のディレクトリとして
+# ワークスペース内へ作成される可能性がある。
+#
+# 実際に空のドットディレクトリが作成されたため、
+# 不要な生成物を避ける目的で、以下の個別パス指定を無効化する。
+# 将来のCodex更新でこの挙動が解消された場合、またはfilesystemレベルの
+# 強制的なアクセス制限が必要になった場合に、再度有効化を検討する。
+# 必要あればプロジェクトの.codex/config.tomlで個別に設定する。
+
+# ".git" = "read"      # status・diff・logなどは可。add・commit・branch・switch・merge・rebaseなど、Gitメタデータを変更する操作は不可
 
 # NOTE: Windows版Codexでは、バージョンやサンドボックス状態によって、
 # 保護対象の`.agents`と`.codex`に明示的なwriteルールを設定しても、
@@ -151,30 +164,30 @@ glob_scan_max_depth = 3
 # NOTE: `.agents`自体をwriteにすると、Windows版Codexでは書き込みルートとして
 # `.agents/.agents`や`.agents/.codex`などが再帰的に展開される場合がある。
 # ループを避けつつ、各ワークスペースの既存`.agents`配下だけを書き込み可能にする。
-".agents/**" = "write" # デフォルトの保護を明示的に解除する
+# ".agents/**" = "write" # デフォルトの保護を明示的に解除する
 
 # NOTE: `.codex`配下には、将来、プロジェクト固有の設定・フック・MCP設定など、
 # 次回以降のCodexの動作に影響するファイルが置かれる可能性がある。
 # そのリスクを理解したうえで、プロジェクト内のCodex設定も編集できるようwriteを許可する。
 # `.codex`自体ではなく配下を指定し、`.codex/.codex`などの再帰展開を避ける。
-".codex/**" = "write" # デフォルトの保護を明示的に解除する
+# ".codex/**" = "write" # デフォルトの保護を明示的に解除する
 
 # 実際の認証情報・接続情報が入る可能性がある.env系ファイルは、
 # ワークスペースが書き込み可能でも読み書き禁止にする。
 # denyでは再帰globを使用できる。
-".env" = "deny"
-".env.*" = "deny"
-"**/.env" = "deny"
-"**/.env.*" = "deny"
+# ".env" = "deny"
+# ".env.*" = "deny"
+# "**/.env" = "deny"
+# "**/.env.*" = "deny"
 
 # ワークスペース直下にある、秘密値を含まないテンプレートだけは
 # 具体的なファイル名で読み取り可能にする。
 # NOTE: read/writeの再帰globは環境間の移植性が低い。
 # 手元のWindows環境では、readに`**/.env.example`を指定しても、
 # denyの読み取り例外として期待どおり適用されなかった。
-".env.example" = "read"
-".env.sample" = "read"
-".env.template" = "read"
+# ".env.example" = "read"
+# ".env.sample" = "read"
+# ".env.template" = "read"
 
 # エージェントによるネットワーク操作に関する設定。
 [permissions.workspace-with-agents.network]
