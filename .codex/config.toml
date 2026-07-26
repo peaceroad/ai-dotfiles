@@ -16,7 +16,7 @@ personality = "pragmatic"
 
 # リクエストの処理速度・料金クラス。利用可能な値はモデルやログイン方式によって異なる。
 # Fastを永続的に有効にする場合は、service_tier = "fast" と [features] の fast_mode = true を設定する。
-# service_tier = "default"
+service_tier = "default"
 
 # 応答時の説明度合。 "low"、"medium"、"high"
 model_verbosity = "medium"
