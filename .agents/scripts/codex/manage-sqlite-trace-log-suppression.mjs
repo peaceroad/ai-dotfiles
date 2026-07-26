@@ -3,7 +3,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 
-const databasePath = join(homedir(), ".codex", "logs_2.sqlite");
+const homePath = homedir();
+const databasePath = join(homePath, ".codex", "logs_2.sqlite");
+const databaseDisplayPath = "~/.codex/logs_2.sqlite";
 const triggerName = "codex_suppress_trace_logs";
 const validCommands = new Set(["status", "suppress", "restore"]);
 const recentSampleLimit = 500;
@@ -64,7 +66,7 @@ Commands:
     Show this help.
 
 Target:
-  ${databasePath}
+  ${databaseDisplayPath}
 
 Safety:
   - Fully exit the ChatGPT app before running "suppress" or "restore".
@@ -116,15 +118,31 @@ function failUsage(message) {
   process.exitCode = 2;
 }
 
+function maskHomePath(value) {
+  let masked = String(value);
+  const homePathVariants = new Set([
+    homePath,
+    homePath.replaceAll("\\", "/"),
+  ]);
+
+  for (const variant of homePathVariants) {
+    masked = masked.replaceAll(variant, "~");
+  }
+
+  return masked;
+}
+
 function assertDatabaseExists() {
   if (!existsSync(databasePath)) {
     throw new Error(
-      `Codex log database does not exist; refusing to create it: ${databasePath}`,
+      `Codex log database does not exist; refusing to create it: ${databaseDisplayPath}`,
     );
   }
 
   if (!statSync(databasePath).isFile()) {
-    throw new Error(`Codex log database is not a file: ${databasePath}`);
+    throw new Error(
+      `Codex log database is not a file: ${databaseDisplayPath}`,
+    );
   }
 }
 
@@ -285,7 +303,7 @@ function formatFileSize(path) {
 }
 
 function printDatabaseFiles() {
-  console.log(`Database: ${databasePath}`);
+  console.log(`Database: ${databaseDisplayPath}`);
   console.log(`  main: ${formatFileSize(databasePath)}`);
   console.log(`  WAL:  ${formatFileSize(`${databasePath}-wal`)}`);
   console.log(`  SHM:  ${formatFileSize(`${databasePath}-shm`)}`);
@@ -671,6 +689,6 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  console.error(`Error: ${error.message}`);
+  console.error(`Error: ${maskHomePath(error.message)}`);
   process.exitCode = 1;
 }
