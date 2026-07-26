@@ -7,3 +7,4 @@ paths:
   - .agents/skills/agent-workflow-design
   - .agents/skills/prompt-design
   - .agents/scripts/check-lf.mjs
+  - .agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs
