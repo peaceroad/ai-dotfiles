@@ -79,9 +79,10 @@ description = "ワークスペース、~/.agents、および許可した開発�
 ":minimal" = "read"            # Codexや一般的なコマンド実行に必要最低限のシステム領域
 
 # OS一時ディレクトリはワークスペース外にあり、生成物の追跡・後処理がしにくい。
-# また、書き込み可能でもサンドボックスにより再帰削除が拒否される場合があったため、
-# 既定では書き込みを許可しないことにする。
-# ":tmpdir" = "write"            # $TMPDIR、Windowsでは通常一時ディレクトリ
+# また、書き込み可能でもサンドボックスにより再帰削除が拒否される場合がある。
+# ただ、OpenAI Docsなどの公式ドキュメント取得ツールが標準の一時キャッシュを使用するため、
+# このプロファイルではtmpdir全体を許可する。
+":tmpdir" = "write"            # $TMPDIR、Windowsでは通常一時ディレクトリ
 # ":slash_tmp" = "write"         # /tmpが存在する環境での/tmp
 
 # ":workspace_roots" = "write" # 現在のワークスペースルート（ルートのみの設定なら）
@@ -206,6 +207,14 @@ mode = "limited"    # モード。制限付き（"limited"）、全許可（"ful
 "codeload.github.com" = "allow"
 "release-assets.githubusercontent.com" = "allow"
 "objects.githubusercontent.com" = "allow"
+
+# ドキュメント。
+"**.openai.com" = "allow"
+"platform.claude.com" = "allow"
+"ai.google.dev" = "allow"
+"developers.google.com" = "allow"
+"learn.microsoft.com" = "allow"
+"developer.apple.com" = "allow"
 
 # npm installを使う場合
 "registry.npmjs.org" = "allow"
