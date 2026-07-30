@@ -32,6 +32,20 @@ node "$HOME/.agents/scripts/codex/<スクリプト名>" help
 - `restore`：ファイル全体がこのスクリプトの生成した修正版と一致する場合だけ、元の記述へ戻します。
 - 安全対策：未知の版は変更しません。書き込み前後の完全一致検証、日本語を含む一時スキルでの検証、失敗時のロールバックを行います。
 
+この管理スクリプト自体はNode.jsで動作します。`apply`では、修正対象の`~/.codex/skills/.system/skill-creator/scripts/quick_validate.py`を実行して、日本語を含む一時スキルを実際に検証します。`quick_validate.py`が`import yaml`を行うため、この実検証にはPythonとPyYAMLが必要です。管理スクリプトはPythonパッケージを自動インストールしません。
+
+同じターミナルで使われる`python`がPyYAMLを読み込めるか、次のコマンドで確認できます。
+
+```samp
+python -c "import yaml; print(yaml.__version__)"
+```
+
+読み込めない場合は、使用するPython環境を選択または有効化してから、PyYAMLを手動でインストールします。
+
+```samp
+python -m pip install PyYAML
+```
+
 Codexの更新で対象ファイルが置き換わることがあります。更新後は`status`を再実行してください。
 
 ### `manage-sqlite-trace-log-suppression.mjs`
@@ -70,5 +84,5 @@ node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" statu
 ## 実行環境
 
 - `manage-codex-disk-pressure.mjs`：Windows、Node.js 18.15以降
-- `manage-skill-validator-utf8-patch.mjs`：Node.js 18以降、PyYAMLを利用できる`python`コマンド
+- `manage-skill-validator-utf8-patch.mjs`：Node.js 18以降。`apply`による実検証には、PyYAMLを読み込める`python`コマンド
 - `manage-sqlite-trace-log-suppression.mjs`：組み込みの`node:sqlite`を利用できるNode.js 22.5以降

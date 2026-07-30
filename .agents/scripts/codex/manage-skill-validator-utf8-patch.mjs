@@ -76,6 +76,15 @@ Commands:
 Target:
   ${validatorDisplayPath}
 
+Validation dependency:
+  "apply" runs the target quick_validate.py with the "python" command.
+  quick_validate.py imports the PyYAML package as "yaml".
+  This Node.js manager checks that import but never installs Python packages.
+  Check the same Python environment with:
+    python -c "import yaml; print(yaml.__version__)"
+  If the import fails, install PyYAML manually for that environment:
+    python -m pip install PyYAML
+
 Safety:
   - Fully exit the ChatGPT app and other Codex processes before "apply" or
     "restore".
@@ -95,7 +104,8 @@ Safety:
   - Codex updates may replace this managed file. Run "status" after updates.
 
 Requirements:
-  Node.js 18 or newer and a "python" command with PyYAML available.
+  Node.js 18 or newer.
+  Applying the patch also requires a "python" command with PyYAML available.
 
 Exit codes:
   0  Help displayed or command completed successfully.
@@ -348,19 +358,24 @@ async function replaceKnownFile(expectedHash, nextBuffer, nextHash) {
   }
 }
 
-function assertPythonAvailable() {
-  const result = spawnSync("python", ["--version"], {
+function assertPythonValidationRuntimeAvailable() {
+  const result = spawnSync("python", ["-c", "import yaml"], {
     encoding: "utf8",
     windowsHide: true,
   });
 
   if (result.error) {
-    throw new Error(`Could not start Python: ${result.error.message}`);
+    throw new Error(
+      `Could not start Python for the PyYAML check: ${result.error.message}`,
+    );
   }
 
   if (result.status !== 0) {
     throw new Error(
-      `Python availability check failed with exit code ${result.status}.`,
+      'The target quick_validate.py requires PyYAML, but the "python" command '
+      + 'could not import "yaml". This manager does not install Python '
+      + "packages. Install it manually for the same Python environment with: "
+      + "python -m pip install PyYAML",
     );
   }
 }
@@ -457,7 +472,7 @@ async function applyPatch() {
     );
   }
 
-  assertPythonAvailable();
+  assertPythonValidationRuntimeAvailable();
 
   const nextBuffer = replaceExactlyOnce(
     currentBuffer,
