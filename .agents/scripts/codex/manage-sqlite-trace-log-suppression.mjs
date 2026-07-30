@@ -8,6 +8,16 @@ const databasePath = join(homePath, ".codex", "logs_2.sqlite");
 const databaseDisplayPath = "~/.codex/logs_2.sqlite";
 const triggerName = "codex_suppress_trace_logs";
 const validCommands = new Set(["status", "suppress", "restore"]);
+const standardLevels = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
+const suppressedLevelsByMinimum = new Map([
+  ["trace", []],
+  ["debug", ["TRACE"]],
+  ["info", ["TRACE", "DEBUG"]],
+  ["warn", ["TRACE", "DEBUG", "INFO"]],
+  ["error", ["TRACE", "DEBUG", "INFO", "WARN"]],
+  ["none", null],
+]);
+const defaultMinimumRetainedLevel = "info";
 const recentSampleLimit = 500;
 const minimumRecentRows = 100;
 const minimumRecentTraceRows = 50;
@@ -27,7 +37,7 @@ const expectedLogsSchema = [
   { name: "process_uuid", type: "TEXT", notnull: 0, pk: 0 },
   { name: "estimated_bytes", type: "INTEGER", notnull: 1, pk: 0 },
 ];
-const expectedTriggerSql = `
+const legacyTriggerSql = `
   CREATE TRIGGER codex_suppress_trace_logs
   BEFORE INSERT ON logs
   WHEN NEW.level = 'TRACE'
@@ -37,79 +47,75 @@ const expectedTriggerSql = `
 `;
 
 function printHelp() {
-  console.log(`Manage TRACE-log suppression for the Codex SQLite diagnostic log.
+  console.log(`Manage retained log levels for the Codex SQLite diagnostic log.
 
 Usage:
-  node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" <command>
+  node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" <command> [level]
 
 Commands:
   status
-    Inspect the active logs_2.sqlite database without changing it.
-    Reports the database, WAL, and SHM sizes; whether the suppression
-    trigger is installed; the exact logs-table schema; log levels; and a
-    metadata-only assessment of up to ${recentSampleLimit} rows from the
-    latest logged process.
+    Read-only inspection of logs_2.sqlite, its schema, managed trigger,
+    file sizes, visible levels, and recent TRACE evidence.
 
-  suppress
-    Install an idempotent SQLite trigger that ignores future rows whose
-    level is exactly TRACE. Existing TRACE rows are not deleted.
-    INFO, WARN, ERROR, and other non-TRACE rows continue to be stored.
-    Installation is refused unless the known schema still matches and recent,
-    fresh rows provide strong evidence that high-frequency TRACE logging
-    continues.
+  suppress [trace|debug|info|warn|error|none]
+    Select the minimum standard level to retain. Without an argument, an
+    interactive prompt defaults to "${defaultMinimumRetainedLevel}".
+      trace  Retain all standard levels; suppress nothing.
+      debug  Suppress TRACE.
+      info   Suppress TRACE and DEBUG.
+      warn   Suppress TRACE, DEBUG, and INFO.
+      error  Retain only ERROR among standard levels.
+      none   Suppress every future logs-table row, including ERROR and
+             unrecognized levels.
+    Existing rows are never deleted. Unrecognized levels are retained unless
+    "none" is selected.
 
   restore
-    Remove the TRACE-suppression trigger if it exists. Existing log rows
-    are not changed.
+    Remove the recognized managed trigger and retain all future log levels.
 
   help, --help, -h
     Show this help.
+
+Choosing a level:
+  Running "suppress" without a level offers all six choices interactively;
+  pressing Enter selects "info".
+  - "info" balances useful routine diagnostics with reduced log volume.
+  - "warn" suits users who rarely inspect logs but want warnings and errors.
+  - "error" keeps only errors among the standard levels.
+  - "none" discards all future logs-table rows, including errors.
 
 Target:
   ${databaseDisplayPath}
 
 Safety:
-  - Fully exit the ChatGPT app before running "suppress" or "restore".
-  - Mutating commands require an interactive terminal and a "y" confirmation.
-    Pressing Enter or entering any other response cancels without changes.
-  - This script never creates a missing logs_2.sqlite database.
-  - This script never deletes log rows, runs VACUUM, or removes WAL/SHM files.
-  - If an app update changes any part of the expected "logs" table schema,
-    "suppress" stops without changing the database.
-  - "suppress" assesses only rows sharing the newest row's process UUID. It
-    requires at least ${minimumRecentRows} such rows, at least
-    ${minimumRecentTraceRows} TRACE rows, a TRACE share of at least
-    ${Math.round(minimumRecentTraceRatio * 100)}%, and a newest row no older
-    than 24 hours. These are conservative evidence thresholds, not a claim
-    that every TRACE row is erroneous.
-  - If a trigger with the expected name has different SQL, this script refuses
-    to replace or remove it.
-  - The workaround is stored inside logs_2.sqlite. It normally survives a
-    computer restart, but it is lost if Codex replaces or recreates the DB.
+  - Fully exit the ChatGPT app before "suppress" or "restore".
+  - Changes require an interactive "y" confirmation.
+  - Missing databases are never created; changed schemas block suppression.
+  - Existing rows are never deleted; VACUUM and WAL/SHM deletion are never run.
+  - A new suppression installation requires fresh data from the newest process:
+    at least ${minimumRecentRows} rows, including ${minimumRecentTraceRows} TRACE rows;
+    at least ${Math.round(minimumRecentTraceRatio * 100)}% TRACE; and a newest row no older than 24 hours.
+  - Recognized active policies can be reconfigured because they hide the TRACE
+    evidence that originally justified installation.
+  - Managed trigger SQL is verified before and after every change.
   - This is an unsupported workaround for openai/codex issue #29674.
 
-Diagnostic-data limitation:
-  SQLite RAISE(IGNORE) abandons the INSERT statement that fired the trigger.
-  If Codex inserts mixed log levels in one batch, non-TRACE rows after the
-  first TRACE row in that same INSERT statement may also be omitted.
+What "none" means:
+  Future INSERTs into the logs table are ignored. Existing rows and file size
+  remain unchanged. logs_2.sqlite and its WAL/SHM files may still be opened,
+  created, or updated. Other Codex diagnostics and telemetry are unaffected.
+
+SQLite limitation:
+  RAISE(IGNORE) abandons the INSERT statement that fired the trigger. In a
+  mixed-level batch, retained rows after the first suppressed row may be lost.
 
 Requirements:
-  Node.js with the built-in node:sqlite module (Node.js 22.5 or newer).
-
-Recommended manual workflow:
-  1. Fully exit the ChatGPT app.
-  2. Run "status".
-  3. Run "suppress" only when status reports qualifying recent evidence.
-  4. Start the ChatGPT app again.
-  5. To reassess after an app update, run "restore", use the updated app
-     normally for one test session, fully exit it, and run "status" again.
-     An active trigger hides the behavior needed to tell whether upstream
-     fixed the problem.
+  Node.js 22.5 or newer with the built-in node:sqlite module.
 
 Exit codes:
-  0  Help displayed or command completed successfully.
-  1  Database, schema, SQLite, or filesystem operation failed.
-  2  Unknown command or invalid arguments.`);
+  0  Success.
+  1  Inspection, validation, SQLite, or filesystem failure.
+  2  Invalid command or arguments.`);
 }
 
 function failUsage(message) {
@@ -230,51 +236,175 @@ function normalizeSql(sql) {
     .replace(/;$/, "");
 }
 
-function triggerMatchesExpectedSql(trigger) {
-  return (
-    trigger
-    && normalizeSql(trigger.sql) === normalizeSql(expectedTriggerSql)
+function createManagedTriggerSql(minimumRetainedLevel) {
+  if (!suppressedLevelsByMinimum.has(minimumRetainedLevel)) {
+    throw new Error(`Unknown retention level: ${minimumRetainedLevel}`);
+  }
+
+  const suppressedLevels = suppressedLevelsByMinimum.get(
+    minimumRetainedLevel,
   );
+
+  if (suppressedLevels?.length === 0) {
+    return null;
+  }
+
+  const whenClause = suppressedLevels === null
+    ? ""
+    : `\n  WHEN NEW.level IN (${suppressedLevels.map((level) => `'${level}'`).join(", ")})`;
+
+  return `
+  CREATE TRIGGER ${triggerName}
+  BEFORE INSERT ON logs${whenClause}
+  BEGIN
+    SELECT RAISE(IGNORE);
+  END;
+`;
 }
 
-function assertExpectedTriggerSql(trigger) {
-  if (!triggerMatchesExpectedSql(trigger)) {
+function getMinimumRetainedLevel(trigger) {
+  if (!trigger) {
+    return "trace";
+  }
+
+  const normalized = normalizeSql(trigger.sql);
+
+  if (normalized === normalizeSql(legacyTriggerSql)) {
+    return "debug";
+  }
+
+  for (const level of suppressedLevelsByMinimum.keys()) {
+    const sql = createManagedTriggerSql(level);
+
+    if (sql !== null && normalized === normalizeSql(sql)) {
+      return level;
+    }
+  }
+
+  return null;
+}
+
+function assertRecognizedTrigger(trigger) {
+  const level = getMinimumRetainedLevel(trigger);
+
+  if (trigger && level === null) {
     throw new Error(
-      `Trigger "${triggerName}" exists with unexpected SQL; refusing to modify it.`,
+      `Trigger "${triggerName}" exists with unrecognized SQL; refusing to modify it.`,
     );
   }
+
+  return level;
 }
 
-async function confirmMutation(command) {
+function formatLevelList(levels) {
+  if (levels.length === 0) return "none";
+  if (levels.length === 1) return levels[0];
+  if (levels.length === 2) return `${levels[0]} and ${levels[1]}`;
+  return `${levels.slice(0, -1).join(", ")}, and ${levels.at(-1)}`;
+}
+
+function getPolicyDetails(minimumRetainedLevel) {
+  const suppressed = suppressedLevelsByMinimum.get(minimumRetainedLevel);
+
+  if (suppressed === null) {
+    return {
+      retained: "no future log rows",
+      suppressed: "every future row, including unrecognized levels",
+    };
+  }
+
+  return {
+    retained: formatLevelList(
+      standardLevels.filter((level) => !suppressed.includes(level)),
+    ),
+    suppressed: formatLevelList(suppressed),
+  };
+}
+
+function formatPolicyStatus(trigger) {
+  const level = getMinimumRetainedLevel(trigger);
+
+  if (level === null) return "UNRECOGNIZED managed trigger SQL";
+  if (level === "trace") return "inactive; all levels are retained";
+  if (level === "none") return `active; no future rows retained (${triggerName})`;
+  return `active; minimum retained level ${level.toUpperCase()} (${triggerName})`;
+}
+
+function triggerMarker(trigger) {
+  if (trigger.name !== triggerName) return "unrecognized";
+  const level = getMinimumRetainedLevel(trigger);
+  if (level === null) return "unrecognized";
+  if (level === "none") return "managed; suppress all future rows";
+  return `managed; retain ${level.toUpperCase()} and above`;
+}
+function assertInteractive(command) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error(
-      `"${command}" requires an interactive terminal so the app-closed confirmation cannot be bypassed.`,
+      `"${command}" requires an interactive terminal so confirmation cannot be bypassed.`,
     );
   }
+}
 
-  const readline = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+async function promptMinimumRetainedLevel() {
+  assertInteractive("suppress");
+  const readline = createInterface({ input: process.stdin, output: process.stdout });
 
-  let answer;
+  console.log(`Minimum standard log level to retain:
+  trace  retain all standard levels; suppress nothing
+  debug  suppress TRACE
+  info   suppress TRACE and DEBUG
+  warn   suppress TRACE, DEBUG, and INFO
+  error  retain only ERROR among standard levels
+  none   suppress every future logs-table row
+         (database and WAL/SHM files may still be updated)`);
 
   try {
-    answer = await readline.question(
-      `Fully exit the ChatGPT app before continuing.\nRun "${command}"? [y/N]: `,
-    );
+    while (true) {
+      const answer = await readline.question(
+        `Select a level (Enter = ${defaultMinimumRetainedLevel}): `,
+      );
+      const level = answer.trim().toLowerCase()
+        || defaultMinimumRetainedLevel;
+
+      if (suppressedLevelsByMinimum.has(level)) return level;
+      console.log(
+        `Invalid level: ${answer.trim() || "(empty)"}. Choose ${[...suppressedLevelsByMinimum.keys()].join(", ")}.`,
+      );
+    }
   } finally {
     readline.close();
   }
-
-  if (answer.trim().toLowerCase() !== "y") {
-    console.log("Cancelled; no database changes were made.");
-    return false;
-  }
-
-  return true;
 }
 
+async function confirmMutation(command, minimumRetainedLevel) {
+  assertInteractive(command);
+  const readline = createInterface({ input: process.stdin, output: process.stdout });
+  const details = getPolicyDetails(minimumRetainedLevel);
+  const lines = [
+    "Fully exit the ChatGPT app before continuing.",
+    `Retain: ${details.retained}.`,
+    `Suppress: ${details.suppressed}.`,
+    "Existing log rows will not be changed.",
+  ];
+
+  if (minimumRetainedLevel === "none") {
+    lines.push("Database and WAL/SHM files may still be created or updated.");
+  } else {
+    lines.push("Unrecognized log levels will remain retained.");
+  }
+
+  try {
+    const answer = await readline.question(
+      `${lines.join("\n")}\nRun "${command}"? [y/N]: `,
+    );
+
+    if (answer.trim().toLowerCase() === "y") return true;
+    console.log("Cancelled; no database changes were made.");
+    return false;
+  } finally {
+    readline.close();
+  }
+}
 function runSchemaTransaction(database, operation) {
   database.exec("BEGIN IMMEDIATE;");
 
@@ -442,15 +572,8 @@ function printStatus(DatabaseSync) {
     }
 
     const trigger = getTrigger(database);
-    let suppressionStatus = "inactive";
-
-    if (triggerMatchesExpectedSql(trigger)) {
-      suppressionStatus = `active (${trigger.name})`;
-    } else if (trigger) {
-      suppressionStatus = `unexpected SQL (${trigger.name})`;
-    }
-
-    console.log(`TRACE suppression: ${suppressionStatus}`);
+    const minimumRetainedLevel = getMinimumRetainedLevel(trigger);
+    console.log(`Log retention: ${formatPolicyStatus(trigger)}`);
 
     const triggers = getLogTableTriggers(database);
     console.log("Triggers on the logs table:");
@@ -459,10 +582,7 @@ function printStatus(DatabaseSync) {
       console.log("  (none)");
     } else {
       for (const entry of triggers) {
-        const marker = triggerMatchesExpectedSql(entry)
-          ? "expected"
-          : "unrecognized";
-        console.log(`  ${entry.name} (${marker})`);
+        console.log(`  ${entry.name} (${triggerMarker(entry)})`);
       }
     }
 
@@ -510,9 +630,12 @@ function printStatus(DatabaseSync) {
       );
     }
 
-    if (trigger) {
+    if (trigger && minimumRetainedLevel !== null) {
+      const details = getPolicyDetails(minimumRetainedLevel);
       console.log(
-        "Note: existing TRACE rows remain visible; the trigger affects only future inserts.",
+        minimumRetainedLevel === "none"
+          ? "Note: all future logs-table rows are suppressed; database files may still be updated."
+          : `Note: future ${details.suppressed} rows are suppressed; existing and unrecognized rows remain.`,
       );
     }
   } finally {
@@ -520,131 +643,129 @@ function printStatus(DatabaseSync) {
   }
 }
 
-async function suppressTraceLogs(DatabaseSync) {
-  const preflightDatabase = openDatabase(DatabaseSync, true);
-  let evidence;
-
-  try {
-    assertExpectedSchema(preflightDatabase);
-    const existingTrigger = getTrigger(preflightDatabase);
-
-    if (existingTrigger) {
-      assertExpectedTriggerSql(existingTrigger);
-      console.log(
-        `TRACE suppression is already active: ${existingTrigger.name}`,
-      );
-      console.log(
-        "Its presence prevents an upstream-fix assessment; restore it before testing an updated app.",
-      );
-      return;
-    }
-
-    evidence = getRecentEvidence(preflightDatabase);
-    printRecentEvidence(evidence);
-
-    if (!evidence.qualifies) {
-      throw new Error(
-        "Recent rows do not provide strong, fresh evidence of high-frequency TRACE logging; refusing to install the workaround.",
-      );
-    }
-  } finally {
-    preflightDatabase.close();
-  }
-
-  if (!(await confirmMutation("suppress"))) {
-    return;
-  }
-
-  const database = openDatabase(DatabaseSync, false);
-
-  try {
-    database.exec("PRAGMA busy_timeout = 5000;");
-    assertExpectedSchema(database);
-
-    const existingTrigger = getTrigger(database);
-
-    if (existingTrigger) {
-      assertExpectedTriggerSql(existingTrigger);
-      console.log(
-        `TRACE suppression became active before this operation: ${existingTrigger.name}`,
-      );
-      return;
-    }
-
-    const currentEvidence = getRecentEvidence(database);
-
-    if (!currentEvidence.qualifies) {
-      throw new Error(
-        "Recent evidence changed after confirmation; refusing to install the workaround.",
-      );
-    }
-
-    runSchemaTransaction(database, () => {
-      database.exec(expectedTriggerSql);
-      const createdTrigger = getTrigger(database);
-
-      if (!createdTrigger) {
-        throw new Error(`Trigger creation verification failed: ${triggerName}`);
-      }
-
-      assertExpectedTriggerSql(createdTrigger);
-    });
-
-    console.log(`TRACE suppression is active: ${triggerName}`);
-    console.log("Existing TRACE rows were not deleted.");
-  } finally {
-    database.close();
-  }
+function triggerSignature(trigger) {
+  return trigger ? normalizeSql(trigger.sql) : null;
 }
 
-async function restoreTraceLogs(DatabaseSync) {
+async function configureLogRetention(
+  DatabaseSync,
+  minimumRetainedLevel,
+  command,
+) {
   const preflightDatabase = openDatabase(DatabaseSync, true);
+  let preflightTrigger;
+  let needsEvidence;
 
   try {
-    const existingTrigger = getTrigger(preflightDatabase);
+    preflightTrigger = getTrigger(preflightDatabase);
+    const currentLevel = assertRecognizedTrigger(preflightTrigger);
 
-    if (!existingTrigger) {
-      console.log("TRACE suppression is already inactive; no changes were made.");
+    if (currentLevel === minimumRetainedLevel) {
+      console.log(
+        currentLevel === "trace"
+          ? "All future log levels are already retained; no changes were made."
+          : `The selected policy is already active: ${formatPolicyStatus(preflightTrigger)}`,
+      );
       return;
     }
 
-    assertExpectedTriggerSql(existingTrigger);
+    if (minimumRetainedLevel !== "trace") {
+      assertExpectedSchema(preflightDatabase);
+    }
+
+    needsEvidence = !preflightTrigger && minimumRetainedLevel !== "trace";
+
+    if (needsEvidence) {
+      const evidence = getRecentEvidence(preflightDatabase);
+      printRecentEvidence(evidence);
+
+      if (!evidence.qualifies) {
+        throw new Error(
+          "Fresh rows do not show high-frequency TRACE logging; refusing new suppression.",
+        );
+      }
+    }
   } finally {
     preflightDatabase.close();
   }
 
-  if (!(await confirmMutation("restore"))) {
-    return;
-  }
+  if (!(await confirmMutation(command, minimumRetainedLevel))) return;
 
   const database = openDatabase(DatabaseSync, false);
 
   try {
     database.exec("PRAGMA busy_timeout = 5000;");
-    const existingTrigger = getTrigger(database);
 
-    if (!existingTrigger) {
-      console.log(
-        "TRACE suppression became inactive before this operation; no changes were made.",
-      );
-      return;
+    if (minimumRetainedLevel !== "trace") {
+      assertExpectedSchema(database);
     }
 
-    assertExpectedTriggerSql(existingTrigger);
+    const currentTrigger = getTrigger(database);
+    assertRecognizedTrigger(currentTrigger);
+
+    if (triggerSignature(currentTrigger) !== triggerSignature(preflightTrigger)) {
+      throw new Error(
+        "The managed trigger changed after confirmation; refusing to modify it.",
+      );
+    }
+
+    if (needsEvidence && !getRecentEvidence(database).qualifies) {
+      throw new Error(
+        "Recent evidence changed after confirmation; refusing new suppression.",
+      );
+    }
 
     runSchemaTransaction(database, () => {
-      database.exec(`DROP TRIGGER IF EXISTS "${triggerName}";`);
+      if (currentTrigger) {
+        database.exec(`DROP TRIGGER "${triggerName}";`);
+      }
 
-      if (getTrigger(database)) {
-        throw new Error(`Trigger removal verification failed: ${triggerName}`);
+      const triggerSql = createManagedTriggerSql(minimumRetainedLevel);
+      if (triggerSql !== null) database.exec(triggerSql);
+
+      const finalLevel = assertRecognizedTrigger(getTrigger(database));
+      if (finalLevel !== minimumRetainedLevel) {
+        throw new Error(
+          "Post-change verification found a different policy; rolling back.",
+        );
       }
     });
 
-    console.log(`TRACE suppression was removed: ${triggerName}`);
+    if (minimumRetainedLevel === "trace") {
+      console.log("Managed suppression removed; all future levels retained.");
+    } else if (minimumRetainedLevel === "none") {
+      console.log("All future logs-table rows are suppressed.");
+      console.log("Database and WAL/SHM files may still be updated.");
+    } else {
+      const details = getPolicyDetails(minimumRetainedLevel);
+      console.log(`Retain ${details.retained}; suppress ${details.suppressed}.`);
+      console.log("Unrecognized levels remain retained.");
+    }
+
     console.log("Existing log rows were not changed.");
   } finally {
     database.close();
   }
+}
+
+async function suppressLogs(DatabaseSync, levelArgument) {
+  const level = levelArgument ?? await promptMinimumRetainedLevel();
+  await configureLogRetention(DatabaseSync, level, "suppress");
+}
+
+async function restoreLogRetention(DatabaseSync) {
+  await configureLogRetention(DatabaseSync, "trace", "restore");
+}
+function parseRetentionLevel(value) {
+  const level = String(value).trim().toLowerCase();
+
+  if (!suppressedLevelsByMinimum.has(level)) {
+    throw new Error(
+      `Invalid retention level "${value}". Choose ${[...suppressedLevelsByMinimum.keys()].join(", ")}.`,
+    );
+  }
+
+  return level;
 }
 
 async function main() {
@@ -655,24 +776,35 @@ async function main() {
     return;
   }
 
-  if (
-    args.length === 1
-    && ["help", "--help", "-h"].includes(args[0])
-  ) {
+  if (args.length === 1 && ["help", "--help", "-h"].includes(args[0])) {
     printHelp();
     return;
   }
 
-  if (args.length !== 1) {
-    failUsage("Exactly one command is required.");
-    return;
-  }
-
-  const [command] = args;
+  const [command, levelArgument, ...extraArguments] = args;
 
   if (!validCommands.has(command)) {
     failUsage(`Unknown command: ${command}`);
     return;
+  }
+
+  if (
+    extraArguments.length > 0
+    || (command !== "suppress" && levelArgument !== undefined)
+  ) {
+    failUsage('Only "suppress" accepts one optional level.');
+    return;
+  }
+
+  let level;
+
+  if (levelArgument !== undefined) {
+    try {
+      level = parseRetentionLevel(levelArgument);
+    } catch (error) {
+      failUsage(error.message);
+      return;
+    }
   }
 
   const DatabaseSync = await loadDatabaseSync();
@@ -680,12 +812,11 @@ async function main() {
   if (command === "status") {
     printStatus(DatabaseSync);
   } else if (command === "suppress") {
-    await suppressTraceLogs(DatabaseSync);
+    await suppressLogs(DatabaseSync, level);
   } else {
-    await restoreTraceLogs(DatabaseSync);
+    await restoreLogRetention(DatabaseSync);
   }
 }
-
 try {
   await main();
 } catch (error) {
