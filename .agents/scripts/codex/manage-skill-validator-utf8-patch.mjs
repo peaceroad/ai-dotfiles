@@ -91,8 +91,8 @@ Safety:
   - Mutating commands require an interactive terminal and a "y" confirmation.
     Pressing Enter or entering any other response cancels without changes.
   - Unknown file versions are never modified.
-  - An upstream version that already specifies UTF-8 is reported as fixed and
-    is not modified.
+  - A version that already specifies UTF-8 is reported as fixed and
+   is not modified.
   - The file is rewritten in place so its existing Windows ACL is retained.
   - The complete file is verified immediately before and after each write.
   - If writing or post-write verification fails, the previous bytes are
@@ -102,6 +102,9 @@ Safety:
   - After writing, the installed validator is tested again. A failed test
     rolls back the patch.
   - Codex updates may replace this managed file. Run "status" after updates.
+  - Reapply only when status reports the reviewed unpatched version.
+    An exact local patch needs no action; an existing UTF-8 fix must not be
+    replaced by this local patch.
 
 Requirements:
   Node.js 18 or newer.

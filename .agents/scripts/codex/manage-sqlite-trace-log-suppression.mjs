@@ -100,6 +100,14 @@ Safety:
   - Managed trigger SQL is verified before and after every change.
   - This is an unsupported workaround for openai/codex issue #29674.
 
+After a Codex app update:
+  Run "status" first; reapply "suppress" only after checking whether the
+  existing managed policy is still active. An active managed policy means the
+  previous setting is still in effect. To observe the updated app's fresh log
+  behavior, run "restore", use one normal session, then run "status" again.
+  This observation does not by itself prove an upstream fix. Reapply
+  "suppress" only if the logs are still too noisy.
+
 What "none" means:
   Future INSERTs into the logs table are ignored. Existing rows and file size
   remain unchanged. logs_2.sqlite and its WAL/SHM files may still be opened,
@@ -547,7 +555,7 @@ function printRecentEvidence(evidence) {
   }
 
   console.log(
-    `  suppression evidence: ${evidence.qualifies ? "qualifies" : "does not qualify"}`,
+    `  new-suppression evidence: ${evidence.qualifies ? "qualifies" : "does not qualify"}`,
   );
 
   for (const reason of evidence.rejectionReasons) {
@@ -609,19 +617,19 @@ function printStatus(DatabaseSync) {
 
       if (trigger) {
         console.log(
-          "Upstream-fix assessment: unknown while suppression is active. Restore it, run one normal session on the updated app, then check again.",
+          "Fresh-log assessment: unknown while suppression is active. Restore it, collect fresh logs from one normal session, then check again.",
         );
       } else if (!schemaIsExpected) {
         console.log(
-          "Upstream-fix assessment: schema changed; review is required before suppression can be installed.",
+          "Fresh-log assessment: schema changed; review is required before suppression can be installed.",
         );
       } else if (evidence.qualifies) {
         console.log(
-          "Upstream-fix assessment: high-frequency TRACE output is still observed in fresh rows.",
+          "Fresh-log assessment: high-frequency TRACE output is still observed in fresh rows.",
         );
       } else {
         console.log(
-          "Upstream-fix assessment: insufficient fresh evidence of high-frequency TRACE output; suppression will be refused.",
+          "Fresh-log assessment: fresh rows do not show high-frequency TRACE output; this alone does not prove an upstream fix.",
         );
       }
     } else {
