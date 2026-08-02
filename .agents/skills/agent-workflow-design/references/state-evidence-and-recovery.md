@@ -36,6 +36,8 @@ Separate these concepts:
 
 State must have an authoritative location. If several agents or processes can write it, define serialization, ownership, version checks, or conflict handling.
 
+When configuration can change during execution, define which values are pinned for the run and which are re-read, and at what boundary each change takes effect. Record the effective configuration needed for recovery and audit.
+
 ## Evidence and evaluation
 
 Validation should inspect the actual artifact, runtime result, or external state. The agent's completion statement is not independent evidence.
@@ -93,6 +95,8 @@ Checkpoint after meaningful milestones, irreversible actions, expensive work, or
 
 Grant only the permissions required for the current workflow layer. Distinguish safe inspection and local in-scope edits from external writes, deployments, purchases, deletion, credential changes, publication, and material scope expansion.
 
+Repository, worktree, branch, or session separation can reduce edit conflicts or context interference, but do not treat such separation as a security boundary without verifying the access controls enforced by the selected runtime and sandbox.
+
 Treat permission as positive authorization. The absence of an explicit prohibition is not permission to substitute targets, use credentials from another context, broaden the task, or perform a more consequential action than the user requested.
 
 The inner execution loop may investigate, draft, implement, and verify. The outer boundary decides whether evidence is sufficient to commit the result to a dependent system. Preserve human or protected-system control where consequences, accountability, or policy require it.
@@ -118,6 +122,9 @@ Prefer structured, append-only records for consequential events. Keep secrets an
 
 - [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)
 - [Build an Agent Improvement Loop with Traces, Evals, and Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop)
+- [Symphony Service Specification - OpenAI](https://github.com/openai/symphony/blob/main/SPEC.md)
 - [Loop engineering: Getting started with loops - Claude by Anthropic](https://claude.com/blog/getting-started-with-loops)
 - [Designing AI agents to resist prompt injection - OpenAI](https://openai.com/index/designing-agents-to-resist-prompt-injection/)
 - [GPT-5.6 System Card - OpenAI](https://deploymentsafety.openai.com/gpt-5-6)
+- [Sandboxing - ChatGPT Learn](https://learn.chatgpt.com/docs/sandboxing)
+- [Run parallel sessions with worktrees - Claude Code Docs](https://code.claude.com/docs/en/worktrees)

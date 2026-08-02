@@ -35,7 +35,7 @@ Use a trace-to-eval-to-change loop:
 2. Turn recurring expectations and failures into reusable evaluation cases and explicit acceptance criteria.
 3. Diagnose the smallest harness component that plausibly caused each material failure.
 4. Propose a bounded change and state the intended gain, likely regressions, and affected surface.
-5. Have a coding agent or human implement the change without altering protected evidence or acceptance rules.
+5. Have an authorized implementer apply the change without altering protected evidence or acceptance rules.
 6. Run the same evaluation gate, plus preservation or held-out cases where feasible, against the changed harness.
 7. Record the result, remaining delta, rejected candidates, and decision. Require the configured human or protected-system approval before merge, deployment, or other consequential activation.
 8. Collect new traces from representative use and begin another maintenance cycle only when new evidence warrants it.

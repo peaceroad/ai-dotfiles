@@ -45,9 +45,13 @@ A request starts the work and an evaluator checks explicit completion criteria. 
 
 A schedule or interval starts each run. Use this when the task recurs or observes an external system. Match the interval to the rate of meaningful change and avoid polling without a reason.
 
+When timing semantics can affect correctness, define the timezone, overlapping-run policy, and missed- or delayed-run behavior. Omit these controls when the scheduler or task already makes those cases impossible or harmless.
+
 ### Event-driven or proactive
 
 An external event starts a run without a user present in real time. Each run needs a bounded goal, safe permissions, durable state, and a clear escalation path. The recurring routine and each task instance have separate stop conditions.
+
+Verify the event source's delivery, ordering, and replay guarantees. Where duplicates, delays, reordering, or bursts can change the outcome or repeat a side effect, define only the needed controls, such as deduplication, reconciliation, concurrency or backpressure limits, and conditions for safe replay.
 
 These patterns may be composed, but every added trigger must have a distinct role. Do not add a scheduler, evaluator loop, or multi-agent branch merely because the platform supports it.
 
@@ -107,6 +111,8 @@ Parallelize only workstreams that are sufficiently independent and whose results
 - Who synthesizes results and resolves conflicts.
 - Whether the gain is expected in quality, coverage, or wall-clock time.
 
+For nested delegation, define who may spawn descendants, what scope, permissions, state, and budgets they inherit, how depth and fan-out are bounded, how results return to the owner, and how supported completion, pause, stop, or cancellation signals propagate through the tree.
+
 Keep dependent decisions sequential. More agents increase orchestration, review, and token costs; parallelism is not a quality guarantee.
 
 ## Common failure modes
@@ -125,6 +131,8 @@ Keep dependent decisions sequential. More agents increase orchestration, review,
 ## Sources
 
 - [Loop engineering: Getting started with loops - Claude by Anthropic](https://claude.com/blog/getting-started-with-loops)
+- [Automate work with routines - Claude Code Docs](https://code.claude.com/docs/en/routines)
 - [Building effective agents - Anthropic](https://www.anthropic.com/engineering/building-effective-agents)
 - [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)
+- [Symphony Service Specification - OpenAI](https://github.com/openai/symphony/blob/main/SPEC.md)
 - [Model guidance: Using GPT-5.6 - OpenAI Developers](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)
