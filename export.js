@@ -102,6 +102,17 @@ const SENSITIVE_FILE_NAMES = [
   /^(?:credentials?|secrets?)(?:\.|$)/i,
   /\.(?:key|p12|pfx|pem|ppk)$/i,
 ];
+const IGNORED_OS_METADATA_NAMES = new Set([
+  ".ds_store",
+  "desktop.ini",
+  "thumbs.db",
+]);
+
+function isIgnoredOsMetadataFile(relativePath) {
+  return IGNORED_OS_METADATA_NAMES.has(
+    path.basename(relativePath).toLowerCase(),
+  );
+}
 
 const ANSI = {
   reset: "\u001b[0m",
@@ -173,6 +184,7 @@ function usage() {
 Direct usage:
   node export.js --dry-run
   node export.js --write
+  node export.js --dry-run --verbose
   node export.js --help
 
 The scan checks sensitive filenames and text content for the local username,
@@ -183,13 +195,21 @@ blocks. On comments starting with the exact uppercase prefix "# ENV:" or
 Other checks still apply to those lines. Configured directories are synchronized:
 dry runs list obsolete destination entries, and writes remove them.
 
+OS metadata files such as Desktop.ini, .DS_Store, and Thumbs.db are skipped.
+Use --verbose to list the skipped paths.
+
 The command stops before writing or deleting anything when a scan finds a potential
 issue. Interactive terminals use ANSI colors; set NO_COLOR=1 to disable them or
 FORCE_COLOR=1 to force them.`);
 }
 
 function parseArguments(arguments_) {
-  const supported = new Set(["--dry-run", "--help", "--write"]);
+  const supported = new Set([
+    "--dry-run",
+    "--help",
+    "--verbose",
+    "--write",
+  ]);
   const unknown = arguments_.filter((argument) => !supported.has(argument));
 
   if (unknown.length > 0) {
@@ -208,7 +228,10 @@ function parseArguments(arguments_) {
     throw new Error("--dry-run and --write cannot be used together");
   }
 
-  return { write: arguments_.includes("--write") };
+  return {
+    verbose: arguments_.includes("--verbose"),
+    write: arguments_.includes("--write"),
+  };
 }
 
 function parseSimpleYaml(source) {
@@ -341,7 +364,12 @@ async function mapWithConcurrency(items, concurrency, operation) {
   return results;
 }
 
-async function collectFiles(sourcePath, relativePath, directories) {
+async function collectFiles(
+  sourcePath,
+  relativePath,
+  directories,
+  skippedFiles,
+) {
   const metadata = await lstat(sourcePath);
 
   if (metadata.isSymbolicLink()) {
@@ -349,6 +377,10 @@ async function collectFiles(sourcePath, relativePath, directories) {
   }
 
   if (metadata.isFile()) {
+    if (isIgnoredOsMetadataFile(relativePath)) {
+      skippedFiles.push(relativePath);
+      return [];
+    }
     return [
       {
         sourcePath,
@@ -374,6 +406,7 @@ async function collectFiles(sourcePath, relativePath, directories) {
       childSourcePath,
       childRelativePath,
       directories,
+      skippedFiles,
     )));
   }
 
@@ -421,6 +454,9 @@ async function collectDestinationDirectory(
       );
     }
     if (childMetadata.isFile()) {
+      if (isIgnoredOsMetadataFile(childRelativePath)) {
+        continue;
+      }
       files.push({
         destinationPath: childDestinationPath,
         relativePath: childRelativePath,
@@ -825,6 +861,7 @@ async function writeFiles(files, directorySyncPlan) {
       return {
         content: file.content,
         destinationPath,
+        relativePath: file.relativePath,
         unchanged: await destinationMatches(destinationPath, file.content),
       };
     },
@@ -852,7 +889,7 @@ async function writeFiles(files, directorySyncPlan) {
 
   return {
     unchangedCount: plannedWrites.length - changedFiles.length,
-    updatedCount: changedFiles.length,
+    updatedFiles: changedFiles.map(({ relativePath }) => relativePath),
     removedDirectoryCount: obsoleteDirectories.length,
     removedFileCount: obsoleteFiles.length,
   };
@@ -863,7 +900,7 @@ async function main() {
   if (options === null) {
     return;
   }
-  const { write } = options;
+  const { verbose, write } = options;
   const configuredPaths = parseSimpleYaml(await readFile(CONFIG_PATH, "utf8"));
   const normalizedPaths = configuredPaths.map(normalizeConfiguredPath);
 
@@ -895,10 +932,12 @@ async function main() {
       const sourcePath = resolveContained(HOME_DIRECTORY, relativePath);
       const destinationPath = resolveContained(REPOSITORY_ROOT, relativePath);
       const sourceDirectories = new Set();
+      const skippedFiles = [];
       const files = await collectFiles(
         sourcePath,
         relativePath,
         sourceDirectories,
+        skippedFiles,
       );
       const directorySyncPlan = sourceDirectories.size > 0
         ? await buildDirectorySyncPlan(
@@ -914,6 +953,7 @@ async function main() {
         directorySyncPlan,
         files,
         sourcePath,
+        skippedFiles,
       };
     },
   );
@@ -926,12 +966,31 @@ async function main() {
   }
 
   const files = exports.flatMap(({ files: entries }) => entries);
+  const skippedFiles = exports.flatMap(
+    ({ skippedFiles: entries }) => entries,
+  );
   const directorySyncPlan = combineDirectorySyncPlans(
     exports
       .map(({ directorySyncPlan: plan }) => plan)
       .filter((plan) => plan !== null),
   );
   const { obsoleteDirectories, obsoleteFiles } = directorySyncPlan;
+  if (skippedFiles.length > 0) {
+    const skippedFileNames = [...new Set(
+      skippedFiles.map((relativePath) => path.basename(relativePath)),
+    )].sort((left, right) => left.localeCompare(right));
+    console.log(
+      `\n${styled(
+        `Skipped ${skippedFiles.length} built-in ignored OS metadata file(s) from export: ${skippedFileNames.join(", ")}`,
+        ANSI.yellow,
+      )}`,
+    );
+    if (verbose) {
+      for (const relativePath of skippedFiles) {
+        console.log(`  ${relativePath}`);
+      }
+    }
+  }
   if (obsoleteFiles.length > 0 || obsoleteDirectories.length > 0) {
     console.log(
       `\n${styled("Obsolete destination entries to remove:", ANSI.yellow)}`,
@@ -1016,8 +1075,9 @@ async function main() {
     removedDirectoryCount,
     removedFileCount,
     unchangedCount,
-    updatedCount,
+    updatedFiles,
   } = await writeFiles(files, directorySyncPlan);
+  const updatedCount = updatedFiles.length;
   if (
     updatedCount === 0 &&
     removedFileCount === 0 &&
@@ -1032,12 +1092,20 @@ async function main() {
     return;
   }
 
-  console.log(
-    styled(
-      `\nUpdated ${updatedCount} file(s); ${unchangedCount} unchanged.`,
-      ANSI.green,
-    ),
-  );
+  if (updatedCount > 0) {
+    console.log(
+      styled(
+        `\nUpdated ${updatedCount} file(s):`,
+        ANSI.green,
+      ),
+    );
+    for (const relativePath of updatedFiles) {
+      console.log(`  ${relativePath}`);
+    }
+  } else {
+    console.log("\nNo files updated.");
+  }
+  console.log(`${unchangedCount} file(s) unchanged.`);
   if (removedFileCount > 0 || removedDirectoryCount > 0) {
     console.log(
       styled(
