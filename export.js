@@ -103,6 +103,68 @@ const SENSITIVE_FILE_NAMES = [
   /\.(?:key|p12|pfx|pem|ppk)$/i,
 ];
 
+const ANSI = {
+  reset: "\u001b[0m",
+  bold: "\u001b[1m",
+  red: "\u001b[31m",
+  yellow: "\u001b[33m",
+  green: "\u001b[32m",
+  cyan: "\u001b[36m",
+};
+
+function colorEnabled(stream) {
+  return process.env.FORCE_COLOR !== undefined
+    ? process.env.FORCE_COLOR !== "0"
+    : process.env.NO_COLOR === undefined && stream.isTTY;
+}
+
+function styledFor(text, stream, ...codes) {
+  if (!colorEnabled(stream) || codes.length === 0) {
+    return text;
+  }
+  return `${codes.join("")}${text}${ANSI.reset}`;
+}
+
+function styled(text, ...codes) {
+  return styledFor(text, process.stdout, ...codes);
+}
+
+function styledError(text, ...codes) {
+  return styledFor(text, process.stderr, ...codes);
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function pathPatterns(root) {
+  return [...new Set([root, root.replaceAll("\\", "/")])].map(
+    (value) => new RegExp(escapeRegExp(value), "gi"),
+  );
+}
+
+const DISPLAY_PATH_RULES = [
+  { label: ".", patterns: pathPatterns(REPOSITORY_ROOT) },
+  { label: "~", patterns: pathPatterns(HOME_DIRECTORY) },
+];
+
+function displayPath(filePath, root, prefix) {
+  const relativePath = path.relative(root, filePath);
+  return relativePath === ""
+    ? prefix
+    : `${prefix}/${relativePath.split(path.sep).join("/")}`;
+}
+
+function redactDisplayPaths(text) {
+  let result = String(text);
+  for (const { label, patterns } of DISPLAY_PATH_RULES) {
+    for (const pattern of patterns) {
+      result = result.replace(pattern, label);
+    }
+  }
+  return result;
+}
+
 function usage() {
   console.log(`Usage:
   npm run check             Show the export plan and scan source files
@@ -119,7 +181,11 @@ Shared settings markers export only those sections and their adjacent comment
 blocks. On comments starting with the exact uppercase prefix "# ENV:" or
 "# NOTE:", an occurrence of the local username is treated as intentional.
 Other checks still apply to those lines. Configured directories are synchronized:
-dry runs list obsolete destination entries, and writes remove them.`);
+dry runs list obsolete destination entries, and writes remove them.
+
+The command stops before writing or deleting anything when a scan finds a potential
+issue. Interactive terminals use ANSI colors; set NO_COLOR=1 to disable them or
+FORCE_COLOR=1 to force them.`);
 }
 
 function parseArguments(arguments_) {
@@ -814,7 +880,13 @@ async function main() {
     return;
   }
 
-  console.log(write ? "Export plan:" : "Dry-run export plan:");
+  console.log(
+    styled(
+      write ? "Export plan:" : "Dry-run export plan:",
+      ANSI.bold,
+      ANSI.cyan,
+    ),
+  );
 
   const exports = await mapWithConcurrency(
     normalizedPaths,
@@ -847,8 +919,10 @@ async function main() {
   );
 
   for (const { destinationPath, files, sourcePath } of exports) {
-    console.log(`  ${sourcePath}`);
-    console.log(`    -> ${destinationPath} (${files.length} file(s))`);
+    console.log(`  ${displayPath(sourcePath, HOME_DIRECTORY, "~")}`);
+    console.log(
+      `    -> ${displayPath(destinationPath, REPOSITORY_ROOT, ".")} (${files.length} file(s))`,
+    );
   }
 
   const files = exports.flatMap(({ files: entries }) => entries);
@@ -859,7 +933,9 @@ async function main() {
   );
   const { obsoleteDirectories, obsoleteFiles } = directorySyncPlan;
   if (obsoleteFiles.length > 0 || obsoleteDirectories.length > 0) {
-    console.log("\nObsolete destination entries to remove:");
+    console.log(
+      `\n${styled("Obsolete destination entries to remove:", ANSI.yellow)}`,
+    );
     for (const { relativePath } of obsoleteFiles) {
       console.log(`  ${relativePath}`);
     }
@@ -868,7 +944,9 @@ async function main() {
     }
   }
 
-  console.log("\nChecking for personal and sensitive information...");
+  console.log(
+    `\n${styled("Checking for personal and sensitive information...", ANSI.cyan)}`,
+  );
   const scanResults = await mapWithConcurrency(files, IO_CONCURRENCY, scanFile);
   for (let index = 0; index < files.length; index += 1) {
     files[index].content = scanResults[index].content;
@@ -887,21 +965,40 @@ async function main() {
   ).length;
 
   if (findings.length > 0) {
-    console.error(`Found ${findings.length} potential issue(s); nothing was changed:`);
+    const issueLabel = findings.length === 1
+      ? "potential issue"
+      : "potential issues";
+    console.error();
+    console.error(
+      styledError(
+        `Export aborted: ${findings.length} ${issueLabel} found; no files were changed.`,
+        ANSI.bold,
+        ANSI.red,
+      ),
+    );
     for (const finding of findings) {
       const location = finding.line
         ? `${finding.relativePath}:${finding.line}`
         : finding.relativePath;
-      console.error(`  ${location}: ${finding.label}`);
+      console.error(styledError(`  ${location}: ${finding.label}`, ANSI.red));
     }
+    console.error(
+      styledError(
+        `Fix the finding(s) above and rerun "${write ? "npm run build" : "npm run check"}".`,
+        ANSI.yellow,
+      ),
+    );
     process.exitCode = 1;
     return;
   }
 
-  console.log("No potential issues found.");
+  console.log(styled("No potential issues found.", ANSI.green));
   if (skippedBinaryCount > 0) {
     console.log(
-      `Skipped content scanning for ${skippedBinaryCount} binary file(s); filenames were still checked.`,
+      styled(
+        `Skipped content scanning for ${skippedBinaryCount} binary file(s); filenames were still checked.`,
+        ANSI.yellow,
+      ),
     );
   }
 
@@ -909,7 +1006,9 @@ async function main() {
     const action = obsoleteFiles.length > 0 || obsoleteDirectories.length > 0
       ? "copy files and remove the obsolete destination entries"
       : "copy files";
-    console.log(`\nDry run only. Run "npm run build" to ${action}.`);
+    console.log(
+      `\n${styled("Dry run only.", ANSI.cyan)} Run "npm run build" to ${action}.`,
+    );
     return;
   }
 
@@ -924,14 +1023,27 @@ async function main() {
     removedFileCount === 0 &&
     removedDirectoryCount === 0
   ) {
-    console.log(`\nAll ${unchangedCount} file(s) are already up to date.`);
+    console.log(
+      styled(
+        `\nAll ${unchangedCount} file(s) are already up to date.`,
+        ANSI.green,
+      ),
+    );
     return;
   }
 
-  console.log(`\nUpdated ${updatedCount} file(s); ${unchangedCount} unchanged.`);
+  console.log(
+    styled(
+      `\nUpdated ${updatedCount} file(s); ${unchangedCount} unchanged.`,
+      ANSI.green,
+    ),
+  );
   if (removedFileCount > 0 || removedDirectoryCount > 0) {
     console.log(
-      `Removed ${removedFileCount} obsolete file(s) and ${removedDirectoryCount} obsolete directory/directories.`,
+      styled(
+        `Removed ${removedFileCount} obsolete file(s) and ${removedDirectoryCount} obsolete directory/directories.`,
+        ANSI.yellow,
+      ),
     );
   }
   console.log(
@@ -940,6 +1052,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`Error: ${error.message}`);
+  console.error(styledError(`Error: ${redactDisplayPaths(error.message)}`, ANSI.bold, ANSI.red));
   process.exitCode = 1;
 });
