@@ -24,7 +24,7 @@ If Gemini rewrites the instruction in the Gem editor, treat the result as a draf
 
 Keep the custom instruction compact and put stable reference material in `Knowledge`. A single well-structured file is often better when the material is short, tightly related, and normally used together.
 
-Default split:
+When separating the custom instruction from reusable Knowledge is useful, a common split is:
 
 - `prompt.md` or custom instruction text: role, scope, task, output format, how to use knowledge, clarification/stop rules.
 - `reference.md` or one core knowledge file: stable review criteria, style rules, and output rules used in most requests.

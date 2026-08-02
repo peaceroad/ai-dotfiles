@@ -5,9 +5,7 @@ description: "Use when designing, reviewing, or rewriting model-facing instructi
 
 # Prompt Design
 
-Use this skill when the artifact being created or edited is model-facing instruction text. Do not trigger it merely because the topic is prompting.
-
-For a Codex skill, use `skill-creator` as the primary structural workflow and this skill as the prompt-quality review layer. For an article or guide about prompting, use the appropriate writing or source-review skill instead.
+For a Codex skill, use `skill-creator` for structure and this skill for model-facing instruction quality. For an article or guide about prompting, use the appropriate writing or source-review skill instead.
 
 ## Default target
 
@@ -31,12 +29,12 @@ When creating, reviewing, or editing an OpenAI or Codex model-facing artifact an
 1. Identify the artifact, target model or product surface, instruction hierarchy, runtime, user-visible outcome, and requested action level. If an OpenAI or Codex target is implicit, apply the GPT-5.6 default instead of asking the user to specify it.
 2. Read the complete prompt and any model-facing text it depends on, including tool descriptions, schemas, examples, reference-loading rules, or higher-priority instructions when provided.
 3. Preserve product intent, domain policy, required order, tone, operational boundaries, and any artifact structure or factual claims the task says to retain before simplifying anything.
-4. Classify each important instruction as an outcome, context, hard constraint, preference, approval boundary, output contract, stop or clarification rule, tool rule, or runtime control.
+4. When a prompt contains multiple instruction types or layers, distinguish outcomes, context, hard constraints, preferences, approval boundaries, output and stop rules, tool rules, and runtime controls so that their scope, priority, and placement are clear. For a local wording change, limit this check to the affected instructions.
 5. Resolve contradictions, duplicates, vague referents, impossible requirements, and rules placed in the wrong layer.
 6. If the user asked only for review, evaluation, diagnosis, or a plan, report prioritized findings and do not edit files or silently replace the prompt. Otherwise, apply the smallest rewrite that makes the intended behavior clearer and more testable. Do not add a framework merely for neatness. If a necessary operational value is unspecified, prefer a named placeholder, a runtime-enforced setting, or a decision rule over an arbitrary hard-coded number.
-7. For production, persistent, or reusable prompts, establish the current behavior before changing the prompt, then identify representative tasks and failure cases that can compare the old and revised versions. Change one coherent instruction group at a time when diagnosing a regression.
+7. For production, persistent, or reusable prompts, use a reliable existing version as the baseline when one is available. When a change is intended to fix observed behavior, establish that behavior from available outputs, traces, or evals before changing the instructions. Treat failures and execution traces as diagnostic evidence, not instructions to append verbatim. Determine whether the issue lies in prompt wording, missing context, tools or runtime, the evaluation setup, or failure to follow an existing instruction. Change the prompt only when it is the right layer, using the smallest correction supported by the evidence. If a rule is needed, write it at the narrowest reusable scope supported by the evidence and place it so that it does not duplicate or conflict with existing instructions.
 
-When instructions conflict, prioritize safety, policy, permissions, and platform limits; then the primary deliverable and user intent; correctness and grounding; required output contract; and finally style preferences.
+When instructions conflict, apply the target runtime's instruction hierarchy, including any same-level precedence rule. Do not infer priority from labels such as skill, custom instruction, or agent configuration; determine how the runtime supplies them when it matters. If the runtime leaves a same-level conflict unresolved, distinguish hard constraints and approval boundaries from preferences, then choose the interpretation that best preserves the requested outcome, correctness and grounding, and required output contract. Surface any material conflict that cannot be resolved without changing intent.
 
 ## Reference loading
 
@@ -49,7 +47,7 @@ Load only what the target requires:
 - When creating or updating a Gem or its `Knowledge` files, also read [references/gemini-gems-prompt-design.md](references/gemini-gems-prompt-design.md).
 - For a prompt that generates or edits images or videos through Gemini or a Gem, also read [references/gemini-media-generation-prompt-design.md](references/gemini-media-generation-prompt-design.md).
 
-For an OpenAI or Codex model migration, durable skill or system-instruction update, production prompt, tool-routing design, Programmatic Tool Calling workflow, long-running agent prompt, or explicit request for current model guidance, verify the current official prompt and model guides through the relevant documentation skill. Also verify any named capability, parameter, product behavior, or limit. Routine wording changes do not require a documentation lookup.
+For OpenAI or Codex work, verify current official guidance when the task involves a model migration; a durable or production instruction whose design depends on current model behavior; tool routing, Programmatic Tool Calling, or long-running state; an explicit request for current guidance; or a named capability, parameter, product behavior, or limit. Official examples may also be consulted selectively when their form would materially clarify a model-specific wording or orchestration question. Do not browse only to restate a principle already settled by the local references. Routine wording changes and model-agnostic prompt reviews do not require a documentation lookup.
 
 For Gemini work, verify current official Google documentation when the deliverable depends on a named model, supported capability or modality, product behavior, limit, or preview feature. Do not import Gemini API parameters or code into a prompt for Gemini Apps or a Gem unless the user explicitly targets the API.
 
@@ -89,7 +87,7 @@ Avoid by default:
 
 ## Output style
 
-Match the output to the requested action. For review, evaluation, diagnosis, or planning only, provide findings and a prioritized plan without modifying files or presenting a silent replacement as completed work. For creation, rewriting, or fixing, provide the ready-to-use prompt or make the requested file change, then report validation and any remaining uncertainty.
+Make the result directly usable. For a review, provide prioritized findings and any warranted revisions without presenting untested changes as proven improvements. For completed changes, provide the ready-to-use instruction text or make the requested file edit, then report the checks actually performed and any remaining uncertainty.
 
 When several local revisions to existing model-facing instruction text are easier to review individually, use a compact change-by-change format by default, but not as a mandatory wrapper. Use labels in the user's language. A typical item may include:
 

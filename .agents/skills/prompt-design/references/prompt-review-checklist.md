@@ -61,7 +61,7 @@ For prompts that ingest webpages, files, user-submitted text, search results, to
 
 - Are audience, required content, format, length, tone, and ordering specified only where they affect usability?
 - For a customer-facing or collaborative product, are personality choices such as tone and formality separated from collaboration behavior such as when to ask, assume, take initiative, or check work?
-- For editing, rewriting, or summarizing, does the prompt say which artifact, length, structure, genre, and factual claims must be preserved?
+- For editing, rewriting, or summarizing, does the prompt state the preservation requirements that matter to the task, such as the target artifact, requested length or structure, genre, and factual claims?
 - If the target model tends to be concise, does the prompt name the facts, evidence, caveats, or artifact parts that must remain instead of repeating generic brevity commands?
 - Is the output over-specified in prose when a structured-output or schema mechanism would be more reliable?
 - Are numeric budgets, tolerances, concurrency, and retry counts supplied by the user, tool contract, or runtime rather than invented to make the prompt appear complete?
@@ -76,7 +76,7 @@ For prompts that ingest webpages, files, user-submitted text, search results, to
 - Keep one file when criteria are short, tightly related, and usually used together.
 - Split when material is large, optional, domain-specific, or reused independently; state when each reference should be read.
 - Use clear labels or delimiters when instructions, user input, examples, and source material could be confused.
-- Keep the same rule in one authoritative place and define priority if multiple prompt layers can conflict.
+- Keep each rule in one authoritative place; when prompt layers can conflict, respect the runtime hierarchy and make any same-level scope or precedence explicit.
 
 ## Examples and few-shot material
 
@@ -115,10 +115,9 @@ Also check whether:
 
 - Correctness-critical discovery, retrieval, or validation happens before an action that depends on it.
 - Independent reads may run in parallel, dependent decisions remain sequential, and parallel results are synthesized before action.
-- Empty, partial, or suspiciously narrow results trigger one or two meaningful fallbacks before the workflow concludes that no result exists.
+- Empty, partial, or suspiciously narrow results trigger the most relevant available fallback, with further attempts only while the missing evidence matters and another attempt is likely to add information.
 - Workflows with multiple routing modes define one clear handoff and avoid repeating completed work.
 - Runtime-enforceable limits are referenced from configuration or represented by named placeholders instead of being duplicated as arbitrary prose defaults.
-- Long-running workflows use a short initial preamble and sparse outcome-based updates at meaningful phase changes rather than narrating routine calls.
 
 ## Coding-agent prompts
 

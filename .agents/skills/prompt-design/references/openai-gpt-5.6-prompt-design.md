@@ -14,11 +14,11 @@ Use this reference for every OpenAI or Codex model-facing artifact when the user
 - Long-running workflows and state
 - Reasoning effort and migration
 - Validation and visual work
-- Official sources
+- Primary official sources
 
 ## Source and scope
 
-Treat current official guidance as the source of truth. Use this local reference for routine review, but fetch the current prompt and model guides for model migrations, durable skill or system-instruction changes, production prompts, current runtime controls, tool-routing design, Programmatic Tool Calling, or long-running agent behavior.
+Treat current official guidance as the source of truth. Use this local reference for routine review, and follow the documentation-lookup rule in `SKILL.md` when a task depends on current model behavior, product or API details, or an official example.
 
 Keep model configuration, prompt wording, tool definitions, state handling, and evals separate. A prompt review may identify all of these layers, but change only the layer the user authorized.
 
@@ -34,7 +34,7 @@ State the destination before optional process detail. A lean GPT-5.6 prompt norm
 
 Leave room for the model to choose an efficient search, tool, or reasoning path unless order is itself a requirement. Preserve exact sequence for safety, compliance, approvals, destructive actions, exact transformations, or required output fields.
 
-Start from a prompt and tool set that already works. Remove one coherent group of instructions, examples, or tools at a time, then rerun the same evals. Trim repeated rules, stale workarounds, examples that do not change behavior, process instructions for reliable default behavior, and unrelated tools. Keep requirements that define the outcome, evidence, permissions, routing, output, validation, or stop conditions.
+When revising or migrating an existing prompt or tool configuration, use the most reliable known working version as the baseline when one is available. Remove one coherent group of instructions, examples, or tools at a time, then rerun the same evals. Trim repeated rules, stale workarounds, examples that do not change behavior, process instructions for reliable default behavior, and unrelated tools. Keep requirements that define the outcome, evidence, permissions, routing, output, validation, or stop conditions.
 
 Review the remaining instructions for contradictions. Conflicting prompt contracts can create more instability than missing detail. State true invariants once. For judgment calls such as whether to search, ask, use a tool, retry, or stop, prefer a compact decision rule over unconditional `always`, `never`, `must`, or `only` language.
 
@@ -70,7 +70,7 @@ For customer-facing assistants and collaborative products, separate:
 
 Keep both short. Replace broad labels such as “friendly” or “empathetic” with the writing choices that matter. Avoid blanket language rules unless they are true product requirements.
 
-For editing, rewriting, summarizing, or customer-facing drafting, state what must be preserved: the requested artifact, length, structure, genre, factual claims, and source-backed distinctions. Keep the preservation rule compact and at the strength the user requested. Do not invent numeric tolerances, enumerate every conceivable claim type, or turn an approximate target into an absolute constraint. Improve clarity, flow, and correctness without adding new claims, sections, features, or promotional tone unless requested.
+For editing, rewriting, summarizing, or customer-facing drafting, state the preservation requirements that matter to the task, such as the requested artifact, length, structure, genre, factual claims, and source-backed distinctions. Keep the preservation rule compact and at the strength the user requested. Do not invent numeric tolerances, enumerate every conceivable claim type, or turn an approximate target into an absolute constraint. Improve clarity, flow, and correctness without adding new claims, sections, features, or promotional tone unless requested.
 
 ## Autonomy and approval boundaries
 
@@ -88,7 +88,7 @@ For long-running work, identify the current layer: research, design, implementat
 
 Expose only task-relevant tools. A tool description should state what the tool does, when to use it, important return fields or types, and material error behavior.
 
-If correctness depends on prerequisite discovery, retrieval, or validation, say so. Parallelize independent reads when safe; keep dependent decisions sequential; synthesize parallel results before acting. If a tool result is empty, partial, or suspiciously narrow, try one or two meaningful fallbacks before concluding that no result exists.
+If correctness depends on prerequisite discovery, retrieval, or validation, say so. Parallelize independent reads when safe; keep dependent decisions sequential; synthesize parallel results before acting. If a tool result is empty, partial, or suspiciously narrow, try the most relevant available fallback before concluding that no result exists. Continue only while the missing evidence matters and another attempt is likely to add information.
 
 Use Programmatic Tool Calling (PTC) for bounded, predictable reduction of several tool results or large intermediate outputs, such as filtering, joining, sorting, ranking, deduplication, batching, aggregation, or deterministic validation. Multiple, parallel, or dependent calls alone do not justify PTC.
 
@@ -122,11 +122,11 @@ For creative drafting, distinguish source-backed facts from creative wording. Do
 
 ## Long-running workflows and state
 
-For multi-step or tool-heavy work, request a short visible preamble before the first tool call and sparse, outcome-based updates at major phase changes. Do not narrate routine calls.
+When the target surface supports visible progress and the work is multi-step or tool-heavy, request a short preamble before the first tool call and sparse, outcome-based updates at major phase changes. Omit this rule when progress is not visible or would add no user value. Do not narrate routine calls.
 
-When an application replays history manually, preserve assistant phase values. When it uses `previous_response_id`, prior assistant state is preserved by the API. Treat these as runtime concerns, not prose instructions, and verify current API behavior before changing an implementation.
+When managing history manually, preserve and resend previous user inputs and every response output item. For `store: false` or Zero Data Retention, also replay the encrypted reasoning items returned by the API. With `reasoning.context: all_turns`, continue with `previous_response_id` to make earlier reasoning available to the model. Treat these as runtime concerns, not prose instructions, and verify current API behavior before changing an implementation.
 
-Compact after meaningful milestones rather than every turn. Treat compacted items as opaque state and keep the prompt functionally consistent after compaction.
+When compaction is available and context growth justifies it, prefer the runtime's automatic or configured-threshold behavior. When the runtime supports explicit compaction and the application needs a deliberate checkpoint, use a meaningful workflow boundary rather than compacting after every turn. Treat returned compaction items as opaque state, not as a human-readable record or the sole store of critical facts. State which working facts must survive into the next phase. If the work must preserve provenance, support later review or handoff, or resume reliably across sessions or interruptions, keep the facts, citations, decisions, open questions, and outputs needed for that purpose in durable artifacts outside the compacted conversation state. Keep the prompt functionally consistent after compaction.
 
 Reuse persisted reasoning only while the objective, assumptions, and priorities remain stable. Stale reasoning can add tokens, latency, and anchoring. Keep reusable prompt prefixes stable for caching, and use explicit cache breakpoints only when measurement shows a benefit.
 
@@ -157,10 +157,13 @@ For visual artifacts, inspect layout, clipping, spacing, missing content, and vi
 
 For implementation plans, include the requirements, named resources or files, state transitions or data flow, validation, failure behavior, material privacy or security constraints, and unresolved questions that affect implementation.
 
-## Official sources
+## Primary official sources
 
-- [Prompting guidance for GPT-5.6 Sol](https://developers.openai.com/api/docs/guides/prompt-guidance-gpt-5p6.md)
-- [Model guidance: Using GPT-5.6](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)
+- [Model and prompting guidance: Using GPT-5.6](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)
+- [Instruction hierarchy: OpenAI Model Spec](https://model-spec.openai.com/)
+- [Programmatic Tool Calling](https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling)
+- [Compaction](https://developers.openai.com/api/docs/guides/compaction)
+- [Building Reliable Agents with Memory and Compaction](https://developers.openai.com/cookbook/examples/agents_sdk/building_reliable_agents_memory_compaction)
 - [Prompting - ChatGPT Learn](https://learn.chatgpt.com/docs/prompting#prompting-overview)
 
 These pages can change. Verify current pages when a deliverable depends on model capabilities, parameters, modes, prices, limits, or product behavior.
