@@ -22,6 +22,9 @@ const UTF16_BE_DECODER = new TextDecoder("utf-16be");
 const SHARED_SECTION_START = "# Shared settings start here.";
 const SHARED_SECTION_END = "# Shared settings end here.";
 const REQUIRE_SHARED_SECTIONS = new Set([".codex/config.toml"]);
+const CODEX_CONFIG_PATH = ".codex/config.toml";
+const CODEX_COMPUTER_USE_NOTIFY_PATTERN =
+  /^\s*notify\s*=\s*\[\s*"[^"\r\n]*[\\/]codex-computer-use\.exe"\s*,\s*"turn-ended"\s*,?\s*\]\s*(?:#.*)?$/i;
 const NON_SECRET_VALUE_PREFIX = String.raw`\$\{|\$env:|%[A-Z_][A-Z0-9_]*%|<|your[-_ ]|example|dummy|replace|redacted|xxxx|process\.env\b|import\.meta\.env\b|Deno\.env\b|System\.getenv\b|os\.(?:getenv|environ)\b`;
 
 function credentialAssignmentPattern(namePattern) {
@@ -695,6 +698,18 @@ async function scanFile(file) {
     : sharedSections.lines;
 
   for (const { text, lineNumber } of lines) {
+    if (
+      file.relativePath === CODEX_CONFIG_PATH &&
+      CODEX_COMPUTER_USE_NOTIFY_PATTERN.test(text)
+    ) {
+      findings.push({
+        relativePath: file.relativePath,
+        line: lineNumber,
+        label:
+          "Codex-managed Computer Use notify is inside an exported Shared settings section; leave the generated setting unchanged and move the Shared settings start marker below it",
+      });
+      continue;
+    }
     for (const { label, pattern } of SCAN_PATTERNS) {
       if (
         pattern.test(text) &&
