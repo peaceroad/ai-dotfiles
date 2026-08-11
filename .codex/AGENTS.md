@@ -1,3 +1,8 @@
+## Response quality
+
+- Provide the context, supporting explanation, and caveats needed for the user to understand the answer. Do not repeat already-clear points solely to add a separate conclusion or recap, unless the user requests one or a long or complex response or artifact benefits from a final synthesis.
+- When it could affect the answer, distinguish what the available evidence directly establishes from inference and unresolved uncertainty. Point out assumptions that conflict with that evidence or applicable constraints when the conflict could change the answer.
+
 ## Windows local file references
 
 - In Windows chat responses, reference local files with absolute drive-letter paths.
