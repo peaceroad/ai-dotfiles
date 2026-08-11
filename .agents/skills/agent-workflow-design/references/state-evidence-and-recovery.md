@@ -5,6 +5,7 @@ Use this reference when a workflow spans multiple iterations, tools, processes, 
 ## Contents
 
 - State model
+- Persistence decision
 - Evidence and evaluation
 - Untrusted inputs and data flow
 - Idempotency and side effects
@@ -25,7 +26,7 @@ Keep durable state smaller than the raw execution history. A useful checkpoint m
 - Attempts and configured budget consumption.
 - Last meaningful update and the next safe action.
 
-Store large logs, traces, diffs, and artifacts separately and reference them from the checkpoint. Do not paste all prior output into the next prompt when a compact state record and targeted retrieval are sufficient.
+When large logs, traces, diffs, or artifacts are already retained by an authorized system, reference them from the checkpoint instead of copying them into state. Do not create a separate history store merely because a workflow has durable state, and do not paste all prior output into the next prompt when a compact state record and targeted retrieval are sufficient.
 
 Separate these concepts:
 
@@ -34,13 +35,42 @@ Separate these concepts:
 - **Evidence:** Information used to support a judgment.
 - **Artifact:** The user-visible or machine-consumed result being changed.
 
-State must have an authoritative location. If several agents or processes can write it, define serialization, ownership, version checks, or conflict handling.
+Durable state must have an authoritative location. If several agents or processes can write it, define serialization, ownership, version checks, or conflict handling.
 
 When configuration can change during execution, define which values are pinned for the run and which are re-read, and at what boundary each change takes effect. Record the effective configuration needed for recovery and audit.
+
+## Persistence decision
+
+Decide whether state must be durable separately from deciding what the state contains. Use this order:
+
+1. If the work can finish in the current session and existing sessions or authoritative artifacts are sufficient evidence, do not create new persistent state.
+2. If an unresolved candidate needs independent observations across sessions, projects, or later workflow phases, first determine whether rediscovery from existing evidence is adequate. Consider a minimal candidate state only when the future comparison value exceeds its storage and maintenance cost.
+3. If an existing approved authoritative location and an explicit maintenance scope cover that candidate, write only the unresolved hypothesis, evidence references, scope, revisit condition, owner, and deletion or integration condition needed for the next decision.
+4. If persistence would require a new store, a project, domain, or user-scope crossing, or a new automated process, present the proposed location, fields, authority, read trigger, conflict handling, privacy boundary, and cleanup before writing.
+5. If an automated workflow already has an approved runtime state contract, checkpoint automatically within that contract. Do not reuse an informal candidate note as automation state without defining trigger, ownership, concurrency, retry, stop, recovery, and cleanup behavior.
+
+Candidate state is an unresolved decision aid, not evidence that a pattern recurred or that a proposed rule is correct. Recheck the referenced session, artifact, validation result, or correction before promoting the candidate. When the decision is formalized, covered by an existing rule, rejected, no longer evidenced, or outside the active scope, mark the candidate resolved, integrate it, archive it when required, or delete it according to the owner and cleanup policy. Do not retain completed candidates merely as history.
+
+### Location precedence
+
+After persistence and its scope are authorized, choose the location in this order:
+
+1. Use an existing authoritative store owned by the target workflow, project, or external system.
+2. For project-scoped state, use a project-owned location already defined by that project. If none exists, propose the location before creating it.
+3. For user-scoped state that must be compared across projects or sessions in this Codex environment and has no existing authoritative owner, propose an owner-first namespace: `~/.agents/state/<owner-id>/workflows/<workflow-id>/` for resumable workflow state or `~/.agents/state/<owner-id>/candidates/<candidate-set-id>/` for unresolved cross-case candidates. Use the plugin ID when a plugin owns the lifecycle, the skill name when a skill owns it, or a stable controller or application ID otherwise. Choose the component responsible for the schema, writes, conflicts, and cleanup; do not use the skill that merely designed or invoked the workflow as owner. Resolve and report the absolute path before the first write. Treat these as local conventions, not Agent Skills specification requirements.
+4. For scheduled, event-driven, concurrent, or otherwise automated workflows, use the store defined by the runtime state contract. Do not substitute an informal user-state directory unless that contract explicitly adopts it.
+
+Do not store run-varying state in the active, source, or installed skill directory. Keep skill directories for packaged instructions, scripts, references, assets, and agent metadata. Add reviewed reusable knowledge to a skill only through an explicit maintenance change; that updates the packaged artifact and is not candidate or workflow state. Keep user-, project-, or session-varying unresolved candidates, checkpoints, histories, logs, caches, and similar mutable data in the authorized owner location even when the skill defines the workflow that produces them. Treat `~/.codex/state/` as Codex-, plugin-, or runtime-owned and use it only when that owner explicitly assigns a namespace or state contract. Do not create the shared state root or an owner directory until a concrete state item and write scope are authorized.
+
+If the authorized state location cannot be written, do not silently substitute another location or claim persistence. Continue the workflow only when persistence is optional, and report in the response that the state was not persisted.
 
 ## Evidence and evaluation
 
 Validation should inspect the actual artifact, runtime result, or external state. The agent's completion statement is not independent evidence.
+
+Separate reusable evaluation definitions from run-varying evaluation results. Reviewed test cases, assertions, and fixtures are harness definitions rather than runtime state; when retained across revisions, keep them under review and version control. For an Agent Skill, they may be packaged in an additional directory such as `evals/`, but the ability to include that directory does not standardize its runtime loading or lifecycle.
+
+Generated outputs, scores, timing data, and traces are evidence or history; keep them temporary by default. Persist them only when continued comparison, audit, or recovery justifies it, using an existing project-, runtime-, or plugin-owned location when available or proposing an owner, purpose, retention rule, and cleanup before creating a new store. Do not assume a shared evaluation workspace. Do not store generated evaluation results in an active, source, or installed skill directory. If a generated result is reviewed and deliberately adopted as a stable test fixture, add the adopted fixture through an explicit harness-maintenance change; it is then a versioned evaluation definition rather than retained run history.
 
 Use the most reliable evaluator available:
 
@@ -53,7 +83,7 @@ Combine evaluators when one signal is incomplete. Preserve material conflicts in
 
 When a model evaluates model-produced work, give it the actual artifact, evidence, and criteria rather than the implementer's completion claim. Use separate context where feasible, and do not leak the intended answer or proposed fix when the purpose is an independent evaluation.
 
-Record the remaining delta in a form the next pass can act on. A useful delta identifies the failed criterion, supporting evidence, affected artifact or step, and whether the next action is retry, replan, or escalation.
+Express the remaining delta in a form the next pass can act on. A useful delta identifies the failed criterion, supporting evidence, affected artifact or step, and whether the next action is retry, replan, or escalation.
 
 ## Untrusted inputs and data flow
 
@@ -116,12 +146,14 @@ Keep enough information to answer:
 - What remains unresolved?
 - Who or what made the consequential decision?
 
-Prefer structured, append-only records for consequential events. Keep secrets and unnecessary sensitive data out of logs. Auditability is not a reason to retain every token or hidden model state.
+When a configured workflow requires durable audit records for consequential events, prefer structured, append-only records. The need for auditability is a design requirement, not permission to create a new log store or broaden retention without authorization. Keep secrets and unnecessary sensitive data out of logs. Auditability is not a reason to retain every token or hidden model state.
 
 ## Sources
 
 - [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)
 - [Build an Agent Improvement Loop with Traces, Evals, and Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop)
+- [Agent Skills specification](https://agentskills.io/specification)
+- [Evaluating skill output quality - Agent Skills](https://agentskills.io/skill-creation/evaluating-skills)
 - [Symphony Service Specification - OpenAI](https://github.com/openai/symphony/blob/main/SPEC.md)
 - [Loop engineering: Getting started with loops - Claude by Anthropic](https://claude.com/blog/getting-started-with-loops)
 - [Designing AI agents to resist prompt injection - OpenAI](https://openai.com/index/designing-agents-to-resist-prompt-injection/)

@@ -25,7 +25,7 @@ Choose who controls the next transition:
 
 - Use deterministic workflow control when steps, branches, retries, and completion checks can be specified reliably in code or configuration.
 - Use model-directed control when the required subtasks or next action depend on semantic interpretation, cannot be predicted in advance, and benefit from flexible tool use or replanning.
-- Use a hybrid when code owns triggers, budgets, permissions, persistence, and state transitions while the model owns bounded judgments inside a state.
+- Use a hybrid when code owns triggers, budgets, permissions, required persistence, and state transitions while the model owns bounded judgments inside a state.
 
 Do not equate a multi-step workflow with an autonomous agent. Add model-directed control only when representative tasks show that a fixed path is insufficient and the expected gain justifies the additional cost, failure surface, and review burden.
 
@@ -49,7 +49,7 @@ When timing semantics can affect correctness, define the timezone, overlapping-r
 
 ### Event-driven or proactive
 
-An external event starts a run without a user present in real time. Each run needs a bounded goal, safe permissions, durable state, and a clear escalation path. The recurring routine and each task instance have separate stop conditions.
+An external event starts a run without a user present in real time. Each run needs a bounded goal, safe permissions, enough authoritative state or reconciliation capability for its recovery and side effects, and a clear escalation path. Use durable state only when replay, resumption, audit, or cross-run coordination requires it. The recurring routine and each task instance have separate stop conditions.
 
 Verify the event source's delivery, ordering, and replay guarantees. Where duplicates, delays, reordering, or bursts can change the outcome or repeat a side effect, define only the needed controls, such as deduplication, reconciliation, concurrency or backpressure limits, and conditions for safe replay.
 
