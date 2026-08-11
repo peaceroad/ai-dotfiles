@@ -3,6 +3,7 @@
 paths:
   - .codex/AGENTS.md
   - .codex/config.toml
+  - .agents/docs/notes/codex-agents-md-instruction-rationale.md
   - .agents/docs/notes/skill-creator-prompt-design-agent-workflow-design.md
   - .agents/skills/agent-workflow-design
   - .agents/skills/prompt-design
