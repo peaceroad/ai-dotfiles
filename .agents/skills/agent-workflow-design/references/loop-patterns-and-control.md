@@ -7,6 +7,7 @@ Use this reference to decide whether a workflow needs a loop and to define its t
 - When to use a loop
 - Deterministic workflow or model-directed agent
 - Trigger patterns
+- Recall, validation, and enforcement
 - Loop contract
 - Stop and convergence
 - Retry, replan, and escalation
@@ -54,6 +55,16 @@ An external event starts a run without a user present in real time. Each run nee
 Verify the event source's delivery, ordering, and replay guarantees. Where duplicates, delays, reordering, or bursts can change the outcome or repeat a side effect, define only the needed controls, such as deduplication, reconciliation, concurrency or backpressure limits, and conditions for safe replay.
 
 These patterns may be composed, but every added trigger must have a distinct role. Do not add a scheduler, evaluator loop, or multi-agent branch merely because the platform supports it.
+
+## Recall, validation, and enforcement
+
+For lifecycle hooks, gates, or feedback-driven controls, separate three functions:
+
+- **Recall:** Retrieve an applicable accepted rule or a specifically triggered unresolved candidate for review.
+- **Validation:** Inspect the current artifact, action, event, or evidence and decide whether the condition actually applies.
+- **Enforcement:** Warn, request approval, block, repair, or otherwise change control flow.
+
+A hook can reliably trigger a check without making the check semantically correct. A stored finding or another independent observation may justify recall and review, but it does not by itself authorize stronger enforcement. Choose advisory, approval, or blocking behavior from the consequence, scope, detection reliability, and policy authority of the current rule rather than from a recurrence count. Define what happens when the hook, evaluator, or required evidence is unavailable: a low-consequence quality aid may continue with a reported gap, while a required safety or side-effect boundary may need escalation or a fail-closed path. Bound any repair or stop-hook re-entry so the control cannot continue indefinitely.
 
 ## Loop contract
 
@@ -136,3 +147,4 @@ Keep dependent decisions sequential. More agents increase orchestration, review,
 - [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)
 - [Symphony Service Specification - OpenAI](https://github.com/openai/symphony/blob/main/SPEC.md)
 - [Model guidance: Using GPT-5.6 - OpenAI Developers](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)
+- [Hooks reference - Claude Code Docs](https://code.claude.com/docs/en/hooks)
