@@ -38,10 +38,20 @@ const temporaryDirectoryPrefix = "codex-skill-validator-utf8-";
 const originalLine = 'content = skill_md.read_text()';
 const patchedLine =
   'content = skill_md.read_text(encoding="utf-8")  # Managed by manage-skill-validator-utf8-patch.mjs';
-const originalHash =
-  "5347a0a09cfb546bba1c0d1a30dae0a233d9a05f57bd4e7877155c588bcdabf7";
-const patchedHash =
-  "3271802f366bd5bdc3498ac7b2d9805920c0392ca3b6f5f58fa9989448500887";
+const reviewedVariants = [
+  {
+    originalHash:
+      "5347a0a09cfb546bba1c0d1a30dae0a233d9a05f57bd4e7877155c588bcdabf7",
+    patchedHash:
+      "3271802f366bd5bdc3498ac7b2d9805920c0392ca3b6f5f58fa9989448500887",
+  },
+  {
+    originalHash:
+      "547af3cec2ae71ac2a4ef606365d23a8c58b586862211e9c7a9be7bfd0e30fbb",
+    patchedHash:
+      "8467d14095ffec0f1e079fd37c8e5768e0164ee66205ec87c91baaffb49807d8",
+  },
+];
 const explicitUtf8Pattern =
   /^[ \t]+content\s*=\s*skill_md\.read_text\(\s*encoding\s*=\s*(["'])utf-8\1\s*\)\s*(?:#.*)?$/m;
 
@@ -54,7 +64,7 @@ Usage:
 Commands:
   status
     Inspect quick_validate.py without changing it. Reports whether the file is
-    the reviewed unpatched version, this script's patched version, an unknown
+    a reviewed unpatched version, this script's patched version, an unknown
     version that already specifies UTF-8, or an unknown version requiring
     review.
 
@@ -63,7 +73,7 @@ Commands:
       ${originalLine}
     to:
       ${patchedLine}
-    The command changes the file only when its complete SHA-256 matches the
+    The command changes the file only when its complete SHA-256 matches a
     reviewed unpatched version.
 
   restore
@@ -168,20 +178,29 @@ function decodeUtf8(buffer) {
 
 function classifyValidator(buffer) {
   const hash = sha256(buffer);
+  const unpatchedVariant = reviewedVariants.find(
+    (variant) => variant.originalHash === hash,
+  );
 
-  if (hash === originalHash) {
+  if (unpatchedVariant) {
     return {
       description: "reviewed unpatched version",
       hash,
       kind: "known-unpatched",
+      variant: unpatchedVariant,
     };
   }
 
-  if (hash === patchedHash) {
+  const patchedVariant = reviewedVariants.find(
+    (variant) => variant.patchedHash === hash,
+  );
+
+  if (patchedVariant) {
     return {
       description: "exact local UTF-8 patch",
       hash,
       kind: "known-patched",
+      variant: patchedVariant,
     };
   }
 
@@ -483,7 +502,7 @@ async function applyPatch() {
     patchedLine,
   );
 
-  if (sha256(nextBuffer) !== patchedHash) {
+  if (sha256(nextBuffer) !== state.variant.patchedHash) {
     throw new Error(
       "The generated patch does not match the reviewed patched SHA-256.",
     );
@@ -501,18 +520,26 @@ async function applyPatch() {
 
   const recheckedBuffer = await readValidator();
 
-  if (classifyValidator(recheckedBuffer).kind !== "known-unpatched") {
+  if (sha256(recheckedBuffer) !== state.variant.originalHash) {
     throw new Error(
       "The validator changed after confirmation; refusing to apply the patch.",
     );
   }
 
-  await replaceKnownFile(originalHash, nextBuffer, patchedHash);
+  await replaceKnownFile(
+    state.variant.originalHash,
+    nextBuffer,
+    state.variant.patchedHash,
+  );
 
   try {
     await testValidatorWithUtf8Disabled();
   } catch (error) {
-    await replaceKnownFile(patchedHash, currentBuffer, originalHash);
+    await replaceKnownFile(
+      state.variant.patchedHash,
+      currentBuffer,
+      state.variant.originalHash,
+    );
     throw new Error(
       `${error.message} The original validator was restored.`,
     );
@@ -549,7 +576,7 @@ async function restorePatch() {
     originalLine,
   );
 
-  if (sha256(originalBuffer) !== originalHash) {
+  if (sha256(originalBuffer) !== state.variant.originalHash) {
     throw new Error(
       "The generated restoration does not match the reviewed original SHA-256.",
     );
@@ -564,13 +591,17 @@ async function restorePatch() {
 
   const recheckedBuffer = await readValidator();
 
-  if (classifyValidator(recheckedBuffer).kind !== "known-patched") {
+  if (sha256(recheckedBuffer) !== state.variant.patchedHash) {
     throw new Error(
       "The validator changed after confirmation; refusing to restore it.",
     );
   }
 
-  await replaceKnownFile(patchedHash, originalBuffer, originalHash);
+  await replaceKnownFile(
+    state.variant.patchedHash,
+    originalBuffer,
+    state.variant.originalHash,
+  );
   console.log("The reviewed original validator was restored.");
 }
 
