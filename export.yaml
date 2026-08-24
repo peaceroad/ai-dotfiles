@@ -3,7 +3,10 @@
 paths:
   - .codex/AGENTS.md
   - .codex/config.toml
+  - .codex/browser/config.toml
   - .agents/docs/notes/codex-agents-md-instruction-rationale.md
+  - .agents/docs/notes/codex-browser-config-and-security.md
+  - .agents/docs/notes/codex-skills-and-plugins.md
   - .agents/docs/notes/skill-creator-prompt-design-agent-workflow-design.md
   - .agents/skills/agent-workflow-design
   - .agents/skills/prompt-design
