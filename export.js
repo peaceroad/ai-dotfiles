@@ -25,6 +25,8 @@ const REQUIRE_SHARED_SECTIONS = new Set([".codex/config.toml"]);
 const CODEX_CONFIG_PATH = ".codex/config.toml";
 const CODEX_COMPUTER_USE_NOTIFY_PATTERN =
   /^\s*notify\s*=\s*\[\s*"[^"\r\n]*[\\/]codex-computer-use\.exe"\s*,\s*"turn-ended"\s*,?\s*\]\s*(?:#.*)?$/i;
+const TOML_TABLE_PATTERN = /^\s*\[([^\]]+)\]\s*(?:#.*)?$/;
+const CODEX_WINDOWS_SANDBOX_PATTERN = /^\s*sandbox\s*=/;
 const NON_SECRET_VALUE_PREFIX = String.raw`\$\{|\$env:|%[A-Z_][A-Z0-9_]*%|<|your[-_ ]|example|dummy|replace|redacted|xxxx|process\.env\b|import\.meta\.env\b|Deno\.env\b|System\.getenv\b|os\.(?:getenv|environ)\b`;
 
 function credentialAssignmentPattern(namePattern) {
@@ -191,10 +193,12 @@ Direct usage:
   node export.js --help
 
 The scan checks sensitive filenames and text content for the local username,
-home-directory paths, and common credential patterns. Files containing paired
-Shared settings markers export only those sections and their adjacent comment
-blocks. On comments starting with the exact uppercase prefix "# ENV:" or
-"# NOTE:", an occurrence of the local username is treated as intentional.
+home-directory paths, and common credential patterns. Shared settings boundaries
+export only the selected sections, omitting the markers and decorative boundary
+lines. The first section may start implicitly at the beginning of the file and end
+at the first end marker. On comments starting
+with the exact uppercase prefix "# ENV:" or "# NOTE:", an occurrence of the local
+username is treated as intentional.
 Other checks still apply to those lines. Configured directories are synchronized:
 dry runs list obsolete destination entries, and writes remove them.
 
@@ -578,6 +582,10 @@ function selectSharedSections(content, relativePath) {
 
     if (trimmed === SHARED_SECTION_END) {
       if (startIndex === null) {
+        if (markerPairs.length === 0) {
+          markerPairs.push({ startIndex: -1, endIndex: index });
+          continue;
+        }
         throw new Error(
           `${relativePath}:${lineNumber}: Shared settings end marker without a start marker`,
         );
@@ -597,43 +605,42 @@ function selectSharedSections(content, relativePath) {
     return null;
   }
 
-  const isCommentLine = (line) => line.trimStart().startsWith("#");
+  const isDecorativeSeparator = (line) => /^#{3,}\s*$/.test(line.trim());
+  const trimSectionBoundary = (lines, preserveLeadingDecoration) => {
+    while (
+      lines.length > 0 &&
+      (lines[0].text.trim() === "" ||
+        (!preserveLeadingDecoration && isDecorativeSeparator(lines[0].text)))
+    ) {
+      lines.shift();
+    }
+    while (
+      lines.length > 0 &&
+      (lines.at(-1).text.trim() === "" || isDecorativeSeparator(lines.at(-1).text))
+    ) {
+      lines.pop();
+    }
+    return lines;
+  };
   const sections = [];
-  let previousEndIndex = -1;
 
-  for (let index = 0; index < markerPairs.length; index += 1) {
-    const markerPair = markerPairs[index];
-    const nextStartIndex = markerPairs[index + 1]?.startIndex
-      ?? sourceLines.length;
-    let sectionStartIndex = markerPair.startIndex;
-    let sectionEndIndex = markerPair.endIndex;
-
-    while (
-      sectionStartIndex > previousEndIndex + 1 &&
-      isCommentLine(sourceLines[sectionStartIndex - 1])
-    ) {
-      sectionStartIndex -= 1;
-    }
-
-    while (
-      sectionEndIndex + 1 < nextStartIndex &&
-      isCommentLine(sourceLines[sectionEndIndex + 1])
-    ) {
-      sectionEndIndex += 1;
-    }
-
-    const lines = sourceLines
-      .slice(sectionStartIndex, sectionEndIndex + 1)
+  for (const markerPair of markerPairs) {
+    const lines = trimSectionBoundary(sourceLines
+      .slice(markerPair.startIndex + 1, markerPair.endIndex)
       .map((text, lineIndex) => ({
         text,
-        lineNumber: sectionStartIndex + lineIndex + 1,
-      }));
+        lineNumber: markerPair.startIndex + lineIndex + 2,
+      })), markerPair.startIndex === -1);
+    if (lines.length === 0) {
+      throw new Error(
+        `${relativePath}:${Math.max(1, markerPair.startIndex + 1)}: Shared settings section is empty`,
+      );
+    }
     sections.push({
       lines,
-      startLine: sectionStartIndex + 1,
-      endLine: sectionEndIndex + 1,
+      startLine: lines[0].lineNumber,
+      endLine: lines.at(-1).lineNumber,
     });
-    previousEndIndex = sectionEndIndex;
   }
 
   return {
@@ -688,7 +695,7 @@ async function scanFile(file) {
     REQUIRE_SHARED_SECTIONS.has(file.relativePath)
   ) {
     throw new Error(
-      `${file.relativePath}: paired Shared settings markers are required`,
+      `${file.relativePath}: Shared settings markers are required`,
     );
   }
   const lines = sharedSections === null
@@ -697,7 +704,24 @@ async function scanFile(file) {
       .map((text, index) => ({ text, lineNumber: index + 1 }))
     : sharedSections.lines;
 
+  let currentTomlTable = null;
   for (const { text, lineNumber } of lines) {
+    if (file.relativePath === CODEX_CONFIG_PATH) {
+      const tableMatch = text.match(TOML_TABLE_PATTERN);
+      if (tableMatch !== null) {
+        currentTomlTable = tableMatch[1].trim();
+      } else if (
+        CODEX_WINDOWS_SANDBOX_PATTERN.test(text) &&
+        currentTomlTable !== "windows"
+      ) {
+        findings.push({
+          relativePath: file.relativePath,
+          line: lineNumber,
+          label:
+            "Windows sandbox setting is exported without its [windows] table; include the table and setting in the same Shared settings section",
+        });
+      }
+    }
     if (
       file.relativePath === CODEX_CONFIG_PATH &&
       CODEX_COMPUTER_USE_NOTIFY_PATTERN.test(text)
@@ -706,7 +730,7 @@ async function scanFile(file) {
         relativePath: file.relativePath,
         line: lineNumber,
         label:
-          "Codex-managed Computer Use notify is inside an exported Shared settings section; leave the generated setting unchanged and move the Shared settings start marker below it",
+          "Codex-managed Computer Use notify is inside an exported Shared settings section; leave the generated setting unchanged and exclude it from Shared settings",
       });
       continue;
     }

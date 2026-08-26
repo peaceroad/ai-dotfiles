@@ -1,7 +1,6 @@
 ############################################################
-# Shared settings start here.
-# NOTE: k_taka's Codex config.toml on native Windows 11 environment.
-# NOTE: The `# Shared...` statement specifies the public area designated by `@peaceroad/ai-dotfiles/export.js`.
+# Codex config.toml for a native Windows 11 environment.
+# Shared sections are exported by @peaceroad/ai-dotfiles/export.js.
 ############################################################
 
 # デフォルトのモデル
@@ -49,14 +48,6 @@ default_permissions = "workspace-with-agents"
 # CodexアプリがComputer Useのターン終了を通知するためのローカル設定。
 # "turn-ended" は補助プログラムの必須サブコマンド。
 # アプリが自動生成するマシン固有設定なので、公開・手編集しない。
-############################################################
-# Shared settings end here.
-# Note: The following top-level settings are automatically configured by Codex and should not be exposed.
-############################################################
-
-############################################################
-# Shared settings start here.
-############################################################
 
 # CodexアプリのWindows環境におけるサンドボックス設定
 # elevated: 管理者権限でセットアップする、Codex推奨のWindows隔離方式。
@@ -197,6 +188,7 @@ description = "ワークスペース、~/.agents、および許可した開発�
 [permissions.workspace-with-agents.network]
 enabled = true      # 許可するかどうか。true, false
 mode = "limited"    # モード。制限付き（"limited"）、全許可（"full"）
+# mode = "full"
 
 # 許可するドメインのリスト。
 [permissions.workspace-with-agents.network.domains]
@@ -321,8 +313,3 @@ exclude = [
   "GIT_ASKPASS",
   "GPG_AGENT_INFO",
 ]
-
-############################################################
-# Shared settings end here.
-# NOTE: Everything below is local-only and must not be exported.
-############################################################
