@@ -2,7 +2,7 @@
 
 > **Notice：** 本文書では、2026年8月時点で筆者がCodex環境で利用しているスキルの役割を整理しています。`skill-creator`は同環境に含まれるシステムスキル、`prompt-design`と`agent-workflow-design`は独自に作成したスキルです。後者の2つはいずれもOpenAIの公式ドキュメントを参考にしており、`prompt-design`はGoogle、`agent-workflow-design`はAnthropicの公式資料も参照しています。ただし、OpenAIが提供する公式スキルではなく、ここで示す分類や使い分けもOpenAI公式の標準構成ではありません。
 >
-> `agent-workflow-design`は作成後の初期段階にあるため、実運用へ適用する場合は、代表的なタスクで停止条件、回復、権限、承認境界などを確認してください。
+> `agent-workflow-design`を実運用へ適用する場合は、影響に応じて、代表的なタスクで停止条件、回復、権限、承認境界などを確認してください。
 
 `skill-creator`、`prompt-design`、`agent-workflow-design`は、いずれもエージェント向けの仕組みを設計するときに使えますが、主に扱うレイヤーが異なります。3つを毎回すべて使うのではなく、成果物がCodexスキルかどうか、モデル向けの指示文を含むか、作業が反復・長期実行を伴うかを見て選びます。
 
@@ -56,6 +56,16 @@ runtime stateは常に永続化するものではありません。中断やrun�
 
 評価実行によって生成されたoutput、score、timing、traceは、実行ごとに変化する根拠または履歴であり、一時利用を既定にします。継続保存が必要な場合は、既存のプロジェクト、ランタイム、プラグインが所有する場所を優先し、共通の評価用workspaceを暗黙に新設しません。生成結果をレビューして安定したfixtureとして正式採用する場合は、明示的なハーネス保守として取り込みます。採用後は、保持された実行履歴ではなく、バージョン管理する評価定義として扱います。
 
+### 複数成果物、フィードバック、評価の実行基盤を分ける
+
+一つのワークフローが複数の永続成果物やシステムを使う場合も、すべての情報へ一律に正本マップを要求しません。同じ情報の不一致が、次の判断、外部作用、回復、監査、引き渡しを変え得る場合に、その情報の所有者を定めます。必要に応じて、意図・計画、観測済みの状態と根拠、レビュー所見、承認・有効化状態を分け、同じ本文を同期するより正本を参照します。単一の正本で足りる作業や、重複しても判断へ影響しない情報には追加の管理を設けません。
+
+検証は、信頼でき費用に見合う範囲で、現在の処理へ結果を返せる位置に置きます。作業中の自己検証は修正を速めますが、独立した最終判定が必要かは別に判断します。既存の決定的検査で十分なら検証担当を追加せず、影響や評価器の弱さに応じて、別コンテキスト、決定的検査、人、保護された外部システムを使います。
+
+評価ケースを残すか、いつどこで実行するか、結果を警告または強制ゲートとして使うかも別の判断です。一回の診断には一時的または手動のケースを使えます。将来の退行検出価値が作成・実行・保守コストを上回る場合だけ、レビュー済みの回帰ケースとして残します。実行契機は手動、変更時、定期、リリース時、障害後などから選び、CIは実行・強制の場所の一つとして扱い、既定にはしません。
+
+高速化や並列化が後続工程の負荷を変える場合は、処理量だけでなく、待ち、検証・レビュー負担、手戻り、承認待ち、全体の完了時間も考慮します。後続工程が制約になるなら、並列度の調整、バックプレッシャー、優先順位付け、バッチ化、対象範囲の縮小を候補にします。小規模で後続負荷が無視できる作業に、この分析を一律には要求しません。
+
 このスキルは、複雑であっても1回の処理と1回の検証で終わる作業には原則として使いません。各反復で新しい根拠、変更された成果物、外部状態の変化を観察できる場合だけループを設け、必要を満たす最小の制御構造を選びます。通常のプログラム内ループと、指示文の言い換えだけを行う作業も対象外です。
 
 ## 3つの関係
@@ -98,5 +108,7 @@ runtime stateは常に永続化するものではありません。中断やrun�
 - [Agent Skills Specification](https://agentskills.io/specification)
 - [Evaluating skill output quality](https://agentskills.io/skill-creation/evaluating-skills)
 - [Build skills（OpenAI）](https://learn.chatgpt.com/docs/build-skills)
+- [Iterating Development Workflows with Codex（OpenAI）](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex)
+- [The AI-Native SDLC playbook（Anthropic）](https://claude.com/blog/the-ai-native-sdlc-playbook)
 - [Agent Notes（DeepSeek Harness）](https://github.com/deepseek-ai/deepseek-harness/blob/master/.agents/notes/README.md)
 - [EvoLib（Microsoft Research）](https://github.com/microsoft/EvoLib)

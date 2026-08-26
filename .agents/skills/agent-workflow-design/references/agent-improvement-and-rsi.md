@@ -33,7 +33,7 @@ Do not call task repair RSI. Do not call ordinary harness maintenance RSI unless
 Use an evidence-to-eval-to-change lifecycle. A single reviewed change may proceed linearly; repeat the cycle only when remaining delta or new evidence warrants it:
 
 1. Identify authorized execution evidence such as current or saved sessions, retained traces, validation results, failures, artifacts, and human or model feedback. Do not require a new trace or log store when available evidence is sufficient.
-2. Turn reusable expectations and material failures into evaluation cases and explicit acceptance criteria. Recurrence is useful evidence but is not required when one case exposes a clear safety, correctness, or contract defect.
+2. Express reusable expectations and material failures as evaluation cases or explicit acceptance criteria at the level needed for the current decision. A case may be temporary for diagnosis or retained as a versioned regression definition; do not make persistence or CI execution automatic. Recurrence is useful evidence but is not required when one case exposes a clear safety, correctness, or contract defect.
 3. Diagnose the smallest harness component that plausibly caused each material failure.
 4. Propose a bounded change and state the intended gain, likely regressions, and affected surface.
 5. Have an authorized implementer apply the change without altering protected evidence or acceptance rules.
@@ -83,6 +83,8 @@ Keep successful cases as preservation constraints. Use fresh or held-out cases w
 
 When evaluation is slow, subjective, sparse, or easy to game, use the loop to produce a diagnosis and bounded proposal rather than to activate its own changes. Human judgment is part of the evaluator where no reliable automated verdict exists.
 
+Decide whether to retain a case separately from when and where to run it. Keep a versioned regression case when its future detection value justifies its creation, execution, and maintenance cost; otherwise use a temporary or manual case for the current decision. Choose manual, change-triggered, scheduled, release-time, or incident-triggered execution from the needed feedback latency, cost, determinism, isolation, auditability, and enforcement level. CI is one possible execution and enforcement venue, not a default requirement.
+
 ## AI self-improvement and RSI boundary
 
 OpenAI's GPT-5.6 materials use AI self-improvement for realistic, end-to-end AI-research tasks such as research debugging, kernel optimization, language-model training-loop optimization, post-training strategy, and machine-learning experimentation. The release article aggregates several such evaluations into an RSI Index. The GPT-5.6 system card treats AI Self-Improvement as a Preparedness Framework capability category and rates the GPT-5.6 family below its High threshold.
@@ -113,6 +115,8 @@ Increase automation only after the evaluation gate, required auditability, rollb
 
 - [Build an Agent Improvement Loop with Traces, Evals, and Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop)
 - [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)
+- [Iterating Development Workflows with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex)
+- [The AI-Native SDLC playbook - Claude by Anthropic](https://claude.com/blog/the-ai-native-sdlc-playbook)
 - [EvoLib - Microsoft Research](https://github.com/microsoft/EvoLib)
 - [Test-Time Learning with an Evolving Library - Microsoft Research](https://www.microsoft.com/en-us/research/publication/test-time-learning-with-an-evolving-library/)
 - [GPT-5.6: Frontier intelligence that scales with your ambition - OpenAI](https://openai.com/index/gpt-5-6/)

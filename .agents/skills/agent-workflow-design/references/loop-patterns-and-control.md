@@ -66,6 +66,8 @@ For lifecycle hooks, gates, or feedback-driven controls, separate three function
 
 A hook can reliably trigger a check without making the check semantically correct. A stored finding or another independent observation may justify recall and review, but it does not by itself authorize stronger enforcement. Choose advisory, approval, or blocking behavior from the consequence, scope, detection reliability, and policy authority of the current rule rather than from a recurrence count. Define what happens when the hook, evaluator, or required evidence is unavailable: a low-consequence quality aid may continue with a reported gap, while a required safety or side-effect boundary may need escalation or a fail-closed path. Bound any repair or stop-hook re-entry so the control cannot continue indefinitely.
 
+Place feedback close enough to the action to change the current pass when a reliable, affordable check is available. An inner self-check can accelerate repair, but it is not automatically an independent final verdict; use a separate context, deterministic check, human, or protected system only when the consequence or evaluator weakness justifies that independence. Do not add a separate verifier when the existing check already provides sufficient evidence.
+
 ## Loop contract
 
 Select only the fields that affect the workflow:
@@ -126,6 +128,8 @@ For nested delegation, define who may spawn descendants, what scope, permissions
 
 Keep dependent decisions sequential. More agents increase orchestration, review, and token costs; parallelism is not a quality guarantee.
 
+When acceleration or parallelism changes the load on later stages, consider end-to-end completion time, queue growth, validation or review burden, rework, and approval latency rather than throughput alone. If downstream capacity becomes the constraint, possible responses include reducing concurrency, applying backpressure, prioritizing, batching, or narrowing scope. Small bounded work whose downstream load is negligible or already controlled does not need this analysis.
+
 ## Common failure modes
 
 - Stopping because the model says it is done without artifact-level evidence.
@@ -142,6 +146,7 @@ Keep dependent decisions sequential. More agents increase orchestration, review,
 ## Sources
 
 - [Loop engineering: Getting started with loops - Claude by Anthropic](https://claude.com/blog/getting-started-with-loops)
+- [The AI-Native SDLC playbook - Claude by Anthropic](https://claude.com/blog/the-ai-native-sdlc-playbook)
 - [Automate work with routines - Claude Code Docs](https://code.claude.com/docs/en/routines)
 - [Building effective agents - Anthropic](https://www.anthropic.com/engineering/building-effective-agents)
 - [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)

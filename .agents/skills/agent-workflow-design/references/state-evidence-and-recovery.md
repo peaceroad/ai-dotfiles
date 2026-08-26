@@ -37,6 +37,8 @@ Separate these concepts:
 - **Candidate record:** A human-reviewable unresolved judgment kept for a later maintenance decision. It may be durable, but it is not runtime state, accepted behavior, or evidence by itself.
 - **Decision record:** Selective rationale, alternatives, consequences, or reconsideration conditions retained after a material decision because the authoritative artifact alone would not explain them. It does not activate or replace the authoritative skill, code, configuration, or policy.
 
+When several durable artifacts or systems may carry the same workflow information, assign authoritative ownership where disagreement could materially affect a decision, side effect, recovery, audit, or handoff. Distinguish intended or planned work from observed state and evidence, review findings, and approval or activation status when conflating them could change the next action. Prefer references to copied content, and define precedence or reconciliation only for plausible, consequential conflicts. A simple workflow with one authoritative artifact or harmless duplication does not need a source-of-truth map.
+
 Durable state must have an authoritative location. If several agents or processes can write it, define serialization, ownership, version checks, or conflict handling.
 
 When configuration can change during execution, define which values are pinned for the run and which are re-read, and at what boundary each change takes effect. Record the effective configuration needed for recovery and audit.
@@ -157,12 +159,14 @@ When a configured workflow requires durable audit records for consequential even
 ## Sources
 
 - [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)
+- [Iterating Development Workflows with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex)
 - [Build an Agent Improvement Loop with Traces, Evals, and Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop)
 - [Agent Skills specification](https://agentskills.io/specification)
 - [Evaluating skill output quality - Agent Skills](https://agentskills.io/skill-creation/evaluating-skills)
 - [Agent Notes - DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness/blob/master/.agents/notes/README.md)
 - [Symphony Service Specification - OpenAI](https://github.com/openai/symphony/blob/main/SPEC.md)
 - [Loop engineering: Getting started with loops - Claude by Anthropic](https://claude.com/blog/getting-started-with-loops)
+- [The AI-Native SDLC playbook - Claude by Anthropic](https://claude.com/blog/the-ai-native-sdlc-playbook)
 - [Designing AI agents to resist prompt injection - OpenAI](https://openai.com/index/designing-agents-to-resist-prompt-injection/)
 - [GPT-5.6 System Card - OpenAI](https://deploymentsafety.openai.com/gpt-5-6)
 - [Sandboxing - ChatGPT Learn](https://learn.chatgpt.com/docs/sandboxing)
