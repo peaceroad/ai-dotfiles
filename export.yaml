@@ -9,6 +9,7 @@ paths:
   - .agents/docs/notes/codex-skills-and-plugins.md
   - .agents/docs/notes/skill-creator-prompt-design-agent-workflow-design.md
   - .agents/skills/agent-workflow-design
+  - .agents/skills/plugin-creator-agent-plugins
   - .agents/skills/prompt-design
   - .agents/scripts/check-lf.mjs
   - .agents/scripts/codex/README.md

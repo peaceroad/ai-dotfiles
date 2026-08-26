@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plugin Creator for Agent Plugins"
+  short_description: "Create and validate portable Agent Plugin packages"
+  default_prompt: "Use $plugin-creator-agent-plugins to create or update a portable Agent Plugin package."
