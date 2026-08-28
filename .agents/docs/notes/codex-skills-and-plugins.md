@@ -1,6 +1,6 @@
 # CodexのAgent SkillsとAgent Pluginsの構成と使い分け
 
-> **確認時点：** 2026年8月26日。[Agent Skills仕様](https://agentskills.io/specification)、[Agent Plugins v1仕様](https://agent-plugins.org/specification)、OpenAI公式ドキュメント、`openai/codex`の公開ソース、手元のWindows版Codexで確認した内容です。仕様、ローカルの保存先、CLI、組み込みファイルは更新で変わる可能性があります。
+> **確認時点：** 2026年8月28日。[Agent Skills仕様](https://agentskills.io/specification)、[Agent Plugins v1仕様](https://agent-plugins.org/specification)、OpenAI公式ドキュメント、`openai/codex`の公開ソース、手元のWindows版Codexで確認した内容です。仕様、ローカルの保存先、CLI、組み込みファイルは更新で変わる可能性があります。
 
 Codexでは、Agent Skillを直接使う方法と、Agent SkillをAgent Pluginに含めて使う方法があります。Agent Skillは、必要なときに読み込む手順・判断基準・付属リソースの形式です。Agent Pluginは、Agent SkillsやMCPサーバーを一つの配布・インストール単位にまとめるportableなパッケージ形式です。Codex Marketplace、インストール状態、キャッシュはCodex側の配布・実行レイヤーであり、portable packageそのものではありません。
 
@@ -12,7 +12,7 @@ Codexでは、Agent Skillを直接使う方法と、Agent SkillをAgent Plugin�
 | Portable Agent Plugin | Agent Plugins v1仕様 | ルート`plugin.json`、直下`skills/`、ルート`mcp.json`、documented client extensions |
 | Codex integration | 現在のOpenAI公式ドキュメント、CLI help、インストール結果、新しいタスクでの発見 | Marketplace登録、インストール、キャッシュ、Codex固有機能 |
 
-2026年8月26日時点のOpenAI公式「Package your plugin」は、依然として`.codex-plugin/plugin.json`、`.mcp.json`、`.app.json`を使うCodex固有形式を説明しています。一方、手元のCodex CLI 0.149.1はルート`plugin.json`だけのAgent Plugins v1 packageをMarketplace経由でインストールし、含まれるスキルを発見できています。この不一致は、portable仕様とCodex固有資料を別々の証拠として扱います。Portable sourceへ念のため`.codex-plugin/plugin.json`を併置せず、対象Codexで実際に検証します。
+2026年8月28日時点のOpenAI公式「Package your plugin」は、依然として`.codex-plugin/plugin.json`、`.mcp.json`、`.app.json`を使うCodex固有形式を説明しています。一方、手元のCodex CLI 0.150.1はルート`plugin.json`だけのAgent Plugins v1 packageをMarketplace経由でインストールし、含まれるスキルを発見できています。この不一致は、portable仕様とCodex固有資料を別々の証拠として扱います。Portable sourceへ念のため`.codex-plugin/plugin.json`を併置せず、対象Codexで実際に検証します。
 
 ## スキルとプラグインの関係
 
@@ -391,7 +391,7 @@ Portable core componentはAgent SkillsとMCPサーバーの二つです。Hooks�
 
 ### 個人用`plugin-creator-agent-plugins`スキル
 
-この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`を、Agent Plugins v1を扱う個人用スキルの正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.1.0`です。
+この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`を、Agent Plugins v1を扱う個人用スキルの正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.2.0`です。開発中の作業コピーを固定する場合はGit commitまたは内容を固定したartifactを使い、公開・配布後はtemplateや生成結果を変える更新でversionを上げます。
 
 主なreferenceの分担は次のとおりです。
 
@@ -401,8 +401,9 @@ Portable core componentはAgent SkillsとMCPサーバーの二つです。Hooks�
 | `references/validation.md` | Portable conformance、contained skill、target clientを分けた検証 |
 | `references/codex-migration.md` | `.codex-plugin/plugin.json`中心のCodex固有packageからAgent Plugins v1へ移す一度きりの構造変更 |
 | `references/codex-integration.md` | Portable source完成後のMarketplace登録、インストール、更新、snapshot、新しいタスクでの反復確認 |
+| `references/repository-management.md` | Repository固有のテストやversion方針を持つ自己完結したローカル管理入口の生成・更新 |
 
-付属scriptは、`scripts/validate-agent-plugin.mjs`がAgent Plugins v1 packageをread-onlyで検証し、`scripts/check-builtin-plugin-creator.mjs`が組み込み`plugin-creator`の説明がAgent Plugins v1へ対応したかをread-onlyで分類します。それぞれの`.test.mjs`はvalidatorと判定scriptの固定テストです。後者は組み込み指示の監査であり、Codex runtimeの対応可否を証明しません。
+付属scriptは、`scripts/validate-agent-plugin.mjs`がAgent Plugins v1 packageをread-onlyで検証し、`scripts/manage-local-agent-plugin.mjs`がローカルプラグインの状態確認、検証、Marketplace経由の再インストール、snapshotと実キャッシュの照合を行います。`scripts/scaffold-local-agent-plugin.mjs`は、このmanager、validator、JSON SchemaをRepositoryへ配置し、Repository固有の設定を`.agents/plugin-development/<plugin-name>.json`へ分離します。複数のプラグインがある場合も設定はプラグインごとに分け、runner、validator、schemaは共有します。共通runnerのテストはスキル側にだけ置き、各Repositoryには複製しません。`scripts/check-builtin-plugin-creator.mjs`は、組み込み`plugin-creator`の説明がAgent Plugins v1へ対応したかをread-onlyで分類します。`check-builtin-plugin-creator.mjs`は組み込み指示の監査であり、Codex runtimeの対応可否を証明しません。
 
 ローカルMarketplaceの公式な配置は次のとおりです。
 
@@ -436,6 +437,30 @@ Codexの管理領域へ反映
 ```
 
 ローカル更新では、まずportableなルート`plugin.json`、各Agent Skill、存在する場合の`mcp.json`を検証します。Repositoryがversionをcache freshnessに使う方針なら、install時だけルート`plugin.json`のversionを一度更新し、`codex plugin add <plugin-name>@<marketplace-name>`で再インストールします。`status`や`validate`でversionを書き換えたり、cachebusterのために`.codex-plugin/plugin.json`を復活させたりしません。実行中のタスクには開始時に読み込んだ指示が残る可能性があるため、確認は新しいタスクで行います。Marketplaceの登録は初回設定であり、ソース更新のたびにやり直す操作ではありません。
+
+単純なAgent Plugins v1 packageでは、`plugin-creator-agent-plugins`の共通入口を直接使えます。
+
+```console
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/manage-local-agent-plugin.mjs" status <plugin-root>
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/manage-local-agent-plugin.mjs" validate <plugin-root>
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/manage-local-agent-plugin.mjs" install <plugin-root> --bump-version
+```
+
+`status`と`validate`は読み取り専用です。`install`はportable packageを検証し、必要な場合だけローカルMarketplaceを登録して再インストールし、Codexのsnapshot、実キャッシュ、ソースを照合します。既存versionが`+agent.<timestamp>`形式なら次回から自動更新し、新しいRepositoryでは`--bump-version`または`--keep-version`の選択を求めます。
+
+Repository固有のテストやversion方針を毎回同じ入口から使う場合は、次のscaffoldでRepository所有の`local-plugin.mjs`とプラグインごとの設定を生成します。生成されたrunner、validator、schemaはスキル側のテンプレートから明示的にrefreshし、Repository固有の変更は設定または設定から呼ぶ別scriptに置きます。`refresh`は内容が変わった生成ファイルだけを更新します。`refresh --check`はファイルを変更せず、テンプレートとのバイト単位の差分だけを検出します。portable packageとRepository固有checkの検証は`node scripts/local-plugin.mjs validate`で別に行います。CIでは、開発中ならGit commitまたは内容を固定したartifactを、公開後なら更新されたスキルversionを固定します。設定が一つならrunnerが自動選択し、複数ある場合は`--config .agents/plugin-development/<plugin-name>.json`で対象を明示します。
+
+実行環境からRepositoryの`.agents/`配下へ書き込めない場合は、別の場所を正本にせず、`prepare`で明示した書込み可能な場所へpending設定を作ります。`prepare`が書き込むのは明示したpending設定だけで、Repository内のscaffold生成物は作成・更新せず、既存出力も上書きしません。対象プラグインの設定がすでにある場合は、通常の`import`では置き換えられないため、`prepare`も早期に拒否します。利用者には、そのpending設定を指定して`import`を実行してもらいます。`import`はプラグイン名から正式な設定ファイル名を決め、生成ファイルを配置して検証します。既存設定や変更済み生成ファイルは上書きせず、検証に失敗した設定のコピーは取り消し、pending設定自体は削除しません。書込みが`EACCES`または`EPERM`で失敗した場合は、scaffold自身もコマンドに応じた復旧方法を表示します。pending設定も安全に作れない場合だけ、`init`または個別のPowerShell手順を示します。
+
+```console
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.mjs" init <repository-root> <plugin-root> --bump-version
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.mjs" prepare <repository-root> <plugin-root> <pending-output> --bump-version
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.mjs" import <repository-root> <pending-config>
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.mjs" refresh <repository-root>
+node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.mjs" refresh <repository-root> --check
+```
+
+設定内の固有テストは`command`と`args`を分け、Repository内の`cwd`から`shell: false`で実行します。MCPの代表tool call、生成物、公開処理などをmanagerが推測して追加することはありません。既存の専用scriptがこの設定で表せない保証を持つ場合は、同等性を確認できるまで置き換えません。
 
 ### Agent Plugins仕様とOpenAIの公開資料の役割
 

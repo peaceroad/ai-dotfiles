@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:plugin-creator-agent-plugins:agent-plugin-development-schema:v1",
+  "title": "Local Agent Plugin Development Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "pluginRoot"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "pluginRoot": {
+      "type": "string",
+      "minLength": 1
+    },
+    "marketplaceRoot": {
+      "type": "string",
+      "minLength": 1,
+      "default": "."
+    },
+    "versionPolicy": {
+      "enum": [
+        "bump",
+        "keep"
+      ]
+    },
+    "minimumNodeMajor": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "checks": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "command"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Bare executable name, ${NODE}, or a repository-relative executable path."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "cwd": {
+          "type": "string",
+          "minLength": 1,
+          "default": "."
+        }
+      }
+    }
+  }
+}

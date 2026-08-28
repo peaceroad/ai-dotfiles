@@ -1,0 +1,7 @@
+{
+  "$schema": "./schema.json",
+  "schemaVersion": 1,
+  "pluginRoot": "plugins/my-plugin",
+  "versionPolicy": "bump",
+  "checks": []
+}

@@ -58,6 +58,8 @@ Skill-local client metadata such as `skills/<name>/agents/openai.yaml` may remai
 
 Repository-wide development, release, and evaluation scripts may remain outside the distributed plugin when they are not needed at runtime. Include only resources that the installed plugin must access.
 
+When repeatable local plugin management needs repository-specific tests or version policy, keep that development contract outside portable `plugin.json`. Use [repository-management.md](repository-management.md) for the optional per-plugin `.agents/plugin-development/<plugin-name>.json` scaffold; do not require it for a simple package.
+
 ## MCP servers
 
 Add a root `mcp.json` only when the plugin provides MCP servers:

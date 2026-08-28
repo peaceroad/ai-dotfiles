@@ -1,8 +1,8 @@
 ---
 name: plugin-creator-agent-plugins
-description: Use when creating, updating, auditing, or validating portable Agent Plugins v1 packages, or migrating a Codex-specific plugin to that format, including root plugin.json, contained Agent Skills, MCP packaging through mcp.json, documented client extensions, and optional Codex marketplace integration. Use skill-creator for a standalone Agent Skill, and use the built-in plugin-creator when the source of truth is only the Codex-specific .codex-plugin/plugin.json format.
+description: Use when creating, updating, auditing, validating, or refreshing local Codex installations of portable Agent Plugins v1 packages, or migrating a Codex-specific plugin to that format, including root plugin.json, contained Agent Skills, MCP packaging through mcp.json, documented client extensions, and optional Codex marketplace integration. Use skill-creator for a standalone Agent Skill, and use the built-in plugin-creator when the source of truth is only the Codex-specific .codex-plugin/plugin.json format.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Plugin Creator for Agent Plugins v1
@@ -27,7 +27,8 @@ Load only the material needed for the request.
 - **Create, update, or review a package, its contained skills, or its MCP integration:** Read [authoring.md](references/authoring.md).
 - **Migrate a Codex-specific plugin to Agent Plugins v1:** Read [codex-migration.md](references/codex-migration.md) first, then load the authoring, validation, and Codex-integration references it calls for.
 - **Validate conformance:** Read [validation.md](references/validation.md), then use `scripts/validate-agent-plugin.mjs` where Node.js is available.
-- **Register, install, or refresh through a Codex marketplace:** Validate the portable source first, then read [codex-integration.md](references/codex-integration.md).
+- **Register, install, or refresh through a Codex marketplace:** Validate the portable source first, then read [codex-integration.md](references/codex-integration.md). Prefer a repository-owned management script; when none exists, use `scripts/manage-local-agent-plugin.mjs` for the shared Agent Plugins v1 and Codex integration boundary.
+- **Give a repository a repeatable local manager or repository-specific validation checks:** Read [repository-management.md](references/repository-management.md). Scaffold the managed runner only when configuration adds value; keep simple packages on the direct manager path.
 - **Check whether the built-in `plugin-creator` describes Agent Plugins v1:** Run `node scripts/check-builtin-plugin-creator.mjs`. This is a read-only instruction check and does not establish runtime support.
 - **Create or update only the Codex-specific legacy format:** Use the built-in `plugin-creator`.
 

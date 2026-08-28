@@ -60,6 +60,24 @@ Prefer a repository-owned management script for this sequence when one exists. I
 
 After installation, use `codex plugin list --available --json` or its current equivalent to confirm the intended plugin and marketplace, source version, enabled state, and local source path when applicable. Verify the result in a new Codex task. A task that was already running may retain skill instructions or tool definitions loaded at startup.
 
+## Included local-development manager
+
+When an Agent Plugins v1 repository has no management script of its own, use the common manager included with this skill. Run it from the skill root or pass its absolute path:
+
+```powershell
+node scripts/manage-local-agent-plugin.mjs status 'C:\path\to\plugin-root'
+node scripts/manage-local-agent-plugin.mjs validate 'C:\path\to\plugin-root'
+node scripts/manage-local-agent-plugin.mjs install 'C:\path\to\plugin-root' --bump-version
+```
+
+If the repository must run the same repository-specific checks on every validation and install, use the optional self-contained scaffold in [repository-management.md](repository-management.md). Do not add configuration merely to avoid passing a plugin path once.
+
+The manager discovers a local marketplace entry by walking from the plugin root toward its ancestors and then checking the default personal marketplace. Use `--marketplace-root <root>` when the intended root must override that order. It never edits marketplace files or installed caches.
+
+`status` and `validate` are read-only. `install` validates the portable package, registers a matching non-default local marketplace when needed, installs the plugin, and compares the Codex snapshot and installed manifest with the source. It replaces existing build metadata with `+agent.<UTC timestamp>` only when `--bump-version` is specified or the current version already uses that managed suffix. Use `--keep-version` for a repository that does not use version-based local cache freshness. For a new repository without either policy, the manager stops and requires an explicit choice; it does not invent a version.
+
+In direct mode, this manager owns only the reusable Agent Plugins v1 validation and Codex installation boundary. It does not infer a repository's application tests, generated files, MCP behavior checks, release process, or publication policy. When those checks must share the same entrypoint, use the explicit Repository development contract in [repository-management.md](repository-management.md).
+
 ## Format boundary
 
 Do not replace the portable Agent Plugins v1 source of truth merely because the built-in OpenAI `plugin-creator` or another Codex document describes `.codex-plugin/plugin.json`. Treat root `plugin.json` support as the expected baseline for the current Codex plugin runtime, and do not add the Codex manifest to the portable source as a precaution. A separate client-native package is appropriate only for an explicitly targeted historical or different client that still requires it.

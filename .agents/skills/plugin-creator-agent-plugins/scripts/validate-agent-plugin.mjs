@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
+// @plugin-creator-agent-plugins managed-portable-validator v1
+
 import { lstat, readFile, readdir, realpath } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 
 const SPEC_VERSION = "1.0.0";
@@ -19,6 +22,25 @@ function isObject(value) {
 function isWithin(root, candidate) {
   const relative = path.relative(root, candidate);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function displayPath(pathValue) {
+  const absolutePath = path.resolve(pathValue);
+  const home = path.resolve(homedir());
+  const relativeToHome = path.relative(home, absolutePath);
+  if (relativeToHome === "") return "~";
+  if (!relativeToHome.startsWith("..") && !path.isAbsolute(relativeToHome)) {
+    return `~/${relativeToHome.replaceAll(path.sep, "/")}`;
+  }
+  return `[external]/${path.basename(absolutePath)}`;
+}
+
+function sanitizeError(message) {
+  const home = path.resolve(homedir());
+  return String(message)
+    .replaceAll(`\\\\?\\${home}`, "~")
+    .replaceAll(home, "~")
+    .replaceAll(home.replaceAll("\\", "/"), "~");
 }
 
 function parseArgs(argv) {
@@ -275,15 +297,14 @@ async function validateLinks(root, errors) {
     const entries = await readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
       const target = path.join(directory, entry.name);
-      const stat = await lstat(target);
-      if (stat.isSymbolicLink()) {
+      if (entry.isSymbolicLink()) {
         try {
           const resolved = await realpath(target);
           if (!isWithin(resolvedRoot, resolved)) errors.push(`Link resolves outside the package: ${path.relative(root, target)}`);
         } catch (error) {
           errors.push(`Cannot resolve link: ${path.relative(root, target)} (${error.message})`);
         }
-      } else if (stat.isDirectory()) {
+      } else if (entry.isDirectory()) {
         await visit(target);
       }
     }
@@ -296,7 +317,12 @@ async function main() {
   const root = path.resolve(options.root);
   const errors = [];
   const warnings = [];
-  const summary = { root, specVersion: SPEC_VERSION, skills: 0, hasMcp: false };
+  const summary = {
+    root: displayPath(root),
+    specVersion: SPEC_VERSION,
+    skills: 0,
+    hasMcp: false,
+  };
 
   const rootStat = await lstat(root);
   if (!rootStat.isDirectory()) throw new Error("The specified plugin root is not a directory.");
@@ -309,7 +335,7 @@ async function main() {
   const result = { ok: errors.length === 0, ...summary, errors, warnings };
   if (options.json) console.log(JSON.stringify(result, null, 2));
   else {
-    console.log(`${result.ok ? "OK" : "FAILED"}: ${root}`);
+    console.log(`${result.ok ? "OK" : "FAILED"}: ${summary.root}`);
     console.log(`skills: ${summary.skills}, mcp.json: ${summary.hasMcp ? "present" : "absent"}`);
     for (const warning of warnings) console.log(`WARNING: ${warning}`);
     for (const error of errors) console.error(`ERROR: ${error}`);
@@ -318,6 +344,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`validate-agent-plugin: ${error.message}`);
+  console.error(`validate-agent-plugin: ${sanitizeError(error.message)}`);
   process.exitCode = 1;
 });
