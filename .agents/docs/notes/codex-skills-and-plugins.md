@@ -391,7 +391,7 @@ Portable core componentはAgent SkillsとMCPサーバーの二つです。Hooks�
 
 ### 個人用`plugin-creator-agent-plugins`スキル
 
-この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`を、Agent Plugins v1を扱う個人用スキルの正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.2.0`です。開発中の作業コピーを固定する場合はGit commitまたは内容を固定したartifactを使い、公開・配布後はtemplateや生成結果を変える更新でversionを上げます。
+この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`を、Agent Plugins v1を扱う個人用スキルの正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.3.0`です。開発中の作業コピーを固定する場合はGit commitまたは内容を固定したartifactを使い、公開・配布後はtemplateや生成結果を変える更新でversionを上げます。
 
 主なreferenceの分担は次のとおりです。
 
@@ -401,9 +401,10 @@ Portable core componentはAgent SkillsとMCPサーバーの二つです。Hooks�
 | `references/validation.md` | Portable conformance、contained skill、target clientを分けた検証 |
 | `references/codex-migration.md` | `.codex-plugin/plugin.json`中心のCodex固有packageからAgent Plugins v1へ移す一度きりの構造変更 |
 | `references/codex-integration.md` | Portable source完成後のMarketplace登録、インストール、更新、snapshot、新しいタスクでの反復確認 |
+| `references/marketplace-distribution.md` | 複数のプラグインをローカル、Git、NAS上の一つのMarketplaceへ集約する |
 | `references/repository-management.md` | Repository固有のテストやversion方針を持つ自己完結したローカル管理入口の生成・更新 |
 
-付属scriptは、`scripts/validate-agent-plugin.mjs`がAgent Plugins v1 packageをread-onlyで検証し、`scripts/manage-local-agent-plugin.mjs`がローカルプラグインの状態確認、検証、Marketplace経由の再インストール、snapshotと実キャッシュの照合を行います。`scripts/scaffold-local-agent-plugin.mjs`は、このmanager、validator、JSON SchemaをRepositoryへ配置し、Repository固有の設定を`.agents/plugin-development/<plugin-name>.json`へ分離します。複数のプラグインがある場合も設定はプラグインごとに分け、runner、validator、schemaは共有します。共通runnerのテストはスキル側にだけ置き、各Repositoryには複製しません。`scripts/check-builtin-plugin-creator.mjs`は、組み込み`plugin-creator`の説明がAgent Plugins v1へ対応したかをread-onlyで分類します。`check-builtin-plugin-creator.mjs`は組み込み指示の監査であり、Codex runtimeの対応可否を証明しません。
+付属scriptは、`scripts/validate-agent-plugin.mjs`がAgent Plugins v1 packageをread-onlyで検証し、`scripts/manage-local-agent-plugin.mjs`がローカルプラグインの状態確認、検証、Marketplace経由の再インストール、snapshotと実キャッシュの照合を行います。`scripts/scaffold-local-agent-plugin.mjs`は、このmanager、validator、JSON SchemaをRepositoryへ配置し、Repository固有の設定を`.agents/plugin-development/<plugin-name>.json`へ分離します。`scripts/assemble-plugin-marketplace.mjs`は、複数のソースリポジトリから、ローカルディレクトリ、Gitリポジトリ、NAS上の共有Marketplaceを生成・更新します。複数のプラグインがある場合もRepository管理設定はプラグインごとに分け、runner、validator、schemaは共有します。共通runnerのテストはスキル側にだけ置き、各Repositoryには複製しません。`scripts/check-builtin-plugin-creator.mjs`は、組み込み`plugin-creator`の説明がAgent Plugins v1へ対応したかをread-onlyで分類します。`check-builtin-plugin-creator.mjs`は組み込み指示の監査であり、Codex runtimeの対応可否を証明しません。
 
 ローカルMarketplaceの公式な配置は次のとおりです。
 
@@ -419,6 +420,8 @@ Marketplaceの`source.path`が、読み込むプラグインディレクトリ�
 ローカルまたはリポジトリMarketplaceは、Codexが参照するカタログ兼導入元です。`codex plugin marketplace add <ローカルルート>`は、そのMarketplaceソースをCodexへ登録・追跡させる操作であり、プラグイン本体をインターネットへアップロードしたり、共通のPlugins Directoryへ公開したりする操作ではありません。公開やChatGPTワークスペース内での共有は、それぞれ別の工程です。
 
 既定の個人用Marketplaceである`~/.agents/plugins/marketplace.json`は暗黙に検出されます。別の場所にあるリポジトリまたはローカルMarketplaceは、初回に登録し、その後は同じMarketplace名を使います。登録状況と解決されたローカルルートは`codex plugin marketplace list`で確認できます。
+
+複数のプラグインを一つのMarketplaceへまとめ、NASやGitリポジトリで共有する場合は、[CodexのプラグインMarketplaceを作成し、NASやGitで共有する](codex-plugin-marketplace-distribution.md)を参照してください。各プラグインの開発元を正本として保ち、共有用のコピー、Marketplaceカタログ、利用者のインストール先を分けて更新する手順を説明しています。
 
 ### ローカルプラグインの正本と更新方向
 

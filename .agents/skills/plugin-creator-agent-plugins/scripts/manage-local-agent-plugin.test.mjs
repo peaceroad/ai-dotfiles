@@ -155,6 +155,33 @@ try {
   const validate = runManager(["validate", repository.pluginRoot], fakeCodex, statePath);
   check("validate accepts a portable package", validate.status === 0, validate.stderr);
 
+  const distributed = await createRepository("distributed-plugin");
+  await writeJson(
+    path.join(
+      distributed.repoRoot,
+      ".agents",
+      "plugin-marketplace-development",
+      "config.json",
+    ),
+    {
+      schemaVersion: 1,
+      name: "distributed-marketplace",
+      displayName: "Distributed Marketplace",
+      plugins: [],
+    },
+  );
+  const distributedInstall = runManager(
+    ["install", distributed.pluginRoot, "--keep-version"],
+    fakeCodex,
+    statePath,
+  );
+  check(
+    "install refuses a generated shared Marketplace copy",
+    distributedInstall.status === 1
+      && distributedInstall.stderr.includes("Use the Codex CLI"),
+    distributedInstall.stderr,
+  );
+
   const missingPolicy = runManager(["install", repository.pluginRoot], fakeCodex, statePath);
   const unchanged = JSON.parse(await readFile(path.join(repository.pluginRoot, "plugin.json"), "utf8"));
   check(

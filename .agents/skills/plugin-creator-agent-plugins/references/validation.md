@@ -29,12 +29,13 @@ The script checks:
 
 This is not a complete JSON Schema implementation, a complete YAML parser, or a validator for client extensions. It does not replace validation against the current official schemas, an official Agent Skills validator, or behavior checks in each target client.
 
-After changing the validator, local plugin manager, or built-in compatibility checker, run the related test scripts:
+After changing the validator, local plugin manager, Repository scaffold, Marketplace assembler, or built-in compatibility checker, run the related test scripts:
 
 ```powershell
 node scripts/validate-agent-plugin.test.mjs
 node scripts/manage-local-agent-plugin.test.mjs
 node --test scripts/scaffold-local-agent-plugin.test.mjs
+node --test scripts/assemble-plugin-marketplace.test.mjs
 node scripts/check-builtin-plugin-creator.test.mjs
 ```
 

@@ -2,6 +2,8 @@
 
 Use this reference when an Agent Plugins v1 repository needs repeatable local validation or installation with repository-specific checks. Keep this development contract outside the portable plugin manifest.
 
+This is a developer-source workflow. It owns repository validation and local installation, not the assembly of copies for a shared Marketplace. After the configured checks pass, use [marketplace-distribution.md](marketplace-distribution.md) as a separate distribution step when the package must be shared.
+
 ## Choose the smallest path
 
 - For a package that needs only portable validation or a one-time local install, call `scripts/manage-local-agent-plugin.mjs` with the plugin root. Do not add repository configuration.

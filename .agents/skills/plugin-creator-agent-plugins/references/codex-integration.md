@@ -45,6 +45,8 @@ If the repository supplies a script that combines validation and reinstallation,
 codex plugin add '<plugin-name>@<marketplace-name>'
 ```
 
+Use a repository-owned script or this skill's manager only with a developer-controlled source package. A consumer installing from an assembled shared Marketplace should register that Marketplace and use the Codex CLI directly. Do not use the developer manager to install from the generated copy: its optional local version policy and source-oriented checks belong upstream, before Marketplace assembly. If the shared root has not been assembled yet, follow [marketplace-distribution.md](marketplace-distribution.md) first.
+
 Do not uninstall before an ordinary update. Consider the current CLI's documented removal flow only after confirming that reinstalling cannot refresh the plugin.
 
 If an old cache remains, do not edit `~/.codex/plugins/cache/` or copy from it back to the source repository. Use the repository's update script when it manages a single cachebuster. In general-purpose work, do not append version suffixes unless the target client requires them.
@@ -62,7 +64,7 @@ After installation, use `codex plugin list --available --json` or its current eq
 
 ## Included local-development manager
 
-When an Agent Plugins v1 repository has no management script of its own, use the common manager included with this skill. Run it from the skill root or pass its absolute path:
+When a developer-controlled Agent Plugins v1 repository has no management script of its own, use the common manager included with this skill. Run it from the skill root or pass its absolute path:
 
 ```powershell
 node scripts/manage-local-agent-plugin.mjs status 'C:\path\to\plugin-root'

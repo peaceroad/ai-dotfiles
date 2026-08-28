@@ -31,6 +31,11 @@ const COMMANDS = new Set(["status", "validate", "install"]);
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".js", ".mjs"]);
 const VERSION_POLICIES = new Set(["bump", "keep"]);
 const CONFIG_DIRECTORY = join(".agents", "plugin-development");
+const ASSEMBLY_CONFIG_PATH = join(
+  ".agents",
+  "plugin-marketplace-development",
+  "config.json",
+);
 const CONFIG_SCHEMA_NAME = "schema.json";
 const CONFIG_PATH_PATTERN = ".agents/plugin-development/<plugin-name>.json";
 const CONFIG_FIELDS = new Set([
@@ -90,11 +95,12 @@ Repository configuration:
   automatically; multiple configurations require --config. A configuration may
   define repository-specific validation checks.
 
-This tool validates the portable package and Codex installation boundary. Without
-repository configuration, run repository-specific tests separately. Configured
-checks are repository-owned, read-only validation commands. Running without
-arguments displays this help and does not change files, marketplaces, or installed
-plugins.`;
+This developer-source tool validates the portable package and Codex installation
+boundary. Do not run install against a generated shared Marketplace copy; register
+that Marketplace and use the Codex CLI directly. Without repository configuration,
+run repository-specific tests separately. Configured checks are repository-owned,
+read-only validation commands. Running without arguments displays this help and
+does not change files, marketplaces, or installed plugins.`;
 
 function fail(message, exitCode = 1) {
   const error = new Error(message);
@@ -871,6 +877,12 @@ function handleValidate(options) {
 function handleInstall(options) {
   runPortableValidation(options.pluginRoot);
   const { manifestInfo, marketplace } = readPluginContext(options);
+  if (existsSync(join(marketplace.marketplaceRoot, ASSEMBLY_CONFIG_PATH))) {
+    fail(
+      "Refusing developer-manager install from a generated shared Marketplace copy. "
+      + `Use the Codex CLI to install ${manifestInfo.manifest.name}@${marketplace.marketplaceName}.`,
+    );
+  }
   runRepositoryChecks(options);
   const versionPolicy = chooseVersionPolicy(manifestInfo.manifest, options);
   let sourceVersion = manifestInfo.manifest.version;

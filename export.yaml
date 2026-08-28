@@ -6,6 +6,7 @@ paths:
   - .codex/browser/config.toml
   - .agents/docs/notes/codex-agents-md-instruction-rationale.md
   - .agents/docs/notes/codex-browser-config-and-security.md
+  - .agents/docs/notes/codex-plugin-marketplace-distribution.md
   - .agents/docs/notes/codex-skills-and-plugins.md
   - .agents/docs/notes/skill-creator-prompt-design-agent-workflow-design.md
   - .agents/skills/agent-workflow-design
@@ -16,3 +17,4 @@ paths:
   - .agents/scripts/codex/manage-codex-disk-pressure.mjs
   - .agents/scripts/codex/manage-skill-validator-utf8-patch.mjs
   - .agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs
+
