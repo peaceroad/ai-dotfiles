@@ -46,6 +46,8 @@ Agent Skills仕様では、スキルディレクトリに必須の`SKILL.md`に�
 
 ### 改善記録とruntime stateを必要な場合だけ持つ
 
+`~/.agents/notes/`の一般的な位置付け、配置、採用、読み直し、削除条件は、[`~/.agents/notes/`を保守記録の入口として使う考え方](agents-notes-local-convention.md)で説明しています。この節では、`agent-workflow-design`が永続化を判断する際にこの場所を候補にする条件と、同スキルが同梱する任意のテンプレートとの関係に絞ります。
+
 多段階または改善を含むことだけでは、永続記録やruntime stateを作りません。現在または保存済みセッションと既存の正本で足りる場合はそれらを使い、再開、複数ケース照合、設定済みの監査要件による価値が保存・保守コストを上回る場合だけ、所有者、読む条件、再確認条件、競合処理、整理・削除の条件を定めて必要な情報だけを保存します。
 
 保存先は、対象ワークフロー、プロジェクト、外部システムがすでに持つ正本を優先します。このCodex環境で、複数のプロジェクトやセッションをまたぐ、人が読み返す未解決候補や設計判断に新しい保存先が必要な場合だけ、`~/.agents/notes/<owner-id>/candidates/<candidate-set-id>/`または`~/.agents/notes/<owner-id>/decisions/`を提案し、絶対パスを示してから書き込みます。これはAgent Skills仕様ではなく、この環境のローカル規約です。`owner-id`には、schema、書き込み、競合、整理・削除を管理するスキル、プラグイン、ランタイムなどの識別子を使い、単にワークフローを呼び出しただけのスキルを所有者にはしません。
@@ -55,6 +57,8 @@ Agent Skills仕様では、スキルディレクトリに必須の`SKILL.md`に�
 スキル配下には、配布・バージョン管理する指示、参照、スクリプト、資材、メタデータなどを置き、レビュー済みの再利用知識は明示的なスキル保守として取り込みます。利用者、プロジェクト、セッションごとに変化する未解決候補、チェックポイント、履歴、ログ、キャッシュは、スキル配下へ置きません。`~/.agents/notes/`には人が再検討する候補と必要なdecision recordだけを置き、生ログ、評価結果、チェックポイント、ロック、再試行回数などのruntime stateは混ぜません。
 
 runtime stateは常に永続化するものではありません。中断やrun境界を越えた再開、重複実行防止、監査、並行制御などに必要な場合だけ、ランタイム、コントローラー、プラグイン、外部システム、またはプロジェクトが、schema、更新規則、所有者、回復、cleanupとともに保存先を定めます。保存先が未定ならstate contractは未完成であり、便宜的な退避先を作りません。`~/.codex/state/`も、Codex、プラグイン、ランタイムが明示的に割り当てた場合だけ使います。
+
+採用済みの利用者設定は、未解決候補、判断記録、runtime stateとは別の情報種別です。対応するスキルやワークフローが外部の利用者設定を必要とする場合は、[`~/.agents/config/`を利用者所有の設定面として使う考え方](agents-config-local-convention.md)を設計案として参照できます。ただし、`~/.agents/config/`は`agent-workflow-design`の共通要件やクライアントの自動読み込み場所ではありません。設定を採用する所有者が、読み込み、適用範囲、優先関係、実行中の固定と再読、保護範囲、失敗時の扱いを定めます。
 
 ### 評価定義と評価結果を分ける
 
@@ -111,6 +115,8 @@ runtime stateは常に永続化するものではありません。中断やrun�
 
 ## 参考資料
 
+- [`~/.agents/notes/`を保守記録の入口として使う考え方](agents-notes-local-convention.md)
+- [`~/.agents/config/`を利用者所有の設定面として使う考え方](agents-config-local-convention.md)
 - [Agent Skills Specification](https://agentskills.io/specification)
 - [Evaluating skill output quality](https://agentskills.io/skill-creation/evaluating-skills)
 - [Build skills（OpenAI）](https://learn.chatgpt.com/docs/build-skills)

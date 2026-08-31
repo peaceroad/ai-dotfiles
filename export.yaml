@@ -4,6 +4,9 @@ paths:
   - .codex/AGENTS.md
   - .codex/config.toml
   - .codex/browser/config.toml
+  - .agents/docs/notes/agents-config-local-convention.md
+  - .agents/docs/notes/agents-config-user-instructions.md
+  - .agents/docs/notes/agents-notes-local-convention.md
   - .agents/docs/notes/codex-agents-md-instruction-rationale.md
   - .agents/docs/notes/codex-browser-config-and-security.md
   - .agents/docs/notes/codex-plugin-marketplace-distribution.md
@@ -17,4 +20,3 @@ paths:
   - .agents/scripts/codex/manage-codex-disk-pressure.mjs
   - .agents/scripts/codex/manage-skill-validator-utf8-patch.mjs
   - .agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs
-

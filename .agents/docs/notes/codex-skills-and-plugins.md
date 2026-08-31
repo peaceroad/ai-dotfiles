@@ -451,6 +451,14 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/manage-local-age
 
 `status`と`validate`は読み取り専用です。`install`はportable packageを検証し、必要な場合だけローカルMarketplaceを登録して再インストールし、Codexのsnapshot、実キャッシュ、ソースを照合します。既存versionが`+agent.<timestamp>`形式なら次回から自動更新し、新しいRepositoryでは`--bump-version`または`--keep-version`の選択を求めます。
 
+### 利用側の`plugin-management`スキル
+
+`plugin-creator-agent-plugins`がportable packageの作成、検証、配布を扱うのに対し、`plugin-management`は既存プラグインを利用する側の発見、接続、権限、依存関係、削除を扱います。2026年8月31日に手元で確認した`openai-curated-remote`版の指示では、まず利用可能な組み込み機能、次に接続済みプラグインを選び、外部サービスやデータソースが必要で既存の手段ではアクセスできない場合にだけ、新しいプラグインを検索・提案します。
+
+提案はインストールや接続の完了を意味しません。接続状態を確認してからプラグインの機能を使い、接続待ちの間も外部連携を必要としない作業は続けます。権限変更はユーザーが依頼した範囲に限り、削除は明示的な依頼がある場合だけ行います。OpenAI公式ドキュメントでも、Plugins Directoryからのインストールと、必要な外部サービスへの接続・権限承認は別の段階として説明されています。
+
+`plugin-management`の`SKILL.md`は、Plugin Management appをいつ使うかという判断と安全境界を定めるもので、プラグインパッケージを作成・検証する機能そのものではありません。プラグイン内のモデル向け指示は`prompt-design`、反復・長期実行する利用フローは`agent-workflow-design`の対象になり得ますが、発見・接続管理とは責務を分けます。両スキルとの関係は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md)も参照してください。
+
 Repository固有のテストやversion方針を毎回同じ入口から使う場合は、次のscaffoldでRepository所有の`local-plugin.mjs`とプラグインごとの設定を生成します。生成されたrunner、validator、schemaはスキル側のテンプレートから明示的にrefreshし、Repository固有の変更は設定または設定から呼ぶ別scriptに置きます。`refresh`は内容が変わった生成ファイルだけを更新します。`refresh --check`はファイルを変更せず、テンプレートとのバイト単位の差分だけを検出します。portable packageとRepository固有checkの検証は`node scripts/local-plugin.mjs validate`で別に行います。CIでは、開発中ならGit commitまたは内容を固定したartifactを、公開後なら更新されたスキルversionを固定します。設定が一つならrunnerが自動選択し、複数ある場合は`--config .agents/plugin-development/<plugin-name>.json`で対象を明示します。
 
 実行環境からRepositoryの`.agents/`配下へ書き込めない場合は、別の場所を正本にせず、`prepare`で明示した書込み可能な場所へpending設定を作ります。`prepare`が書き込むのは明示したpending設定だけで、Repository内のscaffold生成物は作成・更新せず、既存出力も上書きしません。対象プラグインの設定がすでにある場合は、通常の`import`では置き換えられないため、`prepare`も早期に拒否します。利用者には、そのpending設定を指定して`import`を実行してもらいます。`import`はプラグイン名から正式な設定ファイル名を決め、生成ファイルを配置して検証します。既存設定や変更済み生成ファイルは上書きせず、検証に失敗した設定のコピーは取り消し、pending設定自体は削除しません。書込みが`EACCES`または`EPERM`で失敗した場合は、scaffold自身もコマンドに応じた復旧方法を表示します。pending設定も安全に作れない場合だけ、`init`または個別のPowerShell手順を示します。
@@ -525,6 +533,8 @@ GitHubの`main`ブランチ、インストール済みCodex、ローカルへ展
 
 ### OpenAI公式ドキュメント
 
+- [Skills & Plugins](https://learn.chatgpt.com/docs/skills-and-plugins)
+- [Plugins](https://learn.chatgpt.com/docs/plugins)
 - [Build skills](https://learn.chatgpt.com/docs/build-skills)
 - [Build skills for plugins](https://developers.openai.com/plugins/build/skills)
 - [Plugin architecture](https://developers.openai.com/plugins/concepts/plugins)
