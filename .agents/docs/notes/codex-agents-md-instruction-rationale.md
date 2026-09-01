@@ -1,10 +1,10 @@
 # `~/.codex/AGENTS.md`の指示と設計理由
 
-このノートは、2026年8月11日時点の`~/.codex/AGENTS.md`にある指示について、英語の指示文、日本語訳、設計理由、現在のシステム／開発者指示との関係、運用上の補足を整理したものです。
+このノートは、`~/.codex/AGENTS.md`にある指示について、英語の指示文、日本語訳、設計理由、確認時点のシステム／開発者指示との関係、運用上の補足を整理したものです。既存の指示は2026年8月11日に整理し、`Waiting`は2026年9月1日に追加しました。
 
 OpenAIの公式ドキュメントによると、Codexは作業前に`AGENTS.md`を読み、`~/.codex/AGENTS.md`を共通の既定として使用します。このファイルには、複数の作業で継続して必要になる環境固有の約束やユーザーの安定した好みを置きます。
 
-`AGENTS.md`はシステム指示や開発者指示より上位になるものではありません。ここでいう「上位指示との関係」は、2026年8月11日のこのCodexセッションで確認できるシステム／開発者指示との比較です。同じ趣旨が含まれる場合は、`AGENTS.md`が追加する具体的な条件や、ユーザーの共通設定として保持する役割を確認します。
+`AGENTS.md`はシステム指示や開発者指示より上位になるものではありません。各セクションの「現在の上位指示との関係」は、その指示を整理または追加した時点のCodexセッションで確認できたシステム／開発者指示との比較です。同じ趣旨が含まれる場合は、`AGENTS.md`が追加する具体的な条件や、ユーザーの共通設定として保持する役割を確認します。
 
 ## 上位指示の確認方法
 
@@ -56,6 +56,48 @@ OpenAIの公式ドキュメントによると、Codexは作業前に`AGENTS.md`�
 ### 補足
 
 この指示は、結論から書くことや結論を常に省くこと、回答全体を一律に短くすることを求めません。必要な判断、理由、根拠、注意点、検証結果、残る制約は省かず、理解しやすい位置で明確に述べます。
+
+## Waiting
+
+このセクションは、外部処理やサブエージェントの結果を待つ間に、主担当が成果へ寄与しない分析、再計画、進捗説明、個別ポーリングを続けることを防ぎます。同時に、利用可能になった部分結果で有用な作業を進められる場合まで、常に全件の完了を待つ規則にはしません。
+
+### 指示文
+
+```md
+## Waiting
+
+- Continue substantive work only while another action can materially advance or verify the requested outcome. Treat unchanged or non-actionable status as a wait signal unless it establishes a stall or another stop condition; do not fill the interval with speculative analysis, repeated replanning, routine status narration, or unrelated work.
+- For in-flight operations or subagents, use partial results when task-specific dependencies and version constraints allow useful work to proceed. Wait for all only when a dependency, comparison, version lock, or synthesis requires the complete set; otherwise use the runtime's supported wait mechanism instead of polling.
+- When progress depends only on a future time or external state change, preserve only the state needed to resume in runtime-owned state or an already-authorized project state location, use a supported monitoring mechanism when continued monitoring is authorized, and yield the turn. On wake, reconcile current state before acting; if nothing actionable changed, return to waiting, back off when the workflow permits, and stop recurring monitoring when the task ends.
+```
+
+### 日本語訳
+
+> - 別の行動によって依頼された成果を実質的に前進させるか検証できる間だけ、実作業を続けます。状態に変化がない場合や、変化していても行動につながらない場合は、停滞や別の停止条件が成立したと確認できる場合を除き、待機の合図として扱います。その間を、推測的な分析、繰り返しの再計画、定型的な進捗説明、無関係な作業で埋めません。
+> - 実行中の処理やサブエージェントがある場合は、タスク固有の依存関係とバージョン制約が許すとき、部分結果を有用な作業に使います。依存関係、比較、バージョン固定、統合に完全な一式が必要な場合だけ全件を待ち、それ以外では個別にポーリングせず、実行環境が提供する待機手段を使います。
+> - 将来の時刻または外部状態の変化だけが進行条件になった場合は、再開に必要な状態だけを、実行環境が管理する状態またはすでに許可されたプロジェクト内の状態保存先へ残します。継続監視が許可されている場合は、対応する監視手段を使い、ターンを終了します。再開時は、行動前に現在の状態と整合させます。行動可能な変化がなければ待機へ戻り、ワークフロー上可能なら確認間隔を延ばし、タスク終了時には定期監視を停止します。
+
+### 背景と理由
+
+長時間タスクで消費を抑えたい対象は、待機手段そのものより、結果が返るまでの空白を主担当が低価値な思考や出力で埋める挙動です。第1の指示は、次の行動が成果の前進または検証に寄与するかを継続条件にします。変化がない状態だけでなく、変化していても次の行動を可能にしない状態を待機として扱うため、意味のない再分析や進捗説明を抑えられます。一方、同じ状態が停滞判定や停止条件の成立を示す場合は、その判定を有用な作業として残します。
+
+第2の指示は、複数の処理やサブエージェントを一律に扱わないための規則です。一つの結果で後続作業を開始できるなら利用し、比較や統合に全結果が必要なら待ちます。とくに、同じ版の成果物に対する複数のレビューや、入力の組がそろわないと成立しない統合では、先に返った結果だけで対象を更新すると、残りの結果が古い版を参照することがあります。`version constraints`と`version lock`は、このようなタスク固有の制約を、グローバル指示が誤って弱めないための表現です。
+
+第3の指示は、同じターン内で実行中処理を待つ場合と、将来の時刻や外部変化までターンをまたいで監視する場合を分けます。前者は実行環境の待機手段を使い、後者は継続監視が依頼の範囲で許可されている場合だけ、スケジュール実行やheartbeatなど利用可能な監視手段を使います。状態の保存先を実行環境または既存の許可済み領域に限定することで、待機を理由に新しいファイルや外部状態を勝手に作ることも避けます。
+
+### 現在の上位指示との関係
+
+2026年9月1日時点の上位指示には、実行中の別タスクを追跡するときに専用の待機手段を使うこと、変化のない状態を繰り返し説明しないこと、待機では利用可能な監視機構を使うことが含まれています。サブエージェント用のツール契約にも、個別の短いポーリングを避け、長めの待機を選ぶための手段があります。そのため、待機手段の選択や定型的な進捗説明の抑制は一部重なります。
+
+一方、現在の上位指示だけでは、複数の実行中処理から得た部分結果をいつ使い、いつ全件を待つかという一般的な判断基準や、待機中に推測的な分析と再計画を増やさないという利用者共通の境界が、一つの規則としてまとまっているとは限りません。このセクションは、その境界を実行環境や特定のサブエージェント構成に依存しない形で保持します。
+
+### 補足
+
+この指示は、サブエージェントの起動、定期監視、状態ファイルの作成に新しい権限を与えません。サブエージェントは現在の依頼と適用される上位指示が許す場合だけ使い、監視も継続監視が許可されている場合だけ設定します。
+
+目標管理やチェックポイントは、目的、進捗、再開情報を保持するための仕組みです。それ自体は、待機中も分析を続ける理由にも、外部状態を繰り返し確認する仕組みにもなりません。待機と再開には実行環境の対応手段を使い、目標や状態記録は必要な情報の保持に限定します。
+
+`back off when the workflow permits`は、実行環境が確認間隔を調整できる場合に限って頻度を下げる指示です。待機APIや固定スケジュールの契約を無視して独自の間隔を作ることは求めません。また、停止条件の確認、失敗の診断、依存関係の変更、不要になった処理の取消しは、成果を前進させる有用な作業に含まれます。
 
 ## Windows local file references
 
@@ -200,4 +242,6 @@ Windowsでは、ツールやエディターの設定によってCRLFが入り得
 ## 参考資料
 
 - [Custom instructions with AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+- [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+- [Scheduled tasks](https://learn.chatgpt.com/docs/automations)
 - [Model guidance: Using GPT-5.6](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)
