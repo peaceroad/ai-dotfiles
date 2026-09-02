@@ -28,6 +28,20 @@ approval_policy = "never"
 
 `approval_policy = "never"`は、Codexが承認を求める場面で対話的な確認を表示しない設定であり、追加の権限を自動的に与える設定ではありません。Browserで新しいサイトを開く前の確認を省略する設定値は、確認時点の実装では`approval_mode = "never_ask"`です。
 
+## ブラウザの選択と`AGENTS.md`
+
+2026年9月2日時点の公式設定リファレンスでは、外部ブラウザでChromeを優先する設定項目は確認できませんでした。外部ブラウザの優先順位はモデルへの選択方針なので、`~/.codex/AGENTS.md`へ次の指示を置きます。
+
+```md
+## Browser
+
+- When using an external browser, prefer Chrome unless I specify a browser.
+```
+
+この指示は、内蔵Browserと外部ブラウザのどちらを使うかを固定せず、外部ブラウザを使う場合だけChromeを優先します。`prefer`としているため、Chromeが利用できない場合や、ユーザーが別のブラウザを指定した場合も妨げません。
+
+グローバルな`AGENTS.md`は実行開始時に読み込まれるため、追加後は新しいタスクを開始するか、Codexを再起動します。詳しい設計理由は、[`~/.codex/AGENTS.md`の指示と設計理由](./codex-agents-md-instruction-rationale.md#browser)で説明しています。
+
 ## 公開ページの閲覧を主目的にした設定例
 
 `~/.codex/browser/config.toml`を次の内容で作成します。
@@ -187,3 +201,4 @@ VS Code拡張では、Codex CLIと共通の`config.toml`でモデル、承認方
 - [Chrome extension](https://learn.chatgpt.com/docs/chrome-extension)
 - [Agent approvals & security](https://learn.chatgpt.com/docs/agent-approvals-security)
 - [Configuration Reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+- [Custom instructions with AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md)

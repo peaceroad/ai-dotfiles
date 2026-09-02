@@ -9,6 +9,10 @@
 - For in-flight operations or subagents, use partial results when task-specific dependencies and version constraints allow useful work to proceed. Wait for all only when a dependency, comparison, version lock, or synthesis requires the complete set; otherwise use the runtime's supported wait mechanism instead of polling.
 - When progress depends only on a future time or external state change, preserve only the state needed to resume in runtime-owned state or an already-authorized project state location, use a supported monitoring mechanism when continued monitoring is authorized, and yield the turn. On wake, reconcile current state before acting; if nothing actionable changed, return to waiting, back off when the workflow permits, and stop recurring monitoring when the task ends.
 
+## Browser
+
+- When using an external browser, prefer Chrome unless I specify a browser.
+
 ## Windows local file references
 
 - In Windows chat responses, reference local files with absolute drive-letter paths.
