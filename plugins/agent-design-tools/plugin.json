@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agent-design-tools",
+  "version": "0.1.0",
+  "description": "Skills for designing model-facing prompts and bounded, observable agent workflows.",
+  "author": {
+    "name": "k_taka",
+    "url": "https://github.com/peaceroad"
+  },
+  "homepage": "https://github.com/peaceroad/ai-dotfiles",
+  "repository": "https://github.com/peaceroad/ai-dotfiles",
+  "keywords": [
+    "agents",
+    "prompt-design",
+    "workflow-design"
+  ]
+}

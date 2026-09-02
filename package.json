@@ -4,7 +4,8 @@
   "type": "module",
   "description": "Shareable Codex and AI agent configuration files.",
   "scripts": {
-    "check": "node export.js --dry-run",
+    "check": "node export.js --dry-run && npm run check:plugins",
+    "check:plugins": "node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs plugins/agent-design-tools && node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs plugins/agent-plugin-tools",
     "build": "node export.js --write"
   },
   "engines": {
