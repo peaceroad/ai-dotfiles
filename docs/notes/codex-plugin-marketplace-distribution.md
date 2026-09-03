@@ -242,5 +242,5 @@ NASへの同期で、アクセス拒否、接続断、容量・クォータ不�
 - [OpenAI「Package your plugin」](https://developers.openai.com/plugins/build/plugins)
 - [Agent Plugins v1仕様](https://agent-plugins.org/specification)
 - [CodexのAgent SkillsとAgent Pluginsの構成と使い分け](codex-skills-and-plugins.md)
-- [`plugin-creator-agent-plugins`](../../skills/plugin-creator-agent-plugins/SKILL.md)
-- [Marketplace組み立て手順](../../skills/plugin-creator-agent-plugins/references/marketplace-distribution.md)
+- [`plugin-creator-agent-plugins`](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)
+- [Marketplace組み立て手順](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-distribution.md)

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "linkRoot": "~/.agents/skills",
+  "skills": {
+    "agent-workflow-design": "~/git/github.com/ai-dotfiles/plugins/agent-design-tools/skills/agent-workflow-design",
+    "plugin-creator-agent-plugins": "~/git/github.com/ai-dotfiles/plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins",
+    "prompt-design": "~/git/github.com/ai-dotfiles/plugins/agent-design-tools/skills/prompt-design"
+  }
+}

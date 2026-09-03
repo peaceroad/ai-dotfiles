@@ -152,7 +152,7 @@ Codexは、グローバルな`AGENTS.override.md`または`AGENTS.md`を確認�
 
 - [`~/.agents/config/`を利用者所有の設定面として使う考え方](agents-config-local-convention.md)
 - [`~/.agents/notes/`を保守記録の入口として使う考え方](agents-notes-local-convention.md)
-- [`~/.agents/notes/`の運用規約](../../notes/README.md)
+- `~/.agents/notes/README.md`に置く運用規約
 - [skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md)
 - [CodexのAgent SkillsとAgent Pluginsの構成と使い分け](codex-skills-and-plugins.md)
 - [Custom instructions with AGENTS.md（OpenAI Docs）](https://learn.chatgpt.com/docs/agent-configuration/agents-md)

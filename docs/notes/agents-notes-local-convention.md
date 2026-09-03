@@ -2,7 +2,7 @@
 
 > **位置付け：** これは、プロジェクトやセッションをまたいで再検討する保守記録のためのローカル規約です。Agent Skillsの標準ではなく、スキルやワークフローを使うための必須要件でもありません。
 
-この文書では、`~/.agents/notes/`に共通する考え方を説明します。`agent-workflow-design`がこの場所を候補にする条件と同梱テンプレートとの関係は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md#改善記録とruntime-stateを必要な場合だけ持つ)で説明しています。採用済みの運用規約は、[`~/.agents/notes/README.md`](../../notes/README.md)を正本とします。
+この文書では、`~/.agents/notes/`に共通する考え方を説明します。`agent-workflow-design`がこの場所を候補にする条件と同梱テンプレートとの関係は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md#改善記録とruntime-stateを必要な場合だけ持つ)で説明しています。採用済みの運用規約は、`~/.agents/notes/README.md`を正本とします。
 
 改善の気付きが得られても、その場でスキル、プロンプト、設定へ反映するとは限りません。追加の事例と比較したい候補や、将来の保守に必要な判断理由だけを残したい場合があります。既存のプロジェクト、プラグイン、ランタイム、コントローラー、外部システムに適切な保存先がないときは、`~/.agents/notes/`を利用者単位の入口として検討できます。
 
@@ -102,7 +102,7 @@
 
 ## 関連資料
 
-- [`~/.agents/notes/`の運用規約](../../notes/README.md)
+- `~/.agents/notes/README.md`に置く運用規約
 - [skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md#改善記録とruntime-stateを必要な場合だけ持つ)
-- [State, evidence, and recovery（`agent-workflow-design`）](../../skills/agent-workflow-design/references/state-evidence-and-recovery.md)
+- [State, evidence, and recovery（`agent-workflow-design`）](../../plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md)
 - [Agent Skills Specification](https://agentskills.io/specification)

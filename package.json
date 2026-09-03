@@ -4,9 +4,13 @@
   "type": "module",
   "description": "Shareable Codex and AI agent configuration files.",
   "scripts": {
-    "check": "node export.js --dry-run && npm run check:plugins",
+    "check": "node export.js --dry-run && npm run check:skill-links && npm run check:plugins",
     "check:plugins": "node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs plugins/agent-design-tools && node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs plugins/agent-plugin-tools",
-    "build": "node export.js --write"
+    "check:skill-links": "node .agents/scripts/manage-skill-links.mjs validate",
+    "build": "node export.js --write",
+    "skill-links:status": "node .agents/scripts/manage-skill-links.mjs status",
+    "skill-links:check": "node .agents/scripts/manage-skill-links.mjs check",
+    "skill-links:sync": "node .agents/scripts/manage-skill-links.mjs sync"
   },
   "engines": {
     "node": ">=18"
