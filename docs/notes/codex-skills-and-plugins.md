@@ -1,6 +1,6 @@
 # CodexのAgent SkillsとAgent Pluginsの構成と使い分け
 
-> **確認時点：** 2026年8月28日。[Agent Skills仕様](https://agentskills.io/specification)、[Agent Plugins v1仕様](https://agent-plugins.org/specification)、OpenAI公式ドキュメント、`openai/codex`の公開ソース、手元のWindows版Codexで確認した内容です。仕様、ローカルの保存先、CLI、組み込みファイルは更新で変わる可能性があります。
+> **確認時点：** 2026年9月3日。[Agent Skills仕様](https://agentskills.io/specification)、[Agent Plugins v1仕様](https://agent-plugins.org/specification)、OpenAI公式ドキュメント、`openai/codex`の公開ソース、手元のWindows版Codexで確認した内容です。仕様、ローカルの保存先、CLI、組み込みファイルは更新で変わる可能性があります。
 
 Codexでは、Agent Skillを直接使う方法と、Agent SkillをAgent Pluginに含めて使う方法があります。Agent Skillは、必要なときに読み込む手順・判断基準・付属リソースの形式です。Agent Pluginは、Agent SkillsやMCPサーバーを一つの配布・インストール単位にまとめるportableなパッケージ形式です。Codex Marketplace、インストール状態、キャッシュはCodex側の配布・実行レイヤーであり、portable packageそのものではありません。
 
@@ -391,7 +391,7 @@ Portable core componentはAgent SkillsとMCPサーバーの二つです。Hooks�
 
 ### 個人用`plugin-creator-agent-plugins`スキル
 
-この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`を、Agent Plugins v1を扱う個人用スキルの正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.3.0`です。開発中の作業コピーを固定する場合はGit commitまたは内容を固定したartifactを使い、公開・配布後はtemplateや生成結果を変える更新でversionを上げます。
+この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`をユーザースコープの発見入口とし、そこからリンクするソースリポジトリ内のスキルを正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.3.0`です。開発中の作業コピーを固定する場合はGit commitまたは内容を固定したartifactを使い、公開・配布後はtemplateや生成結果を変える更新でversionを上げます。
 
 主なreferenceの分担は次のとおりです。
 
@@ -423,23 +423,32 @@ Marketplaceの`source.path`が、読み込むプラグインディレクトリ�
 
 複数のプラグインを一つのMarketplaceへまとめ、NASやGitリポジトリで共有する場合は、[CodexのプラグインMarketplaceを作成し、NASやGitで共有する](codex-plugin-marketplace-distribution.md)を参照してください。各プラグインの開発元を正本として保ち、共有用のコピー、Marketplaceカタログ、利用者のインストール先を分けて更新する手順を説明しています。
 
-### ローカルプラグインの正本と更新方向
+### ローカル開発の二つの経路
 
-ローカル開発では、Marketplaceの`source.path`が指す、書き込み可能なソースディレクトリを正本にします。`marketplace.json`はカタログ定義であり、インストール済みプラグインの作業コピーではありません。
+ローカル開発では、書き込み可能なソースリポジトリを正本にします。`marketplace.json`はカタログ定義であり、インストール済みプラグインの作業コピーではありません。スキル中心の日常開発と、プラグイン全体の統合確認では、同じ正本から異なる発見経路を使います。
 
-手元のWindows環境では、導入済みプラグインのコピーが`$CODEX_HOME/plugins/cache`に展開されています。確認時点では、`openai-bundled`、`openai-primary-runtime`、`openai-curated-remote`など、供給元を区別する名前のサブディレクトリがあります。これはCodexが管理するインストール先であり、公式に固定された配置としても、開発元の正本としても扱いません。キャッシュやMarketplace定義からソースリポジトリへ逆コピーせず、更新は次の一方向にします。
+手元のWindows環境では、導入済みプラグインのコピーが`$CODEX_HOME/plugins/cache`に展開されています。確認時点では、`openai-bundled`、`openai-primary-runtime`、`openai-curated-remote`など、供給元を区別する名前のサブディレクトリがあります。これはCodexが管理するインストール先であり、公式に固定された配置としても、開発元の正本としても扱いません。キャッシュやMarketplace定義からソースリポジトリへ逆コピーしません。
+
+スキルの指示や参照を反復して編集するときは、プラグイン内の各スキルを`$HOME/.agents/skills/<name>`からソースへ直接リンクできます。Codexはユーザースコープのスキルとシンボリックリンクを探索するため、この経路ではインストール済みキャッシュを介さずにソースの変更を確認できます。詳しい管理方法は、[開発中のスキルをユーザースコープへリンクする](../skill-links.md)を参照してください。
 
 ```text
-Marketplaceが指すソースリポジトリ
-  ↓ 編集・検証
-Marketplace経由で再インストール
-  ↓
-Codexの管理領域へ反映
-  ↓
-新しいタスクで確認
+日常のスキル開発
+  ソースリポジトリ
+    → $HOME/.agents/skillsから直接リンク
+    → Repository固有の検証
+    → 新しいCodexタスクで確認
+
+配布・プラグイン統合確認
+  ソースリポジトリ
+    → package、Repository固有check、配布versionを確認
+    → Marketplaceへ同期またはローカルMarketplaceからインストール
+    → Codexの管理領域へ反映
+    → 新しいCodexタスクで確認
 ```
 
-ローカル更新では、まずportableなルート`plugin.json`、各Agent Skill、存在する場合の`mcp.json`を検証します。Repositoryがversionをcache freshnessに使う方針なら、install時だけルート`plugin.json`のversionを一度更新し、`codex plugin add <plugin-name>@<marketplace-name>`で再インストールします。`status`や`validate`でversionを書き換えたり、cachebusterのために`.codex-plugin/plugin.json`を復活させたりしません。実行中のタスクには開始時に読み込んだ指示が残る可能性があるため、確認は新しいタスクで行います。Marketplaceの登録は初回設定であり、ソース更新のたびにやり直す操作ではありません。
+Marketplaceの登録は、カタログをCodexへ認識させる操作であり、プラグインのインストールとは別です。登録だけなら直接リンクとの発見経路は重複しません。同じ`name`の直接リンクとインストール済みプラグインを併用すると、正本が一つでも発見経路と有効な版が重複し得ます。Codexは同名スキルを統合しないため、優先関係には依存せず、同じ環境では一方だけを有効にします。
+
+ローカル更新では、まずportableなルート`plugin.json`、各Agent Skill、存在する場合の`mcp.json`を検証します。直接リンク経由の確認は、プラグインのmanifest、MCPサーバー、クライアント固有拡張、インストール、キャッシュ更新を通した統合確認の代わりにはなりません。統合確認が必要な場合は、同名スキルの直接リンクを外した環境でプラグインをインストールします。Repositoryがversionをcache freshnessに使う方針なら、install時だけルート`plugin.json`のversionを一度更新し、`codex plugin add <plugin-name>@<marketplace-name>`で再インストールします。`status`や`validate`でversionを書き換えたり、cachebusterのために`.codex-plugin/plugin.json`を復活させたりしません。実行中のタスクには開始時に読み込んだ指示が残る可能性があるため、確認は新しいタスクで行います。
 
 単純なAgent Plugins v1 packageでは、`plugin-creator-agent-plugins`の共通入口を直接使えます。
 
@@ -449,7 +458,7 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/manage-local-age
 node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/manage-local-agent-plugin.mjs" install <plugin-root> --bump-version
 ```
 
-`status`と`validate`は読み取り専用です。`install`はportable packageを検証し、必要な場合だけローカルMarketplaceを登録して再インストールし、Codexのsnapshot、実キャッシュ、ソースを照合します。既存versionが`+agent.<timestamp>`形式なら次回から自動更新し、新しいRepositoryでは`--bump-version`または`--keep-version`の選択を求めます。
+`status`と`validate`は読み取り専用です。直接リンクを使う日常開発では`validate`までを通常の入口とし、`install`はリンクを無効にした環境でプラグイン統合を確認するときだけ使います。`install`はportable packageを検証し、必要な場合だけローカルMarketplaceを登録して再インストールし、Codexのsnapshot、実キャッシュ、ソースを照合します。既存versionが`+agent.<timestamp>`形式なら次回から自動更新し、新しいRepositoryでは`--bump-version`または`--keep-version`の選択を求めます。
 
 ### 利用側の`plugin-management`スキル
 
@@ -496,6 +505,7 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/scaffold-local-a
 | --- | --- |
 | 自分が複数のリポジトリで使う | `$HOME/.agents/skills`のスキル |
 | 特定のリポジトリやディレクトリだけで使う | 対象範囲の`.agents/skills`に置くスキル |
+| プラグイン内のスキルを反復開発する | ソースリポジトリを正本にして`$HOME/.agents/skills`から直接リンクする |
 | 既存スキルをローカルで試す | `skill-installer`で導入するスキル |
 | 少数の安定したCLI操作をagent workflowから使う | スキル＋既存CLI |
 | 型付き操作、権限制御、構造化結果を複数workflowで共有する | スキル＋MCPサーバー |
@@ -506,7 +516,7 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/scaffold-local-a
 
 スタンドアロンのスキルは引き続き利用できるため、`openai/skills`リポジトリの非推奨化だけを理由に、正常に読み込まれているスキルをプラグインへ移行する必要はありません。リポジトリ外へ配布する、複数のスキルをまとめる、MCPサーバーなどと一緒に届ける場合にプラグイン化します。
 
-Plugin内の`skills/<name>/`を`$HOME/.agents/skills/<name>/`へ置けば、pluginをインストールせずスタンドアロンとして使うこと自体は可能です。ただし、同じスキルを両方で並行運用すると正本が二つになります。移行、切り出し、短期検証以外では複製を避け、スタンドアロンなら`$HOME/.agents/skills`またはrepository-owned skill、pluginならMarketplaceが指すsource repositoryの`skills/`を唯一の正本にします。Installed cacheからスタンドアロンへコピーせず、必ず書き込み可能なsourceから取得します。
+Plugin内の`skills/<name>/`を`$HOME/.agents/skills/<name>/`から直接リンクすれば、pluginをインストールせずスタンドアロンとして反復開発できます。この場合も正本はリンク先のソースリポジトリだけです。ただし、同じスキルを含むプラグインを並行してインストールすると、発見経路と有効な版が重複します。Installed cacheからスタンドアロンへコピーせず、日常開発では直接リンク、配布・統合確認ではリンクを無効にした環境でプラグインをインストールするように切り替えます。
 
 ## Codex更新時の注意
 

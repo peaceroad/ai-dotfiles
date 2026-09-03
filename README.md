@@ -22,7 +22,7 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 - `plugins/agent-design-tools/`：`prompt-design`と`agent-workflow-design`
 - `plugins/agent-plugin-tools/`：`plugin-creator-agent-plugins`
 
-開発中の正本を`~/.agents/skills/`から直接参照するローカルリンクは、`~/.agents/skill-links.json`で一括管理します。コマンド、状態表示、安全境界は[開発中のスキルをユーザースコープへリンクする](docs/skill-links.md)を参照してください。
+開発中の正本を`~/.agents/skills/`から直接参照するローカルリンクは、`~/.agents/skill-links.json`で一括管理します。公開用コピーには、このリポジトリ内を参照する宣言だけを書き出します。コマンド、状態表示、安全境界は[開発中のスキルをユーザースコープへリンクする](docs/skill-links.md)を参照してください。
 
 ポータブルなプラグイン構造は、次のコマンドで検証できます。
 

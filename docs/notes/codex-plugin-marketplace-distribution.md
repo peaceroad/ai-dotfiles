@@ -1,6 +1,6 @@
 # CodexのプラグインMarketplaceを作成し、NASやGitで共有する
 
-> **確認時点：** 2026年8月28日。Windows版Codex CLI 0.150.1、[OpenAIのプラグインドキュメント](https://developers.openai.com/plugins/build/plugins)、手元の実行結果で確認した内容です。CLIのオプションやローカルMarketplaceの扱いは、Codexの更新で変わる可能性があります。
+> **確認時点：** 2026年9月3日。Windows版Codex CLI 0.150.1、[OpenAIのプラグインドキュメント](https://developers.openai.com/plugins/build/plugins)、手元の実行結果で確認した内容です。CLIのオプションやローカルMarketplaceの扱いは、Codexの更新で変わる可能性があります。
 
 Codexでは、複数のプラグインを一つのMarketplaceへまとめ、ローカルディレクトリ、NAS、Gitリポジトリから導入できます。プラグインごとにMarketplaceを用意する必要はありません。開発者は各プラグインのソースをそれぞれのリポジトリで管理し、共有してよい版だけを一つのMarketplaceへ集約できます。
 
@@ -139,7 +139,11 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/assemble-plugin-
 
 ## 開発と共有を分ける
 
-開発者は、普段どおり各ソースリポジトリのローカルMarketplaceからプラグインをインストールして構いません。ローカルでインストールするたびに共有Marketplaceを同期する必要はありません。ソースリポジトリに固有のテストや`local-plugin.mjs validate`がある場合は先に実行し、共有してよい状態になった時点で`sync`と`check`を実行します。Marketplaceの組み立て時に行う検証はポータブルなパッケージが対象であり、リポジトリ固有のテストやバージョン更新は含みません。
+スキル中心の日常開発では、プラグイン内の各スキルを`$HOME/.agents/skills`からソースリポジトリへ直接リンクできます。この経路なら、変更のたびにローカルMarketplaceからプラグインを再インストールしたり、Codexのインストール済みキャッシュと開発元を見分けたりする必要がありません。直接リンクの管理方法と重複防止は、[開発中のスキルをユーザースコープへリンクする](../skill-links.md)を参照してください。
+
+Marketplaceの登録と、プラグインのインストールは別の操作です。Marketplaceを登録しただけでは、直接リンクされたスキルと重複しません。同じ`name`のスキルを含むプラグインをインストールすると発見経路と有効な版が重複し得るため、日常開発では直接リンク、プラグイン全体の統合確認ではリンクを無効にした環境でのインストール、というように一方だけを有効にします。直接リンク経由の確認は、プラグインのmanifest、MCPサーバー、クライアント固有拡張、Marketplace、インストール、キャッシュ更新までを通した証拠にはなりません。
+
+ローカルで確認するたびに共有Marketplaceを同期する必要はありません。ソースリポジトリに固有のテストや`local-plugin.mjs validate`がある場合は先に実行し、配布versionを含めて共有してよい状態になった時点で`sync`と`check`を実行します。Marketplaceの組み立て時に行う検証はポータブルなパッケージが対象であり、リポジトリ固有のテストやバージョン更新は含みません。
 
 NAS上の`config.json`に`C:\...`のような絶対ソースパスを記録した場合、そのパスへアクセスできる開発者のPCから同期します。共有者はソースリポジトリへアクセスする必要がなく、NASに生成されたMarketplaceを利用するだけです。
 

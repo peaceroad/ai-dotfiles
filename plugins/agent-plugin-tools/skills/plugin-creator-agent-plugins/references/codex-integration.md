@@ -4,12 +4,25 @@ Use this reference after validating a portable Agent Plugins v1 source package t
 
 This reference owns recurring Codex operations after a portable source exists: marketplace registration, installation, refresh, snapshot inspection, and new-task verification. It does not convert a Codex-native package. For that one-time structural change, read [codex-migration.md](codex-migration.md) first.
 
+## Choose direct skill discovery or plugin integration
+
+For day-to-day work on a plugin's skills, a developer may expose each source skill through a user-scoped link under `~/.agents/skills/` and run the source repository's validation without installing the plugin after every edit. This keeps the writable source repository authoritative and avoids treating an installed Codex cache as the development copy.
+
+Marketplace registration and plugin installation are separate. Registering a Marketplace makes its catalog available but does not by itself create a second active copy of the contained skills. Installing a plugin while a direct link with the same skill `name` is active can create duplicate discovery paths and different effective versions. Codex does not merge same-named skills, so do not rely on precedence between those paths. Keep only one active in the same development environment:
+
+- Use direct links, repository validation, and a new Codex task for iterative work on skill instructions, references, assets, and scripts.
+- Remove or disable the direct links, or use an isolated user environment without them, before installing the plugin for an integration check.
+- Remove the installed plugin before restoring direct links for continued source development.
+
+Direct-link testing does not verify the plugin manifest, MCP integration, client extensions, Marketplace resolution, installation, cache refresh, or installed snapshot. Use the installation flow below when those boundaries are part of the requested outcome.
+
 ## Check before installation
 
 1. Read the repository instructions and inspect any existing management scripts.
 2. Confirm that the marketplace entry points to the same source of truth being edited.
-3. Validate the portable `plugin.json`, contained skills, and `mcp.json` when present.
-4. Check `codex plugin --help` and the relevant subcommand help for the installed CLI. Prefer the current CLI when its command syntax differs from these examples. Keep the Agent Plugins specification authoritative for the portable package itself.
+3. Check for user-scoped direct links with the same names as the plugin's contained skills, and keep them inactive during installation testing.
+4. Validate the portable `plugin.json`, contained skills, and `mcp.json` when present.
+5. Check `codex plugin --help` and the relevant subcommand help for the installed CLI. Prefer the current CLI when its command syntax differs from these examples. Keep the Agent Plugins specification authoritative for the portable package itself.
 
 Useful read-only probes in versions that expose them include:
 

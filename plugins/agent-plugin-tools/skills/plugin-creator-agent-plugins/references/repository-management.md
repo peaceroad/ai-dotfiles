@@ -7,6 +7,7 @@ This is a developer-source workflow. It owns repository validation and local ins
 ## Choose the smallest path
 
 - For a package that needs only portable validation or a one-time local install, call `scripts/manage-local-agent-plugin.mjs` with the plugin root. Do not add repository configuration.
+- When a developer exposes contained skills through user-scoped links for iterative authoring, use repository validation as the normal path. Run `install` only for a plugin integration check after making same-named direct links inactive; see [codex-integration.md](codex-integration.md).
 - When validation must consistently include repository-owned tests, generated-file checks, or a local version policy, scaffold a repository-owned runner and configuration.
 - Preserve an existing repository management command when it provides behavior the template cannot express. Migrate only after matching its observable validation and installation guarantees.
 
@@ -113,4 +114,4 @@ node scripts/local-plugin.mjs install --config '.agents/plugin-development/my-pl
 
 Running without arguments displays help. The manager itself does not change the plugin version, Marketplace registration, or installed plugin during `status` or `validate`; configured checks must also remain read-only. `install` validates the portable package, validates the configured Marketplace entry, runs repository checks, applies the chosen local version policy, installs through Codex, and verifies both the reported snapshot and installed manifest.
 
-The configuration is pinned for one process invocation. Re-run the command after changing it. The runner does not create checkpoints, logs, or mutable state files; the source manifest, Marketplace catalog, repository tests, Codex registration, and installed snapshot remain the authoritative artifacts for their respective concerns.
+The configuration is pinned for one process invocation. Re-run the command after changing it. The runner does not create checkpoints, logs, or mutable state files; the source manifest, user-scoped links when used, Marketplace catalog, repository tests, Codex registration, and installed snapshot remain the authoritative artifacts for their respective concerns. A direct-link result proves local skill discovery from the source, while an installed snapshot proves the separate plugin integration path.

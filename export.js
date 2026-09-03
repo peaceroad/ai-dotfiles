@@ -23,6 +23,7 @@ const SHARED_SECTION_START = "# Shared settings start here.";
 const SHARED_SECTION_END = "# Shared settings end here.";
 const REQUIRE_SHARED_SECTIONS = new Set([".codex/config.toml"]);
 const CODEX_CONFIG_PATH = ".codex/config.toml";
+const SKILL_LINKS_PATH = ".agents/skill-links.json";
 const CODEX_COMPUTER_USE_NOTIFY_PATTERN =
   /^\s*notify\s*=\s*\[\s*"[^"\r\n]*[\\/]codex-computer-use\.exe"\s*,\s*"turn-ended"\s*,?\s*\]\s*(?:#.*)?$/i;
 const TOML_TABLE_PATTERN = /^\s*\[([^\]]+)\]\s*(?:#.*)?$/;
@@ -201,6 +202,9 @@ with the exact uppercase prefix "# ENV:" or "# NOTE:", an occurrence of the loca
 username is treated as intentional.
 Other checks still apply to those lines. Configured directories are synchronized:
 dry runs list obsolete destination entries, and writes remove them.
+
+When exporting .agents/skill-links.json, only links whose targets are inside this
+repository are written to the public copy.
 
 OS metadata files such as Desktop.ini, .DS_Store, and Thumbs.db are skipped.
 Use --verbose to list the skipped paths.
@@ -561,6 +565,59 @@ function oversizedFileResult(file, size, findings) {
   };
 }
 
+function selectRepositorySkillLinks(content, relativePath) {
+  let manifest;
+  try {
+    manifest = JSON.parse(content);
+  } catch {
+    throw new Error(`${relativePath}: invalid JSON`);
+  }
+
+  if (
+    manifest === null ||
+    typeof manifest !== "object" ||
+    Array.isArray(manifest) ||
+    manifest.skills === null ||
+    typeof manifest.skills !== "object" ||
+    Array.isArray(manifest.skills)
+  ) {
+    throw new Error(`${relativePath}: manifest and skills must be objects`);
+  }
+  const allowedFields = new Set(["schemaVersion", "linkRoot", "skills"]);
+  const unknownFields = Object.keys(manifest).filter(
+    (field) => !allowedFields.has(field),
+  );
+  if (unknownFields.length > 0) {
+    throw new Error(
+      `${relativePath}: unknown manifest field: ${unknownFields.join(", ")}`,
+    );
+  }
+
+  const skills = {};
+  for (const [name, target] of Object.entries(manifest.skills)) {
+    if (typeof target !== "string" || !target.startsWith("~/")) {
+      throw new Error(`${relativePath}: skills.${name} must use a ~/ path`);
+    }
+
+    const targetPath = path.resolve(HOME_DIRECTORY, target.slice(2));
+    const relativeTarget = path.relative(REPOSITORY_ROOT, targetPath);
+    if (
+      relativeTarget !== "" &&
+      relativeTarget !== ".." &&
+      !relativeTarget.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativeTarget)
+    ) {
+      skills[name] = target;
+    }
+  }
+
+  return `${JSON.stringify({
+    schemaVersion: manifest.schemaVersion,
+    linkRoot: manifest.linkRoot,
+    skills,
+  }, null, 2)}\n`;
+}
+
 function selectSharedSections(content, relativePath) {
   const sourceLines = content.split(/\r\n|[\n\r]/);
   const markerPairs = [];
@@ -669,7 +726,10 @@ async function scanFile(file) {
     return oversizedFileResult(file, buffer.byteLength, findings);
   }
 
-  const content = decodeText(buffer);
+  const decodedContent = decodeText(buffer);
+  const content = decodedContent !== null && file.relativePath === SKILL_LINKS_PATH
+    ? selectRepositorySkillLinks(decodedContent, file.relativePath)
+    : decodedContent;
   if (content === null) {
     if (REQUIRE_SHARED_SECTIONS.has(file.relativePath)) {
       throw new Error(
@@ -748,11 +808,16 @@ async function scanFile(file) {
     }
   }
 
+  let exportContent = buffer;
+  if (sharedSections !== null) {
+    exportContent = Buffer.from(sharedSections.content, "utf8");
+  } else if (content !== decodedContent) {
+    exportContent = Buffer.from(content, "utf8");
+  }
+
   return {
     findings,
-    content: sharedSections === null
-      ? buffer
-      : Buffer.from(sharedSections.content, "utf8"),
+    content: exportContent,
     ranges: sharedSections?.ranges ?? [],
     skippedBinary: false,
   };
