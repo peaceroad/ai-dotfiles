@@ -1,25 +1,47 @@
 {
-  "$comment": "@ai-dotfiles agent-command v1",
+  "$comment": "@ai-dotfiles agent-dev-runtime managed",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/peaceroad/ai-dotfiles/main/tools/agent/development.schema.json",
   "title": "Local agent development targets",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion"],
+  "required": ["schemaVersion", "plugins", "marketplaces"],
   "properties": {
     "$schema": { "type": "string" },
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "plugins": {
       "type": "object",
       "propertyNames": { "type": "string", "minLength": 1, "pattern": "^[^\\r\\n]+$" },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["repository", "config"],
+        "required": ["repository"],
+        "oneOf": [
+          {
+            "required": ["pluginRoot"],
+            "not": {
+              "anyOf": [
+                { "required": ["developmentConfig"] },
+                { "required": ["runner"] }
+              ]
+            }
+          },
+          {
+            "required": ["developmentConfig"],
+            "not": {
+              "anyOf": [
+                { "required": ["pluginRoot"] },
+                { "required": ["versionPolicy"] }
+              ]
+            }
+          }
+        ],
         "properties": {
           "repository": { "type": "string", "minLength": 1 },
-          "config": { "type": "string", "minLength": 1 },
-          "runner": { "type": "string", "minLength": 1 }
+          "pluginRoot": { "type": "string", "minLength": 1 },
+          "developmentConfig": { "type": "string", "minLength": 1 },
+          "runner": { "type": "string", "minLength": 1 },
+          "versionPolicy": { "enum": ["bump", "keep"] }
         }
       }
     },
@@ -29,9 +51,29 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["root"],
+        "required": ["root", "name", "displayName", "mode", "plugins"],
         "properties": {
-          "root": { "type": "string", "minLength": 1 }
+          "root": { "type": "string", "minLength": 1 },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^(?!.*(?:--|\\.\\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+          },
+          "displayName": { "type": "string", "minLength": 1 },
+          "mode": { "enum": ["authoritative", "contributor"] },
+          "plugins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target", "category"],
+              "properties": {
+                "target": { "type": "string", "minLength": 1 },
+                "category": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
         }
       }
     }

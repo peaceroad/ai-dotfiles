@@ -20,7 +20,7 @@ Marketplaceを共有するときは、次の三つを別のものとして扱い
 
 ```text
 各プラグインのソースリポジトリ
-        ↓ init / add / sync
+        ↓ sync
 共有Marketplace
         ↓ codex plugin add
 利用者のCodex管理領域
@@ -48,11 +48,13 @@ Marketplaceの配布用コピーやCodexのキャッシュを直接編集し、�
     └── <second-plugin>/
 ```
 
-`config.json`だけが人間の管理する組み立て設定です。`schema.json`、`state.json`、`.agents/plugins/marketplace.json`、`plugins/<plugin-name>/`は生成物なので、直接編集しません。
+組み立てスクリプトを直接使う場合、`config.json`だけが人間の管理する組み立て設定です。`schema.json`、`state.json`、`.agents/plugins/marketplace.json`、`plugins/<plugin-name>/`は生成物なので、直接編集しません。
 
-`config.json`はMarketplaceのルートに置かれるため、そのディレクトリやリポジトリへアクセスできる利用者からも読めます。絶対ソースパスにはユーザー名やローカルのディレクトリ構成が含まれる場合があるので、公開するGitリポジトリでは、Marketplaceとソースリポジトリの配置をそろえて相対パスを使い、commit前に設定内容を確認してください。`config.json`に認証情報や秘密情報を記録してはいけません。
+後述する`agent dev marketplace`で管理する場合は境界が異なります。人が管理する正本は開発マシンの`~/.agents/development.json`であり、Marketplace側の`config.json`も生成物です。二つの方式を同じMarketplaceルートで混在させません。
 
-Marketplaceのルートには、ローカルディレクトリ、チェックアウト済みのGitリポジトリ、書き込み可能なNASのUNCパスを指定できます。ルートとなるフォルダが存在しなくても、親フォルダへ書き込めれば`init`が作成します。NASを使う場合、共有への認証、ドライブの割り当て、共有権限の設定はスクリプトの対象外です。
+直接利用する方式の`config.json`はMarketplaceのルートに置かれるため、そのディレクトリやリポジトリへアクセスできる利用者からも読めます。絶対ソースパスにはユーザー名やローカルのディレクトリ構成が含まれる場合があるので、公開するGitリポジトリでは、Marketplaceとソースリポジトリの配置をそろえて相対パスを使い、commit前に設定内容を確認してください。`config.json`に認証情報や秘密情報を記録してはいけません。`agent dev`方式の生成済み`config.json`は、ソースパスを含まず、配布するプラグイン名とカテゴリーだけを記録します。
+
+Marketplaceのルートには、ローカルディレクトリ、チェックアウト済みのGitリポジトリ、書き込み可能なNASのUNCパスを指定できます。組み立てスクリプトを直接使う場合は`init`が、`agent dev`方式では最初の`sync`が、不足しているルートや管理ディレクトリを作成します。NASを使う場合、共有への認証、ドライブの割り当て、共有権限の設定はスクリプトの対象外です。
 
 ## 前提を確認する
 
@@ -71,6 +73,8 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/assemble-plugin-
 ```
 
 ## 最初のMarketplaceを作成する
+
+この節の`init`と次節の`add`は、Marketplace内の`config.json`を正本にして、組み立てスクリプトを直接使う場合の低水準コマンドです。`~/.agents/development.json`を正本にする`agent dev`方式では使わず、後述する`configure`と`sync`を使います。
 
 ここでは、二つのプラグインを`team-plugins`というMarketplaceへまとめます。`<marketplace-root>`、`<first-plugin-root>`、`<second-plugin-root>`は、実際の絶対パスへ置き換えてください。同じ`--category`が、`init`で指定したすべてのプラグインへ適用されます。
 
@@ -139,14 +143,73 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/assemble-plugin-
 
 ## 開発と共有を分ける
 
-`~/.agents/development.json`へ共有Marketplaceを登録している開発環境では、長いNode.jsコマンドの代わりに次の共通入口を使えます。
+複数リポジトリや複数Marketplaceを扱う開発環境では、`~/.agents/development.json`をローカルな正本にして、次の共通入口を使えます。初回設定や構成変更は対話式の`configure`で行います。`setup`も同じ操作です。
+
+```powershell
+agent dev marketplace configure
+agent dev marketplace setup
+```
+
+Marketplaceが一つなら自動選択し、複数なら最初に今回の作業対象を選びます。選択はその対話セッションだけで保持し、メニューから切り替えられます。主メニューは9項目で、数字の代わりに表示された1文字のショートカットも使えます。日常的なプラグインの追加・更新は主メニューに残し、プラグイン開発対象の管理と削除操作はサブメニューにまとめています。
+
+サブメニューでは`b`で主メニューへ戻れます。名前やパスなどの入力途中では`:back`を入力すると、その操作で途中まで入力した変更を破棄して直前のメニューへ戻ります。入力値や接続先の検証に失敗した場合も、その操作だけを破棄してメニューへ戻ります。操作が完了するまでセッション内設定へ反映せず、`s`でセッション全体を保存し、`q`でセッション全体を破棄します。
+
+対話では、`repository-managed`や`direct`などの内部値を覚えて入力する必要はありません。「リポジトリの設定を使う」「プラグインディレクトリを直接使う」のような説明付き選択肢を番号で選びます。version方針も、現在のversionを維持する、ローカル開発用suffixを付ける、`plugin sync`をまだ有効にしない、という実際の効果から選択できます。
+
+「Connect existing Marketplace」には、NASのUNCパスまたは手元に用意済みのMarketplace checkoutを指定します。`agent dev`で管理されたMarketplaceからは名前、表示名、既存プラグイン一覧を検証し、ローカルには接続情報だけを`contributor`モードで保存します。他の開発者の配布用コピーをローカルのソースとして登録しません。`contributor`では`--plugin`なしの全体`check/sync`を拒否するため、部分的なローカル設定で共有カタログを置き換えません。
+
+この操作はGit版の取得までを行う`clone`ではありません。NASは共有パスを直接参照し、Git Marketplaceは通常のGit手順でcloneしてから、そのcheckoutへ接続します。新しいMarketplaceをローカル設定から全体管理する場合は`authoritative`モードになります。設定の保存だけでは共有先を変更せず、同期準備ができた後に明示的な`check`または`sync`を実行します。
+
+途中から複数人運用へ移す場合は、`configure`の「Change Marketplace management mode」で、1台のPCが全体を管理する`authoritative`から、各担当者が選択したプラグインだけを更新する`contributor`へ切り替えます。切り替え前には`--plugin`を付けない全体`check`と同じ検査を実行します。登録された全ソース、配布用コピー、カタログ、schema、state、管理情報のいずれかにずれがあれば拒否するため、全体`sync`を済ませたうえで切り替えます。その後、既存のローカル割り当てから、このPCが今後更新しない対象を削除します。
+
+逆に`contributor`から`authoritative`へ戻す場合は、共有側にある全プラグインのソースがローカルの割り当てから解決できることをCLIが確認します。全件が手元にない状態では、全体正本への切り替えを拒否します。
+
+`development.json`はschema v2だけを受け付け、試行段階のv1を自動変換しません。旧ファイルは別名で退避し、`configure`で作り直します。既存Marketplaceを引き継ぐ場合は「Connect existing Marketplace」を使います。ここで読み込むMarketplace側の組み立て設定は独立したschemaであり、`development.json`のv1互換処理ではありません。
+
+初回設定後の日常操作は、対象ごとの`check`と`sync`にそろえています。
+
+```powershell
+agent dev skill check
+agent dev skill sync
+agent dev plugin check
+agent dev plugin sync
+agent dev marketplace check
+agent dev marketplace sync
+```
+
+`plugin sync`は自分のCodexへ開発版プラグインをインストールまたは更新し、`marketplace sync`は共有Marketplaceへ配布用コピーを反映します。対象が複数ある場合だけ名前を追加し、複数人で分担するMarketplaceでは担当プラグインを`--plugin`で指定します。設定後の日常操作では、`repository-managed`と`direct`のどちらかを意識してmanagerを選び直す必要はありません。
 
 ```powershell
 agent dev marketplace check <marketplace-name>
 agent dev marketplace sync <marketplace-name>
 ```
 
-このコマンドは、ここで説明する`assemble-plugin-marketplace.mjs`の`check`と`sync`を呼び分けるだけです。ローカルのプラグイン統合には`agent dev plugin check`または`agent dev plugin sync`を使い、共有Marketplaceを暗黙に更新しません。設定方法は[`agent dev`でローカル開発を管理する](../agent-development.md)を参照してください。
+Marketplaceが一つなら対象名を省略できます。複数ある場合は、`check`と`sync`では対象名を明示します。暗黙の「現在のMarketplace」は保存しません。`configure`では対象が一つなら自動選択し、複数ならメニューで選びます。`configure <marketplace-name>`とすれば、既存対象を初期選択できます。
+
+特定のプラグインだけを同期または検査する場合は、`development.json`に登録したローカル対象名を`--plugin`へ渡します。
+
+```powershell
+agent dev marketplace sync <marketplace-name> --plugin <plugin-target>
+agent dev marketplace check <marketplace-name> --plugin <plugin-target>
+```
+
+Marketplaceが一つなら、ここでもMarketplace名を省略できます。部分操作は共有側の管理情報を読み、他のエントリーを保持したまま、指定したプラグインだけを追加または更新します。各開発者は自分のプラグインだけをローカル設定へ登録でき、他人のソースリポジトリを用意する必要はありません。ほかのプラグインは確認しないため、全体の状態を証明する操作ではありません。
+
+NASを複数人で更新するときは、各人が`agent dev marketplace sync --plugin <plugin-target>`を使い、Marketplace全体の`sync`は全ソースを管理する担当者だけが実行します。同じMarketplaceへの同期はロックディレクトリで直列化され、別の同期中は停止します。異常終了後に`.agents/plugin-marketplace-development/agent-dev-sync.lock`が残った場合は、実行中の同期がないことを確認してから、そのディレクトリだけを削除します。低水準の組み立てスクリプトを直接使う場合、この外側のロックは適用されません。
+
+ソースパスを含まない共有側の管理参照は、配布用コピーとカタログの同期に成功した後で更新します。組み立てに失敗した場合は管理参照を先行更新せず、失敗前の内容を維持します。
+
+`development.json`では、Marketplaceの`plugins[].target`から上位の`plugins`に登録した開発対象を参照します。開発対象は、リポジトリ固有の`developmentConfig`を持つ`repository-managed`と、ポータブルな`pluginRoot`を直接指す`direct`に分けます。どちらもMarketplaceへ割り当てられ、`plugin check`を実行できます。
+
+`repository-managed`の`plugin check/sync`は、リポジトリ所有のrunnerと設定を通して、ポータブル検証にversion方針、Node.js要件、固有テスト、ローカルMarketplaceの契約を加えます。`direct`の`plugin check`は共通managerによるポータブル検証だけです。`direct`で`plugin sync`を使うには、`development.json`へ`versionPolicy`の`bump`または`keep`を明示し、ソースを指すローカルMarketplaceを共通managerから発見できる必要があります。version方針の省略は、このPCからのインストールを許可していない状態として扱います。
+
+従来形式のMarketplaceから取り込んだ`direct`対象には`versionPolicy`を自動設定しません。取り込んだソースパスが共有側の`plugins/`直下ではないことは検査しますが、それだけで開発ソースだと証明はできないためです。Marketplaceの`check/sync`にはそのまま使えますが、Codexへのインストールは、開発ソースとローカルMarketplaceを確認してversion方針を明示した後だけ行います。どちらの方式でも、`plugin sync`前には同名のユーザースコープスキルがないかを検査します。
+
+`agent dev`は参照を解決し、ソースパスを含む一時的な組み立て定義をローカルで作って、`assemble-plugin-marketplace.mjs`の`check`または`sync --config`へ渡します。一時定義は実行後に削除します。Marketplace側の`config.json`にはプラグイン名とカテゴリーだけを生成するため、開発マシン固有の絶対パスを共有先へ残しません。`agent`から呼ぶmanagerとvalidatorはインストーラーがCLIと同じ版で配置するため、ユーザースコープのスキルリンクをプラグイン統合確認のために外しても、この入口の実行依存は失われません。
+
+直接利用していた既存`config.json`のMarketplace名、表示名、ソース、カテゴリーが、`development.json`から解決した構成と完全に一致する場合は、最初の`agent dev marketplace sync`でこの生成形式へ移行できます。内容が一致しない場合は停止するため、差分を確認してどちらを正本にするか決めてから再実行します。
+
+ローカルのプラグイン統合には`agent dev plugin check`または`agent dev plugin sync`を使い、共有Marketplaceを暗黙に更新しません。設定方法は[`agent dev`でローカル開発を管理する](../agent-development.md)を参照してください。
 
 スキル中心の日常開発では、プラグイン内の各スキルを`$HOME/.agents/skills`からソースリポジトリへ直接リンクできます。この経路なら、変更のたびにローカルMarketplaceからプラグインを再インストールしたり、Codexのインストール済みキャッシュと開発元を見分けたりする必要がありません。直接リンクの管理方法と重複防止は、[開発中のスキルをユーザースコープへリンクする](../skill-links.md)を参照してください。
 
@@ -154,7 +217,7 @@ Marketplaceの登録と、プラグインのインストールは別の操作で
 
 ローカルで確認するたびに共有Marketplaceを同期する必要はありません。ソースリポジトリに固有のテストや`local-plugin.mjs validate`がある場合は先に実行し、配布versionを含めて共有してよい状態になった時点で`sync`と`check`を実行します。Marketplaceの組み立て時に行う検証はポータブルなパッケージが対象であり、リポジトリ固有のテストやバージョン更新は含みません。
 
-NAS上の`config.json`に`C:\...`のような絶対ソースパスを記録した場合、そのパスへアクセスできる開発者のPCから同期します。共有者はソースリポジトリへアクセスする必要がなく、NASに生成されたMarketplaceを利用するだけです。
+組み立てスクリプトを直接使い、NAS上の`config.json`に`C:\...`のような絶対ソースパスを記録した場合、そのパスへアクセスできる開発者のPCから同期します。`agent dev`方式では絶対ソースパスを`development.json`だけに保持します。どちらの場合も、共有者はソースリポジトリへアクセスする必要がなく、NASに生成されたMarketplaceを利用するだけです。
 
 `sync`は、Gitのcommitやpush、NASへのログイン、CodexへのMarketplace登録、利用者環境へのインストールを行いません。Gitリポジトリを配布先にする場合は、同期後の差分を確認し、通常のリリース手順でcommitとpushを行います。
 
@@ -242,7 +305,7 @@ Marketplaceの構成はどの配布先でも同じです。一つのMarketplace�
 
 `sync`は、前回生成した内容と異なる手編集を検出すると、既存のプラグインコピーやカタログを上書きせず停止します。手作業をソースリポジトリへ移すか、生成物を前回の状態へ戻してから再実行してください。`state.json`を書き換えて検出を回避してはいけません。
 
-プラグインをMarketplaceから外す場合は、`config.json`から対象エントリーを削除して`sync`します。カタログからは外れますが、古い`plugins/<plugin-name>/`ディレクトリは自動削除されません。削除対象が正しいことを確認してから、別の操作として削除またはアーカイブします。
+プラグインをMarketplaceから外す場合、組み立てスクリプトの直接利用では`config.json`から、`agent dev`方式では`development.json`から対象エントリーを削除して`sync`します。カタログからは外れますが、古い`plugins/<plugin-name>/`ディレクトリは自動削除されません。削除対象が正しいことを確認してから、別の操作として削除またはアーカイブします。
 
 NASへの同期で、アクセス拒否、接続断、容量・クォータ不足、ファイルの使用中など、判別できるファイルシステムエラーが発生した場合、スクリプトはOSのエラーと対象パスを残し、確認事項を表示して停止します。元のエラーに加えて後始末やロールバックにも失敗した場合は、元の原因を隠さず、追加の失敗として対象パスを表示します。
 

@@ -391,7 +391,7 @@ Portable core componentはAgent SkillsとMCPサーバーの二つです。Hooks�
 
 ### 個人用`plugin-creator-agent-plugins`スキル
 
-この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`をユーザースコープの発見入口とし、そこからリンクするソースリポジトリ内のスキルを正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.3.0`です。開発中の作業コピーを固定する場合はGit commitまたは内容を固定したartifactを使い、公開・配布後はtemplateや生成結果を変える更新でversionを上げます。
+この環境では、`~/.agents/skills/plugin-creator-agent-plugins/`をユーザースコープの発見入口とし、そこからリンクするソースリポジトリ内のスキルを正本とします。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式を選ぶタスクで併用・代替する独立スキルです。現在のスキルversionは`0.4.0`です。開発中の作業コピーを固定する場合はGit commitまたは内容を固定したartifactを使い、公開・配布後はtemplateや生成結果を変える更新でversionを上げます。
 
 主なreferenceの分担は次のとおりです。
 

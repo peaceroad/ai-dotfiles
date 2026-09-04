@@ -3,10 +3,10 @@
 Installs the repository-owned agent command for the current user.
 
 .DESCRIPTION
-Copies the agent launcher, Node.js implementation, and development schema into
-the selected .agents directory. By default, it also registers the scripts
-directory in the user Path. It does not create or modify development.json or a
-PowerShell profile.
+Copies the agent launcher, Node.js implementation, development schema, and
+version-matched runtime managers into the selected .agents directory. By
+default, it also registers the scripts directory in the user Path. It does not
+create or modify development.json or a PowerShell profile.
 
 .EXAMPLE
 .\scripts\install-agent.ps1
@@ -22,10 +22,17 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$marker = '@ai-dotfiles agent-command v1'
+$agentMarker = '@ai-dotfiles agent-dev-runtime managed'
+$legacyAgentMarker = '@ai-dotfiles agent-command v1'
+$localPluginMarker = '@plugin-creator-agent-plugins managed-local-runner v1'
+$marketplaceAssemblerMarker = '@plugin-creator-agent-plugins managed-marketplace-assembler v1'
+$portableValidatorMarker = '@plugin-creator-agent-plugins managed-portable-validator v1'
+$marketplaceSchemaMarker = '@plugin-creator-agent-plugins managed-marketplace-schema v2'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $sourceRoot = Join-Path $projectRoot 'tools\agent'
 $destinationScripts = Join-Path $AgentsRoot 'scripts'
+$pluginToolsSource = Join-Path $projectRoot 'plugins\agent-plugin-tools\skills\plugin-creator-agent-plugins'
+$pluginToolsDestination = Join-Path $destinationScripts 'agent-runtime\plugin-tools'
 $homeRoot = [Environment]::GetFolderPath('UserProfile')
 
 function ConvertTo-AgentDisplayPath {
@@ -41,11 +48,16 @@ function ConvertTo-AgentDisplayPath {
 }
 
 function Test-AgentManagedFile {
-  param([Parameter(Mandatory = $true)][string]$Path)
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string[]]$Markers
+  )
 
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
-  $firstLines = @(Get-Content -LiteralPath $Path -TotalCount 3 -ErrorAction Stop)
-  return [bool]($firstLines -match [regex]::Escape($marker))
+  $firstLines = @(Get-Content -LiteralPath $Path -TotalCount 8 -ErrorAction Stop)
+  return [bool]($Markers | Where-Object {
+    $firstLines -match [regex]::Escape($_)
+  } | Select-Object -First 1)
 }
 
 function Test-AgentSamePath {
@@ -67,7 +79,7 @@ function Get-AgentLegacyContent {
   param([Parameter(Mandatory = $true)][string]$Source)
 
   $content = [IO.File]::ReadAllText($Source)
-  $escapedMarker = [regex]::Escape($marker)
+  $escapedMarker = [regex]::Escape($agentMarker)
   switch (Split-Path -Leaf $Source) {
     'agent.cmd' {
       return $content -replace "(?m)^rem $escapedMarker\r?\n", ''
@@ -92,7 +104,7 @@ function Test-AgentLegacyInstallation {
   $legacyCount = 0
   foreach ($item in $Payload) {
     if (-not (Test-Path -LiteralPath $item.Destination -PathType Leaf)) { return $false }
-    if (Test-AgentManagedFile -Path $item.Destination) { continue }
+    if (Test-AgentManagedFile -Path $item.Destination -Markers $item.Markers) { continue }
     if ([IO.File]::ReadAllText($item.Destination) -cne (Get-AgentLegacyContent -Source $item.Source)) {
       return $false
     }
@@ -105,10 +117,11 @@ function Get-AgentInstallAction {
   param(
     [Parameter(Mandatory = $true)][string]$Source,
     [Parameter(Mandatory = $true)][string]$Destination,
+    [Parameter(Mandatory = $true)][string[]]$Markers,
     [switch]$AllowLegacyMigration
   )
 
-  if (-not (Test-AgentManagedFile -Path $Source)) {
+  if (-not (Test-AgentManagedFile -Path $Source -Markers $Markers)) {
     throw "The source file is missing the managed marker: $(ConvertTo-AgentDisplayPath $Source)"
   }
 
@@ -120,7 +133,7 @@ function Get-AgentInstallAction {
   $sourceHash = (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash
   $destinationHash = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash
   if ($sourceHash -eq $destinationHash) { return 'Current' }
-  if (-not $Force -and -not $AllowLegacyMigration -and -not (Test-AgentManagedFile -Path $Destination)) {
+  if (-not $Force -and -not $AllowLegacyMigration -and -not (Test-AgentManagedFile -Path $Destination -Markers $Markers)) {
     throw "Refusing to replace an unmanaged file: $(ConvertTo-AgentDisplayPath $Destination). Use -Force only after reviewing it."
   }
   return 'Update'
@@ -137,7 +150,7 @@ function Install-AgentFile {
     Write-Output "Current: $(ConvertTo-AgentDisplayPath $Destination)"
     return
   }
-  if (-not $PSCmdlet.ShouldProcess((ConvertTo-AgentDisplayPath $Destination), "$Action agent command file")) { return }
+  if (-not $PSCmdlet.ShouldProcess((ConvertTo-AgentDisplayPath $Destination), "$Action agent development file")) { return }
 
   $destinationDirectory = Split-Path -Parent $Destination
   New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
@@ -188,12 +201,20 @@ try {
     }
   }
 
-  $payload = @(
-    @{ Source = (Join-Path $sourceRoot 'agent.cmd'); Destination = (Join-Path $destinationScripts 'agent.cmd') }
-    @{ Source = (Join-Path $sourceRoot 'agent.mjs'); Destination = (Join-Path $destinationScripts 'agent.mjs') }
-    @{ Source = (Join-Path $sourceRoot 'development.schema.json'); Destination = (Join-Path $AgentsRoot 'development.schema.json') }
+  $corePayload = @(
+    @{ Source = (Join-Path $sourceRoot 'agent.cmd'); Destination = (Join-Path $destinationScripts 'agent.cmd'); Markers = @($agentMarker, $legacyAgentMarker) }
+    @{ Source = (Join-Path $sourceRoot 'agent.mjs'); Destination = (Join-Path $destinationScripts 'agent.mjs'); Markers = @($agentMarker, $legacyAgentMarker) }
+    @{ Source = (Join-Path $sourceRoot 'development.schema.json'); Destination = (Join-Path $AgentsRoot 'development.schema.json'); Markers = @($agentMarker, $legacyAgentMarker) }
   )
-  $legacyMigration = Test-AgentLegacyInstallation -Payload $payload
+  $payload = @(
+    $corePayload
+    @{ Source = (Join-Path $projectRoot '.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $destinationScripts 'manage-skill-links.mjs'); Markers = @($agentMarker, $legacyAgentMarker) }
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\manage-local-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\manage-local-agent-plugin.mjs'); Markers = @($localPluginMarker, $agentMarker) }
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-plugin-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-plugin-marketplace.mjs'); Markers = @($marketplaceAssemblerMarker, $agentMarker) }
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\validate-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\validate-agent-plugin.mjs'); Markers = @($portableValidatorMarker, $agentMarker) }
+    @{ Source = (Join-Path $pluginToolsSource 'assets\marketplace-distribution\marketplace-development.schema.json'); Destination = (Join-Path $pluginToolsDestination 'assets\marketplace-distribution\marketplace-development.schema.json'); Markers = @($marketplaceSchemaMarker, $agentMarker) }
+  )
+  $legacyMigration = Test-AgentLegacyInstallation -Payload $corePayload
   $plan = foreach ($item in $payload) {
     @{
       Source = $item.Source
@@ -201,6 +222,7 @@ try {
       Action = Get-AgentInstallAction `
         -Source $item.Source `
         -Destination $item.Destination `
+        -Markers $item.Markers `
         -AllowLegacyMigration:$legacyMigration
     }
   }

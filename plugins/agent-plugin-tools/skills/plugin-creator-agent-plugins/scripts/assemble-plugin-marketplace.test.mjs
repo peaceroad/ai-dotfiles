@@ -164,6 +164,40 @@ test("init, add, sync, and check assemble multiple plugins", async () => {
   }
 });
 
+test("sync and check can use an external assembly definition", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "plugin-marketplace-external-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  const source = path.join(tempRoot, "source", "sample-plugin");
+  const configuration = path.join(tempRoot, "effective-config.json");
+  try {
+    await createPlugin(source, "sample-plugin");
+    await writeJson(configuration, {
+      schemaVersion: 1,
+      name: "external-marketplace",
+      displayName: "External Marketplace",
+      plugins: [{ source, category: "Tools" }],
+    });
+
+    const synced = invoke(["sync", marketplaceRoot, "--config", configuration], tempRoot);
+    assert.equal(synced.status, 0, synced.stderr);
+    assert.match(synced.stdout, /Marketplace sync complete/u);
+    await assert.rejects(
+      readFile(path.join(marketplaceRoot, ".agents", "plugin-marketplace-development", "config.json"), "utf8"),
+      { code: "ENOENT" },
+    );
+
+    const checked = invoke(["check", marketplaceRoot, "--config", configuration], tempRoot);
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.match(checked.stdout, /Marketplace distribution is current/u);
+
+    const defaultCheck = invoke(["check", marketplaceRoot], tempRoot);
+    assert.equal(defaultCheck.status, 1);
+    assert.match(defaultCheck.stderr, /configuration.*does not exist/iu);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("source changes are reported and safely synchronized", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "plugin-marketplace-update-"));
   const marketplaceRoot = path.join(tempRoot, "distribution");
@@ -196,6 +230,66 @@ test("source changes are reported and safely synchronized", async () => {
       "after\n",
     );
     assert.equal(invoke(["check", marketplaceRoot], tempRoot).status, 0);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("scoped sync updates one plugin without certifying the others", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "plugin-marketplace-scoped-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  const first = path.join(tempRoot, "sources", "first-plugin");
+  const second = path.join(tempRoot, "sources", "second-plugin");
+  const configPath = path.join(
+    marketplaceRoot,
+    ".agents",
+    "plugin-marketplace-development",
+    "config.json",
+  );
+  try {
+    await createPlugin(first, "first-plugin", "first before");
+    await createPlugin(second, "second-plugin", "second before");
+    assert.equal(invoke([
+      "init",
+      marketplaceRoot,
+      "--name",
+      "sample-marketplace",
+      "--display-name",
+      "Sample Marketplace",
+      "--plugin",
+      first,
+      "--plugin",
+      second,
+      "--category",
+      "Tools",
+    ], tempRoot).status, 0);
+    assert.equal(invoke(["sync", marketplaceRoot], tempRoot).status, 0);
+
+    await writeFile(path.join(first, "content.txt"), "first after\n", "utf8");
+    await writeFile(path.join(second, "content.txt"), "second after\n", "utf8");
+    const scoped = invoke(["sync", marketplaceRoot, "--plugin", "first-plugin"], tempRoot);
+    assert.equal(scoped.status, 0, scoped.stderr);
+    assert.match(scoped.stdout, /Other plugin copies were not checked/u);
+    assert.equal(
+      await readFile(path.join(marketplaceRoot, "plugins", "first-plugin", "content.txt"), "utf8"),
+      "first after\n",
+    );
+    assert.equal(
+      await readFile(path.join(marketplaceRoot, "plugins", "second-plugin", "content.txt"), "utf8"),
+      "second before\n",
+    );
+
+    const scopedCheck = invoke(["check", marketplaceRoot, "--plugin", "first-plugin"], tempRoot);
+    assert.equal(scopedCheck.status, 0, scopedCheck.stderr);
+    assert.match(scopedCheck.stdout, /Other plugin copies were not checked/u);
+    assert.equal(invoke(["check", marketplaceRoot], tempRoot).status, 1);
+
+    const config = JSON.parse(await readFile(configPath, "utf8"));
+    config.plugins[0].category = "Changed category";
+    await writeJson(configPath, config);
+    const refused = invoke(["sync", marketplaceRoot, "--plugin", "first-plugin"], tempRoot);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /full sync before a scoped operation/u);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

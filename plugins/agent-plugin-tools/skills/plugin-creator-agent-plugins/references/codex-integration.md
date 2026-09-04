@@ -93,6 +93,8 @@ The manager discovers a local marketplace entry by walking from the plugin root 
 
 In direct mode, this manager owns only the reusable Agent Plugins v1 validation and Codex installation boundary. It does not infer a repository's application tests, generated files, MCP behavior checks, release process, or publication policy. When those checks must share the same entrypoint, use the explicit Repository development contract in [repository-management.md](repository-management.md).
 
+A higher-level local development index may store a repository plus plugin-root reference and route its read-only plugin check to this direct mode. Treat installation as a separate capability: require that index to record an explicit `bump` or `keep` policy before it invokes `install`, even when the current source version would let this manager infer a policy. This prevents an imported distribution reference from becoming installable merely because of its version text. The source plugin must still have a discoverable local Marketplace entry; never substitute an assembled shared Marketplace copy.
+
 ## Format boundary
 
 Do not replace the portable Agent Plugins v1 source of truth merely because the built-in OpenAI `plugin-creator` or another Codex document describes `.codex-plugin/plugin.json`. Treat root `plugin.json` support as the expected baseline for the current Codex plugin runtime, and do not add the Codex manifest to the portable source as a precaution. A separate client-native package is appropriate only for an explicitly targeted historical or different client that still requires it.

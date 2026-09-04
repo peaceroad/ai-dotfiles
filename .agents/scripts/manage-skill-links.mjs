@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 
+// @ai-dotfiles agent-dev-runtime managed
+
 import { homedir } from "node:os";
 import path from "node:path";
 import { lstat, mkdir, readFile, readlink, stat, symlink } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-const HOME = homedir();
-const DEFAULT_MANIFEST = fileURLToPath(new URL("../skill-links.json", import.meta.url));
+const HOME = path.resolve(process.env.AGENT_DEV_HOME || homedir());
+const DEFAULT_MANIFEST = path.resolve(
+  process.env.AGENT_DEV_SKILL_LINKS || fileURLToPath(new URL("../skill-links.json", import.meta.url)),
+);
 const COMMANDS = new Set(["validate", "status", "check", "sync"]);
 const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const EXPECTED_LINK_ROOT = "~/.agents/skills";
@@ -173,11 +177,10 @@ function printResult(skill, result) {
 }
 
 async function inspectAll(skills) {
-  const results = [];
-  for (const skill of skills) {
-    results.push({ skill, result: await inspectSkill(skill) });
-  }
-  return results;
+  return Promise.all(skills.map(async (skill) => ({
+    skill,
+    result: await inspectSkill(skill),
+  })));
 }
 
 async function synchronize(linkRoot, skills) {

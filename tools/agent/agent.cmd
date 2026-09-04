@@ -1,3 +1,3 @@
 @echo off
-rem @ai-dotfiles agent-command v1
+rem @ai-dotfiles agent-dev-runtime managed
 node "%~dp0agent.mjs" %*

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// @plugin-creator-agent-plugins managed-marketplace-assembler v1
+
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -34,7 +36,8 @@ const STATE_RELATIVE_PATH = path.join(DEVELOPMENT_DIRECTORY, "state.json");
 const CATALOG_RELATIVE_PATH = path.join(".agents", "plugins", "marketplace.json");
 const PLUGINS_RELATIVE_PATH = "plugins";
 const STATE_MARKER = "@plugin-creator-agent-plugins managed-marketplace-state v1";
-const SCHEMA_MARKER = "@plugin-creator-agent-plugins managed-marketplace-schema v1";
+const SCHEMA_MARKER = "@plugin-creator-agent-plugins managed-marketplace-schema v2";
+const LEGACY_SCHEMA_MARKER = "@plugin-creator-agent-plugins managed-marketplace-schema v1";
 const NAME_PATTERN = /^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u;
 const COMMANDS = new Set(["init", "add", "sync", "check"]);
 const CONFIG_KEYS = new Set(["$schema", "schemaVersion", "name", "displayName", "plugins"]);
@@ -46,8 +49,8 @@ function help() {
 Usage:
   node assemble-plugin-marketplace.mjs init <marketplace-root> --name <name> --display-name <label> [--plugin <plugin-root> ... --category <category>]
   node assemble-plugin-marketplace.mjs add <marketplace-root> <plugin-root> --category <category>
-  node assemble-plugin-marketplace.mjs sync <marketplace-root>
-  node assemble-plugin-marketplace.mjs check <marketplace-root>
+  node assemble-plugin-marketplace.mjs sync <marketplace-root> [--config <configuration>] [--plugin <name>]
+  node assemble-plugin-marketplace.mjs check <marketplace-root> [--config <configuration>] [--plugin <name>]
 
 Commands:
   init   Create the human-owned configuration and managed schema. With
@@ -61,7 +64,13 @@ Options:
   --name <name>             Stable Marketplace identifier for init.
   --display-name <label>    Marketplace label shown by Codex for init.
   --plugin <plugin-root>    Initial plugin source; repeatable with init.
+  --plugin <name>           Limit sync or check to one configured plugin.
+  --merge                   Preserve other Marketplace entries while adding or
+                            updating --plugin. Requires --config and --plugin.
   --category <category>     Category for add or all initial plugins.
+  --config <configuration>  Read an alternate assembly definition for sync or
+                            check. Relative plugin sources still resolve from
+                            the Marketplace root.
   -h, --help                Show this help.
 
 The Marketplace root may be a local directory, a checked-out Git repository,
@@ -104,7 +113,10 @@ function parseArgs(argv) {
     name: null,
     displayName: null,
     category: null,
+    config: null,
     plugins: [],
+    selectedPlugin: null,
+    merge: false,
   };
   let index = 1;
   if (command === "add") {
@@ -115,12 +127,24 @@ function parseArgs(argv) {
   while (index < rest.length) {
     const option = rest[index];
     if (option === "-h" || option === "--help") return { command: "help" };
+    if (option === "--merge" && (command === "sync" || command === "check")) {
+      options.merge = true;
+      index += 1;
+      continue;
+    }
     const value = rest[index + 1];
     if (!value) fail(`Missing value for ${option}.`);
     if (option === "--name") options.name = value;
     else if (option === "--display-name") options.displayName = value;
     else if (option === "--category") options.category = value;
+    else if (option === "--config" && (command === "sync" || command === "check")) {
+      options.config = path.resolve(value);
+    }
     else if (option === "--plugin" && command === "init") options.plugins.push(value);
+    else if (option === "--plugin" && (command === "sync" || command === "check")) {
+      if (options.selectedPlugin !== null) fail("--plugin may be specified only once.");
+      options.selectedPlugin = validateName(value, "--plugin");
+    }
     else fail(`Unknown option for ${command}: ${option}`);
     index += 2;
   }
@@ -134,7 +158,10 @@ function parseArgs(argv) {
     options.category = normalizeText(options.category, "--category");
     if (options.name !== null || options.displayName !== null) fail("--name and --display-name are valid only with init.");
   } else if (options.name !== null || options.displayName !== null || options.category !== null || options.plugins.length > 0) {
-    fail(`${command} accepts only the Marketplace root.`);
+    fail(`${command} accepts only the Marketplace root, optional --config, and optional --plugin.`);
+  }
+  if (options.merge && (!options.config || !options.selectedPlugin)) {
+    fail("--merge requires both --config and --plugin.");
   }
   return options;
 }
@@ -169,6 +196,14 @@ async function readJson(file, label) {
 
 function jsonText(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (isObject(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function normalizeConfigSource(root, source) {
@@ -272,6 +307,9 @@ async function restoreBackup(backup, destination, primaryError) {
 
 function validateConfig(config, root) {
   if (!isObject(config)) fail("The Marketplace development configuration must be an object.");
+  if (config.managedBy !== undefined) {
+    fail("The Marketplace reference configuration is generated by another workflow. Use that workflow, or pass its materialized source configuration with --config.");
+  }
   for (const key of Object.keys(config)) if (!CONFIG_KEYS.has(key)) fail(`Unsupported configuration key: ${key}`);
   if (config.schemaVersion !== 1) fail("config.json.schemaVersion must be 1.");
   config.name = validateName(config.name, "config.json.name");
@@ -305,9 +343,13 @@ function runValidator(pluginRoot) {
   }
 }
 
-async function inspectPlugin(root, entry, { validate = true, includeDigest = true } = {}) {
+async function inspectPlugin(root, entry, {
+  validate = true,
+  includeDigest = true,
+  allowGeneratedSource = false,
+} = {}) {
   const source = resolveConfigSource(root, entry.source);
-  if (isWithin(path.join(root, PLUGINS_RELATIVE_PATH), source)) {
+  if (!allowGeneratedSource && isWithin(path.join(root, PLUGINS_RELATIVE_PATH), source)) {
     fail(`Plugin source must not be inside the generated plugins directory: ${entry.source}`);
   }
   if ((await pathType(source)) !== "directory") fail(`Plugin source is not a directory: ${entry.source}`);
@@ -375,9 +417,9 @@ function marketplaceDocument(config, plugins) {
   };
 }
 
-async function loadConfiguration(root) {
+async function loadConfiguration(root, configurationPath = null) {
   return validateConfig(
-    await readJson(path.join(root, CONFIG_RELATIVE_PATH), "Marketplace development configuration"),
+    await readJson(configurationPath ?? path.join(root, CONFIG_RELATIVE_PATH), "Marketplace development configuration"),
     root,
   );
 }
@@ -405,7 +447,7 @@ async function assertSchemaManaged(root, templateText) {
   if (type === null) return null;
   if (type !== "file") fail(`Managed schema path is not a file: ${file}`);
   const current = await readFile(file, "utf8");
-  if (current !== templateText && !current.includes(SCHEMA_MARKER)) {
+  if (current !== templateText && !current.includes(SCHEMA_MARKER) && !current.includes(LEGACY_SCHEMA_MARKER)) {
     fail(`Refusing to overwrite an unmanaged schema: ${file}`);
   }
   return current;
@@ -538,18 +580,86 @@ async function runAdd(options) {
   console.log("Run sync to update the Marketplace distribution.");
 }
 
-async function evaluate(root) {
-  const config = await loadConfiguration(root);
-  const plugins = await inspectPlugins(config, root);
-  const catalogText = jsonText(marketplaceDocument(config, plugins));
+async function evaluate(root, configurationPath = null, selectedPlugin = null) {
+  const config = await loadConfiguration(root, configurationPath);
+  const catalogPlugins = await inspectPlugins(config, root, selectedPlugin
+    ? { validate: false, includeDigest: false, allowGeneratedSource: true }
+    : undefined);
+  let plugins = catalogPlugins;
+  if (selectedPlugin) {
+    const index = catalogPlugins.findIndex((plugin) => plugin.name === selectedPlugin);
+    if (index < 0) {
+      fail(`Plugin ${selectedPlugin} is not configured in this Marketplace.`);
+    }
+    plugins = [await inspectPlugin(root, config.plugins[index])];
+  }
+  const catalogText = jsonText(marketplaceDocument(config, catalogPlugins));
   const catalogDigest = byteDigest(catalogText);
   const schemaText = await readFile(SCHEMA_TEMPLATE, "utf8");
   const state = await loadState(root);
   return { plugins, catalogText, catalogDigest, schemaText, state };
 }
 
+function withoutSelectedCatalogPlugin(document, selectedPlugin, label) {
+  if (!isObject(document) || !Array.isArray(document.plugins)) fail(`${label} is not a valid Marketplace catalog.`);
+  const selected = document.plugins.filter((plugin) => isObject(plugin) && plugin.name === selectedPlugin);
+  if (selected.length > 1) fail(`${label} contains duplicate plugin entries for ${selectedPlugin}.`);
+  return {
+    ...document,
+    plugins: document.plugins.filter((plugin) => !isObject(plugin) || plugin.name !== selectedPlugin),
+  };
+}
+
+async function assertScopedBaseline(root, catalogText, catalogDigest, schemaText, state, {
+  merge = false,
+  selectedPlugin = null,
+} = {}) {
+  if (!state) fail("Scoped operation requires an existing full Marketplace sync.");
+  const schemaPath = path.join(root, SCHEMA_RELATIVE_PATH);
+  if ((await pathType(schemaPath)) !== "file" || await readFile(schemaPath, "utf8") !== schemaText) {
+    fail("Marketplace schema is not current. Run a full sync before a scoped operation.");
+  }
+  const catalogPath = path.join(root, CATALOG_RELATIVE_PATH);
+  if ((await pathType(catalogPath)) !== "file") {
+    fail("Marketplace catalog structure is not current. Run a full sync before a scoped operation.");
+  }
+  const currentCatalogText = await readFile(catalogPath, "utf8");
+  if (!merge && currentCatalogText !== catalogText) {
+    fail("Marketplace catalog structure is not current. Run a full sync before a scoped operation.");
+  }
+  if (merge) {
+    let currentCatalog;
+    let expectedCatalog;
+    try {
+      currentCatalog = JSON.parse(currentCatalogText);
+      expectedCatalog = JSON.parse(catalogText);
+    } catch {
+      fail("Marketplace catalog is not valid JSON. Run a full sync before a scoped operation.");
+    }
+    const currentRemainder = withoutSelectedCatalogPlugin(currentCatalog, selectedPlugin, "Current Marketplace catalog");
+    const expectedRemainder = withoutSelectedCatalogPlugin(expectedCatalog, selectedPlugin, "Expected Marketplace catalog");
+    if (canonicalJson(currentRemainder) !== canonicalJson(expectedRemainder)) {
+      fail("Marketplace entries outside the selected plugin changed. Reconnect or retry from the latest Marketplace state.");
+    }
+  }
+  const baselineCatalogDigest = merge ? byteDigest(currentCatalogText) : catalogDigest;
+  if (state.marketplaceDigest !== baselineCatalogDigest) {
+    fail("Marketplace state does not match the catalog. Run a full sync before a scoped operation.");
+  }
+}
+
 async function runSync(options) {
-  const { plugins, catalogText, catalogDigest, schemaText, state } = await evaluate(options.root);
+  const { plugins, catalogText, catalogDigest, schemaText, state } = await evaluate(
+    options.root,
+    options.config,
+    options.selectedPlugin,
+  );
+  if (options.selectedPlugin) {
+    await assertScopedBaseline(options.root, catalogText, catalogDigest, schemaText, state, {
+      merge: options.merge,
+      selectedPlugin: options.selectedPlugin,
+    });
+  }
   const schemaCurrent = await assertSchemaManaged(options.root, schemaText);
   const destinationDigests = await assertDestinationsSafe(
     options.root,
@@ -587,28 +697,33 @@ async function runSync(options) {
       console.log(`Synced: plugins/${item.plugin.name}`);
     }
 
-    const schemaPath = path.join(options.root, SCHEMA_RELATIVE_PATH);
-    if (schemaCurrent !== schemaText) {
-      await writeAtomic(schemaPath, schemaText);
-      console.log(`Updated: ${SCHEMA_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
+    if (!options.selectedPlugin) {
+      const schemaPath = path.join(options.root, SCHEMA_RELATIVE_PATH);
+      if (schemaCurrent !== schemaText) {
+        await writeAtomic(schemaPath, schemaText);
+        console.log(`Updated: ${SCHEMA_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
+      }
     }
-
-    const catalogPath = path.join(options.root, CATALOG_RELATIVE_PATH);
-    if ((await pathType(catalogPath)) !== "file" || await readFile(catalogPath, "utf8") !== catalogText) {
-      await writeAtomic(catalogPath, catalogText);
-      console.log(`Updated: ${CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
+    if (!options.selectedPlugin || options.merge) {
+      const catalogPath = path.join(options.root, CATALOG_RELATIVE_PATH);
+      if ((await pathType(catalogPath)) !== "file" || await readFile(catalogPath, "utf8") !== catalogText) {
+        await writeAtomic(catalogPath, catalogText);
+        console.log(`Updated: ${CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
+      }
     }
 
     const statePlugins = { ...(state?.plugins ?? {}) };
     for (const plugin of plugins) statePlugins[plugin.name] = { digest: plugin.digest };
-    const configuredNames = new Set(plugins.map((plugin) => plugin.name));
     const retainedNames = [];
-    for (const name of Object.keys(statePlugins).sort()) {
-      if (configuredNames.has(name)) continue;
-      if ((await pathType(path.join(options.root, PLUGINS_RELATIVE_PATH, name))) === null) {
-        delete statePlugins[name];
-      } else {
-        retainedNames.push(name);
+    if (!options.selectedPlugin) {
+      const configuredNames = new Set(plugins.map((plugin) => plugin.name));
+      for (const name of Object.keys(statePlugins).sort()) {
+        if (configuredNames.has(name)) continue;
+        if ((await pathType(path.join(options.root, PLUGINS_RELATIVE_PATH, name))) === null) {
+          delete statePlugins[name];
+        } else {
+          retainedNames.push(name);
+        }
       }
     }
     const stateDocument = {
@@ -625,7 +740,9 @@ async function runSync(options) {
     }
     for (const name of retainedNames) console.log(`WARNING: Retained unreferenced generated plugin: plugins/${name}`);
     if (changed.length === 0) console.log("Plugin copies are current.");
-    console.log("Marketplace sync complete.");
+    console.log(options.selectedPlugin
+      ? `Marketplace plugin sync complete: ${options.selectedPlugin}. Other plugin copies were not checked.`
+      : "Marketplace sync complete.");
   } catch (error) {
     primaryError = error;
     throw error;
@@ -635,7 +752,11 @@ async function runSync(options) {
 }
 
 async function runCheck(options) {
-  const { plugins, catalogText, catalogDigest, schemaText, state } = await evaluate(options.root);
+  const { plugins, catalogText, catalogDigest, schemaText, state } = await evaluate(
+    options.root,
+    options.config,
+    options.selectedPlugin,
+  );
   const drift = [];
   const schemaPath = path.join(options.root, SCHEMA_RELATIVE_PATH);
   if ((await pathType(schemaPath)) !== "file" || await readFile(schemaPath, "utf8") !== schemaText) {
@@ -667,7 +788,9 @@ async function runCheck(options) {
     process.exitCode = 1;
     return;
   }
-  console.log("Marketplace distribution is current.");
+  console.log(options.selectedPlugin
+    ? `Marketplace plugin is current: ${options.selectedPlugin}. Other plugin copies were not checked.`
+    : "Marketplace distribution is current.");
 }
 
 async function main() {

@@ -21,10 +21,10 @@ function Get-LegacyAgentContent {
 
   $content = [IO.File]::ReadAllText($Source)
   switch (Split-Path -Leaf $Source) {
-    'agent.cmd' { return $content -replace '(?m)^rem @ai-dotfiles agent-command v1\r?\n', '' }
-    'agent.mjs' { return $content -replace '(?m)^// @ai-dotfiles agent-command v1\r?\n\r?\n', '' }
+    'agent.cmd' { return $content -replace '(?m)^rem @ai-dotfiles agent-dev-runtime managed\r?\n', '' }
+    'agent.mjs' { return $content -replace '(?m)^// @ai-dotfiles agent-dev-runtime managed\r?\n\r?\n', '' }
     'development.schema.json' {
-      $legacyContent = $content -replace '(?m)^  "\$comment": "@ai-dotfiles agent-command v1",\r?\n', ''
+      $legacyContent = $content -replace '(?m)^  "\$comment": "@ai-dotfiles agent-dev-runtime managed",\r?\n', ''
       return $legacyContent.Replace('/tools/agent/development.schema.json', '/.agents/development.schema.json')
     }
     default { throw "No legacy test fixture exists for: $Source" }
@@ -48,17 +48,35 @@ try {
 
   New-Item -ItemType Directory -Path $agentsRoot -Force | Out-Null
   $localConfig = Join-Path $agentsRoot 'development.json'
-  Set-Content -LiteralPath $localConfig -Value '{"schemaVersion":1,"plugins":{},"marketplaces":{}}' -Encoding utf8NoBOM
+  Set-Content -LiteralPath $localConfig -Value '{"schemaVersion":2,"plugins":{},"marketplaces":{}}' -Encoding utf8NoBOM
   $configBefore = Get-Content -LiteralPath $localConfig -Raw
 
   & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
   Assert-AgentTest ((Get-Content -LiteralPath $localConfig -Raw) -eq $configBefore) 'Installer changed development.json.'
 
-  $files = @(
+  $coreFiles = @(
     @{ Source = (Join-Path $projectRoot 'tools\agent\agent.cmd'); Destination = (Join-Path $agentsRoot 'scripts\agent.cmd') }
     @{ Source = (Join-Path $projectRoot 'tools\agent\agent.mjs'); Destination = (Join-Path $agentsRoot 'scripts\agent.mjs') }
     @{ Source = (Join-Path $projectRoot 'tools\agent\development.schema.json'); Destination = (Join-Path $agentsRoot 'development.schema.json') }
   )
+  $pluginToolsSource = Join-Path $projectRoot 'plugins\agent-plugin-tools\skills\plugin-creator-agent-plugins'
+  $pluginToolsDestination = Join-Path $agentsRoot 'scripts\agent-runtime\plugin-tools'
+  $pluginRuntimeFiles = @(
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\manage-local-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\manage-local-agent-plugin.mjs') }
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-plugin-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-plugin-marketplace.mjs') }
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\validate-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\validate-agent-plugin.mjs') }
+    @{ Source = (Join-Path $pluginToolsSource 'assets\marketplace-distribution\marketplace-development.schema.json'); Destination = (Join-Path $pluginToolsDestination 'assets\marketplace-distribution\marketplace-development.schema.json') }
+  )
+  $files = @(
+    $coreFiles
+    @{ Source = (Join-Path $projectRoot '.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $agentsRoot 'scripts\manage-skill-links.mjs') }
+    $pluginRuntimeFiles
+  )
+  foreach ($file in $pluginRuntimeFiles) {
+    Assert-AgentTest (
+      -not [IO.File]::ReadAllText($file.Source).Contains('@ai-dotfiles agent-dev-runtime managed')
+    ) "Generic plugin tooling contains an ai-dotfiles ownership marker: $($file.Source)"
+  }
   foreach ($file in $files) {
     Assert-AgentTest (Test-Path -LiteralPath $file.Destination -PathType Leaf) "Installed file is missing: $($file.Destination)"
     Assert-AgentTest (
@@ -68,7 +86,7 @@ try {
   }
 
   $legacyRoot = Join-Path $tempRoot '.agents-legacy'
-  foreach ($file in $files) {
+  foreach ($file in $coreFiles) {
     $legacyDestination = $file.Destination.Replace($agentsRoot, $legacyRoot)
     New-Item -ItemType Directory -Path (Split-Path -Parent $legacyDestination) -Force | Out-Null
     Set-Content -LiteralPath $legacyDestination -Value (Get-LegacyAgentContent -Source $file.Source) -Encoding utf8NoBOM -NoNewline
@@ -90,9 +108,21 @@ try {
 
   & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
 
+  $staleGenericManager = "#!/usr/bin/env node`n`n// @plugin-creator-agent-plugins managed-local-runner v1`n`n// stale`n"
+  Set-Content -LiteralPath $pluginRuntimeFiles[0].Destination -Value $staleGenericManager -Encoding utf8NoBOM -NoNewline
+  $staleLegacyRuntime = "#!/usr/bin/env node`n`n// @ai-dotfiles agent-dev-runtime managed`n`n// stale`n"
+  Set-Content -LiteralPath $pluginRuntimeFiles[1].Destination -Value $staleLegacyRuntime -Encoding utf8NoBOM -NoNewline
+  & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
+  foreach ($file in $pluginRuntimeFiles[0..1]) {
+    Assert-AgentTest (
+      (Get-FileHash -LiteralPath $file.Source -Algorithm SHA256).Hash -eq
+      (Get-FileHash -LiteralPath $file.Destination -Algorithm SHA256).Hash
+    ) "Installer did not update a managed plugin runtime file: $($file.Destination)"
+  }
+
   $agentCommand = Join-Path $agentsRoot 'scripts\agent.cmd'
   $agentImplementation = Join-Path $agentsRoot 'scripts\agent.mjs'
-  $staleManagedCommand = "@echo off`nrem @ai-dotfiles agent-command v1`nrem stale`n"
+  $staleManagedCommand = "@echo off`nrem @ai-dotfiles agent-dev-runtime managed`nrem stale`n"
   Set-Content -LiteralPath $agentCommand -Value $staleManagedCommand -Encoding utf8NoBOM -NoNewline
   Set-Content -LiteralPath $agentImplementation -Value '// unmanaged collision' -Encoding utf8NoBOM
   $collisionRejected = $false

@@ -1,58 +1,87 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:plugin-creator-agent-plugins:marketplace-development-schema:v1",
-  "$comment": "@plugin-creator-agent-plugins managed-marketplace-schema v1",
+  "$id": "urn:plugin-creator-agent-plugins:marketplace-development-schema:v2",
+  "$comment": "@plugin-creator-agent-plugins managed-marketplace-schema v2",
   "title": "Agent Plugin Marketplace Development Configuration",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "name",
-    "displayName",
-    "plugins"
-  ],
-  "properties": {
-    "$schema": {
-      "type": "string"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/standaloneConfiguration"
     },
-    "schemaVersion": {
-      "const": 1
-    },
-    "name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "pattern": "^(?!.*(?:--|\\.\\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
-    },
-    "displayName": {
-      "type": "string",
-      "minLength": 1
-    },
-    "plugins": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/plugin"
-      }
+    {
+      "$ref": "#/$defs/agentManagedConfiguration"
     }
-  },
+  ],
   "$defs": {
-    "plugin": {
+    "baseProperties": {
+      "$schema": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^(?!.*(?:--|\\.\\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+      },
+      "displayName": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "standaloneConfiguration": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "source",
-        "category"
-      ],
+      "required": ["schemaVersion", "name", "displayName", "plugins"],
+      "properties": {
+        "$schema": { "$ref": "#/$defs/baseProperties/$schema" },
+        "schemaVersion": { "const": 1 },
+        "name": { "$ref": "#/$defs/baseProperties/name" },
+        "displayName": { "$ref": "#/$defs/baseProperties/displayName" },
+        "plugins": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourcePlugin" }
+        }
+      }
+    },
+    "agentManagedConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "managedBy", "name", "displayName", "plugins", "configurationDigest"],
+      "properties": {
+        "$schema": { "$ref": "#/$defs/baseProperties/$schema" },
+        "schemaVersion": { "const": 2 },
+        "managedBy": { "const": "ai-dotfiles/agent-dev" },
+        "name": { "$ref": "#/$defs/baseProperties/name" },
+        "displayName": { "$ref": "#/$defs/baseProperties/displayName" },
+        "plugins": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/namedPlugin" }
+        },
+        "configurationDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "sourcePlugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "category"],
       "properties": {
         "source": {
           "type": "string",
           "minLength": 1,
           "description": "Absolute path or a path relative to the Marketplace root."
         },
-        "category": {
-          "type": "string",
-          "minLength": 1
-        }
+        "category": { "type": "string", "minLength": 1 }
+      }
+    },
+    "namedPlugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "category"],
+      "properties": {
+        "name": { "$ref": "#/$defs/baseProperties/name" },
+        "category": { "type": "string", "minLength": 1 }
       }
     }
   }
