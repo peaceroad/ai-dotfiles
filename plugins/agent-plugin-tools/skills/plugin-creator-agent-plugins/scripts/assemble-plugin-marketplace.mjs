@@ -7,6 +7,7 @@ import {
   lstat,
   mkdir,
   readFile,
+  realpath,
   readdir,
   readlink,
   rename,
@@ -702,6 +703,22 @@ function reportFailure(error) {
   process.exitCode = 1;
 }
 
-if (process.argv[1] && pathKey(process.argv[1]) === pathKey(SCRIPT_PATH)) {
+async function isDirectInvocation(argumentPath) {
+  if (!argumentPath) return false;
+  let invokedPath = path.resolve(argumentPath);
+  let scriptPath = path.resolve(SCRIPT_PATH);
+  if (pathKey(invokedPath) === pathKey(scriptPath)) return true;
+  try {
+    [invokedPath, scriptPath] = await Promise.all([
+      realpath(invokedPath),
+      realpath(scriptPath),
+    ]);
+  } catch {
+    // Preserve the normal comparison when either path disappears during startup.
+  }
+  return pathKey(invokedPath) === pathKey(scriptPath);
+}
+
+if (await isDirectInvocation(process.argv[1])) {
   main().catch(reportFailure);
 }

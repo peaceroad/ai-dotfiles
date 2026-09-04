@@ -139,6 +139,15 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/assemble-plugin-
 
 ## 開発と共有を分ける
 
+`~/.agents/development.json`へ共有Marketplaceを登録している開発環境では、長いNode.jsコマンドの代わりに次の共通入口を使えます。
+
+```powershell
+agent dev marketplace check <marketplace-name>
+agent dev marketplace sync <marketplace-name>
+```
+
+このコマンドは、ここで説明する`assemble-plugin-marketplace.mjs`の`check`と`sync`を呼び分けるだけです。ローカルのプラグイン統合には`agent dev plugin check`または`agent dev plugin sync`を使い、共有Marketplaceを暗黙に更新しません。設定方法は[`agent dev`でローカル開発を管理する](../agent-development.md)を参照してください。
+
 スキル中心の日常開発では、プラグイン内の各スキルを`$HOME/.agents/skills`からソースリポジトリへ直接リンクできます。この経路なら、変更のたびにローカルMarketplaceからプラグインを再インストールしたり、Codexのインストール済みキャッシュと開発元を見分けたりする必要がありません。直接リンクの管理方法と重複防止は、[開発中のスキルをユーザースコープへリンクする](../skill-links.md)を参照してください。
 
 Marketplaceの登録と、プラグインのインストールは別の操作です。Marketplaceを登録しただけでは、直接リンクされたスキルと重複しません。同じ`name`のスキルを含むプラグインをインストールすると発見経路と有効な版が重複し得るため、日常開発では直接リンク、プラグイン全体の統合確認ではリンクを無効にした環境でのインストール、というように一方だけを有効にします。直接リンク経由の確認は、プラグインのmanifest、MCPサーバー、クライアント固有拡張、Marketplace、インストール、キャッシュ更新までを通した証拠にはなりません。

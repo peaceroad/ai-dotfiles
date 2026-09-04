@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -43,6 +43,30 @@ test("no arguments display read-only help", () => {
   assert.match(result.stdout, /init <marketplace-root>/u);
   assert.match(result.stdout, /check <marketplace-root>/u);
   assert.equal(result.stderr, "");
+});
+
+test("a symbolic-link entry point still runs the CLI", async (context) => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "plugin-marketplace-link-"));
+  const linkedAssembler = path.join(tempRoot, "assemble-plugin-marketplace.mjs");
+  try {
+    try {
+      await symlink(assembler, linkedAssembler, "file");
+    } catch (error) {
+      if (error.code === "EPERM" || error.code === "EACCES") {
+        context.skip("Symbolic links are unavailable in this environment.");
+        return;
+      }
+      throw error;
+    }
+    const result = spawnSync(process.execPath, [linkedAssembler, "--help"], {
+      encoding: "utf8",
+      shell: false,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Assemble a filesystem-backed/u);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test("filesystem guidance distinguishes common local and network failures", () => {

@@ -62,6 +62,15 @@ Marketplaceの登録と、そこからのプラグインのインストールは
 
 ## ホームディレクトリから使う
 
+`~/.agents/scripts`を`Path`へ追加して`agent`コマンドを有効にしている場合は、通常は次の短い入口を使います。
+
+```powershell
+agent dev skill check
+agent dev skill sync
+```
+
+`agent dev`の設定とほかの開発対象との境界は、[`agent dev`でローカル開発を管理する](agent-development.md)を参照してください。以下のNode.jsコマンドは、リンク管理スクリプトを直接呼ぶ場合や問題を切り分ける場合に使えます。
+
 マニフェストを変更したら、最初に構造だけを検証します。この段階では、参照先やリンクが存在することを要求しません。
 
 ```powershell

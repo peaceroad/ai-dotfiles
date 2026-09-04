@@ -1,0 +1,39 @@
+{
+  "$comment": "@ai-dotfiles agent-command v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/peaceroad/ai-dotfiles/main/tools/agent/development.schema.json",
+  "title": "Local agent development targets",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "plugins": {
+      "type": "object",
+      "propertyNames": { "type": "string", "minLength": 1, "pattern": "^[^\\r\\n]+$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "config"],
+        "properties": {
+          "repository": { "type": "string", "minLength": 1 },
+          "config": { "type": "string", "minLength": 1 },
+          "runner": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "marketplaces": {
+      "type": "object",
+      "propertyNames": { "type": "string", "minLength": 1, "pattern": "^[^\\r\\n]+$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["root"],
+        "properties": {
+          "root": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

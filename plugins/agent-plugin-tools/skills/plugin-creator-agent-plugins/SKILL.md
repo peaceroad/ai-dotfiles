@@ -2,7 +2,7 @@
 name: plugin-creator-agent-plugins
 description: Create, update, audit, validate, migrate, distribute, or locally install portable Agent Plugins v1 packages, including root plugin.json, contained Agent Skills, mcp.json, documented client extensions, repository-owned development tooling, and filesystem-backed Codex Marketplaces. Use skill-creator for a standalone Agent Skill and the built-in plugin-creator only when the source of truth is the Codex-specific .codex-plugin/plugin.json format.
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Plugin Creator for Agent Plugins v1

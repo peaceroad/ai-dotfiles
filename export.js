@@ -24,6 +24,7 @@ const SHARED_SECTION_END = "# Shared settings end here.";
 const REQUIRE_SHARED_SECTIONS = new Set([".codex/config.toml"]);
 const CODEX_CONFIG_PATH = ".codex/config.toml";
 const SKILL_LINKS_PATH = ".agents/skill-links.json";
+const LOCAL_ONLY_EXPORT_PATHS = new Set([".agents/development.json"]);
 const CODEX_COMPUTER_USE_NOTIFY_PATTERN =
   /^\s*notify\s*=\s*\[\s*"[^"\r\n]*[\\/]codex-computer-use\.exe"\s*,\s*"turn-ended"\s*,?\s*\]\s*(?:#.*)?$/i;
 const TOML_TABLE_PATTERN = /^\s*\[([^\]]+)\]\s*(?:#.*)?$/;
@@ -1007,6 +1008,14 @@ async function main() {
   const { verbose, write } = options;
   const configuredPaths = parseSimpleYaml(await readFile(CONFIG_PATH, "utf8"));
   const normalizedPaths = configuredPaths.map(normalizeConfiguredPath);
+
+  for (const relativePath of normalizedPaths) {
+    if (LOCAL_ONLY_EXPORT_PATHS.has(pathComparisonKey(relativePath))) {
+      throw new Error(
+        `${relativePath} contains machine-specific development targets and must not be exported`,
+      );
+    }
+  }
 
   if (
     new Set(normalizedPaths.map(pathComparisonKey)).size !==
