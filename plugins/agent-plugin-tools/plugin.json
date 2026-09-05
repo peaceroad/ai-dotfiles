@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agent-plugin-tools",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Tools for creating, validating, installing, and distributing portable Agent Plugins and standalone Agent Skills.",
   "author": {
     "name": "k_taka",

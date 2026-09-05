@@ -27,7 +27,7 @@ The script checks:
 - Reverse-domain client-extension namespaces. Extension contents remain client-defined.
 - Symbolic links or junctions that resolve outside the package.
 
-This is not a complete JSON Schema implementation, a complete YAML parser, or a validator for client extensions. It does not replace validation against the current official schemas, an official Agent Skills validator, or behavior checks in each target client.
+This is not a complete JSON Schema implementation, a complete YAML parser, or a validator for client extensions. It does not replace checking the current Agent Plugins and Agent Skills specifications, applicable official schemas, Repository- or client-provided Skill validation, or behavior in each target client.
 
 After changing the validator, local plugin manager, Repository scaffold, Marketplace assembler, or built-in compatibility checker, run the related test scripts:
 
@@ -39,13 +39,13 @@ node --test scripts/assemble-agent-marketplace.test.mjs
 node scripts/check-builtin-plugin-creator.test.mjs
 ```
 
-`scripts/manage-local-agent-plugin.mjs validate <plugin-root>` calls this bundled validator through the common local-development interface. A Repository scaffold may add structured Repository checks through a per-plugin `.agents/plugin-development/<plugin-name>.json` file; those checks supplement rather than replace portable validation, the official Agent Skills validator, or target-client behavior checks.
+`scripts/manage-local-agent-plugin.mjs validate <plugin-root>` calls this bundled validator through the common local-development interface. A Repository scaffold may add structured Repository checks through a per-plugin `.agents/plugin-development/<plugin-name>.json` file; those checks supplement rather than replace portable validation, available Skill-specific validation, or target-client behavior checks.
 
 ## Additional checks
 
-When available, run the official Agent Skills `skills-ref validate` command for each contained skill. Also use a Codex-bundled skill validator or repository-specific checks when available, after confirming what each validator covers.
+Run Repository-specific Skill checks when they are defined. When the current client provides a bundled Skill validator, use it as a separate client-specific check after confirming what it covers.
 
-If a repository management script depends on this skill's bundled validator and the expected file is missing, stop with a clear error that names the missing path. Do not copy a validator from an installed plugin cache, another checkout, or an unrelated skill directory. If the official Agent Skills validator is unavailable, report it as unrun and identify any Codex-bundled validator as a separate, narrower check.
+If a repository management script depends on this skill's bundled validator and the expected file is missing, stop with a clear error that names the missing path. Do not copy a validator from an installed plugin cache, another checkout, or an unrelated skill directory.
 
 When current specifications must be retrieved and the connection fails, do not disable TLS verification or silently continue as though current guidance was confirmed. Report the retrieval failure, use bundled references only as explicitly identified last-known guidance, and avoid changing version-sensitive rules until the current normative source can be checked.
 
