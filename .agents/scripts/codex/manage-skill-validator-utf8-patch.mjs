@@ -51,6 +51,12 @@ const reviewedVariants = [
     patchedHash:
       "8467d14095ffec0f1e079fd37c8e5768e0164ee66205ec87c91baaffb49807d8",
   },
+  {
+    originalHash:
+      "6068513d924ed3559e186dfcdead7439129828dcf402167fd925c06dffbf2806",
+    patchedHash:
+      "60d7a11365c2f3f1ec22e57f749c18aaa50177e62f9e284de2f03fa46e3c2ce7",
+  },
 ];
 const explicitUtf8Pattern =
   /^[ \t]+content\s*=\s*skill_md\.read_text\(\s*encoding\s*=\s*(["'])utf-8\1\s*\)\s*(?:#.*)?$/m;
