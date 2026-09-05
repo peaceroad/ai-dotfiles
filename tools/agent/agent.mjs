@@ -6,10 +6,12 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   existsSync,
+  cpSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   readdirSync,
   realpathSync,
   renameSync,
@@ -28,18 +30,21 @@ const CONFIG_PATH = resolve(process.env.AGENT_DEV_CONFIG || join(HOME_PATH, ".ag
 const SKILL_MANAGER = resolve(process.env.AGENT_DEV_SKILL_MANAGER || join(SCRIPT_DIR, "manage-skill-links.mjs"));
 const MARKETPLACE_MANAGER = resolve(
   process.env.AGENT_DEV_MARKETPLACE_MANAGER
-    || join(SCRIPT_DIR, "agent-runtime", "plugin-tools", "scripts", "assemble-plugin-marketplace.mjs"),
+    || join(SCRIPT_DIR, "agent-runtime", "plugin-tools", "scripts", "assemble-agent-marketplace.mjs"),
 );
 const LOCAL_PLUGIN_MANAGER = resolve(
   process.env.AGENT_DEV_LOCAL_PLUGIN_MANAGER
     || join(SCRIPT_DIR, "agent-runtime", "plugin-tools", "scripts", "manage-local-agent-plugin.mjs"),
 );
-const TOP_LEVEL_KEYS = new Set(["$schema", "schemaVersion", "plugins", "marketplaces"]);
+const TOP_LEVEL_KEYS = new Set(["$schema", "schemaVersion", "skills", "plugins", "marketplaces"]);
+const SKILL_KEYS = new Set(["repository", "skillRoot", "installedSkill", "sourceUrl"]);
 const PLUGIN_KEYS = new Set(["repository", "pluginRoot", "developmentConfig", "runner", "versionPolicy"]);
-const MARKETPLACE_KEYS = new Set(["root", "name", "displayName", "mode", "plugins"]);
+const MARKETPLACE_KEYS = new Set(["root", "name", "displayName", "mode", "plugins", "skills"]);
 const MARKETPLACE_PLUGIN_KEYS = new Set(["target", "category"]);
-const STANDALONE_MARKETPLACE_KEYS = new Set(["$schema", "schemaVersion", "name", "displayName", "plugins"]);
+const MARKETPLACE_SKILL_KEYS = new Set(["target"]);
+const STANDALONE_MARKETPLACE_KEYS = new Set(["$schema", "schemaVersion", "name", "displayName", "plugins", "skills"]);
 const STANDALONE_MARKETPLACE_PLUGIN_KEYS = new Set(["source", "category"]);
+const STANDALONE_MARKETPLACE_SKILL_KEYS = new Set(["source", "sourceUrl"]);
 const MANAGED_MARKETPLACE_KEYS = new Set([
   "$schema",
   "schemaVersion",
@@ -47,13 +52,26 @@ const MANAGED_MARKETPLACE_KEYS = new Set([
   "name",
   "displayName",
   "plugins",
+  "skills",
   "configurationDigest",
 ]);
 const MANAGED_MARKETPLACE_PLUGIN_KEYS = new Set(["name", "category"]);
+const MANAGED_MARKETPLACE_SKILL_KEYS = new Set(["name", "sourceUrl"]);
+const MARKETPLACE_SKILL_STATE_ENTRY_KEYS = new Set(["marketplace", "digest"]);
+const MARKETPLACE_SKILL_CATALOG_KEYS = new Set(["$comment", "schemaVersion", "marketplace", "skills"]);
+const MARKETPLACE_SKILL_CATALOG_IDENTITY_KEYS = new Set(["name", "displayName"]);
+const MARKETPLACE_SKILL_CATALOG_ENTRY_KEYS = new Set(["name", "path", "digest", "sourceUrl"]);
 const MARKETPLACE_NAME_PATTERN = /^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u;
+const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const MANAGED_MARKETPLACE_CONFIG = "ai-dotfiles/agent-dev";
-const MARKETPLACE_CONFIG_RELATIVE_PATH = join(".agents", "plugin-marketplace-development", "config.json");
-const MARKETPLACE_LOCK_RELATIVE_PATH = join(".agents", "plugin-marketplace-development", "agent-dev-sync.lock");
+const MARKETPLACE_CONFIG_RELATIVE_PATH = join(".agents", "marketplace-development", "config.json");
+const MARKETPLACE_LOCK_RELATIVE_PATH = join(".agents", "marketplace-development", "agent-dev-sync.lock");
+const LEGACY_MARKETPLACE_DEVELOPMENT_RELATIVE_PATH = join(".agents", "plugin-marketplace-development");
+const MARKETPLACE_SKILL_CATALOG_RELATIVE_PATH = join(".agents", "skills", "catalog.json");
+const MARKETPLACE_SKILL_STATE_PATH = join(HOME_PATH, ".agents", "marketplace-skill-state.json");
+const MARKETPLACE_SKILL_LOCK_PATH = join(HOME_PATH, ".agents", ".marketplace-skill.lock");
+const MARKETPLACE_SKILL_STATE_MARKER = "@ai-dotfiles agent-marketplace-skill-state v1";
+const MARKETPLACE_SKILL_CATALOG_MARKER = "@plugin-creator-agent-plugins managed-skill-catalog v1";
 
 const HELP = `Manage local Agent Skill, Agent Plugin, and Marketplace development
 
@@ -65,12 +83,23 @@ Usage:
   agent dev plugin sync [<name>]
   agent dev marketplace configure [<name>]
   agent dev marketplace setup [<name>]
-  agent dev marketplace check [<name>] [--plugin <target>]
-  agent dev marketplace sync [<name>] [--plugin <target>]
+  agent dev marketplace check [<name>] [--plugin <target> | --skill <target>]
+  agent dev marketplace sync [<name>] [--plugin <target> | --skill <target>]
+  agent marketplace list [<marketplace>]
+  agent marketplace skill list [<marketplace>]
+  agent marketplace skill install <skill> [<marketplace>]
+  agent marketplace skill update <skill> [<marketplace>]
+  agent marketplace skill remove <skill>
+
+Alias:
+  mp     Short for marketplace in both "agent mp ..." and "agent dev mp ...".
 
 Behavior:
   check  Validate or detect drift without changing managed state.
   sync   Reconcile the selected derived state from its source of truth.
+  list   List standalone Skills in a configured Marketplace.
+  install, update, remove
+         Manage verified standalone Skill copies under ~/.agents/skills.
   configure, setup
          Interactively edit local development configuration without syncing.
 
@@ -81,17 +110,21 @@ same-named user-scoped skill entry is active.
 
 Configuration:
   ~/.agents/development.json
+  ~/.agents/marketplace-skill-state.json (managed Skill installation state)
 
 Marketplace configure uses a nine-item action menu with number and letter
-shortcuts. It can add, edit, or remove Marketplace targets, plugin development
-targets, and Marketplace assignments. Submenus accept b to go back, and input
-forms accept :back to discard only that operation. When only one Marketplace
-exists, selection is automatic. With multiple Marketplaces, configure selects
-one working target for the session.
+shortcuts. It can add, edit, or remove Marketplace targets, local plugin and
+Skill targets, and Marketplace assignments. Submenus accept b to go back, and
+input forms accept :back to discard only that operation. When only one
+Marketplace exists, selection is automatic. With multiple Marketplaces,
+configure selects one working target for the session.
 
-Marketplace --plugin reads the existing managed Marketplace, preserves other
-entries, and checks or syncs one local plugin target. It does not claim that
-other plugin copies are current.
+Marketplace --plugin or --skill reads the existing managed Marketplace,
+preserves other entries, and checks or syncs one local target. It does not
+claim that other distributed copies are current.
+
+Consumer Marketplace connections allow Skill listing and installation but
+reject development checks and synchronization until their mode is changed.
 
 Running without a mutating subcommand displays help or configured target names
 and does not change links, plugin installations, or Marketplace distributions.`;
@@ -115,7 +148,9 @@ function assertKnownKeys(value, keys, label) {
 }
 
 function assertTargetName(name, label) {
-  if (name.trim() === "" || /[\r\n]/u.test(name)) fail(`${label} names must be non-empty and single-line.`);
+  if (typeof name !== "string" || name.trim() === "" || /[\r\n]/u.test(name)) {
+    fail(`${label} names must be non-empty and single-line.`);
+  }
 }
 
 function normalizeText(value, label) {
@@ -129,6 +164,34 @@ function validateMarketplaceName(value, label) {
     fail(`${label} must use the Agent Plugin name form and be at most 64 characters.`);
   }
   return name;
+}
+
+function validateSkillName(value, label) {
+  const name = normalizeText(value, label);
+  if (name.length > 64 || !SKILL_NAME_PATTERN.test(name)) {
+    fail(`${label} must use lowercase letters, numbers, and single hyphens, and be at most 64 characters.`);
+  }
+  return name;
+}
+
+function validateSourceUrl(value, label) {
+  const sourceUrl = normalizeText(value, label);
+  let parsed;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    fail(`${label} must be an absolute HTTP or HTTPS URL.`);
+  }
+  if (
+    !["http:", "https:"].includes(parsed.protocol)
+    || parsed.username
+    || parsed.password
+    || parsed.search
+    || parsed.hash
+  ) {
+    fail(`${label} must be an HTTP or HTTPS URL without credentials, query parameters, or a fragment.`);
+  }
+  return sourceUrl;
 }
 
 function isMarketplaceName(value) {
@@ -232,6 +295,7 @@ function emptyConfiguration() {
   return {
     $schema: "./development.schema.json",
     schemaVersion: 2,
+    skills: {},
     plugins: {},
     marketplaces: {},
   };
@@ -243,12 +307,29 @@ function validateConfiguration(config) {
     fail("development.json.schemaVersion must be 2. Replace or recreate the local configuration before continuing.");
   }
   if (config.$schema !== undefined) normalizeText(config.$schema, "development.json.$schema");
+  config.skills ??= {};
   if (!Object.hasOwn(config, "plugins")) fail("development.json.plugins is required.");
   if (!Object.hasOwn(config, "marketplaces")) fail("development.json.marketplaces is required.");
+  const skills = config.skills ?? {};
   const plugins = config.plugins;
   const marketplaces = config.marketplaces;
+  if (!isObject(skills)) fail("development.json.skills must be an object.");
   if (!isObject(plugins)) fail("development.json.plugins must be an object.");
   if (!isObject(marketplaces)) fail("development.json.marketplaces must be an object.");
+  for (const [name, entry] of Object.entries(skills)) {
+    assertTargetName(name, "Skill target");
+    assertKnownKeys(entry, SKILL_KEYS, `skills.${name}`);
+    const hasRepository = entry.repository !== undefined || entry.skillRoot !== undefined;
+    const hasInstalledSkill = entry.installedSkill !== undefined;
+    if (hasRepository === hasInstalledSkill) {
+      fail(`skills.${name} requires either repository with skillRoot, or installedSkill.`);
+    }
+    if (hasRepository) {
+      normalizeText(entry.repository, `skills.${name}.repository`);
+      normalizeText(entry.skillRoot, `skills.${name}.skillRoot`);
+    } else validateSkillName(entry.installedSkill, `skills.${name}.installedSkill`);
+    if (entry.sourceUrl !== undefined) validateSourceUrl(entry.sourceUrl, `skills.${name}.sourceUrl`);
+  }
   for (const [name, entry] of Object.entries(plugins)) {
     assertTargetName(name, "Plugin target");
     assertKnownKeys(entry, PLUGIN_KEYS, `plugins.${name}`);
@@ -277,10 +358,12 @@ function validateConfiguration(config) {
     normalizeText(entry.root, `marketplaces.${name}.root`);
     validateMarketplaceName(entry.name, `marketplaces.${name}.name`);
     normalizeText(entry.displayName, `marketplaces.${name}.displayName`);
-    if (!["authoritative", "contributor"].includes(entry.mode)) {
-      fail(`marketplaces.${name}.mode must be authoritative or contributor.`);
+    if (!["authoritative", "contributor", "consumer"].includes(entry.mode)) {
+      fail(`marketplaces.${name}.mode must be authoritative, contributor, or consumer.`);
     }
     if (!Array.isArray(entry.plugins)) fail(`marketplaces.${name}.plugins must be an array.`);
+    entry.skills ??= [];
+    if (!Array.isArray(entry.skills)) fail(`marketplaces.${name}.skills must be an array.`);
     const targets = new Set();
     for (const [index, plugin] of entry.plugins.entries()) {
       assertKnownKeys(plugin, MARKETPLACE_PLUGIN_KEYS, `marketplaces.${name}.plugins[${index}]`);
@@ -292,8 +375,18 @@ function validateConfiguration(config) {
       if (targets.has(target)) fail(`marketplaces.${name} contains duplicate plugin target: ${target}.`);
       targets.add(target);
     }
+    const skillTargets = new Set();
+    for (const [index, skill] of entry.skills.entries()) {
+      assertKnownKeys(skill, MARKETPLACE_SKILL_KEYS, `marketplaces.${name}.skills[${index}]`);
+      const target = normalizeText(skill.target, `marketplaces.${name}.skills[${index}].target`);
+      if (!Object.hasOwn(skills, target)) {
+        fail(`marketplaces.${name}.skills[${index}].target refers to an unknown skill target: ${target}.`);
+      }
+      if (skillTargets.has(target)) fail(`marketplaces.${name} contains duplicate skill target: ${target}.`);
+      skillTargets.add(target);
+    }
   }
-  return { plugins, marketplaces };
+  return { skills, plugins, marketplaces };
 }
 
 function readConfiguration({ allowMissing = false } = {}) {
@@ -314,14 +407,69 @@ function configuredPath(pathValue) {
   return absolute;
 }
 
-function repositoryRootFor(pluginRoot) {
-  let candidate = pluginRoot;
+function repositoryRootFor(sourceRoot) {
+  let candidate = sourceRoot;
   while (true) {
     if (existsSync(join(candidate, ".git"))) return candidate;
     const parent = dirname(candidate);
-    if (parent === candidate) return pluginRoot;
+    if (parent === candidate) return sourceRoot;
     candidate = parent;
   }
+}
+
+function skillFrontmatter(skillRoot, label) {
+  const file = join(skillRoot, "SKILL.md");
+  let source;
+  try {
+    source = readFileSync(file, "utf8");
+  } catch (error) {
+    fail(`Could not read ${label}/SKILL.md: ${error.code || error.message}`);
+  }
+  const lines = source.split(/\r?\n/u);
+  if (lines[0]?.trim() !== "---") fail(`${label}/SKILL.md must start with YAML frontmatter.`);
+  const end = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
+  if (end < 0) fail(`${label}/SKILL.md has unclosed YAML frontmatter.`);
+  const values = {};
+  for (const line of lines.slice(1, end)) {
+    const match = /^([A-Za-z0-9_-]+):\s*(.*?)\s*$/u.exec(line);
+    if (!match) continue;
+    let value = match[2];
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    values[match[1]] = value;
+  }
+  const name = validateSkillName(values.name, `${label}/SKILL.md name`);
+  if (!values.description) fail(`${label}/SKILL.md description must be non-empty.`);
+  return { name, frontmatter: lines.slice(1, end) };
+}
+
+function skillSourceContext(name, entry) {
+  let skillRoot;
+  let boundary;
+  if (entry.installedSkill) {
+    const installedRoot = join(HOME_PATH, ".agents", "skills");
+    const candidate = resolve(installedRoot, entry.installedSkill);
+    if (!sameOrWithin(installedRoot, candidate)) fail(`skills.${name}.installedSkill escapes ~/.agents/skills.`);
+    if (!existsSync(candidate)) fail(`Installed Skill does not exist: ${entry.installedSkill}.`);
+    skillRoot = realpathSync(candidate);
+    if (!statSync(skillRoot).isDirectory()) fail(`Installed Skill is not a directory: ${entry.installedSkill}.`);
+    boundary = skillRoot;
+  } else {
+    const repository = expandPath(entry.repository, `skills.${name}.repository`);
+    if (!existsSync(repository) || !statSync(repository).isDirectory()) fail(`Skill repository does not exist: ${name}.`);
+    const realRepository = realpathSync(repository);
+    skillRoot = resolveRepositoryPath(realRepository, entry.skillRoot, `skills.${name}.skillRoot`, "directory");
+    boundary = realRepository;
+  }
+  const manifest = skillFrontmatter(skillRoot, `skills.${name}`);
+  if (entry.installedSkill && entry.installedSkill !== manifest.name) {
+    fail(`skills.${name}.installedSkill must match the name in SKILL.md: ${manifest.name}.`);
+  }
+  if (!entry.installedSkill && basename(skillRoot) !== manifest.name) {
+    fail(`skills.${name}.skillRoot directory name must match the name in SKILL.md: ${manifest.name}.`);
+  }
+  return { skillRoot, name: manifest.name, boundary, sourceUrl: entry.sourceUrl };
 }
 
 function uniqueTargetName(preferred, plugins) {
@@ -336,7 +484,7 @@ function validateStandaloneDefinition(config, label) {
   if (Object.keys(config).some((key) => !STANDALONE_MARKETPLACE_KEYS.has(key))) {
     fail(`${label} has unsupported fields.`);
   }
-  if (config.schemaVersion !== 1) fail(`${label}.schemaVersion must be 1 for standalone import.`);
+  if (![1, 2].includes(config.schemaVersion)) fail(`${label}.schemaVersion must be 1 or 2 for standalone import.`);
   validateMarketplaceName(config.name, `${label}.name`);
   normalizeText(config.displayName, `${label}.displayName`);
   if (!Array.isArray(config.plugins)) fail(`${label}.plugins must be an array.`);
@@ -344,6 +492,15 @@ function validateStandaloneDefinition(config, label) {
     assertKnownKeys(plugin, STANDALONE_MARKETPLACE_PLUGIN_KEYS, `${label}.plugins[${index}]`);
     normalizeText(plugin.source, `${label}.plugins[${index}].source`);
     normalizeText(plugin.category, `${label}.plugins[${index}].category`);
+  }
+  if (config.schemaVersion === 1 && config.skills !== undefined) {
+    fail(`${label}.skills requires schemaVersion 2.`);
+  }
+  if (config.skills !== undefined && !Array.isArray(config.skills)) fail(`${label}.skills must be an array.`);
+  for (const [index, skill] of (config.skills ?? []).entries()) {
+    assertKnownKeys(skill, STANDALONE_MARKETPLACE_SKILL_KEYS, `${label}.skills[${index}]`);
+    normalizeText(skill.source, `${label}.skills[${index}].source`);
+    if (skill.sourceUrl !== undefined) validateSourceUrl(skill.sourceUrl, `${label}.skills[${index}].sourceUrl`);
   }
   return config;
 }
@@ -363,6 +520,15 @@ function validateManagedMarketplaceReference(config, label) {
     normalizeText(plugin.category, `${label}.plugins[${index}].category`);
     if (names.has(name)) fail(`${label} contains duplicate plugin name: ${name}.`);
     names.add(name);
+  }
+  if (config.skills !== undefined && !Array.isArray(config.skills)) fail(`${label}.skills must be an array.`);
+  const skillNames = new Set();
+  for (const [index, skill] of (config.skills ?? []).entries()) {
+    assertKnownKeys(skill, MANAGED_MARKETPLACE_SKILL_KEYS, `${label}.skills[${index}]`);
+    const name = validateSkillName(skill.name, `${label}.skills[${index}].name`);
+    if (skill.sourceUrl !== undefined) validateSourceUrl(skill.sourceUrl, `${label}.skills[${index}].sourceUrl`);
+    if (skillNames.has(name)) fail(`${label} contains duplicate Skill name: ${name}.`);
+    skillNames.add(name);
   }
   const { configurationDigest, ...core } = config;
   if (configurationDigest !== jsonDigest(core)) fail(`${label} was changed outside agent dev.`);
@@ -405,27 +571,62 @@ function importStandaloneMarketplace(name, rootValue, config) {
     }
     assignments.push({ target, category: plugin.category });
   }
+  const skillSourceTargets = new Map();
+  for (const [target, entry] of Object.entries(config.skills ?? {})) {
+    const context = skillSourceContext(target, entry);
+    skillSourceTargets.set(pathKey(context.skillRoot), target);
+  }
+  const skillAssignments = [];
+  for (const skill of standalone.skills ?? []) {
+    const source = resolve(root, skill.source);
+    if (sameOrWithin(join(root, "skills"), source)) {
+      fail(`Marketplace ${name} has a Skill source inside its generated skills directory.`);
+    }
+    if (!existsSync(source) || !statSync(source).isDirectory()) {
+      fail(`Marketplace ${name} has an unavailable Skill source.`);
+    }
+    const realSource = realpathSync(source);
+    let target = skillSourceTargets.get(pathKey(realSource));
+    if (!target) {
+      const skillName = skillFrontmatter(realSource, `Marketplace ${name} Skill`).name;
+      target = uniqueTargetName(skillName, config.skills);
+      const repository = realpathSync(repositoryRootFor(realSource));
+      const skillRoot = relative(repository, realSource);
+      config.skills[target] = {
+        repository: configuredPath(repository),
+        skillRoot: skillRoot === "" ? "." : skillRoot.replaceAll("\\", "/"),
+        ...(skill.sourceUrl ? { sourceUrl: skill.sourceUrl } : {}),
+      };
+      skillSourceTargets.set(pathKey(realSource), target);
+    }
+    skillAssignments.push({ target });
+  }
   return {
     root: rootValue,
     name: standalone.name,
     displayName: standalone.displayName,
     mode: "authoritative",
     plugins: assignments,
+    skills: skillAssignments,
   };
 }
 
 function importExistingMarketplace(name, rootValue, config) {
   const root = expandPath(rootValue, `marketplaces.${name}.root`);
+  assertMarketplaceLayoutCurrent(root, name);
   const pathValue = join(root, MARKETPLACE_CONFIG_RELATIVE_PATH);
   const current = readJson(pathValue, `Marketplace ${name} configuration`);
-  if (current.schemaVersion === 1) return importStandaloneMarketplace(name, rootValue, config);
+  if (current.managedBy !== MANAGED_MARKETPLACE_CONFIG) {
+    return importStandaloneMarketplace(name, rootValue, config);
+  }
   const managed = validateManagedMarketplaceReference(current, `Marketplace ${name} configuration`);
   return {
     root: rootValue,
     name: managed.name,
     displayName: managed.displayName,
-    mode: "contributor",
+    mode: "consumer",
     plugins: [],
+    skills: [],
   };
 }
 
@@ -579,17 +780,24 @@ function handlePlugin(action, requestedName, config) {
 function marketplaceMaterialization(name, entry, config, {
   root = null,
   requestedPlugin = null,
+  requestedSkill = null,
   currentMirror = null,
 } = {}) {
+  if (requestedPlugin !== null && requestedSkill !== null) fail("Select either one plugin or one Skill, not both.");
+  const scoped = requestedPlugin !== null || requestedSkill !== null;
   const effectivePlugins = [];
   const mirrorPlugins = [];
+  const effectiveSkills = [];
+  const mirrorSkills = [];
   const replacements = [];
   const pluginNames = new Set();
   const targetPluginNames = new Map();
-  const assignments = requestedPlugin === null
+  const skillNames = new Set();
+  const targetSkillNames = new Map();
+  const pluginAssignments = !scoped
     ? entry.plugins
-    : entry.plugins.filter((assignment) => assignment.target === requestedPlugin);
-  for (const assignment of assignments) {
+    : requestedPlugin === null ? [] : entry.plugins.filter((assignment) => assignment.target === requestedPlugin);
+  for (const assignment of pluginAssignments) {
     const context = pluginSourceContext(assignment.target, config.plugins[assignment.target]);
     const manifest = readJson(join(context.pluginRoot, "plugin.json"), `plugins.${assignment.target} plugin.json`);
     const pluginName = validateMarketplaceName(manifest.name, `plugins.${assignment.target} plugin.json.name`);
@@ -602,31 +810,69 @@ function marketplaceMaterialization(name, entry, config, {
     mirrorPlugins.push({ name: pluginName, category: assignment.category });
     replacements.push([context.repository, `<plugin:${assignment.target}>`]);
   }
+  const skillAssignments = !scoped
+    ? entry.skills
+    : requestedSkill === null ? [] : entry.skills.filter((assignment) => assignment.target === requestedSkill);
+  for (const assignment of skillAssignments) {
+    const context = skillSourceContext(assignment.target, config.skills[assignment.target]);
+    if (skillNames.has(context.name)) {
+      fail(`Marketplace ${name} resolves more than one target to Skill name ${context.name}.`);
+    }
+    skillNames.add(context.name);
+    targetSkillNames.set(assignment.target, context.name);
+    effectiveSkills.push({
+      source: context.skillRoot,
+      ...(context.sourceUrl ? { sourceUrl: context.sourceUrl } : {}),
+    });
+    mirrorSkills.push({
+      name: context.name,
+      ...(context.sourceUrl ? { sourceUrl: context.sourceUrl } : {}),
+    });
+    replacements.push([context.boundary, `<skill:${assignment.target}>`]);
+  }
   let finalEffectivePlugins = effectivePlugins;
   let finalMirrorPlugins = mirrorPlugins;
-  if (requestedPlugin !== null) {
+  let finalEffectiveSkills = effectiveSkills;
+  let finalMirrorSkills = mirrorSkills;
+  if (scoped) {
     if (!currentMirror || !root) fail("A scoped Marketplace operation requires an existing managed Marketplace.");
     if (currentMirror.name !== entry.name || currentMirror.displayName !== entry.displayName) {
       fail(`Marketplace ${name} identity differs from the connected Marketplace.`);
     }
-    const selectedName = targetPluginNames.get(requestedPlugin);
-    const selected = mirrorPlugins[0];
-    finalMirrorPlugins = currentMirror.plugins.map((plugin) => ({ ...plugin }));
-    const selectedIndex = finalMirrorPlugins.findIndex((plugin) => plugin.name === selectedName);
-    if (selectedIndex < 0) finalMirrorPlugins.push(selected);
-    else finalMirrorPlugins[selectedIndex] = selected;
+    finalMirrorPlugins = (currentMirror.plugins ?? []).map((plugin) => ({ ...plugin }));
+    finalMirrorSkills = (currentMirror.skills ?? []).map((skill) => ({ ...skill }));
+    if (requestedPlugin !== null) {
+      const selectedName = targetPluginNames.get(requestedPlugin);
+      const selected = mirrorPlugins[0];
+      const selectedIndex = finalMirrorPlugins.findIndex((plugin) => plugin.name === selectedName);
+      if (selectedIndex < 0) finalMirrorPlugins.push(selected);
+      else finalMirrorPlugins[selectedIndex] = selected;
+    } else {
+      const selectedName = targetSkillNames.get(requestedSkill);
+      const selected = mirrorSkills[0];
+      const selectedIndex = finalMirrorSkills.findIndex((skill) => skill.name === selectedName);
+      if (selectedIndex < 0) finalMirrorSkills.push(selected);
+      else finalMirrorSkills[selectedIndex] = selected;
+    }
     finalEffectivePlugins = finalMirrorPlugins.map((plugin) => ({
-      source: plugin.name === selectedName
+      source: requestedPlugin !== null && plugin.name === targetPluginNames.get(requestedPlugin)
         ? effectivePlugins[0].source
         : join(root, "plugins", plugin.name),
       category: plugin.category,
     }));
+    finalEffectiveSkills = finalMirrorSkills.map((skill) => ({
+      source: requestedSkill !== null && skill.name === targetSkillNames.get(requestedSkill)
+        ? effectiveSkills[0].source
+        : join(root, "skills", skill.name),
+      ...(skill.sourceUrl ? { sourceUrl: skill.sourceUrl } : {}),
+    }));
   }
   const effective = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     name: entry.name,
     displayName: entry.displayName,
     plugins: finalEffectivePlugins,
+    skills: finalEffectiveSkills,
   };
   const mirrorCore = {
     $schema: "./schema.json",
@@ -635,17 +881,19 @@ function marketplaceMaterialization(name, entry, config, {
     name: entry.name,
     displayName: entry.displayName,
     plugins: finalMirrorPlugins,
+    skills: finalMirrorSkills,
   };
   return {
     effective,
     mirror: { ...mirrorCore, configurationDigest: jsonDigest(mirrorCore) },
     replacements,
     targetPluginNames,
+    targetSkillNames,
   };
 }
 
 function matchesStandaloneMarketplace(root, current, effective) {
-  if (!isObject(current) || current.schemaVersion !== 1) return false;
+  if (!isObject(current) || ![1, 2].includes(current.schemaVersion)) return false;
   if (Object.keys(current).some((key) => !STANDALONE_MARKETPLACE_KEYS.has(key))) return false;
   if (current.name !== effective.name || current.displayName !== effective.displayName) return false;
   if (!Array.isArray(current.plugins) || current.plugins.length !== effective.plugins.length) return false;
@@ -658,7 +906,22 @@ function matchesStandaloneMarketplace(root, current, effective) {
     if (expected.get(source) !== plugin.category) return false;
     expected.delete(source);
   }
-  return expected.size === 0;
+  if (expected.size !== 0) return false;
+  const currentSkills = current.skills ?? [];
+  if (currentSkills.length !== effective.skills.length) return false;
+  const expectedSkills = new Map(effective.skills.map((skill) => [
+    pathKey(skill.source),
+    skill.sourceUrl ?? null,
+  ]));
+  if (expectedSkills.size !== effective.skills.length) return false;
+  for (const skill of currentSkills) {
+    if (!isObject(skill) || Object.keys(skill).some((key) => !STANDALONE_MARKETPLACE_SKILL_KEYS.has(key))) return false;
+    if (typeof skill.source !== "string") return false;
+    const source = pathKey(isAbsolute(skill.source) ? skill.source : resolve(root, skill.source));
+    if (expectedSkills.get(source) !== (skill.sourceUrl ?? null)) return false;
+    expectedSkills.delete(source);
+  }
+  return expectedSkills.size === 0;
 }
 
 function inspectMarketplaceMirror(root, expected, effective) {
@@ -681,6 +944,7 @@ function inspectMarketplaceMirror(root, expected, effective) {
 }
 
 function readManagedMarketplaceMirror(root, name) {
+  assertMarketplaceLayoutCurrent(root, name);
   const pathValue = join(root, MARKETPLACE_CONFIG_RELATIVE_PATH);
   if (!existsSync(pathValue) || !lstatSync(pathValue).isFile()) {
     fail(`Marketplace ${name} has no managed reference configuration. Run a full sync to initialize it.`);
@@ -693,10 +957,12 @@ function readManagedMarketplaceMirror(root, name) {
 
 function hasMarketplaceArtifacts(root) {
   return [
-    join(root, ".agents", "plugin-marketplace-development", "schema.json"),
-    join(root, ".agents", "plugin-marketplace-development", "state.json"),
+    join(root, ".agents", "marketplace-development", "schema.json"),
+    join(root, ".agents", "marketplace-development", "state.json"),
     join(root, ".agents", "plugins", "marketplace.json"),
+    join(root, ".agents", "skills", "catalog.json"),
     join(root, "plugins"),
+    join(root, "skills"),
   ].some((pathValue) => existsSync(pathValue));
 }
 
@@ -724,10 +990,28 @@ function releaseMarketplaceLock(lockPath) {
   rmSync(lockPath, { recursive: true, force: true });
 }
 
-function handleMarketplace(action, requestedName, requestedPlugin, config) {
+function assertMarketplaceLayoutCurrent(root, name) {
+  if (!existsSync(join(root, LEGACY_MARKETPLACE_DEVELOPMENT_RELATIVE_PATH))) return;
+  fail(
+    `Marketplace ${name} still uses .agents/plugin-marketplace-development. `
+    + "Rename that directory to .agents/marketplace-development before continuing.",
+  );
+}
+
+function handleMarketplace(action, requestedName, requestedPlugin, requestedSkill, config) {
   const [name, entry] = selectTarget(config.marketplaces, requestedName, "marketplace");
-  if (entry.mode === "contributor" && requestedPlugin === undefined) {
-    fail(`Marketplace ${name} is contributor-managed. Specify --plugin for check or sync.`, 2);
+  if (requestedPlugin !== undefined && requestedSkill !== undefined) {
+    fail("Specify either --plugin or --skill, not both.", 2);
+  }
+  if (entry.mode === "consumer") {
+    fail(
+      `Marketplace ${name} is consumer-only. Use agent marketplace skill commands to browse or install Skills, `
+      + "or change the Marketplace management mode before development operations.",
+      2,
+    );
+  }
+  if (entry.mode === "contributor" && requestedPlugin === undefined && requestedSkill === undefined) {
+    fail(`Marketplace ${name} is contributor-managed. Specify --plugin or --skill for check or sync.`, 2);
   }
   if (requestedPlugin !== undefined && !entry.plugins.some((plugin) => plugin.target === requestedPlugin)) {
     const available = entry.plugins.map((plugin) => plugin.target).sort((left, right) => left.localeCompare(right, "en"));
@@ -736,15 +1020,25 @@ function handleMarketplace(action, requestedName, requestedPlugin, config) {
       2,
     );
   }
+  if (requestedSkill !== undefined && !entry.skills.some((skill) => skill.target === requestedSkill)) {
+    const available = entry.skills.map((skill) => skill.target).sort((left, right) => left.localeCompare(right, "en"));
+    fail(
+      `Skill target ${requestedSkill} is not assigned to Marketplace ${name}. Assigned: ${available.join(", ") || "(none)"}.`,
+      2,
+    );
+  }
   const root = expandPath(entry.root, `marketplaces.${name}.root`);
+  assertMarketplaceLayoutCurrent(root, name);
   const lockPath = action === "sync" ? acquireMarketplaceLock(root, name) : null;
   if (action === "check") assertMarketplaceUnlocked(root, name);
   let operationError;
   try {
-    const currentMirror = requestedPlugin === undefined ? null : readManagedMarketplaceMirror(root, name);
+    const scoped = requestedPlugin !== undefined || requestedSkill !== undefined;
+    const currentMirror = scoped ? readManagedMarketplaceMirror(root, name) : null;
     const materialized = marketplaceMaterialization(name, entry, config, {
       root,
       requestedPlugin: requestedPlugin ?? null,
+      requestedSkill: requestedSkill ?? null,
       currentMirror,
     });
     const mirrorState = inspectMarketplaceMirror(root, materialized.mirror, materialized.effective);
@@ -765,6 +1059,8 @@ function handleMarketplace(action, requestedName, requestedPlugin, config) {
       const managerArguments = [action, root, "--config", temporaryConfig];
       if (requestedPlugin !== undefined) {
         managerArguments.push("--plugin", materialized.targetPluginNames.get(requestedPlugin), "--merge");
+      } else if (requestedSkill !== undefined) {
+        managerArguments.push("--skill", materialized.targetSkillNames.get(requestedSkill), "--merge");
       }
       status = runNode(
         MARKETPLACE_MANAGER,
@@ -806,6 +1102,241 @@ function handleMarketplace(action, requestedName, requestedPlugin, config) {
         if (!operationError) throw error;
         operationError.message += `\nAdditionally, the Marketplace sync lock could not be removed: ${error.message}`;
       }
+    }
+  }
+}
+
+function treeDigestSync(root) {
+  const hash = createHash("sha256");
+  const realRoot = realpathSync(root);
+  function visit(directory, relativeDirectory) {
+    const entries = readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name, "en"));
+    for (const entry of entries) {
+      const relativePath = join(relativeDirectory, entry.name).replaceAll("\\", "/");
+      const target = join(directory, entry.name);
+      const stats = lstatSync(target);
+      if (stats.isDirectory()) {
+        hash.update(`d\0${relativePath}\0${stats.mode & 0o777}\0`);
+        visit(target, join(relativeDirectory, entry.name));
+      } else if (stats.isFile()) {
+        hash.update(`f\0${relativePath}\0${stats.mode & 0o777}\0`);
+        hash.update(readFileSync(target));
+        hash.update("\0");
+      } else if (stats.isSymbolicLink()) {
+        const linkTarget = readlinkSync(target);
+        let resolvedTarget;
+        try {
+          resolvedTarget = realpathSync(target);
+        } catch (error) {
+          fail(`Skill ${displayPath(root)} contains an unreadable symbolic link: ${relativePath} (${error.code || error.message}).`);
+        }
+        if (isAbsolute(linkTarget) || !sameOrWithin(realRoot, resolvedTarget)) {
+          fail(`Skill ${displayPath(root)} contains a symbolic link outside its root: ${relativePath}.`);
+        }
+        hash.update(`l\0${relativePath}\0${linkTarget}\0`);
+      } else fail(`Unsupported filesystem entry in Skill ${displayPath(root)}: ${relativePath}`);
+    }
+  }
+  visit(root, "");
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function readMarketplaceSkillState() {
+  if (!existsSync(MARKETPLACE_SKILL_STATE_PATH)) {
+    return { $comment: MARKETPLACE_SKILL_STATE_MARKER, schemaVersion: 1, skills: {} };
+  }
+  const state = readJson(MARKETPLACE_SKILL_STATE_PATH, displayPath(MARKETPLACE_SKILL_STATE_PATH));
+  if (
+    !isObject(state)
+    || state.$comment !== MARKETPLACE_SKILL_STATE_MARKER
+    || state.schemaVersion !== 1
+    || !isObject(state.skills)
+  ) fail(`Refusing invalid or unmanaged Marketplace Skill state: ${displayPath(MARKETPLACE_SKILL_STATE_PATH)}.`);
+  for (const [name, entry] of Object.entries(state.skills)) {
+    validateSkillName(name, "Installed Marketplace Skill name");
+    assertKnownKeys(entry, MARKETPLACE_SKILL_STATE_ENTRY_KEYS, `state.skills.${name}`);
+    assertTargetName(entry.marketplace, `state.skills.${name}.marketplace`);
+    if (!/^sha256:[0-9a-f]{64}$/u.test(entry.digest)) fail(`state.skills.${name}.digest is invalid.`);
+  }
+  return state;
+}
+
+function readMarketplaceSkillCatalog(localName, entry, { verifySkill = null } = {}) {
+  const root = expandPath(entry.root, `marketplaces.${localName}.root`);
+  assertMarketplaceLayoutCurrent(root, localName);
+  const catalogPath = join(root, MARKETPLACE_SKILL_CATALOG_RELATIVE_PATH);
+  const catalog = readJson(catalogPath, `Marketplace ${localName} Skill catalog`);
+  assertKnownKeys(catalog, MARKETPLACE_SKILL_CATALOG_KEYS, `Marketplace ${localName} Skill catalog`);
+  if (catalog.$comment !== MARKETPLACE_SKILL_CATALOG_MARKER || catalog.schemaVersion !== 1) {
+    fail(`Marketplace ${localName} has an unsupported Skill catalog.`);
+  }
+  assertKnownKeys(catalog.marketplace, MARKETPLACE_SKILL_CATALOG_IDENTITY_KEYS, `Marketplace ${localName} Skill catalog marketplace`);
+  if (catalog.marketplace.name !== entry.name) fail(`Marketplace ${localName} Skill catalog identity does not match local configuration.`);
+  normalizeText(catalog.marketplace.displayName, `Marketplace ${localName} Skill catalog displayName`);
+  if (!Array.isArray(catalog.skills)) fail(`Marketplace ${localName} Skill catalog skills must be an array.`);
+  const names = new Set();
+  const skillRoot = join(root, "skills");
+  const skills = catalog.skills.map((skill, index) => {
+    assertKnownKeys(skill, MARKETPLACE_SKILL_CATALOG_ENTRY_KEYS, `Marketplace ${localName} Skill catalog skills[${index}]`);
+    const name = validateSkillName(skill.name, `Marketplace ${localName} Skill name`);
+    if (names.has(name)) fail(`Marketplace ${localName} Skill catalog contains duplicate name: ${name}.`);
+    names.add(name);
+    const catalogPathValue = normalizeText(skill.path, `Marketplace ${localName} Skill ${name} path`);
+    if (catalogPathValue !== `../../skills/${name}`) {
+      fail(`Marketplace ${localName} Skill ${name} path must be ../../skills/${name}.`);
+    }
+    if (!/^sha256:[0-9a-f]{64}$/u.test(skill.digest)) fail(`Marketplace ${localName} Skill ${name} digest is invalid.`);
+    if (skill.sourceUrl !== undefined) validateSourceUrl(skill.sourceUrl, `Marketplace ${localName} Skill ${name} sourceUrl`);
+    const source = resolve(dirname(catalogPath), catalogPathValue);
+    if (verifySkill === name) {
+      if (!existsSync(skillRoot) || !lstatSync(skillRoot).isDirectory()) {
+        fail(`Marketplace ${localName} skills directory is missing or is not a directory.`);
+      }
+      if (!existsSync(source) || !lstatSync(source).isDirectory()) {
+        fail(`Marketplace ${localName} Skill copy is missing or is not a directory: ${name}.`);
+      }
+      const realSource = realpathSync(source);
+      if (!sameOrWithin(realpathSync(skillRoot), realSource)) {
+        fail(`Marketplace ${localName} Skill ${name} resolves outside its skills directory.`);
+      }
+      if (treeDigestSync(source) !== skill.digest) {
+        fail(`Marketplace ${localName} Skill copy does not match its catalog digest: ${name}.`);
+      }
+    }
+    return { ...skill, source };
+  });
+  return skills;
+}
+
+function selectConsumerMarketplace(config, requestedName, preferredName = null) {
+  if (requestedName !== undefined) return selectTarget(config.marketplaces, requestedName, "marketplace");
+  if (preferredName && Object.hasOwn(config.marketplaces, preferredName)) {
+    return [preferredName, config.marketplaces[preferredName]];
+  }
+  if (preferredName) fail(`The recorded Marketplace is no longer configured: ${preferredName}.`, 2);
+  return selectTarget(config.marketplaces, undefined, "marketplace");
+}
+
+function acquireMarketplaceSkillLock() {
+  mkdirSync(dirname(MARKETPLACE_SKILL_LOCK_PATH), { recursive: true });
+  try {
+    mkdirSync(MARKETPLACE_SKILL_LOCK_PATH);
+  } catch (error) {
+    if (error.code === "EEXIST") {
+      fail("Another Marketplace Skill change is in progress. If none is running, remove the stale ~/.agents/.marketplace-skill.lock directory.");
+    }
+    throw error;
+  }
+  return MARKETPLACE_SKILL_LOCK_PATH;
+}
+
+function replaceManagedSkillDirectory(source, destination, name, state, stateEntry) {
+  const agentsRoot = join(HOME_PATH, ".agents");
+  mkdirSync(dirname(destination), { recursive: true });
+  const staged = join(agentsRoot, `.marketplace-skill-${process.pid}-${randomUUID()}.tmp`);
+  const backup = join(agentsRoot, `.marketplace-skill-${process.pid}-${randomUUID()}.bak`);
+  const existed = existsSync(destination);
+  let replaced = false;
+  cpSync(source, staged, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
+  try {
+    if (treeDigestSync(staged) !== stateEntry.digest) fail(`Copied Skill differs from the Marketplace source: ${name}.`);
+    if (existed) renameSync(destination, backup);
+    renameSync(staged, destination);
+    replaced = true;
+    state.skills[name] = stateEntry;
+    try {
+      writeAtomic(MARKETPLACE_SKILL_STATE_PATH, jsonText(state));
+    } catch (error) {
+      rmSync(destination, { recursive: true, force: true });
+      if (existed) renameSync(backup, destination);
+      throw error;
+    }
+    if (existed) rmSync(backup, { recursive: true, force: true });
+  } finally {
+    if (!replaced || existsSync(staged)) rmSync(staged, { recursive: true, force: true });
+  }
+}
+
+function handleConsumerMarketplaceSkillMutation(action, skillName, requestedMarketplace, config) {
+  const state = readMarketplaceSkillState();
+  const name = validateSkillName(skillName, "Skill name");
+  const existingState = Object.hasOwn(state.skills, name) ? state.skills[name] : null;
+  if (action === "remove") {
+    if (!existingState) fail(`Skill ${name} is not managed by agent marketplace.`, 2);
+    const destination = join(HOME_PATH, ".agents", "skills", name);
+    if (!existsSync(destination) || !statSync(destination).isDirectory()) fail(`Managed Skill directory is missing: ${name}.`);
+    if (treeDigestSync(destination) !== existingState.digest) {
+      fail(`Refusing to remove locally changed Skill: ${name}. Preserve or revert the changes first.`);
+    }
+    const backup = join(HOME_PATH, ".agents", `.marketplace-skill-${process.pid}-${randomUUID()}.bak`);
+    renameSync(destination, backup);
+    delete state.skills[name];
+    try {
+      writeAtomic(MARKETPLACE_SKILL_STATE_PATH, jsonText(state));
+    } catch (error) {
+      renameSync(backup, destination);
+      throw error;
+    }
+    rmSync(backup, { recursive: true, force: true });
+    console.log(`Removed Marketplace Skill: ${name}`);
+    return 0;
+  }
+
+  const preferredMarketplace = action === "update" ? existingState?.marketplace : null;
+  if (action === "update" && !existingState) fail(`Skill ${name} is not managed by agent marketplace.`, 2);
+  const [marketplaceName, marketplace] = selectConsumerMarketplace(config, requestedMarketplace, preferredMarketplace);
+  const skills = readMarketplaceSkillCatalog(marketplaceName, marketplace, { verifySkill: name });
+  const skill = skills.find((candidate) => candidate.name === name);
+  if (!skill) fail(`Marketplace ${marketplaceName} does not contain Skill ${name}.`, 2);
+  const destination = join(HOME_PATH, ".agents", "skills", name);
+  const nextStateEntry = {
+    marketplace: marketplaceName,
+    digest: skill.digest,
+  };
+  if (existsSync(destination)) {
+    if (!statSync(destination).isDirectory()) fail(`Skill destination is not a directory: ${name}.`);
+    if (!existingState) fail(`Refusing to replace an unmanaged Skill: ${name}. Remove or relocate it explicitly first.`);
+    const currentDigest = treeDigestSync(destination);
+    if (currentDigest !== existingState.digest) fail(`Refusing to replace locally changed Skill: ${name}.`);
+    if (currentDigest === skill.digest) {
+      if (existingState.marketplace !== marketplaceName || existingState.digest !== skill.digest) {
+        state.skills[name] = nextStateEntry;
+        writeAtomic(MARKETPLACE_SKILL_STATE_PATH, jsonText(state));
+        console.log(`Updated Marketplace Skill metadata: ${name}`);
+        return 0;
+      }
+      console.log(`Marketplace Skill is current: ${name}`);
+      return 0;
+    }
+  } else if (action === "update") fail(`Managed Skill directory is missing: ${name}. Use install after resolving its state.`);
+  replaceManagedSkillDirectory(skill.source, destination, name, state, nextStateEntry);
+  console.log(`${existingState ? "Updated" : "Installed"} Marketplace Skill: ${name}`);
+  return 0;
+}
+
+function handleConsumerMarketplaceSkill(action, skillName, requestedMarketplace, config) {
+  if (action === "list") {
+    const [marketplaceName, marketplace] = selectConsumerMarketplace(config, requestedMarketplace);
+    const skills = readMarketplaceSkillCatalog(marketplaceName, marketplace);
+    if (skills.length === 0) console.log("No standalone Skills are available.");
+    for (const skill of skills) console.log(`${skill.name}${skill.sourceUrl ? `  ${skill.sourceUrl}` : ""}`);
+    return 0;
+  }
+
+  const lockPath = acquireMarketplaceSkillLock();
+  let operationError;
+  try {
+    return handleConsumerMarketplaceSkillMutation(action, skillName, requestedMarketplace, config);
+  } catch (error) {
+    operationError = error;
+    throw error;
+  } finally {
+    try {
+      rmSync(lockPath, { recursive: true });
+    } catch (error) {
+      if (!operationError) throw error;
+      operationError.message += `\nAdditionally, the Marketplace Skill lock could not be removed: ${error.message}`;
     }
   }
 }
@@ -903,7 +1434,14 @@ function sortedNames(entries) {
 }
 
 function printConfigurationSummary(config) {
-  console.log("\nPlugin targets:");
+  console.log("\nSkill targets:");
+  for (const name of sortedNames(config.skills)) {
+    const entry = config.skills[name];
+    const detail = entry.installedSkill ? `installed snapshot: ${entry.installedSkill}` : "repository source";
+    console.log(`  - ${name} (${detail}${entry.sourceUrl ? ", source URL recorded" : ""})`);
+  }
+  if (Object.keys(config.skills).length === 0) console.log("  (none)");
+  console.log("Plugin targets:");
   for (const name of sortedNames(config.plugins)) {
     const entry = config.plugins[name];
     const detail = entry.developmentConfig
@@ -915,7 +1453,9 @@ function printConfigurationSummary(config) {
   console.log("Marketplace targets:");
   for (const name of sortedNames(config.marketplaces)) {
     const entry = config.marketplaces[name];
-    console.log(`  - ${name}: ${entry.name} (${entry.mode}, ${entry.plugins.length} local plugins)`);
+    console.log(
+      `  - ${name}: ${entry.name} (${entry.mode}, ${entry.plugins.length} local plugins, ${entry.skills.length} local Skills)`,
+    );
   }
   if (Object.keys(config.marketplaces).length === 0) console.log("  (none)");
 }
@@ -944,6 +1484,7 @@ async function addMarketplace(input, config, suggestedName) {
     displayName,
     mode: "authoritative",
     plugins: [],
+    skills: [],
   };
   console.log(`Added Marketplace target: ${name}`);
   return name;
@@ -961,6 +1502,9 @@ async function connectMarketplace(input, config, suggestedName) {
   const root = await askRequired(input, "Existing Marketplace root path: ");
   config.marketplaces[name] = importExistingMarketplace(name, root, config);
   console.log(`Connected existing Marketplace: ${name}`);
+  if (config.marketplaces[name].mode === "consumer") {
+    console.log("This connection can browse and install Skills but cannot update the Marketplace until its management mode is changed.");
+  }
   return name;
 }
 
@@ -980,18 +1524,21 @@ async function editMarketplace(input, config, preferredName) {
 async function chooseMarketplaceMode(input, currentMode) {
   const currentLabel = currentMode === "authoritative"
     ? "complete Marketplace on this machine"
-    : "selected plugins as a contributor";
+    : currentMode === "contributor" ? "selected content as a contributor" : "browse and install only";
   while (true) {
     console.log(`How will this Marketplace be maintained? (current: ${currentLabel})
   1/a. Manage the complete Marketplace from this machine
-       Local assignments are the source of truth for every plugin.
-  2/c. Update selected plugins as a contributor
-       Other contributors' Marketplace entries are preserved.`);
+       Local assignments are the source of truth for every plugin and Skill.
+  2/c. Update selected content as a contributor
+       Other contributors' Marketplace entries are preserved.
+  3/r. Browse and install only
+       Development checks and synchronization cannot write to this Marketplace.`);
     const value = (await askConfigurationValue(input, "Selection (Enter keeps current): ")).toLowerCase();
     if (value === "") return currentMode;
     if (["1", "authoritative", "a"].includes(value)) return "authoritative";
     if (["2", "contributor", "c"].includes(value)) return "contributor";
-    console.log("Choose 1 or 2.");
+    if (["3", "consumer", "read-only", "r"].includes(value)) return "consumer";
+    console.log("Choose 1, 2, or 3.");
   }
 }
 
@@ -1009,40 +1556,62 @@ async function changeMarketplaceMode(input, config, preferredName) {
     const root = expandPath(entry.root, `marketplaces.${name}.root`);
     const currentMirror = readManagedMarketplaceMirror(root, name);
     const local = marketplaceMaterialization(name, entry, config);
-    const localNames = new Set(local.mirror.plugins.map((plugin) => plugin.name));
-    const missing = currentMirror.plugins
+    const localPluginNames = new Set(local.mirror.plugins.map((plugin) => plugin.name));
+    const missingPlugins = currentMirror.plugins
       .map((plugin) => plugin.name)
-      .filter((pluginName) => !localNames.has(pluginName));
-    if (missing.length > 0) {
-      console.log(`Cannot switch to authoritative; local sources are missing: ${missing.join(", ")}.`);
+      .filter((pluginName) => !localPluginNames.has(pluginName));
+    const localSkillNames = new Set(local.mirror.skills.map((skill) => skill.name));
+    const missingSkills = (currentMirror.skills ?? [])
+      .map((skill) => skill.name)
+      .filter((skillName) => !localSkillNames.has(skillName));
+    if (missingPlugins.length > 0 || missingSkills.length > 0) {
+      if (missingSkills.length === 0) {
+        console.log(`Cannot switch to authoritative; local sources are missing: ${missingPlugins.join(", ")}.`);
+        return;
+      }
+      const details = [
+        missingPlugins.length > 0 ? `plugins: ${missingPlugins.join(", ")}` : null,
+        missingSkills.length > 0 ? `Skills: ${missingSkills.join(", ")}` : null,
+      ].filter(Boolean).join("; ");
+      console.log(`Cannot switch to authoritative; local sources are missing (${details}).`);
       return;
     }
-    if (!await confirm(input, "Use the local plugin assignments as the complete Marketplace source of truth?")) {
-      console.log("Kept contributor mode.");
+    if (!await confirm(input, "Use the local plugin and Skill assignments as the complete Marketplace source of truth?")) {
+      console.log(`Kept ${entry.mode} mode.`);
       return;
     }
-  } else {
+  } else if (entry.mode === "authoritative") {
     let checkStatus;
     try {
-      checkStatus = handleMarketplace("check", name, undefined, config);
+      checkStatus = handleMarketplace("check", name, undefined, undefined, config);
     } catch (error) {
-      console.log(`Cannot switch to contributor because the complete Marketplace check could not run: ${sanitizeOutput(error.message, [[HOME_PATH, "~"]])}`);
+      console.log(`Cannot switch to ${mode} because the complete Marketplace check could not run: ${sanitizeOutput(error.message, [[HOME_PATH, "~"]])}`);
       return;
     }
     if (checkStatus !== 0) {
-      console.log("Cannot switch to contributor because the complete Marketplace is not synchronized. Run a full sync, then try again.");
+      console.log(`Cannot switch to ${mode} because the complete Marketplace is not synchronized. Run a full sync, then try again.`);
       return;
     }
-    if (!await confirm(input, "Require --plugin and stop treating local assignments as the complete Marketplace?")) {
+    const prompt = mode === "contributor"
+      ? "Require --plugin or --skill and stop treating local assignments as the complete Marketplace?"
+      : "Disable Marketplace development operations on this machine and keep only browsing and installation?";
+    if (!await confirm(input, prompt)) {
       console.log("Kept authoritative mode.");
       return;
     }
+  } else {
+    const prompt = mode === "consumer"
+      ? "Disable Marketplace development operations on this machine?"
+      : "Allow scoped Marketplace updates from this machine?";
+    if (!await confirm(input, prompt)) return;
   }
 
   entry.mode = mode;
   console.log(`Changed Marketplace ${name} mode to ${mode}.`);
   if (mode === "contributor") {
-    console.log("Existing assignments remain local update targets; remove any this machine should no longer publish.");
+    console.log("Existing plugin and Skill assignments remain local update targets; remove any this machine should no longer publish.");
+  } else if (mode === "consumer") {
+    console.log("Existing assignments are retained but cannot be checked or synchronized in consumer mode.");
   }
 }
 
@@ -1081,6 +1650,139 @@ async function addPluginTarget(input, config) {
   }
   console.log(`Added plugin target: ${name}`);
   return name;
+}
+
+async function chooseSkillTargetType(input, currentMode = null) {
+  const currentLabel = currentMode === "repository"
+    ? "local project folder"
+    : currentMode === "installed-snapshot" ? "installed Skill snapshot" : null;
+  while (true) {
+    console.log(`Where should this Skill come from?${currentLabel ? ` (current: ${currentLabel})` : ""}
+  1/r. Use a local project folder
+       Treats the repository copy as the editable source of truth.
+  2/i. Snapshot an installed Skill
+       Copies one explicitly selected ~/.agents/skills entry for reuse on other machines.`);
+    const value = (await askConfigurationValue(
+      input,
+      `Selection${currentMode ? " (Enter keeps current)" : ""}: `,
+    )).toLowerCase();
+    if (value === "" && currentMode) return currentMode;
+    if (["1", "repository", "repo", "r"].includes(value)) return "repository";
+    if (["2", "installed-snapshot", "installed", "snapshot", "i"].includes(value)) return "installed-snapshot";
+    console.log("Choose 1 or 2.");
+  }
+}
+
+function suggestedSkillSourceUrl(skillRoot) {
+  const { frontmatter } = skillFrontmatter(skillRoot, "Installed Skill");
+  const metadataStart = frontmatter.findIndex((line) => /^metadata:\s*$/u.test(line));
+  if (metadataStart < 0) return null;
+  const metadataLines = [];
+  for (const line of frontmatter.slice(metadataStart + 1)) {
+    if (/^\S/u.test(line)) break;
+    metadataLines.push(line);
+  }
+  const match = /^\s+github-repo:\s*(['"]?)(https?:\/\/[^\s'"]+)\1\s*$/mu.exec(metadataLines.join("\n"));
+  if (!match) return null;
+  try {
+    return validateSourceUrl(match[2], "Installed Skill github-repo");
+  } catch {
+    return null;
+  }
+}
+
+async function askSourceUrl(input, { current = null, suggested = null } = {}) {
+  const detail = current
+    ? ` (Enter keeps ${current}; type none to remove)`
+    : suggested ? ` (Enter uses ${suggested}; type none to skip)` : " (optional; Enter skips)";
+  const value = await askConfigurationValue(input, `Original source URL${detail}: `);
+  if (value.toLowerCase() === "none") return null;
+  if (value === "") return current ?? suggested;
+  return validateSourceUrl(value, "Original source URL");
+}
+
+async function addSkillTarget(input, config) {
+  const name = await askRequired(input, "Local Skill target name: ");
+  assertTargetName(name, "Skill target");
+  if (Object.hasOwn(config.skills, name)) {
+    console.log(`Skill target already exists: ${name}`);
+    return;
+  }
+  const mode = await chooseSkillTargetType(input);
+  let entry;
+  let suggested = null;
+  if (mode === "repository") {
+    entry = {
+      repository: await askRequired(input, "Skill repository path: "),
+      skillRoot: await askRequired(input, "Skill directory path inside the repository: "),
+    };
+  } else {
+    const installedSkill = validateSkillName(
+      await askRequired(input, "Installed Skill name under ~/.agents/skills: "),
+      "Installed Skill name",
+    );
+    entry = { installedSkill };
+    const context = skillSourceContext(name, entry);
+    suggested = suggestedSkillSourceUrl(context.skillRoot);
+  }
+  const sourceUrl = await askSourceUrl(input, { suggested });
+  if (sourceUrl) entry.sourceUrl = sourceUrl;
+  skillSourceContext(name, entry);
+  config.skills[name] = entry;
+  console.log(`Added Skill target: ${name}`);
+  return name;
+}
+
+async function editSkillTarget(input, config) {
+  const name = await chooseName(input, sortedNames(config.skills), "Skill target");
+  if (!name) return;
+  const entry = config.skills[name];
+  const currentMode = entry.installedSkill ? "installed-snapshot" : "repository";
+  const mode = await chooseSkillTargetType(input, currentMode);
+  if (mode === "repository") {
+    entry.repository = currentMode === "repository"
+      ? await askReplacement(input, "Skill repository path", entry.repository)
+      : await askRequired(input, "Skill repository path: ");
+    entry.skillRoot = currentMode === "repository"
+      ? await askReplacement(input, "Skill directory path inside the repository", entry.skillRoot)
+      : await askRequired(input, "Skill directory path inside the repository: ");
+    delete entry.installedSkill;
+  } else {
+    entry.installedSkill = currentMode === "installed-snapshot"
+      ? validateSkillName(
+        await askReplacement(input, "Installed Skill name under ~/.agents/skills", entry.installedSkill),
+        "Installed Skill name",
+      )
+      : validateSkillName(
+        await askRequired(input, "Installed Skill name under ~/.agents/skills: "),
+        "Installed Skill name",
+      );
+    delete entry.repository;
+    delete entry.skillRoot;
+  }
+  const suggested = mode === "installed-snapshot" && !entry.sourceUrl
+    ? suggestedSkillSourceUrl(skillSourceContext(name, entry).skillRoot)
+    : null;
+  const sourceUrl = await askSourceUrl(input, { current: entry.sourceUrl ?? null, suggested });
+  if (sourceUrl) entry.sourceUrl = sourceUrl;
+  else delete entry.sourceUrl;
+  skillSourceContext(name, entry);
+  console.log(`Updated Skill target: ${name}`);
+}
+
+async function removeSkillTarget(input, config) {
+  const name = await chooseName(input, sortedNames(config.skills), "Skill target");
+  if (!name) return;
+  const usedBy = sortedNames(config.marketplaces).filter((marketplace) => (
+    config.marketplaces[marketplace].skills.some((skill) => skill.target === name)
+  ));
+  if (usedBy.length > 0) {
+    console.log(`Cannot remove ${name}; it is assigned to: ${usedBy.join(", ")}.`);
+    return;
+  }
+  if (!await confirm(input, `Remove Skill target ${name}?`)) return;
+  delete config.skills[name];
+  console.log(`Removed Skill target: ${name}`);
 }
 
 async function choosePluginTargetType(input, currentMode = null) {
@@ -1234,6 +1936,77 @@ async function removeMarketplacePlugin(input, config, preferredMarketplace) {
   console.log(`Removed Marketplace plugin: ${marketplace} <- ${target}`);
 }
 
+async function setMarketplaceSkill(input, config, preferredMarketplace) {
+  const marketplace = await chooseName(
+    input,
+    sortedNames(config.marketplaces),
+    "Marketplace target",
+    preferredMarketplace,
+  );
+  if (!marketplace) return;
+  const targets = sortedNames(config.skills);
+  console.log("\nChoose Skill target:");
+  targets.forEach((name, index) => console.log(`  ${index + 1}. ${name}`));
+  console.log("  n. Add new Skill target");
+  console.log("  b. Back");
+  let target;
+  while (!target) {
+    const answer = (await input.question("Selection: ")).trim().toLowerCase();
+    if (["b", "back"].includes(answer)) return;
+    if (["n", "new"].includes(answer)) {
+      target = await addSkillTarget(input, config);
+      if (!target) return;
+      break;
+    }
+    const selected = Number(answer);
+    if (Number.isInteger(selected) && selected >= 1 && selected <= targets.length) {
+      target = targets[selected - 1];
+      break;
+    }
+    console.log("Choose a listed Skill target, n, or b.");
+  }
+  const entries = config.marketplaces[marketplace].skills;
+  if (entries.some((skill) => skill.target === target)) {
+    console.log(`Marketplace Skill is already assigned: ${marketplace} <- ${target}`);
+    return;
+  }
+  entries.push({ target });
+  console.log(`Added Marketplace Skill: ${marketplace} <- ${target}`);
+}
+
+async function removeMarketplaceSkill(input, config, preferredMarketplace) {
+  const marketplace = await chooseName(
+    input,
+    sortedNames(config.marketplaces),
+    "Marketplace target",
+    preferredMarketplace,
+  );
+  if (!marketplace) return;
+  const entries = config.marketplaces[marketplace].skills;
+  const target = await chooseName(input, entries.map((skill) => skill.target), "Marketplace Skill");
+  if (!target || !await confirm(input, `Remove ${target} from Marketplace ${marketplace}?`)) return;
+  config.marketplaces[marketplace].skills = entries.filter((skill) => skill.target !== target);
+  console.log(`Removed Marketplace Skill: ${marketplace} <- ${target}`);
+}
+
+async function setMarketplaceContent(input, config, preferredMarketplace) {
+  while (true) {
+    console.log(`\nAdd or update Marketplace content:
+  1/p. Plugin
+  2/s. Standalone Skill
+  b. Back`);
+    const action = (await input.question("Selection: ")).trim().toLowerCase();
+    if (["1", "p", "plugin"].includes(action)) {
+      return setMarketplacePlugin(input, config, preferredMarketplace);
+    }
+    if (["2", "s", "skill"].includes(action)) {
+      return setMarketplaceSkill(input, config, preferredMarketplace);
+    }
+    if (["b", "back"].includes(action)) return;
+    console.log("Choose 1, 2, or b.");
+  }
+}
+
 async function managePluginTargets(input, config) {
   while (true) {
     console.log(`\nManage plugin targets:
@@ -1254,20 +2027,60 @@ async function managePluginTargets(input, config) {
   }
 }
 
+async function manageSkillTargets(input, config) {
+  while (true) {
+    console.log(`\nManage Skill targets:
+  1/a. Add Skill target
+  2/e. Edit Skill target
+  b. Back`);
+    const action = (await input.question("Selection: ")).trim().toLowerCase();
+    if (["1", "a", "add"].includes(action)) {
+      await runConfigurationOperation(input, config, "adding a Skill target", (draft) => (
+        addSkillTarget(input, draft)
+      ));
+    } else if (["2", "e", "edit"].includes(action)) {
+      await runConfigurationOperation(input, config, "editing a Skill target", (draft) => (
+        editSkillTarget(input, draft)
+      ));
+    } else if (["b", "back"].includes(action)) return;
+    else console.log("Choose a listed action.");
+  }
+}
+
+async function manageLocalTargets(input, config) {
+  while (true) {
+    console.log(`\nManage local source targets:
+  1/p. Plugin targets
+  2/s. Standalone Skill targets
+  b. Back`);
+    const action = (await input.question("Selection: ")).trim().toLowerCase();
+    if (["1", "p", "plugin", "plugins"].includes(action)) await managePluginTargets(input, config);
+    else if (["2", "s", "skill", "skills"].includes(action)) await manageSkillTargets(input, config);
+    else if (["b", "back"].includes(action)) return;
+    else console.log("Choose 1, 2, or b.");
+  }
+}
+
 async function removeConfiguration(input, config, preferredMarketplace) {
   let currentMarketplace = preferredMarketplace;
   while (true) {
     console.log(`\nRemove from local configuration:
   1/p. Remove plugin from Marketplace
-  2/m. Remove Marketplace
-  3/t. Remove plugin target
+  2/s. Remove Skill from Marketplace
+  3/m. Remove Marketplace
+  4/t. Remove plugin target
+  5/k. Remove Skill target
   b. Back`);
     const action = (await input.question("Selection: ")).trim().toLowerCase();
     if (["1", "p", "plugin"].includes(action)) {
       await runConfigurationOperation(input, config, "removing a Marketplace plugin", (draft) => (
         removeMarketplacePlugin(input, draft, currentMarketplace)
       ));
-    } else if (["2", "m", "marketplace"].includes(action)) {
+    } else if (["2", "s", "skill"].includes(action)) {
+      await runConfigurationOperation(input, config, "removing a Marketplace Skill", (draft) => (
+        removeMarketplaceSkill(input, draft, currentMarketplace)
+      ));
+    } else if (["3", "m", "marketplace"].includes(action)) {
       const removedCurrent = await runConfigurationOperation(
         input,
         config,
@@ -1275,9 +2088,13 @@ async function removeConfiguration(input, config, preferredMarketplace) {
         (draft) => removeMarketplace(input, draft, currentMarketplace),
       );
       if (removedCurrent) currentMarketplace = undefined;
-    } else if (["3", "t", "target"].includes(action)) {
+    } else if (["4", "t", "target", "plugin-target"].includes(action)) {
       await runConfigurationOperation(input, config, "removing a plugin target", (draft) => (
         removePluginTarget(input, draft)
+      ));
+    } else if (["5", "k", "skill-target"].includes(action)) {
+      await runConfigurationOperation(input, config, "removing a Skill target", (draft) => (
+        removeSkillTarget(input, draft)
       ));
     } else if (["b", "back"].includes(action)) return currentMarketplace;
     else console.log("Choose a listed action.");
@@ -1302,10 +2119,10 @@ Configure local development${preferredMarketplace ? ` (Marketplace: ${preferredM
   1/a. Add Marketplace
   2/c. Connect existing Marketplace
   3/m. Switch Marketplace
-  4/p. Add or update plugin in Marketplace
+  4. Add or update Marketplace content (p: plugin, k: Skill)
   5/e. Edit Marketplace
   6/o. Change Marketplace management mode
-  7/t. Manage plugin targets
+  7/t. Manage local source targets
   8/r. Remove...
   9/v. View configuration summary
   s. Save and exit
@@ -1333,9 +2150,17 @@ Enter :back in an input form to discard that operation.`);
           sortedNames(config.marketplaces),
           "Marketplace target",
         ) ?? preferredMarketplace;
-      } else if (["4", "p", "plugin"].includes(action)) {
+      } else if (["4", "content"].includes(action)) {
+        await runConfigurationOperation(input, config, "adding or updating Marketplace content", (draft) => (
+          setMarketplaceContent(input, draft, preferredMarketplace)
+        ));
+      } else if (["p", "plugin"].includes(action)) {
         await runConfigurationOperation(input, config, "adding or updating a Marketplace plugin", (draft) => (
           setMarketplacePlugin(input, draft, preferredMarketplace)
+        ));
+      } else if (["k", "skill"].includes(action)) {
+        await runConfigurationOperation(input, config, "adding or updating a Marketplace Skill", (draft) => (
+          setMarketplaceSkill(input, draft, preferredMarketplace)
         ));
       } else if (["5", "e", "edit"].includes(action)) {
         await runConfigurationOperation(input, config, "editing a Marketplace", (draft) => (
@@ -1346,7 +2171,7 @@ Enter :back in an input form to discard that operation.`);
           changeMarketplaceMode(input, draft, preferredMarketplace)
         ));
       } else if (["7", "t", "targets"].includes(action)) {
-        await managePluginTargets(input, config);
+        await manageLocalTargets(input, config);
       } else if (["8", "r", "remove"].includes(action)) {
         preferredMarketplace = await removeConfiguration(input, config, preferredMarketplace);
       } else if (["9", "v", "view", "summary"].includes(action)) printConfigurationSummary(config);
@@ -1371,6 +2196,7 @@ Enter :back in an input form to discard that operation.`);
 }
 
 function printTargets(config) {
+  console.log(`Skills:       ${Object.keys(config.skills).sort().join(", ") || "(none)"}`);
   console.log(`Plugins:      ${Object.keys(config.plugins).sort().join(", ") || "(none)"}`);
   console.log(`Marketplaces: ${Object.keys(config.marketplaces).sort().join(", ") || "(none)"}`);
   console.log("");
@@ -1379,9 +2205,34 @@ function printTargets(config) {
 
 function parseInvocation(argv) {
   if (argv.length === 0 || ["-h", "--help", "help"].includes(argv[0])) return { help: true };
-  if (argv[0] !== "dev") fail(`Unknown command: ${argv[0]}. Only "dev" is currently supported.`, 2);
+  const command = argv[0] === "mp" ? "marketplace" : argv[0];
+  if (command === "marketplace") {
+    const rest = argv.slice(1);
+    if (rest[0] === "list") {
+      if (rest.length > 2) fail(`Unexpected argument: ${rest[2]}.`, 2);
+      return { consumerMarketplace: true, action: "list", target: rest[1] };
+    }
+    if (rest[0] !== "skill") fail('Choose "skill" or "list" for marketplace.', 2);
+    const action = rest[1];
+    if (!["list", "install", "update", "remove"].includes(action)) {
+      fail("Choose list, install, update, or remove for marketplace skill.", 2);
+    }
+    if (action === "list") {
+      if (rest.length > 3) fail(`Unexpected argument: ${rest[3]}.`, 2);
+      return { consumerMarketplace: true, action, target: rest[2] };
+    }
+    const skillName = rest[2];
+    if (!skillName || skillName.startsWith("--")) fail(`${action} requires a Skill name.`, 2);
+    if (action === "remove") {
+      if (rest.length > 3) fail("marketplace skill remove does not accept a Marketplace name.", 2);
+      return { consumerMarketplace: true, action, skillName };
+    }
+    if (rest.length > 4) fail(`Unexpected argument: ${rest[4]}.`, 2);
+    return { consumerMarketplace: true, action, skillName, target: rest[3] };
+  }
+  if (command !== "dev") fail(`Unknown command: ${argv[0]}.`, 2);
   if (argv.length === 1) return { summary: true };
-  const domain = argv[1];
+  const domain = argv[1] === "mp" ? "marketplace" : argv[1];
   const action = argv[2];
   if (!["skill", "plugin", "marketplace"].includes(domain)) fail(`Unknown development target: ${domain ?? "(missing)"}.`, 2);
   const marketplaceConfiguration = domain === "marketplace" && ["configure", "setup"].includes(action);
@@ -1401,6 +2252,7 @@ function parseInvocation(argv) {
 
   let target;
   let pluginTarget;
+  let skillTarget;
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index];
     if (argument === "--plugin") {
@@ -1408,16 +2260,31 @@ function parseInvocation(argv) {
       pluginTarget = rest[index + 1];
       if (!pluginTarget || pluginTarget.startsWith("--")) fail("--plugin requires a local plugin target name.", 2);
       index += 1;
+    } else if (argument === "--skill") {
+      if (skillTarget !== undefined) fail("--skill may be specified only once.", 2);
+      skillTarget = rest[index + 1];
+      if (!skillTarget || skillTarget.startsWith("--")) fail("--skill requires a local Skill target name.", 2);
+      index += 1;
     } else if (argument.startsWith("--")) fail(`Unknown option: ${argument}.`, 2);
     else if (target === undefined) target = argument;
     else fail(`Unexpected argument: ${argument}.`, 2);
   }
-  return { domain, action, target, pluginTarget };
+  if (pluginTarget !== undefined && skillTarget !== undefined) fail("Specify either --plugin or --skill, not both.", 2);
+  return { domain, action, target, pluginTarget, skillTarget };
 }
 
 async function main() {
   const invocation = parseInvocation(process.argv.slice(2));
   if (invocation.help) console.log(HELP);
+  else if (invocation.consumerMarketplace) {
+    const config = invocation.action === "remove" ? null : readConfiguration();
+    process.exitCode = handleConsumerMarketplaceSkill(
+      invocation.action,
+      invocation.skillName,
+      invocation.target,
+      config,
+    );
+  }
   else {
     if (invocation.domain === "skill") process.exitCode = handleSkill(invocation.action);
     else if (invocation.domain === "marketplace" && invocation.action === "configure") {
@@ -1431,6 +2298,7 @@ async function main() {
         invocation.action,
         invocation.target,
         invocation.pluginTarget,
+        invocation.skillTarget,
         config,
       );
     }

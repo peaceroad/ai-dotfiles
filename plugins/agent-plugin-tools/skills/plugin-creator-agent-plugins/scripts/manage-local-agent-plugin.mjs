@@ -33,7 +33,7 @@ const VERSION_POLICIES = new Set(["bump", "keep"]);
 const CONFIG_DIRECTORY = join(".agents", "plugin-development");
 const ASSEMBLY_CONFIG_PATH = join(
   ".agents",
-  "plugin-marketplace-development",
+  "marketplace-development",
   "config.json",
 );
 const CONFIG_SCHEMA_NAME = "schema.json";

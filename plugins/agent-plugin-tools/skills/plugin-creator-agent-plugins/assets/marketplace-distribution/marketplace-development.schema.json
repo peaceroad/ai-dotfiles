@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:plugin-creator-agent-plugins:marketplace-development-schema:v2",
   "$comment": "@plugin-creator-agent-plugins managed-marketplace-schema v2",
-  "title": "Agent Plugin Marketplace Development Configuration",
+  "title": "Agent Marketplace Development Configuration",
   "oneOf": [
     {
       "$ref": "#/$defs/standaloneConfiguration"
@@ -30,22 +30,26 @@
     "standaloneConfiguration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schemaVersion", "name", "displayName", "plugins"],
+      "required": ["schemaVersion", "name", "displayName", "plugins", "skills"],
       "properties": {
         "$schema": { "$ref": "#/$defs/baseProperties/$schema" },
-        "schemaVersion": { "const": 1 },
+        "schemaVersion": { "const": 2 },
         "name": { "$ref": "#/$defs/baseProperties/name" },
         "displayName": { "$ref": "#/$defs/baseProperties/displayName" },
         "plugins": {
           "type": "array",
           "items": { "$ref": "#/$defs/sourcePlugin" }
+        },
+        "skills": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceSkill" }
         }
       }
     },
     "agentManagedConfiguration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schemaVersion", "managedBy", "name", "displayName", "plugins", "configurationDigest"],
+      "required": ["schemaVersion", "managedBy", "name", "displayName", "plugins", "skills", "configurationDigest"],
       "properties": {
         "$schema": { "$ref": "#/$defs/baseProperties/$schema" },
         "schemaVersion": { "const": 2 },
@@ -55,6 +59,10 @@
         "plugins": {
           "type": "array",
           "items": { "$ref": "#/$defs/namedPlugin" }
+        },
+        "skills": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/namedSkill" }
         },
         "configurationDigest": {
           "type": "string",
@@ -82,6 +90,39 @@
       "properties": {
         "name": { "$ref": "#/$defs/baseProperties/name" },
         "category": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sourceSkill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path or a path relative to the Marketplace root."
+        },
+        "sourceUrl": {
+          "type": "string",
+          "pattern": "^https?://(?![^/?#]*@)[^\\s?#]+$"
+        }
+      }
+    },
+    "namedSkill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "sourceUrl": {
+          "type": "string",
+          "pattern": "^https?://(?![^/?#]*@)[^\\s?#]+$"
+        }
       }
     }
   }

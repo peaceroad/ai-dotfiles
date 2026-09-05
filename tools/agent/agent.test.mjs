@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -15,7 +15,7 @@ const MARKETPLACE_MANAGER = join(
   "skills",
   "plugin-creator-agent-plugins",
   "scripts",
-  "assemble-plugin-marketplace.mjs",
+  "assemble-agent-marketplace.mjs",
 );
 
 function writeJson(path, value) {
@@ -37,6 +37,67 @@ function run(cli, args, env, input) {
     input,
   });
 }
+
+test("rejects provenance URLs that could expose credentials", () => {
+  const root = join(tmpdir(), `agent-dev-source-url-${process.pid}-${Date.now()}`);
+  const home = join(root, "home");
+  const configPath = join(home, ".agents", "development.json");
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeJson(configPath, {
+    schemaVersion: 2,
+    skills: {
+      cached: {
+        installedSkill: "sample-skill",
+        sourceUrl: "https://example.com/sample-skill?token=secret",
+      },
+    },
+    plugins: {},
+    marketplaces: {},
+  });
+  try {
+    const result = run(CLI, ["dev"], {
+      AGENT_DEV_HOME: home,
+      AGENT_DEV_CONFIG: configPath,
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /without credentials, query parameters, or a fragment/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Marketplace commands reject the retired management directory", () => {
+  const root = join(tmpdir(), `agent-dev-legacy-marketplace-${process.pid}-${Date.now()}`);
+  const home = join(root, "home");
+  const marketplaceRoot = join(root, "marketplace");
+  const configPath = join(home, ".agents", "development.json");
+  mkdirSync(join(marketplaceRoot, ".agents", "plugin-marketplace-development"), { recursive: true });
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeJson(configPath, {
+    schemaVersion: 2,
+    plugins: {},
+    marketplaces: {
+      shared: {
+        root: marketplaceRoot,
+        name: "shared",
+        displayName: "Shared",
+        mode: "authoritative",
+        plugins: [],
+      },
+    },
+  });
+
+  try {
+    const result = run(CLI, ["dev", "marketplace", "check"], {
+      AGENT_DEV_HOME: home,
+      AGENT_DEV_CONFIG: configPath,
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Rename that directory to \.agents\/marketplace-development/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("dispatches each development boundary and blocks duplicate skill discovery", () => {
   const root = join(tmpdir(), `agent-dev-${process.pid}-${Date.now()}`);
@@ -115,7 +176,7 @@ test("dispatches each development boundary and blocks duplicate skill discovery"
     assert.match(calls[4], /^marketplace:\["check",.*,"--config",.*,"--plugin","sample-plugin","--merge"\]$/u);
     assert.match(calls[5], /^plugin:\["install","--config",/u);
 
-    const mirror = readFileSync(join(root, "shared", ".agents", "plugin-marketplace-development", "config.json"), "utf8");
+    const mirror = readFileSync(join(root, "shared", ".agents", "marketplace-development", "config.json"), "utf8");
     assert.doesNotMatch(mirror, /repos/u);
     assert.deepEqual(JSON.parse(mirror).plugins, [{ name: "sample-plugin", category: "Tools" }]);
   } finally {
@@ -253,6 +314,208 @@ test("configures a new Marketplace and plugin assignment without syncing", () =>
   }
 });
 
+test("configures and syncs an installed Skill snapshot with editable provenance", () => {
+  const root = join(tmpdir(), `agent-dev-installed-skill-${process.pid}-${Date.now()}`);
+  const home = join(root, "home");
+  const installedSkill = join(home, ".agents", "skills", "skill-cleaner");
+  const marketplaceRoot = join(root, "marketplace");
+  const configPath = join(home, ".agents", "development.json");
+  mkdirSync(installedSkill, { recursive: true });
+  writeFileSync(
+    join(installedSkill, "SKILL.md"),
+    "---\nname: skill-cleaner\ndescription: Clean Skills.\nmetadata:\n  github-repo: https://example.com/skill-cleaner\n---\n",
+    "utf8",
+  );
+  writeJson(configPath, {
+    schemaVersion: 2,
+    plugins: {},
+    marketplaces: {
+      shared: {
+        root: marketplaceRoot,
+        name: "shared",
+        displayName: "Shared",
+        mode: "authoritative",
+        plugins: [],
+      },
+    },
+  });
+  const env = {
+    AGENT_DEV_HOME: home,
+    AGENT_DEV_CONFIG: configPath,
+    AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER,
+  };
+
+  try {
+    const configured = run(CLI, ["dev", "marketplace", "configure"], env, [
+      "k",
+      "n",
+      "skill-cleaner-cache",
+      "2",
+      "skill-cleaner",
+      "",
+      "s",
+      "",
+    ].join("\n"));
+    assert.equal(configured.status, 0, configured.stderr);
+    let config = JSON.parse(readFileSync(configPath, "utf8"));
+    assert.deepEqual(config.skills["skill-cleaner-cache"], {
+      installedSkill: "skill-cleaner",
+      sourceUrl: "https://example.com/skill-cleaner",
+    });
+    assert.deepEqual(config.marketplaces.shared.skills, [{ target: "skill-cleaner-cache" }]);
+
+    const synced = run(CLI, ["dev", "marketplace", "sync"], env);
+    assert.equal(synced.status, 0, synced.stderr);
+    assert.match(synced.stdout, /Synced: skills\/skill-cleaner/u);
+    const mirror = readFileSync(
+      join(marketplaceRoot, ".agents", "marketplace-development", "config.json"),
+      "utf8",
+    );
+    assert.doesNotMatch(mirror, /home/u);
+    assert.match(mirror, /https:\/\/example\.com\/skill-cleaner/u);
+
+    const edited = run(CLI, ["dev", "marketplace", "configure"], env, [
+      "t", "2", "2", "", "", "none", "b", "b", "s", "",
+    ].join("\n"));
+    assert.equal(edited.status, 0, edited.stderr);
+    config = JSON.parse(readFileSync(configPath, "utf8"));
+    assert.equal(config.skills["skill-cleaner-cache"].sourceUrl, undefined);
+    assert.equal(run(CLI, ["dev", "marketplace", "check"], env).status, 1);
+    assert.equal(run(CLI, ["dev", "marketplace", "sync", "--skill", "skill-cleaner-cache"], env).status, 0);
+    assert.equal(run(CLI, ["dev", "marketplace", "check"], env).status, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("installs, updates, and removes a repository Skill from a configured Marketplace", () => {
+  const root = join(tmpdir(), `agent-marketplace-skill-${process.pid}-${Date.now()}`);
+  const home = join(root, "home");
+  const repository = join(root, "repository");
+  const skillRoot = join(repository, "skills", "sample-skill");
+  const marketplaceRoot = join(root, "marketplace");
+  const configPath = join(home, ".agents", "development.json");
+  mkdirSync(skillRoot, { recursive: true });
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeFileSync(
+    join(skillRoot, "SKILL.md"),
+    "---\nname: sample-skill\ndescription: Sample Skill.\n---\n\nInitial.\n",
+    "utf8",
+  );
+  writeJson(configPath, {
+    schemaVersion: 2,
+    skills: {
+      sample: {
+        repository,
+        skillRoot: "skills/sample-skill",
+        sourceUrl: "https://example.com/sample-skill",
+      },
+    },
+    plugins: {},
+    marketplaces: {
+      shared: {
+        root: marketplaceRoot,
+        name: "shared",
+        displayName: "Shared",
+        mode: "authoritative",
+        plugins: [],
+        skills: [{ target: "sample" }],
+      },
+    },
+  });
+  const env = {
+    AGENT_DEV_HOME: home,
+    AGENT_DEV_CONFIG: configPath,
+    AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER,
+  };
+
+  try {
+    const outsideFile = join(root, "outside.txt");
+    const outsideLink = join(skillRoot, "outside-link.txt");
+    writeFileSync(outsideFile, "outside\n", "utf8");
+    try {
+      symlinkSync(outsideFile, outsideLink, "file");
+      const unsafeLink = run(CLI, ["dev", "marketplace", "sync"], env);
+      assert.equal(unsafeLink.status, 1);
+      assert.match(unsafeLink.stderr, /symbolic link outside its root/u);
+      rmSync(outsideLink);
+    } catch (error) {
+      if (!["EPERM", "EACCES"].includes(error.code)) throw error;
+    }
+    assert.equal(run(CLI, ["dev", "marketplace", "sync"], env).status, 0);
+    const aliasCheck = run(CLI, ["dev", "mp", "check", "--skill", "sample"], env);
+    assert.equal(aliasCheck.status, 0, aliasCheck.stderr);
+    const consumerConfig = JSON.parse(readFileSync(configPath, "utf8"));
+    consumerConfig.marketplaces.shared.mode = "consumer";
+    writeJson(configPath, consumerConfig);
+    const listed = run(CLI, ["marketplace", "skill", "list"], env);
+    assert.equal(listed.status, 0, listed.stderr);
+    assert.match(listed.stdout, /sample-skill  https:\/\/example\.com\/sample-skill/u);
+    const aliasListed = run(CLI, ["mp", "skill", "list"], env);
+    assert.equal(aliasListed.status, 0, aliasListed.stderr);
+    assert.equal(aliasListed.stdout, listed.stdout);
+
+    const localLock = join(home, ".agents", ".marketplace-skill.lock");
+    mkdirSync(localLock);
+    assert.equal(run(CLI, ["marketplace", "skill", "list"], env).status, 0);
+    const locked = run(CLI, ["marketplace", "skill", "install", "sample-skill"], env);
+    assert.equal(locked.status, 1);
+    assert.match(locked.stderr, /Another Marketplace Skill change is in progress/u);
+    rmSync(localLock, { recursive: true });
+
+    const catalogPath = join(marketplaceRoot, ".agents", "skills", "catalog.json");
+    const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
+    catalog.skills[0].path = "../../skills/./sample-skill";
+    writeJson(catalogPath, catalog);
+    const aliasedPath = run(CLI, ["marketplace", "skill", "install", "sample-skill"], env);
+    assert.equal(aliasedPath.status, 1);
+    assert.match(aliasedPath.stderr, /path must be \.\.\/\.\.\/skills\/sample-skill/u);
+    catalog.skills[0].path = "../../skills/sample-skill";
+    writeJson(catalogPath, catalog);
+
+    const distributedFile = join(marketplaceRoot, "skills", "sample-skill", "SKILL.md");
+    const distributedText = readFileSync(distributedFile, "utf8");
+    writeFileSync(distributedFile, `${distributedText}Unexpected change.\n`, "utf8");
+    const listWithDrift = run(CLI, ["marketplace", "skill", "list"], env);
+    assert.equal(listWithDrift.status, 0, listWithDrift.stderr);
+    assert.match(listWithDrift.stdout, /sample-skill/u);
+    const invalid = run(CLI, ["marketplace", "skill", "install", "sample-skill"], env);
+    assert.equal(invalid.status, 1);
+    assert.match(invalid.stderr, /does not match its catalog digest/u);
+    writeFileSync(distributedFile, distributedText, "utf8");
+
+    const installed = run(CLI, ["marketplace", "skill", "install", "sample-skill"], env);
+    assert.equal(installed.status, 0, installed.stderr);
+    assert.match(installed.stdout, /Installed Marketplace Skill: sample-skill/u);
+    const installedFile = join(home, ".agents", "skills", "sample-skill", "SKILL.md");
+    assert.match(readFileSync(installedFile, "utf8"), /Initial/u);
+
+    consumerConfig.marketplaces.shared.mode = "authoritative";
+    writeJson(configPath, consumerConfig);
+    writeFileSync(
+      join(skillRoot, "SKILL.md"),
+      "---\nname: sample-skill\ndescription: Sample Skill.\n---\n\nUpdated.\n",
+      "utf8",
+    );
+    assert.equal(run(CLI, ["dev", "marketplace", "sync", "--skill", "sample"], env).status, 0);
+    const updated = run(CLI, ["marketplace", "skill", "update", "sample-skill"], env);
+    assert.equal(updated.status, 0, updated.stderr);
+    assert.match(readFileSync(installedFile, "utf8"), /Updated/u);
+
+    writeFileSync(installedFile, `${readFileSync(installedFile, "utf8")}Local change.\n`, "utf8");
+    const refused = run(CLI, ["marketplace", "skill", "update", "sample-skill"], env);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /locally changed Skill/u);
+    writeFileSync(installedFile, readFileSync(join(skillRoot, "SKILL.md"), "utf8"), "utf8");
+    rmSync(configPath);
+    const removed = run(CLI, ["marketplace", "skill", "remove", "sample-skill"], env);
+    assert.equal(removed.status, 0, removed.stderr);
+    assert.match(removed.stdout, /Removed Marketplace Skill/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("requires an explicit target when multiple Marketplaces are configured", () => {
   const root = join(tmpdir(), `agent-dev-multiple-${process.pid}-${Date.now()}`);
   const home = join(root, "home");
@@ -340,18 +603,26 @@ test("imports a standalone Marketplace from the configure menu", () => {
   const home = join(root, "home");
   const repository = join(home, "repos", "sample");
   const pluginRoot = join(repository, "plugins", "sample-plugin");
+  const skillRoot = join(repository, "skills", "sample-skill");
   const marketplaceRoot = join(root, "marketplace");
   const configPath = join(home, ".agents", "development.json");
   mkdirSync(join(repository, ".git"), { recursive: true });
   mkdirSync(pluginRoot, { recursive: true });
-  mkdirSync(join(marketplaceRoot, ".agents", "plugin-marketplace-development"), { recursive: true });
+  mkdirSync(skillRoot, { recursive: true });
+  mkdirSync(join(marketplaceRoot, ".agents", "marketplace-development"), { recursive: true });
   mkdirSync(join(home, ".agents"), { recursive: true });
   writeJson(join(pluginRoot, "plugin.json"), { name: "sample-plugin" });
-  writeJson(join(marketplaceRoot, ".agents", "plugin-marketplace-development", "config.json"), {
-    schemaVersion: 1,
+  writeFileSync(
+    join(skillRoot, "SKILL.md"),
+    "---\nname: sample-skill\ndescription: Sample Skill.\n---\n",
+    "utf8",
+  );
+  writeJson(join(marketplaceRoot, ".agents", "marketplace-development", "config.json"), {
+    schemaVersion: 2,
     name: "sample-marketplace",
     displayName: "Sample Marketplace",
     plugins: [{ source: pluginRoot, category: "Tools" }],
+    skills: [{ source: skillRoot, sourceUrl: "https://example.com/sample-skill" }],
   });
   writeJson(configPath, { schemaVersion: 2, plugins: {}, marketplaces: {} });
 
@@ -361,10 +632,14 @@ test("imports a standalone Marketplace from the configure menu", () => {
       AGENT_DEV_CONFIG: configPath,
     }, ["2", "sample", marketplaceRoot, "s", ""].join("\n"));
     assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /Could not complete/u, result.stdout);
     const configured = JSON.parse(readFileSync(configPath, "utf8"));
     assert.equal(configured.plugins["sample-plugin"].pluginRoot, "plugins/sample-plugin");
+    assert.equal(configured.skills["sample-skill"].skillRoot, "skills/sample-skill");
+    assert.equal(configured.skills["sample-skill"].sourceUrl, "https://example.com/sample-skill");
     assert.equal(configured.marketplaces.sample.mode, "authoritative");
     assert.deepEqual(configured.marketplaces.sample.plugins, [{ target: "sample-plugin", category: "Tools" }]);
+    assert.deepEqual(configured.marketplaces.sample.skills, [{ target: "sample-skill" }]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -404,8 +679,8 @@ test("materializes private target references without publishing repository paths
     },
   };
   writeJson(configPath, development);
-  mkdirSync(join(marketplaceRoot, ".agents", "plugin-marketplace-development"), { recursive: true });
-  writeJson(join(marketplaceRoot, ".agents", "plugin-marketplace-development", "config.json"), {
+  mkdirSync(join(marketplaceRoot, ".agents", "marketplace-development"), { recursive: true });
+  writeJson(join(marketplaceRoot, ".agents", "marketplace-development", "config.json"), {
     $schema: "./schema.json",
     schemaVersion: 1,
     name: "shared-marketplace",
@@ -421,8 +696,8 @@ test("materializes private target references without publishing repository paths
   try {
     const synced = run(CLI, ["dev", "marketplace", "sync"], env);
     assert.equal(synced.status, 0, synced.stderr);
-    assert.match(synced.stdout, /Updated: \.agents\/plugin-marketplace-development\/config\.json/u);
-    const mirrorPath = join(marketplaceRoot, ".agents", "plugin-marketplace-development", "config.json");
+    assert.match(synced.stdout, /Updated: \.agents\/marketplace-development\/config\.json/u);
+    const mirrorPath = join(marketplaceRoot, ".agents", "marketplace-development", "config.json");
     const mirrorText = readFileSync(mirrorPath, "utf8");
     assert.doesNotMatch(mirrorText, /repos/u);
     assert.deepEqual(JSON.parse(mirrorText).plugins, [{ name: "sample-plugin", category: "Tools" }]);
@@ -449,7 +724,7 @@ test("materializes private target references without publishing repository paths
     assert.equal(refused.status, 1);
     assert.match(refused.stderr, /changed outside agent dev/u);
 
-    const lockPath = join(marketplaceRoot, ".agents", "plugin-marketplace-development", "agent-dev-sync.lock");
+    const lockPath = join(marketplaceRoot, ".agents", "marketplace-development", "agent-dev-sync.lock");
     mkdirSync(lockPath);
     const locked = run(CLI, ["dev", "marketplace", "check"], env);
     assert.equal(locked.status, 1);
@@ -512,8 +787,16 @@ test("scoped Marketplace sync merges one contributor plugin into existing output
     assert.equal(connected.status, 0, connected.stderr);
     const connectedConfig = JSON.parse(readFileSync(configPath, "utf8"));
     assert.equal(connectedConfig.marketplaces.shared.name, "shared-marketplace");
-    assert.equal(connectedConfig.marketplaces.shared.mode, "contributor");
+    assert.equal(connectedConfig.marketplaces.shared.mode, "consumer");
     assert.deepEqual(connectedConfig.marketplaces.shared.plugins, []);
+    const consumerWrite = run(CLI, ["dev", "marketplace", "sync"], env);
+    assert.equal(consumerWrite.status, 2);
+    assert.match(consumerWrite.stderr, /consumer-only/u);
+    const enabledContribution = run(CLI, ["dev", "marketplace", "configure"], env, [
+      "o", "contributor", "y", "s", "",
+    ].join("\n"));
+    assert.equal(enabledContribution.status, 0, enabledContribution.stderr);
+    assert.equal(JSON.parse(readFileSync(configPath, "utf8")).marketplaces.shared.mode, "contributor");
 
     writeJson(configPath, {
       schemaVersion: 2,
@@ -539,7 +822,7 @@ test("scoped Marketplace sync merges one contributor plugin into existing output
     ));
     assert.deepEqual(catalog.plugins.map((plugin) => plugin.name), ["first-plugin", "second-plugin"]);
     const mirror = JSON.parse(readFileSync(
-      join(marketplaceRoot, ".agents", "plugin-marketplace-development", "config.json"),
+      join(marketplaceRoot, ".agents", "marketplace-development", "config.json"),
       "utf8",
     ));
     assert.deepEqual(mirror.plugins, [
@@ -616,6 +899,7 @@ test("help does not require local configuration", () => {
     AGENT_DEV_CONFIG: join(tmpdir(), "missing-agent-development.json"),
   });
   assert.equal(result.status, 0);
+  assert.match(result.stdout, /mp\s+Short for marketplace/u);
   assert.match(result.stdout, /agent dev plugin sync/u);
 });
 

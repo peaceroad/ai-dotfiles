@@ -186,6 +186,24 @@ function Remove-AgentObsoleteFile {
   }
 }
 
+function Remove-AgentManagedObsoleteFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string[]]$Markers
+  )
+
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf) -or
+      -not (Test-AgentManagedFile -Path $Path -Markers $Markers)) {
+    Write-Warning "Preserved an unmanaged obsolete-path file: $(ConvertTo-AgentDisplayPath $Path)"
+    return
+  }
+  if ($PSCmdlet.ShouldProcess((ConvertTo-AgentDisplayPath $Path), 'Remove obsolete managed runtime file')) {
+    Remove-Item -LiteralPath $Path -Force
+    Write-Output "Removed obsolete: $(ConvertTo-AgentDisplayPath $Path)"
+  }
+}
+
 try {
   if (-not (Get-Command node -CommandType Application -ErrorAction SilentlyContinue)) {
     throw 'Node.js is required but node was not found on Path.'
@@ -210,7 +228,7 @@ try {
     $corePayload
     @{ Source = (Join-Path $projectRoot '.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $destinationScripts 'manage-skill-links.mjs'); Markers = @($agentMarker, $legacyAgentMarker) }
     @{ Source = (Join-Path $pluginToolsSource 'scripts\manage-local-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\manage-local-agent-plugin.mjs'); Markers = @($localPluginMarker, $agentMarker) }
-    @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-plugin-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-plugin-marketplace.mjs'); Markers = @($marketplaceAssemblerMarker, $agentMarker) }
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-agent-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-agent-marketplace.mjs'); Markers = @($marketplaceAssemblerMarker, $agentMarker) }
     @{ Source = (Join-Path $pluginToolsSource 'scripts\validate-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\validate-agent-plugin.mjs'); Markers = @($portableValidatorMarker, $agentMarker) }
     @{ Source = (Join-Path $pluginToolsSource 'assets\marketplace-distribution\marketplace-development.schema.json'); Destination = (Join-Path $pluginToolsDestination 'assets\marketplace-distribution\marketplace-development.schema.json'); Markers = @($marketplaceSchemaMarker, $agentMarker) }
   )
@@ -234,6 +252,10 @@ try {
   Remove-AgentObsoleteFile `
     -Path (Join-Path $destinationScripts 'agent.test.mjs') `
     -KnownSource (Join-Path $sourceRoot 'agent.test.mjs')
+
+  Remove-AgentManagedObsoleteFile `
+    -Path (Join-Path $pluginToolsDestination 'scripts\assemble-plugin-marketplace.mjs') `
+    -Markers @($marketplaceAssemblerMarker, $agentMarker)
 
   if (-not $SkipPathRegistration) {
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')

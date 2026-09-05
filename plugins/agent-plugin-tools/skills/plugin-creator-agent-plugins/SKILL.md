@@ -1,8 +1,8 @@
 ---
 name: plugin-creator-agent-plugins
-description: Create, update, audit, validate, migrate, distribute, or locally install portable Agent Plugins v1 packages, including root plugin.json, contained Agent Skills, mcp.json, documented client extensions, repository-owned development tooling, and filesystem-backed Codex Marketplaces. Use skill-creator for a standalone Agent Skill and the built-in plugin-creator only when the source of truth is the Codex-specific .codex-plugin/plugin.json format.
+description: Create, update, audit, validate, migrate, distribute, or locally install portable Agent Plugins v1 packages, including root plugin.json, contained Agent Skills, mcp.json, documented client extensions, repository-owned development tooling, and filesystem-backed Marketplaces that may also distribute standalone Agent Skills. Use skill-creator to author a standalone Agent Skill and the built-in plugin-creator only when the source of truth is the Codex-specific .codex-plugin/plugin.json format.
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # Plugin Creator for Agent Plugins v1
@@ -13,7 +13,7 @@ Create, update, audit, and validate plugins whose portable Agent Plugins v1 pack
 
 - Treat the current [Agent Plugins specification](https://agent-plugins.org/specification) as normative for the portable package. Check the current specification and the target client's official documentation when exact fields, versions, or client behavior could change the result.
 - Follow the current [Agent Skills specification](https://agentskills.io/specification) for skills contained in a plugin.
-- Edit the source repository or another writable source of truth identified by the user. Do not reverse-copy from an installed plugin, a client cache, or the running `${PLUGIN_ROOT}`.
+- Edit the source repository or another writable source of truth identified by the user. Do not reverse-copy from an installed plugin, a client cache, or the running `${PLUGIN_ROOT}`. A user-authorized snapshot of one explicitly selected installed standalone Skill is a distribution input, not an editable source or permission to scan the installed Skill root.
 - Do not modify the built-in `plugin-creator`. This skill provides the Agent Plugins v1 path alongside it.
 - Do not treat marketplace metadata, installation state, caches, or publication settings as portable Agent Plugins v1 components.
 - Use `skill-creator` instead when the task concerns a standalone Agent Skill rather than a plugin package.
@@ -29,12 +29,12 @@ Load only the material needed for the request.
 - **Validate conformance:** Read [validation.md](references/validation.md), then use `scripts/validate-agent-plugin.mjs` where Node.js is available.
 - **Test or install a developer-controlled source package through Codex:** Validate it first, then read [codex-integration.md](references/codex-integration.md). Prefer a repository-owned management script; when none exists, use `scripts/manage-local-agent-plugin.mjs` for the reusable Agent Plugins v1 and Codex boundary.
 - **Give a repository a repeatable local manager or repository-specific validation checks:** Read [repository-management.md](references/repository-management.md). Scaffold the managed runner only when configuration adds value; keep simple packages on the direct manager path.
-- **Collect one or more share-ready packages into a filesystem Marketplace:** Read [marketplace-distribution.md](references/marketplace-distribution.md), then use `scripts/assemble-plugin-marketplace.mjs`. This copies distribution output without running repository-specific checks, changing package versions, registering the Marketplace, or installing plugins.
+- **Collect share-ready plugins or standalone Skills into a filesystem Marketplace:** Read [marketplace-distribution.md](references/marketplace-distribution.md), then use `scripts/assemble-agent-marketplace.mjs`. This copies distribution output without running repository-specific checks, changing package versions, registering the Marketplace, or installing plugins or Skills. Repository Skill sources remain authoritative; an installed Skill is accepted only as an explicitly configured snapshot.
 - **Register or install from an already assembled Marketplace:** Read [codex-integration.md](references/codex-integration.md) and use the current Codex CLI. Do not use the developer manager to install from an assembled copy. If the same request also includes assembly, finish `sync` and `check` before client registration or installation.
 - **Check whether the built-in `plugin-creator` describes Agent Plugins v1:** Run `node scripts/check-builtin-plugin-creator.mjs`. This is a read-only instruction check and does not establish runtime support.
 - **Create or update only the Codex-specific legacy format:** Use the built-in `plugin-creator`.
 
-When a request spans stages, move forward from the portable source through repository-owned checks when defined, shared Marketplace assembly, and client installation. Keep `.agents/plugin-development/` as the optional repository-development contract and `.agents/plugin-marketplace-development/` as the shared-distribution contract; neither replaces the other, and generated or installed copies never become source.
+When a request spans stages, move forward from the portable source through repository-owned checks when defined, shared Marketplace assembly, and client installation. Keep `.agents/plugin-development/` as the optional repository-development contract and `.agents/marketplace-development/` as the shared-distribution contract; neither replaces the other, and generated or installed copies never become source.
 
 If an existing root `plugin.json` declares the Agent Plugins schema, preserve that portable format. For a new portable plugin whose format is otherwise unspecified, use Agent Plugins v1. Ask only when the format choice would materially change the deliverable and neither the request nor the existing repository resolves it.
 

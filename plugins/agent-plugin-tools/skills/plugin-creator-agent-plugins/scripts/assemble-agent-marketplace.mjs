@@ -29,35 +29,40 @@ const SCHEMA_TEMPLATE = path.join(
   "marketplace-distribution",
   "marketplace-development.schema.json",
 );
-const DEVELOPMENT_DIRECTORY = path.join(".agents", "plugin-marketplace-development");
+const DEVELOPMENT_DIRECTORY = path.join(".agents", "marketplace-development");
+const LEGACY_DEVELOPMENT_DIRECTORY = path.join(".agents", "plugin-marketplace-development");
 const CONFIG_RELATIVE_PATH = path.join(DEVELOPMENT_DIRECTORY, "config.json");
 const SCHEMA_RELATIVE_PATH = path.join(DEVELOPMENT_DIRECTORY, "schema.json");
 const STATE_RELATIVE_PATH = path.join(DEVELOPMENT_DIRECTORY, "state.json");
 const CATALOG_RELATIVE_PATH = path.join(".agents", "plugins", "marketplace.json");
+const SKILL_CATALOG_RELATIVE_PATH = path.join(".agents", "skills", "catalog.json");
 const PLUGINS_RELATIVE_PATH = "plugins";
+const SKILLS_RELATIVE_PATH = "skills";
 const STATE_MARKER = "@plugin-creator-agent-plugins managed-marketplace-state v1";
 const SCHEMA_MARKER = "@plugin-creator-agent-plugins managed-marketplace-schema v2";
 const LEGACY_SCHEMA_MARKER = "@plugin-creator-agent-plugins managed-marketplace-schema v1";
 const NAME_PATTERN = /^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u;
 const COMMANDS = new Set(["init", "add", "sync", "check"]);
-const CONFIG_KEYS = new Set(["$schema", "schemaVersion", "name", "displayName", "plugins"]);
+const CONFIG_KEYS = new Set(["$schema", "schemaVersion", "name", "displayName", "plugins", "skills"]);
 const PLUGIN_CONFIG_KEYS = new Set(["source", "category"]);
+const SKILL_CONFIG_KEYS = new Set(["source", "sourceUrl"]);
+const SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 function help() {
-  console.log(`Assemble a filesystem-backed Codex plugin marketplace
+  console.log(`Assemble a filesystem-backed Agent Marketplace distribution
 
 Usage:
-  node assemble-plugin-marketplace.mjs init <marketplace-root> --name <name> --display-name <label> [--plugin <plugin-root> ... --category <category>]
-  node assemble-plugin-marketplace.mjs add <marketplace-root> <plugin-root> --category <category>
-  node assemble-plugin-marketplace.mjs sync <marketplace-root> [--config <configuration>] [--plugin <name>]
-  node assemble-plugin-marketplace.mjs check <marketplace-root> [--config <configuration>] [--plugin <name>]
+  node assemble-agent-marketplace.mjs init <marketplace-root> --name <name> --display-name <label> [--plugin <plugin-root> ... --category <category>]
+  node assemble-agent-marketplace.mjs add <marketplace-root> <plugin-root> --category <category>
+  node assemble-agent-marketplace.mjs sync <marketplace-root> [--config <configuration>] [--plugin <name> | --skill <name>]
+  node assemble-agent-marketplace.mjs check <marketplace-root> [--config <configuration>] [--plugin <name> | --skill <name>]
 
 Commands:
   init   Create the human-owned configuration and managed schema. With
          --plugin, validate and add one or more initial plugin sources.
   add    Validate one plugin source and add it to the configuration.
-  sync   Validate sources, safely copy configured plugins, and generate the
-         Codex Marketplace catalog. Git and publication are not modified.
+  sync   Validate sources, safely copy configured plugins and standalone
+         Skills, and generate their catalogs. Git and publication are not modified.
   check  Validate sources and report distribution drift without writing.
 
 Options:
@@ -65,16 +70,18 @@ Options:
   --display-name <label>    Marketplace label shown by Codex for init.
   --plugin <plugin-root>    Initial plugin source; repeatable with init.
   --plugin <name>           Limit sync or check to one configured plugin.
+  --skill <name>            Limit sync or check to one configured Skill.
   --merge                   Preserve other Marketplace entries while adding or
-                            updating --plugin. Requires --config and --plugin.
+                            updating --plugin or --skill. Requires --config and
+                            one selected package.
   --category <category>     Category for add or all initial plugins.
   --config <configuration>  Read an alternate assembly definition for sync or
-                            check. Relative plugin sources still resolve from
+                            check. Relative package sources still resolve from
                             the Marketplace root.
   -h, --help                Show this help.
 
 The Marketplace root may be a local directory, a checked-out Git repository,
-or an accessible network filesystem path. Relative plugin sources are resolved
+or an accessible network filesystem path. Relative package sources are resolved
 from that root. Running without arguments displays this help and makes no writes.`);
 }
 
@@ -101,6 +108,34 @@ function validateName(value, label) {
   return name;
 }
 
+function validateSkillName(value, label) {
+  const name = normalizeText(value, label);
+  if (name.length > 64 || !SKILL_NAME_PATTERN.test(name)) {
+    fail(`${label} must use lowercase letters, numbers, and single hyphens, and be at most 64 characters.`);
+  }
+  return name;
+}
+
+function validateSourceUrl(value, label) {
+  const sourceUrl = normalizeText(value, label);
+  let parsed;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    fail(`${label} must be an absolute HTTP or HTTPS URL.`);
+  }
+  if (
+    !["http:", "https:"].includes(parsed.protocol)
+    || parsed.username
+    || parsed.password
+    || parsed.search
+    || parsed.hash
+  ) {
+    fail(`${label} must be an HTTP or HTTPS URL without credentials, query parameters, or a fragment.`);
+  }
+  return sourceUrl;
+}
+
 function parseArgs(argv) {
   if (argv.length === 0 || argv[0] === "-h" || argv[0] === "--help") return { command: "help" };
   const [command, ...rest] = argv;
@@ -116,6 +151,7 @@ function parseArgs(argv) {
     config: null,
     plugins: [],
     selectedPlugin: null,
+    selectedSkill: null,
     merge: false,
   };
   let index = 1;
@@ -145,6 +181,10 @@ function parseArgs(argv) {
       if (options.selectedPlugin !== null) fail("--plugin may be specified only once.");
       options.selectedPlugin = validateName(value, "--plugin");
     }
+    else if (option === "--skill" && (command === "sync" || command === "check")) {
+      if (options.selectedSkill !== null) fail("--skill may be specified only once.");
+      options.selectedSkill = validateSkillName(value, "--skill");
+    }
     else fail(`Unknown option for ${command}: ${option}`);
     index += 2;
   }
@@ -158,10 +198,13 @@ function parseArgs(argv) {
     options.category = normalizeText(options.category, "--category");
     if (options.name !== null || options.displayName !== null) fail("--name and --display-name are valid only with init.");
   } else if (options.name !== null || options.displayName !== null || options.category !== null || options.plugins.length > 0) {
-    fail(`${command} accepts only the Marketplace root, optional --config, and optional --plugin.`);
+    fail(`${command} accepts only the Marketplace root, optional --config, and one optional --plugin or --skill.`);
   }
-  if (options.merge && (!options.config || !options.selectedPlugin)) {
-    fail("--merge requires both --config and --plugin.");
+  if (options.selectedPlugin !== null && options.selectedSkill !== null) {
+    fail("Specify either --plugin or --skill, not both.");
+  }
+  if (options.merge && (!options.config || (options.selectedPlugin === null && options.selectedSkill === null))) {
+    fail("--merge requires --config and either --plugin or --skill.");
   }
   return options;
 }
@@ -311,10 +354,13 @@ function validateConfig(config, root) {
     fail("The Marketplace reference configuration is generated by another workflow. Use that workflow, or pass its materialized source configuration with --config.");
   }
   for (const key of Object.keys(config)) if (!CONFIG_KEYS.has(key)) fail(`Unsupported configuration key: ${key}`);
-  if (config.schemaVersion !== 1) fail("config.json.schemaVersion must be 1.");
+  if (![1, 2].includes(config.schemaVersion)) fail("config.json.schemaVersion must be 1 or 2.");
   config.name = validateName(config.name, "config.json.name");
   config.displayName = normalizeText(config.displayName, "config.json.displayName");
   if (!Array.isArray(config.plugins)) fail("config.json.plugins must be an array.");
+  if (config.schemaVersion === 1 && config.skills !== undefined) fail("config.json.skills requires schemaVersion 2.");
+  config.skills ??= [];
+  if (!Array.isArray(config.skills)) fail("config.json.skills must be an array.");
   const sources = new Set();
   for (const [index, plugin] of config.plugins.entries()) {
     if (!isObject(plugin)) fail(`config.json.plugins[${index}] must be an object.`);
@@ -326,6 +372,18 @@ function validateConfig(config, root) {
     const resolved = pathKey(resolveConfigSource(root, plugin.source));
     if (sources.has(resolved)) fail(`Duplicate plugin source: ${plugin.source}`);
     sources.add(resolved);
+  }
+  const skillSources = new Set();
+  for (const [index, skill] of config.skills.entries()) {
+    if (!isObject(skill)) fail(`config.json.skills[${index}] must be an object.`);
+    for (const key of Object.keys(skill)) {
+      if (!SKILL_CONFIG_KEYS.has(key)) fail(`Unsupported Skill configuration key: skills[${index}].${key}`);
+    }
+    skill.source = normalizeText(skill.source, `skills[${index}].source`);
+    if (skill.sourceUrl !== undefined) skill.sourceUrl = validateSourceUrl(skill.sourceUrl, `skills[${index}].sourceUrl`);
+    const resolved = pathKey(resolveConfigSource(root, skill.source));
+    if (skillSources.has(resolved)) fail(`Duplicate Skill source: ${skill.source}`);
+    skillSources.add(resolved);
   }
   return config;
 }
@@ -373,8 +431,59 @@ async function inspectPlugins(config, root, inspectionOptions) {
   return plugins;
 }
 
+async function inspectSkill(root, entry, {
+  includeDigest = true,
+  allowGeneratedSource = false,
+} = {}) {
+  const source = resolveConfigSource(root, entry.source);
+  if (!allowGeneratedSource && isWithin(path.join(root, SKILLS_RELATIVE_PATH), source)) {
+    fail(`Skill source must not be inside the generated skills directory: ${entry.source}`);
+  }
+  if ((await pathType(source)) !== "directory") fail(`Skill source is not a directory: ${entry.source}`);
+  const skillFile = path.join(source, "SKILL.md");
+  if ((await pathType(skillFile)) !== "file") fail(`Skill source has no SKILL.md: ${entry.source}`);
+  const text = await readFile(skillFile, "utf8");
+  const lines = text.split(/\r?\n/u);
+  if (lines[0]?.trim() !== "---") fail(`${entry.source}/SKILL.md must start with YAML frontmatter.`);
+  const end = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
+  if (end < 0) fail(`${entry.source}/SKILL.md has unclosed YAML frontmatter.`);
+  const frontmatter = lines.slice(1, end);
+  const valueFor = (key) => {
+    const match = frontmatter
+      .map((line) => new RegExp(`^${key}:\\s*(.*?)\\s*$`, "u").exec(line))
+      .find(Boolean);
+    if (!match) return null;
+    const value = match[1];
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      return value.slice(1, -1);
+    }
+    return value;
+  };
+  const name = validateSkillName(valueFor("name"), `${entry.source}/SKILL.md name`);
+  if (!valueFor("description")) fail(`${entry.source}/SKILL.md description must be non-empty.`);
+  if (path.basename(source) !== name) {
+    fail(`Skill source directory name must match the name in SKILL.md: ${entry.source}.`);
+  }
+  const skill = { ...entry, source, name };
+  if (includeDigest) skill.digest = await treeDigest(source);
+  return skill;
+}
+
+async function inspectSkills(config, root, inspectionOptions) {
+  const skills = [];
+  const names = new Set();
+  for (const entry of config.skills) {
+    const skill = await inspectSkill(root, entry, inspectionOptions);
+    if (names.has(skill.name)) fail(`Multiple configured sources use the Skill name ${skill.name}.`);
+    names.add(skill.name);
+    skills.push(skill);
+  }
+  return skills;
+}
+
 async function treeDigest(root) {
   const hash = createHash("sha256");
+  const realRoot = await realpath(root);
   async function visit(directory, relativeDirectory) {
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((a, b) => a.name.localeCompare(b.name, "en"));
@@ -390,7 +499,17 @@ async function treeDigest(root) {
         hash.update(await readFile(target));
         hash.update("\0");
       } else if (stats.isSymbolicLink()) {
-        hash.update(`l\0${relative}\0${await readlink(target)}\0`);
+        const linkTarget = await readlink(target);
+        let resolvedTarget;
+        try {
+          resolvedTarget = await realpath(target);
+        } catch (error) {
+          fail(`Package contains an unreadable symbolic link: ${relative} (${error.code || error.message}).`);
+        }
+        if (path.isAbsolute(linkTarget) || !isWithin(realRoot, resolvedTarget)) {
+          fail(`Package contains a symbolic link outside its root: ${relative}.`);
+        }
+        hash.update(`l\0${relative}\0${linkTarget}\0`);
       } else {
         fail(`Unsupported filesystem entry in plugin ${root}: ${relative}`);
       }
@@ -417,6 +536,20 @@ function marketplaceDocument(config, plugins) {
   };
 }
 
+function skillCatalogDocument(config, skills) {
+  return {
+    $comment: "@plugin-creator-agent-plugins managed-skill-catalog v1",
+    schemaVersion: 1,
+    marketplace: { name: config.name, displayName: config.displayName },
+    skills: skills.map((skill) => ({
+      name: skill.name,
+      path: `../../skills/${skill.name}`,
+      digest: skill.digest,
+      ...(skill.sourceUrl ? { sourceUrl: skill.sourceUrl } : {}),
+    })),
+  };
+}
+
 async function loadConfiguration(root, configurationPath = null) {
   return validateConfig(
     await readJson(configurationPath ?? path.join(root, CONFIG_RELATIVE_PATH), "Marketplace development configuration"),
@@ -435,6 +568,9 @@ async function loadState(root) {
     || typeof state.marketplaceDigest !== "string"
     || !isObject(state.plugins)
     || Object.values(state.plugins).some((plugin) => !isObject(plugin) || typeof plugin.digest !== "string")
+    || (state.skillCatalogDigest !== undefined && typeof state.skillCatalogDigest !== "string")
+    || (state.skills !== undefined && (!isObject(state.skills)
+      || Object.values(state.skills).some((skill) => !isObject(skill) || typeof skill.digest !== "string")))
   ) {
     fail(`Refusing an invalid or unmanaged generation state: ${file}`);
   }
@@ -453,24 +589,39 @@ async function assertSchemaManaged(root, templateText) {
   return current;
 }
 
-async function assertDestinationsSafe(root, plugins, catalogText, state) {
-  const destinationDigests = new Map();
-  const catalogPath = path.join(root, CATALOG_RELATIVE_PATH);
-  const catalogType = await pathType(catalogPath);
-  if (catalogType !== null && catalogType !== "file") fail(`Marketplace catalog path is not a file: ${catalogPath}`);
-  if (catalogType === "file") {
-    const current = await readFile(catalogPath);
+async function assertManagedFileSafe(file, expectedText, previousDigest, label) {
+  const type = await pathType(file);
+  if (type !== null && type !== "file") fail(`${label} path is not a file: ${file}`);
+  if (type === "file") {
+    const current = await readFile(file);
     const currentDigest = byteDigest(current);
-    if (current.toString("utf8") !== catalogText && state?.marketplaceDigest !== currentDigest) {
-      fail(`Refusing to overwrite a Marketplace catalog changed outside this assembler: ${catalogPath}`);
+    if (current.toString("utf8") !== expectedText && previousDigest !== currentDigest) {
+      fail(`Refusing to overwrite a ${label} changed outside this assembler: ${file}`);
     }
   }
+}
+
+async function assertDestinationsSafe(root, plugins, skills, catalogText, skillCatalogText, state) {
+  const pluginDestinationDigests = new Map();
+  const skillDestinationDigests = new Map();
+  await assertManagedFileSafe(
+    path.join(root, CATALOG_RELATIVE_PATH),
+    catalogText,
+    state?.marketplaceDigest,
+    "Marketplace catalog",
+  );
+  await assertManagedFileSafe(
+    path.join(root, SKILL_CATALOG_RELATIVE_PATH),
+    skillCatalogText,
+    state?.skillCatalogDigest,
+    "Skill catalog",
+  );
 
   for (const plugin of plugins) {
     const destination = path.join(root, PLUGINS_RELATIVE_PATH, plugin.name);
     const type = await pathType(destination);
     if (type === null) {
-      destinationDigests.set(plugin.name, null);
+      pluginDestinationDigests.set(plugin.name, null);
       continue;
     }
     if (type !== "directory") fail(`Plugin destination is not a directory: ${destination}`);
@@ -478,9 +629,23 @@ async function assertDestinationsSafe(root, plugins, catalogText, state) {
     if (currentDigest !== plugin.digest && state?.plugins?.[plugin.name]?.digest !== currentDigest) {
       fail(`Refusing to overwrite a plugin changed outside this assembler: ${destination}`);
     }
-    destinationDigests.set(plugin.name, currentDigest);
+    pluginDestinationDigests.set(plugin.name, currentDigest);
   }
-  return destinationDigests;
+  for (const skill of skills) {
+    const destination = path.join(root, SKILLS_RELATIVE_PATH, skill.name);
+    const type = await pathType(destination);
+    if (type === null) {
+      skillDestinationDigests.set(skill.name, null);
+      continue;
+    }
+    if (type !== "directory") fail(`Skill destination is not a directory: ${destination}`);
+    const currentDigest = await treeDigest(destination);
+    if (currentDigest !== skill.digest && state?.skills?.[skill.name]?.digest !== currentDigest) {
+      fail(`Refusing to overwrite a Skill changed outside this assembler: ${destination}`);
+    }
+    skillDestinationDigests.set(skill.name, currentDigest);
+  }
+  return { pluginDestinationDigests, skillDestinationDigests };
 }
 
 async function writeAtomic(file, content) {
@@ -534,10 +699,11 @@ async function runInit(options) {
   }));
   const config = validateConfig({
     $schema: "./schema.json",
-    schemaVersion: 1,
+    schemaVersion: 2,
     name: options.name,
     displayName: options.displayName,
     plugins: entries,
+    skills: [],
   }, options.root);
   await inspectPlugins(config, options.root, { includeDigest: false });
   const schemaText = await readFile(SCHEMA_TEMPLATE, "utf8");
@@ -580,11 +746,19 @@ async function runAdd(options) {
   console.log("Run sync to update the Marketplace distribution.");
 }
 
-async function evaluate(root, configurationPath = null, selectedPlugin = null) {
+async function evaluate(root, configurationPath = null, selectedPlugin = null, selectedSkill = null) {
   const config = await loadConfiguration(root, configurationPath);
-  const catalogPlugins = await inspectPlugins(config, root, selectedPlugin
-    ? { validate: false, includeDigest: false, allowGeneratedSource: true }
-    : undefined);
+  const scoped = Boolean(selectedPlugin || selectedSkill);
+  const state = await loadState(root);
+  const [catalogPlugins, inspectedSkills] = await Promise.all([
+    inspectPlugins(config, root, scoped
+      ? { validate: false, includeDigest: false, allowGeneratedSource: true }
+      : undefined),
+    inspectSkills(config, root, {
+      includeDigest: !scoped,
+      allowGeneratedSource: scoped,
+    }),
+  ]);
   let plugins = catalogPlugins;
   if (selectedPlugin) {
     const index = catalogPlugins.findIndex((plugin) => plugin.name === selectedPlugin);
@@ -592,12 +766,51 @@ async function evaluate(root, configurationPath = null, selectedPlugin = null) {
       fail(`Plugin ${selectedPlugin} is not configured in this Marketplace.`);
     }
     plugins = [await inspectPlugin(root, config.plugins[index])];
+  } else if (selectedSkill) plugins = [];
+  let catalogSkills = inspectedSkills;
+  let skills = catalogSkills;
+  if (selectedSkill) {
+    const index = catalogSkills.findIndex((skill) => skill.name === selectedSkill);
+    if (index < 0) fail(`Skill ${selectedSkill} is not configured in this Marketplace.`);
+    const selected = await inspectSkill(root, config.skills[index]);
+    catalogSkills = catalogSkills.map((skill) => {
+      if (skill.name === selectedSkill) return selected;
+      const digest = state?.skills?.[skill.name]?.digest;
+      if (!digest) fail(`Skill ${skill.name} has no synchronized digest. Run a full sync first.`);
+      return { ...skill, digest };
+    });
+    skills = [selected];
+  } else if (selectedPlugin) {
+    catalogSkills = catalogSkills.map((skill) => {
+      const digest = state?.skills?.[skill.name]?.digest;
+      if (!digest) fail(`Skill ${skill.name} has no synchronized digest. Run a full sync first.`);
+      return { ...skill, digest };
+    });
+    skills = [];
   }
   const catalogText = jsonText(marketplaceDocument(config, catalogPlugins));
   const catalogDigest = byteDigest(catalogText);
+  const skillCatalogText = jsonText(skillCatalogDocument(config, catalogSkills));
+  const skillCatalogDigest = byteDigest(skillCatalogText);
   const schemaText = await readFile(SCHEMA_TEMPLATE, "utf8");
-  const state = await loadState(root);
-  return { plugins, catalogText, catalogDigest, schemaText, state };
+  return {
+    plugins,
+    skills,
+    catalogText,
+    catalogDigest,
+    skillCatalogText,
+    skillCatalogDigest,
+    schemaText,
+    state,
+  };
+}
+
+async function assertMarketplaceLayoutCurrent(root) {
+  if ((await pathType(path.join(root, LEGACY_DEVELOPMENT_DIRECTORY))) === null) return;
+  fail(
+    "This Marketplace still uses .agents/plugin-marketplace-development. "
+    + "Rename that directory to .agents/marketplace-development before continuing.",
+  );
 }
 
 function withoutSelectedCatalogPlugin(document, selectedPlugin, label) {
@@ -610,10 +823,29 @@ function withoutSelectedCatalogPlugin(document, selectedPlugin, label) {
   };
 }
 
-async function assertScopedBaseline(root, catalogText, catalogDigest, schemaText, state, {
-  merge = false,
-  selectedPlugin = null,
-} = {}) {
+function withoutSelectedCatalogSkill(document, selectedSkill, label) {
+  if (!isObject(document) || !Array.isArray(document.skills)) fail(`${label} is not a valid Skill catalog.`);
+  const selected = document.skills.filter((skill) => isObject(skill) && skill.name === selectedSkill);
+  if (selected.length > 1) fail(`${label} contains duplicate Skill entries for ${selectedSkill}.`);
+  return {
+    ...document,
+    skills: document.skills.filter((skill) => !isObject(skill) || skill.name !== selectedSkill),
+  };
+}
+
+async function assertScopedBaseline(
+  root,
+  catalogText,
+  catalogDigest,
+  skillCatalogText,
+  skillCatalogDigest,
+  schemaText,
+  state,
+  {
+    merge = false,
+    selectedPlugin = null,
+    selectedSkill = null,
+  } = {}) {
   if (!state) fail("Scoped operation requires an existing full Marketplace sync.");
   const schemaPath = path.join(root, SCHEMA_RELATIVE_PATH);
   if ((await pathType(schemaPath)) !== "file" || await readFile(schemaPath, "utf8") !== schemaText) {
@@ -636,8 +868,12 @@ async function assertScopedBaseline(root, catalogText, catalogDigest, schemaText
     } catch {
       fail("Marketplace catalog is not valid JSON. Run a full sync before a scoped operation.");
     }
-    const currentRemainder = withoutSelectedCatalogPlugin(currentCatalog, selectedPlugin, "Current Marketplace catalog");
-    const expectedRemainder = withoutSelectedCatalogPlugin(expectedCatalog, selectedPlugin, "Expected Marketplace catalog");
+    const currentRemainder = selectedPlugin
+      ? withoutSelectedCatalogPlugin(currentCatalog, selectedPlugin, "Current Marketplace catalog")
+      : currentCatalog;
+    const expectedRemainder = selectedPlugin
+      ? withoutSelectedCatalogPlugin(expectedCatalog, selectedPlugin, "Expected Marketplace catalog")
+      : expectedCatalog;
     if (canonicalJson(currentRemainder) !== canonicalJson(expectedRemainder)) {
       fail("Marketplace entries outside the selected plugin changed. Reconnect or retry from the latest Marketplace state.");
     }
@@ -646,25 +882,78 @@ async function assertScopedBaseline(root, catalogText, catalogDigest, schemaText
   if (state.marketplaceDigest !== baselineCatalogDigest) {
     fail("Marketplace state does not match the catalog. Run a full sync before a scoped operation.");
   }
+  const skillCatalogPath = path.join(root, SKILL_CATALOG_RELATIVE_PATH);
+  if ((await pathType(skillCatalogPath)) !== "file") {
+    fail("Skill catalog structure is not current. Run a full sync before a scoped operation.");
+  }
+  const currentSkillCatalogText = await readFile(skillCatalogPath, "utf8");
+  if (!merge && !selectedSkill && currentSkillCatalogText !== skillCatalogText) {
+    fail("Skill catalog structure is not current. Run a full sync before a scoped operation.");
+  }
+  if (merge || selectedSkill) {
+    let currentSkillCatalog;
+    let expectedSkillCatalog;
+    try {
+      currentSkillCatalog = JSON.parse(currentSkillCatalogText);
+      expectedSkillCatalog = JSON.parse(skillCatalogText);
+    } catch {
+      fail("Skill catalog is not valid JSON. Run a full sync before a scoped operation.");
+    }
+    const currentRemainder = selectedSkill
+      ? withoutSelectedCatalogSkill(currentSkillCatalog, selectedSkill, "Current Skill catalog")
+      : currentSkillCatalog;
+    const expectedRemainder = selectedSkill
+      ? withoutSelectedCatalogSkill(expectedSkillCatalog, selectedSkill, "Expected Skill catalog")
+      : expectedSkillCatalog;
+    if (canonicalJson(currentRemainder) !== canonicalJson(expectedRemainder)) {
+      fail("Skill entries outside the selected target changed. Reconnect or retry from the latest Marketplace state.");
+    }
+  }
+  const baselineSkillCatalogDigest = merge || selectedSkill ? byteDigest(currentSkillCatalogText) : skillCatalogDigest;
+  if (state.skillCatalogDigest !== baselineSkillCatalogDigest) {
+    fail("Marketplace state does not match the Skill catalog. Run a full sync before a scoped operation.");
+  }
 }
 
 async function runSync(options) {
-  const { plugins, catalogText, catalogDigest, schemaText, state } = await evaluate(
+  const {
+    plugins,
+    skills,
+    catalogText,
+    catalogDigest,
+    skillCatalogText,
+    skillCatalogDigest,
+    schemaText,
+    state,
+  } = await evaluate(
     options.root,
     options.config,
     options.selectedPlugin,
+    options.selectedSkill,
   );
-  if (options.selectedPlugin) {
-    await assertScopedBaseline(options.root, catalogText, catalogDigest, schemaText, state, {
+  const selected = options.selectedPlugin ?? options.selectedSkill;
+  if (selected) {
+    await assertScopedBaseline(
+      options.root,
+      catalogText,
+      catalogDigest,
+      skillCatalogText,
+      skillCatalogDigest,
+      schemaText,
+      state,
+      {
       merge: options.merge,
       selectedPlugin: options.selectedPlugin,
+      selectedSkill: options.selectedSkill,
     });
   }
   const schemaCurrent = await assertSchemaManaged(options.root, schemaText);
-  const destinationDigests = await assertDestinationsSafe(
+  const { pluginDestinationDigests, skillDestinationDigests } = await assertDestinationsSafe(
     options.root,
     plugins,
+    skills,
     catalogText,
+    skillCatalogText,
     state,
   );
 
@@ -678,7 +967,7 @@ async function runSync(options) {
   try {
     for (const plugin of plugins) {
       const destination = path.join(options.root, PLUGINS_RELATIVE_PATH, plugin.name);
-      if (destinationDigests.get(plugin.name) === plugin.digest) continue;
+      if (pluginDestinationDigests.get(plugin.name) === plugin.digest) continue;
       const staged = path.join(stagingRoot, PLUGINS_RELATIVE_PATH, plugin.name);
       await mkdir(path.dirname(staged), { recursive: true });
       await cp(plugin.source, staged, {
@@ -692,37 +981,79 @@ async function runSync(options) {
       changed.push({ plugin, staged, destination });
     }
 
-    for (const item of changed) {
-      await replaceDirectory(item.staged, item.destination);
-      console.log(`Synced: plugins/${item.plugin.name}`);
+    for (const skill of skills) {
+      const destination = path.join(options.root, SKILLS_RELATIVE_PATH, skill.name);
+      if (skillDestinationDigests.get(skill.name) === skill.digest) continue;
+      const staged = path.join(stagingRoot, SKILLS_RELATIVE_PATH, skill.name);
+      await mkdir(path.dirname(staged), { recursive: true });
+      await cp(skill.source, staged, {
+        recursive: true,
+        force: false,
+        errorOnExist: true,
+        verbatimSymlinks: true,
+      });
+      const stagedSkill = await inspectSkill(stagingRoot, {
+        source: path.relative(stagingRoot, staged),
+        ...(skill.sourceUrl ? { sourceUrl: skill.sourceUrl } : {}),
+      }, { allowGeneratedSource: true });
+      if (stagedSkill.name !== skill.name || stagedSkill.digest !== skill.digest) {
+        fail(`Staged Skill copy differs from its source: ${skill.name}`);
+      }
+      changed.push({ skill, staged, destination });
     }
 
-    if (!options.selectedPlugin) {
+    for (const item of changed) {
+      await replaceDirectory(item.staged, item.destination);
+      console.log(item.plugin
+        ? `Synced: plugins/${item.plugin.name}`
+        : `Synced: skills/${item.skill.name}`);
+    }
+
+    if (!selected) {
       const schemaPath = path.join(options.root, SCHEMA_RELATIVE_PATH);
       if (schemaCurrent !== schemaText) {
         await writeAtomic(schemaPath, schemaText);
         console.log(`Updated: ${SCHEMA_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
       }
     }
-    if (!options.selectedPlugin || options.merge) {
+    if (!selected || options.merge) {
       const catalogPath = path.join(options.root, CATALOG_RELATIVE_PATH);
       if ((await pathType(catalogPath)) !== "file" || await readFile(catalogPath, "utf8") !== catalogText) {
         await writeAtomic(catalogPath, catalogText);
         console.log(`Updated: ${CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
       }
     }
+    if (!selected || options.merge || options.selectedSkill) {
+      const skillCatalogPath = path.join(options.root, SKILL_CATALOG_RELATIVE_PATH);
+      if ((await pathType(skillCatalogPath)) !== "file" || await readFile(skillCatalogPath, "utf8") !== skillCatalogText) {
+        await writeAtomic(skillCatalogPath, skillCatalogText);
+        console.log(`Updated: ${SKILL_CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
+      }
+    }
 
     const statePlugins = { ...(state?.plugins ?? {}) };
     for (const plugin of plugins) statePlugins[plugin.name] = { digest: plugin.digest };
-    const retainedNames = [];
-    if (!options.selectedPlugin) {
+    const stateSkills = { ...(state?.skills ?? {}) };
+    for (const skill of skills) stateSkills[skill.name] = { digest: skill.digest };
+    const retainedPlugins = [];
+    const retainedSkills = [];
+    if (!selected) {
       const configuredNames = new Set(plugins.map((plugin) => plugin.name));
       for (const name of Object.keys(statePlugins).sort()) {
         if (configuredNames.has(name)) continue;
         if ((await pathType(path.join(options.root, PLUGINS_RELATIVE_PATH, name))) === null) {
           delete statePlugins[name];
         } else {
-          retainedNames.push(name);
+          retainedPlugins.push(name);
+        }
+      }
+      const configuredSkillNames = new Set(skills.map((skill) => skill.name));
+      for (const name of Object.keys(stateSkills).sort()) {
+        if (configuredSkillNames.has(name)) continue;
+        if ((await pathType(path.join(options.root, SKILLS_RELATIVE_PATH, name))) === null) {
+          delete stateSkills[name];
+        } else {
+          retainedSkills.push(name);
         }
       }
     }
@@ -730,7 +1061,9 @@ async function runSync(options) {
       $comment: STATE_MARKER,
       schemaVersion: 1,
       marketplaceDigest: catalogDigest,
+      skillCatalogDigest,
       plugins: statePlugins,
+      skills: stateSkills,
     };
     const statePath = path.join(options.root, STATE_RELATIVE_PATH);
     const stateText = jsonText(stateDocument);
@@ -738,10 +1071,13 @@ async function runSync(options) {
       await writeAtomic(statePath, stateText);
       console.log(`Updated: ${STATE_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
     }
-    for (const name of retainedNames) console.log(`WARNING: Retained unreferenced generated plugin: plugins/${name}`);
-    if (changed.length === 0) console.log("Plugin copies are current.");
+    for (const name of retainedPlugins) console.log(`WARNING: Retained unreferenced generated plugin: plugins/${name}`);
+    for (const name of retainedSkills) console.log(`WARNING: Retained unreferenced generated Skill: skills/${name}`);
+    if (changed.length === 0) console.log("Plugin copies are current; Skill copies are current.");
     console.log(options.selectedPlugin
-      ? `Marketplace plugin sync complete: ${options.selectedPlugin}. Other plugin copies were not checked.`
+      ? `Marketplace plugin sync complete: ${options.selectedPlugin}. Other plugin copies were not checked; Skill copies were not checked.`
+      : options.selectedSkill
+        ? `Marketplace Skill sync complete: ${options.selectedSkill}. Other Marketplace copies were not checked.`
       : "Marketplace sync complete.");
   } catch (error) {
     primaryError = error;
@@ -752,10 +1088,20 @@ async function runSync(options) {
 }
 
 async function runCheck(options) {
-  const { plugins, catalogText, catalogDigest, schemaText, state } = await evaluate(
+  const {
+    plugins,
+    skills,
+    catalogText,
+    catalogDigest,
+    skillCatalogText,
+    skillCatalogDigest,
+    schemaText,
+    state,
+  } = await evaluate(
     options.root,
     options.config,
     options.selectedPlugin,
+    options.selectedSkill,
   );
   const drift = [];
   const schemaPath = path.join(options.root, SCHEMA_RELATIVE_PATH);
@@ -766,10 +1112,20 @@ async function runCheck(options) {
   if ((await pathType(catalogPath)) !== "file" || await readFile(catalogPath, "utf8") !== catalogText) {
     drift.push(`Changed: ${CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
   }
+  const skillCatalogPath = path.join(options.root, SKILL_CATALOG_RELATIVE_PATH);
+  if ((await pathType(skillCatalogPath)) !== "file" || await readFile(skillCatalogPath, "utf8") !== skillCatalogText) {
+    drift.push(`Changed: ${SKILL_CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
+  }
   for (const plugin of plugins) {
     const destination = path.join(options.root, PLUGINS_RELATIVE_PATH, plugin.name);
     if ((await pathType(destination)) !== "directory" || await treeDigest(destination) !== plugin.digest) {
       drift.push(`Changed: plugins/${plugin.name}`);
+    }
+  }
+  for (const skill of skills) {
+    const destination = path.join(options.root, SKILLS_RELATIVE_PATH, skill.name);
+    if ((await pathType(destination)) !== "directory" || await treeDigest(destination) !== skill.digest) {
+      drift.push(`Changed: skills/${skill.name}`);
     }
   }
   if (!state) drift.push(`Missing: ${STATE_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
@@ -777,9 +1133,17 @@ async function runCheck(options) {
     if (state.marketplaceDigest !== catalogDigest) {
       drift.push(`Changed: ${STATE_RELATIVE_PATH.replaceAll(path.sep, "/")} Marketplace digest`);
     }
+    if (state.skillCatalogDigest !== skillCatalogDigest) {
+      drift.push(`Changed: ${STATE_RELATIVE_PATH.replaceAll(path.sep, "/")} Skill catalog digest`);
+    }
     for (const plugin of plugins) {
       if (state.plugins?.[plugin.name]?.digest !== plugin.digest) {
         drift.push(`Changed: ${STATE_RELATIVE_PATH.replaceAll(path.sep, "/")} ${plugin.name} digest`);
+      }
+    }
+    for (const skill of skills) {
+      if (state.skills?.[skill.name]?.digest !== skill.digest) {
+        drift.push(`Changed: ${STATE_RELATIVE_PATH.replaceAll(path.sep, "/")} ${skill.name} digest`);
       }
     }
   }
@@ -789,7 +1153,9 @@ async function runCheck(options) {
     return;
   }
   console.log(options.selectedPlugin
-    ? `Marketplace plugin is current: ${options.selectedPlugin}. Other plugin copies were not checked.`
+    ? `Marketplace plugin is current: ${options.selectedPlugin}. Other plugin copies were not checked; Skill copies were not checked.`
+    : options.selectedSkill
+      ? `Marketplace Skill is current: ${options.selectedSkill}. Other Marketplace copies were not checked.`
     : "Marketplace distribution is current.");
 }
 
@@ -800,6 +1166,7 @@ async function main() {
       help();
       return;
     }
+    await assertMarketplaceLayoutCurrent(options.root);
     if (options.command === "init") await runInit(options);
     else if (options.command === "add") await runAdd(options);
     else if (options.command === "sync") await runSync(options);
@@ -811,7 +1178,7 @@ async function main() {
 }
 
 function reportFailure(error) {
-  const prefix = error.expected ? "assemble-plugin-marketplace" : "assemble-plugin-marketplace unexpected error";
+  const prefix = error.expected ? "assemble-agent-marketplace" : "assemble-agent-marketplace unexpected error";
   const code = typeof error.code === "string" ? ` [${error.code}]` : "";
   console.error(`${prefix}${code}: ${error.message}`);
   for (const failure of error.secondaryFailures ?? []) {

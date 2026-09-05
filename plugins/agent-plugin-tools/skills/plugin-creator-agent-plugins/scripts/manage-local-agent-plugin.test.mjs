@@ -160,7 +160,7 @@ try {
     path.join(
       distributed.repoRoot,
       ".agents",
-      "plugin-marketplace-development",
+      "marketplace-development",
       "config.json",
     ),
     {

@@ -9,6 +9,43 @@
   "properties": {
     "$schema": { "type": "string" },
     "schemaVersion": { "const": 2 },
+    "skills": {
+      "type": "object",
+      "propertyNames": { "type": "string", "minLength": 1, "pattern": "^[^\\r\\n]+$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": ["repository", "skillRoot"],
+            "not": { "required": ["installedSkill"] }
+          },
+          {
+            "required": ["installedSkill"],
+            "not": {
+              "anyOf": [
+                { "required": ["repository"] },
+                { "required": ["skillRoot"] }
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "repository": { "type": "string", "minLength": 1 },
+          "skillRoot": { "type": "string", "minLength": 1 },
+          "installedSkill": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "pattern": "^https?://(?![^/?#]*@)[^\\s?#]+$"
+          }
+        }
+      }
+    },
     "plugins": {
       "type": "object",
       "propertyNames": { "type": "string", "minLength": 1, "pattern": "^[^\\r\\n]+$" },
@@ -61,7 +98,7 @@
             "pattern": "^(?!.*(?:--|\\.\\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
           },
           "displayName": { "type": "string", "minLength": 1 },
-          "mode": { "enum": ["authoritative", "contributor"] },
+          "mode": { "enum": ["authoritative", "contributor", "consumer"] },
           "plugins": {
             "type": "array",
             "items": {
@@ -71,6 +108,17 @@
               "properties": {
                 "target": { "type": "string", "minLength": 1 },
                 "category": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target"],
+              "properties": {
+                "target": { "type": "string", "minLength": 1 }
               }
             }
           }

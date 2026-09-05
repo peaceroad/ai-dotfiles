@@ -7,10 +7,10 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { filesystemGuidance } from "./assemble-plugin-marketplace.mjs";
+import { filesystemGuidance } from "./assemble-agent-marketplace.mjs";
 
 const scriptRoot = path.dirname(fileURLToPath(import.meta.url));
-const assembler = path.join(scriptRoot, "assemble-plugin-marketplace.mjs");
+const assembler = path.join(scriptRoot, "assemble-agent-marketplace.mjs");
 const pluginSchema = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 function invoke(args, cwd) {
@@ -37,6 +37,84 @@ async function createPlugin(root, name, description = name) {
   await writeFile(path.join(root, "content.txt"), `${description}\n`, "utf8");
 }
 
+async function createSkill(root, name, description = `${name} description`) {
+  await mkdir(root, { recursive: true });
+  await writeFile(
+    path.join(root, "SKILL.md"),
+    `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`,
+    "utf8",
+  );
+  await writeFile(path.join(root, "content.txt"), `${description}\n`, "utf8");
+}
+
+test("syncs standalone Skills with optional source provenance", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "skill-marketplace-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  const skillRoot = path.join(tempRoot, "sources", "sample-skill");
+  const configPath = path.join(tempRoot, "config.json");
+  try {
+    await createSkill(skillRoot, "sample-skill");
+    await writeJson(configPath, {
+      schemaVersion: 2,
+      name: "test-marketplace",
+      displayName: "Test Marketplace",
+      plugins: [],
+      skills: [{ source: skillRoot, sourceUrl: "https://example.com/sample-skill" }],
+    });
+
+    const outsideFile = path.join(tempRoot, "outside.txt");
+    const outsideLink = path.join(skillRoot, "outside-link.txt");
+    await writeFile(outsideFile, "outside\n", "utf8");
+    try {
+      await symlink(outsideFile, outsideLink, "file");
+      const unsafeLink = invoke(["sync", marketplaceRoot, "--config", configPath], tempRoot);
+      assert.equal(unsafeLink.status, 1);
+      assert.match(unsafeLink.stderr, /symbolic link outside its root/u);
+      await rm(outsideLink);
+    } catch (error) {
+      if (!["EPERM", "EACCES"].includes(error.code)) throw error;
+    }
+
+    const synced = invoke(["sync", marketplaceRoot, "--config", configPath], tempRoot);
+    assert.equal(synced.status, 0, synced.stderr);
+    assert.match(synced.stdout, /Synced: skills\/sample-skill/u);
+    const catalog = JSON.parse(await readFile(
+      path.join(marketplaceRoot, ".agents", "skills", "catalog.json"),
+      "utf8",
+    ));
+    assert.equal(catalog.skills[0].name, "sample-skill");
+    assert.equal(catalog.skills[0].sourceUrl, "https://example.com/sample-skill");
+    assert.match(catalog.skills[0].digest, /^sha256:[0-9a-f]{64}$/u);
+    assert.equal(invoke(["check", marketplaceRoot, "--config", configPath], tempRoot).status, 0);
+
+    await writeFile(path.join(skillRoot, "content.txt"), "updated\n", "utf8");
+    const changed = invoke([
+      "check", marketplaceRoot, "--config", configPath, "--skill", "sample-skill",
+    ], tempRoot);
+    assert.equal(changed.status, 1);
+    assert.match(changed.stderr, /Changed: skills\/sample-skill/u);
+    const scoped = invoke([
+      "sync", marketplaceRoot, "--config", configPath, "--skill", "sample-skill",
+    ], tempRoot);
+    assert.equal(scoped.status, 0, scoped.stderr);
+    assert.match(scoped.stdout, /Marketplace Skill sync complete/u);
+    assert.equal(invoke(["check", marketplaceRoot, "--config", configPath], tempRoot).status, 0);
+
+    await writeJson(configPath, {
+      schemaVersion: 2,
+      name: "test-marketplace",
+      displayName: "Test Marketplace",
+      plugins: [],
+      skills: [{ source: skillRoot, sourceUrl: "https://example.com/sample-skill?token=secret" }],
+    });
+    const unsafeUrl = invoke(["check", marketplaceRoot, "--config", configPath], tempRoot);
+    assert.equal(unsafeUrl.status, 1);
+    assert.match(unsafeUrl.stderr, /without credentials, query parameters, or a fragment/u);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("no arguments display read-only help", () => {
   const result = invoke([], scriptRoot);
   assert.equal(result.status, 0, result.stderr);
@@ -45,9 +123,31 @@ test("no arguments display read-only help", () => {
   assert.equal(result.stderr, "");
 });
 
+test("commands reject the retired Marketplace management directory", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "plugin-marketplace-legacy-layout-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  try {
+    await mkdir(path.join(marketplaceRoot, ".agents", "plugin-marketplace-development"), {
+      recursive: true,
+    });
+    const result = invoke([
+      "init",
+      marketplaceRoot,
+      "--name",
+      "sample-marketplace",
+      "--display-name",
+      "Sample Marketplace",
+    ], tempRoot);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Rename that directory to \.agents\/marketplace-development/u);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("a symbolic-link entry point still runs the CLI", async (context) => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "plugin-marketplace-link-"));
-  const linkedAssembler = path.join(tempRoot, "assemble-plugin-marketplace.mjs");
+  const linkedAssembler = path.join(tempRoot, "assemble-agent-marketplace.mjs");
   try {
     try {
       await symlink(assembler, linkedAssembler, "file");
@@ -158,7 +258,7 @@ test("init, add, sync, and check assemble multiple plugins", async () => {
     const repeated = invoke(["sync", marketplaceRoot], tempRoot);
     assert.equal(repeated.status, 0, repeated.stderr);
     assert.match(repeated.stdout, /Plugin copies are current/u);
-    assert.doesNotMatch(repeated.stdout, /Updated: \.agents\/plugin-marketplace-development\/state\.json/u);
+    assert.doesNotMatch(repeated.stdout, /Updated: \.agents\/marketplace-development\/state\.json/u);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -182,7 +282,7 @@ test("sync and check can use an external assembly definition", async () => {
     assert.equal(synced.status, 0, synced.stderr);
     assert.match(synced.stdout, /Marketplace sync complete/u);
     await assert.rejects(
-      readFile(path.join(marketplaceRoot, ".agents", "plugin-marketplace-development", "config.json"), "utf8"),
+      readFile(path.join(marketplaceRoot, ".agents", "marketplace-development", "config.json"), "utf8"),
       { code: "ENOENT" },
     );
 
@@ -243,7 +343,7 @@ test("scoped sync updates one plugin without certifying the others", async () =>
   const configPath = path.join(
     marketplaceRoot,
     ".agents",
-    "plugin-marketplace-development",
+    "marketplace-development",
     "config.json",
   );
   try {
@@ -341,7 +441,7 @@ test("removed entries stay on disk until explicitly deleted", async () => {
   const configPath = path.join(
     marketplaceRoot,
     ".agents",
-    "plugin-marketplace-development",
+    "marketplace-development",
     "config.json",
   );
   try {
@@ -384,7 +484,7 @@ test("removed entries stay on disk until explicitly deleted", async () => {
     assert.equal(cleaned.status, 0, cleaned.stderr);
     assert.doesNotMatch(cleaned.stdout, /Retained unreferenced generated plugin/u);
     const state = JSON.parse(await readFile(
-      path.join(marketplaceRoot, ".agents", "plugin-marketplace-development", "state.json"),
+      path.join(marketplaceRoot, ".agents", "marketplace-development", "state.json"),
       "utf8",
     ));
     assert.equal("sample-plugin" in state.plugins, false);
@@ -399,7 +499,7 @@ test("init is non-interactive and refuses invalid or existing configuration", as
   const schemaPath = path.join(
     marketplaceRoot,
     ".agents",
-    "plugin-marketplace-development",
+    "marketplace-development",
     "schema.json",
   );
   try {
@@ -434,7 +534,7 @@ test("init is non-interactive and refuses invalid or existing configuration", as
       "Sample Marketplace",
     ], tempRoot);
     assert.equal(initialized.status, 0, initialized.stderr);
-    assert.match(initialized.stdout, /Updated: \.agents\/plugin-marketplace-development\/schema\.json/u);
+    assert.match(initialized.stdout, /Updated: \.agents\/marketplace-development\/schema\.json/u);
     const repeated = invoke([
       "init",
       marketplaceRoot,

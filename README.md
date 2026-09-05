@@ -24,7 +24,7 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 
 開発中の正本を`~/.agents/skills/`から直接参照するローカルリンクは、`~/.agents/skill-links.json`で一括管理します。公開用コピーには、このリポジトリ内を参照する宣言だけを書き出します。コマンド、状態表示、安全境界は[開発中のスキルをユーザースコープへリンクする](docs/skill-links.md)を参照してください。
 
-複数リポジトリにまたがるスキルリンク、ローカルのプラグイン統合、共有Marketplaceの検査と同期には、短い共通入口として`agent dev`を使えます。CLIの正本は`tools/agent/`に置き、`scripts/install-agent.ps1`でホームディレクトリへ導入します。マシン固有の対象は公開しない`~/.agents/development.json`へ登録します。構成と使い方は[`agent dev`でローカル開発を管理する](docs/agent-development.md)を参照してください。
+複数リポジトリにまたがるスキルリンク、ローカルのプラグイン統合、プラグインと単体Skillを含む共有Marketplaceの検査と同期には、短い共通入口として`agent dev`を使えます。Marketplaceで配布された単体Skillは`agent marketplace skill`で一覧表示・導入・更新・削除でき、`marketplace`は`mp`へ短縮できます。CLIの正本は`tools/agent/`に置き、`scripts/install-agent.ps1`でホームディレクトリへ導入します。マシン固有の対象は公開しない`~/.agents/development.json`へ登録します。構成と使い方は[`agent dev`でローカル開発を管理する](docs/agent-development.md)を参照してください。
 
 ポータブルなプラグイン構造は、次のコマンドで検証できます。
 

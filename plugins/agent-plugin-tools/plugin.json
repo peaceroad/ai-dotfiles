@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agent-plugin-tools",
-  "version": "0.2.0",
-  "description": "Tools for creating, validating, installing, and distributing portable Agent Plugins.",
+  "version": "0.3.0",
+  "description": "Tools for creating, validating, installing, and distributing portable Agent Plugins and standalone Agent Skills.",
   "author": {
     "name": "k_taka",
     "url": "https://github.com/peaceroad"
@@ -11,6 +11,7 @@
   "repository": "https://github.com/peaceroad/ai-dotfiles",
   "keywords": [
     "agent-plugins",
+    "agent-skills",
     "plugin-development",
     "marketplace"
   ]

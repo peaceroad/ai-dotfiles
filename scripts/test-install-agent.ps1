@@ -54,6 +54,16 @@ try {
   & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
   Assert-AgentTest ((Get-Content -LiteralPath $localConfig -Raw) -eq $configBefore) 'Installer changed development.json.'
 
+  $obsoleteMarketplaceAssembler = Join-Path $agentsRoot 'scripts\agent-runtime\plugin-tools\scripts\assemble-plugin-marketplace.mjs'
+  New-Item -ItemType Directory -Path (Split-Path -Parent $obsoleteMarketplaceAssembler) -Force | Out-Null
+  Set-Content `
+    -LiteralPath $obsoleteMarketplaceAssembler `
+    -Value "#!/usr/bin/env node`n`n// @plugin-creator-agent-plugins managed-marketplace-assembler v1`n" `
+    -Encoding utf8NoBOM `
+    -NoNewline
+  & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
+  Assert-AgentTest (-not (Test-Path -LiteralPath $obsoleteMarketplaceAssembler)) 'Installer retained the obsolete Marketplace assembler.'
+
   $coreFiles = @(
     @{ Source = (Join-Path $projectRoot 'tools\agent\agent.cmd'); Destination = (Join-Path $agentsRoot 'scripts\agent.cmd') }
     @{ Source = (Join-Path $projectRoot 'tools\agent\agent.mjs'); Destination = (Join-Path $agentsRoot 'scripts\agent.mjs') }
@@ -63,7 +73,7 @@ try {
   $pluginToolsDestination = Join-Path $agentsRoot 'scripts\agent-runtime\plugin-tools'
   $pluginRuntimeFiles = @(
     @{ Source = (Join-Path $pluginToolsSource 'scripts\manage-local-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\manage-local-agent-plugin.mjs') }
-    @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-plugin-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-plugin-marketplace.mjs') }
+    @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-agent-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-agent-marketplace.mjs') }
     @{ Source = (Join-Path $pluginToolsSource 'scripts\validate-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\validate-agent-plugin.mjs') }
     @{ Source = (Join-Path $pluginToolsSource 'assets\marketplace-distribution\marketplace-development.schema.json'); Destination = (Join-Path $pluginToolsDestination 'assets\marketplace-distribution\marketplace-development.schema.json') }
   )

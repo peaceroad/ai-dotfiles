@@ -35,7 +35,7 @@ After changing the validator, local plugin manager, Repository scaffold, Marketp
 node scripts/validate-agent-plugin.test.mjs
 node scripts/manage-local-agent-plugin.test.mjs
 node --test scripts/scaffold-local-agent-plugin.test.mjs
-node --test scripts/assemble-plugin-marketplace.test.mjs
+node --test scripts/assemble-agent-marketplace.test.mjs
 node scripts/check-builtin-plugin-creator.test.mjs
 ```
 
