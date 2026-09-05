@@ -42,6 +42,40 @@ try {
   [void][System.Management.Automation.Language.Parser]::ParseFile($PSCommandPath, [ref]$tokens, [ref]$parseErrors)
   Assert-AgentTest ($parseErrors.Count -eq 0) 'Installer test has a PowerShell parser error.'
 
+  $conflictingOptionsRoot = Join-Path $tempRoot '.agents-conflicting-options'
+  $conflictingOptionsRejected = $false
+  try {
+    & $installer -AgentsRoot $conflictingOptionsRoot -AddToPath -SkipPathRegistration
+  } catch {
+    $conflictingOptionsRejected = $true
+  }
+  Assert-AgentTest $conflictingOptionsRejected 'Installer accepted conflicting Path registration options.'
+  Assert-AgentTest (-not (Test-Path -LiteralPath $conflictingOptionsRoot)) 'Installer wrote files before rejecting conflicting Path registration options.'
+
+  $userPathBefore = [Environment]::GetEnvironmentVariable('Path', 'User')
+  $pathWhatIfRoot = Join-Path $tempRoot '.agents-path-whatif'
+  & $installer -AgentsRoot $pathWhatIfRoot -AddToPath -WhatIf
+  Assert-AgentTest (-not (Test-Path -LiteralPath $pathWhatIfRoot)) 'Installer changed files during Path registration -WhatIf.'
+  Assert-AgentTest (
+    [Environment]::GetEnvironmentVariable('Path', 'User') -eq $userPathBefore
+  ) 'Installer changed the user Path during -WhatIf.'
+
+  $nonInteractiveRoot = Join-Path $tempRoot '.agents-noninteractive'
+  $pwsh = (Get-Process -Id $PID).Path
+  $nonInteractiveOutput = & $pwsh `
+    -NoProfile `
+    -NonInteractive `
+    -File $installer `
+    -AgentsRoot $nonInteractiveRoot 2>&1 | Out-String
+  Assert-AgentTest ($LASTEXITCODE -eq 0) 'Non-interactive install without a Path choice failed.'
+  Assert-AgentTest (
+    Test-Path -LiteralPath (Join-Path $nonInteractiveRoot 'scripts\agent.cmd') -PathType Leaf
+  ) 'Non-interactive install did not install the agent command.'
+  Assert-AgentTest ($nonInteractiveOutput.Contains('Rerun with -AddToPath')) 'Non-interactive install did not explain explicit Path registration.'
+  Assert-AgentTest (
+    [Environment]::GetEnvironmentVariable('Path', 'User') -eq $userPathBefore
+  ) 'Non-interactive install changed the user Path without consent.'
+
   $whatIfRoot = Join-Path $tempRoot '.agents-whatif'
   & $installer -AgentsRoot $whatIfRoot -SkipPathRegistration -WhatIf
   Assert-AgentTest (-not (Test-Path -LiteralPath $whatIfRoot)) 'Installer changed files during -WhatIf.'
@@ -53,6 +87,23 @@ try {
 
   & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
   Assert-AgentTest ((Get-Content -LiteralPath $localConfig -Raw) -eq $configBefore) 'Installer changed development.json.'
+
+  $commandCollisionRejected = $false
+  function agent { }
+  try {
+    try {
+      & $installer -AgentsRoot $agentsRoot -AddToPath | Out-Null
+    } catch {
+      if ($_.Exception.Message -notmatch 'Another command named agent') { throw }
+      $commandCollisionRejected = $true
+    }
+  } finally {
+    Remove-Item -LiteralPath Function:\agent
+  }
+  Assert-AgentTest $commandCollisionRejected 'Installer registered a Path that would expose a command collision.'
+  Assert-AgentTest (
+    [Environment]::GetEnvironmentVariable('Path', 'User') -eq $userPathBefore
+  ) 'Installer changed the user Path after detecting a command collision.'
 
   $obsoleteMarketplaceAssembler = Join-Path $agentsRoot 'scripts\agent-runtime\plugin-tools\scripts\assemble-plugin-marketplace.mjs'
   New-Item -ItemType Directory -Path (Split-Path -Parent $obsoleteMarketplaceAssembler) -Force | Out-Null

@@ -26,6 +26,8 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 
 複数リポジトリにまたがるスキルリンク、ローカルのプラグイン統合、プラグインと単体Skillを含む共有Marketplaceの検査と同期には、短い共通入口として`agent dev`を使えます。Marketplaceで配布された単体Skillは`agent marketplace skill`で一覧表示・導入・更新・削除でき、`marketplace`は`mp`へ短縮できます。CLIの正本は`tools/agent/`に置き、`scripts/install-agent.ps1`でホームディレクトリへ導入します。マシン固有の対象は公開しない`~/.agents/development.json`へ登録します。構成と使い方は[`agent dev`でローカル開発を管理する](docs/agent-development.md)を参照してください。
 
+インストーラーは、コマンドのディレクトリが永続的な`Path`に未登録の場合だけ、ユーザー`Path`へ追加するか確認します。無人実行では`-AddToPath`または`-SkipPathRegistration`で選択を明示できます。
+
 ポータブルなプラグイン構造は、次のコマンドで検証できます。
 
 ```powershell

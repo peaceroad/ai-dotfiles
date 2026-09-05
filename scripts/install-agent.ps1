@@ -4,19 +4,28 @@ Installs the repository-owned agent command for the current user.
 
 .DESCRIPTION
 Copies the agent launcher, Node.js implementation, development schema, and
-version-matched runtime managers into the selected .agents directory. By
-default, it also registers the scripts directory in the user Path. It does not
-create or modify development.json or a PowerShell profile.
+version-matched runtime managers into the selected .agents directory. When the
+scripts directory is not already available through a persistent Path, an
+interactive run offers to add it to the user Path. It does not create or modify
+development.json or a PowerShell profile.
+
+.PARAMETER AddToPath
+Adds the scripts directory to the user Path without prompting when it is not
+already available through a persistent Path. Use this for unattended installs.
+
+.PARAMETER SkipPathRegistration
+Does not prompt or change the user Path.
 
 .EXAMPLE
 .\scripts\install-agent.ps1
 
 .EXAMPLE
-.\scripts\install-agent.ps1 -WhatIf
+.\scripts\install-agent.ps1 -AddToPath -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
   [string]$AgentsRoot = (Join-Path ([Environment]::GetFolderPath('UserProfile')) '.agents'),
+  [switch]$AddToPath,
   [switch]$SkipPathRegistration,
   [switch]$Force
 )
@@ -73,6 +82,92 @@ function Test-AgentSamePath {
   } catch {
     return $false
   }
+}
+
+function Test-AgentCanPrompt {
+  try {
+    if ([Console]::IsInputRedirected) { return $false }
+  } catch {
+    return $false
+  }
+  return -not ([Environment]::GetCommandLineArgs() | Where-Object { $_ -match '^-NonI' })
+}
+
+function Read-AgentPathConsent {
+  param([Parameter(Mandatory = $true)][string]$DisplayPath)
+
+  while ($true) {
+    $response = ([string](Read-Host "Add $DisplayPath to your user Path? [y/N]")).Trim()
+    switch ($response.ToLowerInvariant()) {
+      { $_ -in @('', 'n', 'no') } { return $false }
+      { $_ -in @('y', 'yes') } { return $true }
+      default { Write-Host 'Please enter y or n.' }
+    }
+  }
+}
+
+function Assert-AgentCommandRegistrationSafe {
+  $targetCommand = Join-Path $destinationScripts 'agent.cmd'
+  $existingCommand = @(Get-Command agent -All -ErrorAction SilentlyContinue) |
+    Where-Object {
+      -not $_.Source -or -not (Test-AgentSamePath -Left $_.Source -Right $targetCommand)
+    }
+  if ($existingCommand.Count -gt 0) {
+    throw 'Another command named agent is already available. Resolve the command collision before registering this one.'
+  }
+}
+
+function Install-AgentPathRegistration {
+  if ($SkipPathRegistration) { return }
+
+  $displayPath = ConvertTo-AgentDisplayPath $destinationScripts
+  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+  $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+  $userEntries = @($userPath -split ';' | Where-Object { $_ })
+  $machineEntries = @($machinePath -split ';' | Where-Object { $_ })
+  $processEntries = @($env:Path -split ';' | Where-Object { $_ })
+  $availableInCurrentProcess = [bool]($processEntries | Where-Object {
+    Test-AgentSamePath -Left $_ -Right $destinationScripts
+  })
+  if ($userEntries | Where-Object { Test-AgentSamePath -Left $_ -Right $destinationScripts }) {
+    Assert-AgentCommandRegistrationSafe
+    Write-Output "Current: $displayPath is already registered in the user Path."
+    if (-not $availableInCurrentProcess) {
+      Write-Output 'Open a new terminal before running agent.'
+    }
+    return
+  }
+  if ($machineEntries | Where-Object { Test-AgentSamePath -Left $_ -Right $destinationScripts }) {
+    Assert-AgentCommandRegistrationSafe
+    Write-Output "Current: $displayPath is already available through the machine Path."
+    if (-not $availableInCurrentProcess) {
+      Write-Output 'Open a new terminal before running agent.'
+    }
+    return
+  }
+
+  $register = [bool]$AddToPath
+  if (-not $register) {
+    if ($WhatIfPreference) {
+      Write-Output 'Path registration was not selected. Add -AddToPath to preview it with -WhatIf.'
+      return
+    }
+    if (-not (Test-AgentCanPrompt)) {
+      Write-Output "Not registered: $displayPath is not in a persistent Path. Rerun with -AddToPath to register it."
+      return
+    }
+    $register = Read-AgentPathConsent -DisplayPath $displayPath
+  }
+  if (-not $register) {
+    Write-Output "Not registered: $displayPath was not added to the user Path."
+    return
+  }
+  if (-not $PSCmdlet.ShouldProcess('User Path', "Append $displayPath")) { return }
+
+  Assert-AgentCommandRegistrationSafe
+  [Environment]::SetEnvironmentVariable('Path', ((@($userEntries) + $destinationScripts) -join ';'), 'User')
+  Write-Output "Registered: $displayPath in the user Path."
+  Write-Output 'Open a new terminal before running agent.'
 }
 
 function Get-AgentLegacyContent {
@@ -205,18 +300,11 @@ function Remove-AgentManagedObsoleteFile {
 }
 
 try {
+  if ($AddToPath -and $SkipPathRegistration) {
+    throw '-AddToPath and -SkipPathRegistration cannot be used together.'
+  }
   if (-not (Get-Command node -CommandType Application -ErrorAction SilentlyContinue)) {
     throw 'Node.js is required but node was not found on Path.'
-  }
-
-  if (-not $SkipPathRegistration) {
-    $existingCommand = @(Get-Command agent -All -ErrorAction SilentlyContinue) |
-      Where-Object {
-        -not $_.Source -or -not (Test-AgentSamePath -Left $_.Source -Right (Join-Path $destinationScripts 'agent.cmd'))
-      }
-    if ($existingCommand.Count -gt 0) {
-      throw 'Another command named agent is already available. Resolve the command collision before registering this one.'
-    }
   }
 
   $corePayload = @(
@@ -257,21 +345,7 @@ try {
     -Path (Join-Path $pluginToolsDestination 'scripts\assemble-plugin-marketplace.mjs') `
     -Markers @($marketplaceAssemblerMarker, $agentMarker)
 
-  if (-not $SkipPathRegistration) {
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = @($userPath -split ';' | Where-Object { $_ })
-    $normalizedDestination = [IO.Path]::GetFullPath($destinationScripts).TrimEnd('\', '/')
-    $registered = $entries | Where-Object {
-      Test-AgentSamePath -Left $_ -Right $normalizedDestination
-    }
-    if ($registered) {
-      Write-Output 'Current: ~/.agents/scripts is already registered in the user Path.'
-    } elseif ($PSCmdlet.ShouldProcess('User Path', 'Append ~/.agents/scripts')) {
-      [Environment]::SetEnvironmentVariable('Path', ((@($entries) + $destinationScripts) -join ';'), 'User')
-      Write-Output 'Registered: ~/.agents/scripts in the user Path.'
-      Write-Output 'Open a new terminal before running agent.'
-    }
-  }
+  Install-AgentPathRegistration
 } catch {
   $message = $_.Exception.Message
   if ($homeRoot) {
