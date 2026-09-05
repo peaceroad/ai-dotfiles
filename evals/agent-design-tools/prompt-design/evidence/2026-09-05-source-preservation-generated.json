@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "id": "G02",
+      "request": "技術ニュースの要約に使う指示を整えてください。『渡した記事だけを根拠に、変更点と利用者への影響を300字程度で説明する。記事に書かれていない性能や日付は補わない。重要な適用条件は省かない。』です。文字数は目安のまま、自然な日本語の完成形だけ返してください。",
+      "output": "渡した記事だけを根拠に、変更点と利用者への影響を300字程度で説明してください。記事に書かれていない性能や日付は補わず、重要な適用条件を省かないでください。",
+      "loadedReferences": [
+        "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+        "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md"
+      ]
+    },
+    {
+      "id": "G01",
+      "request": "GPT-6 Astra向けの要約指示を調整してください。現行は『渡した記事だけを根拠に、変更点と利用者への影響を300字程度で説明してください。記事に書かれていない性能や日付は補わず、重要な適用条件を省かないでください。』です。試行では、原文の『有料プランで利用できる。無料プランの既存機能に変更はない』を『無料プランには新機能が適用されない』と断定しました。この根拠の範囲の問題を修正した自然な日本語の完成形だけ返してください。300字程度は目安のままにしてください。",
+      "output": "渡した記事だけを根拠に、変更点と利用者への影響を300字程度で説明してください。記事に書かれていない性能や日付は補わず、重要な適用条件を省かないでください。記事の記述が示す範囲や確かさを変えないでください。あるプランで利用できるという記述だけから、他のプランでは利用できないと断定せず、記事に対象外と明記されている場合はその条件を正確に伝えてください。",
+      "loadedReferences": [
+        "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+        "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md"
+      ]
+    }
+  ]
+}

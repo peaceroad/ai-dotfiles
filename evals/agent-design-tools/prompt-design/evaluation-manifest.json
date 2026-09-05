@@ -1,0 +1,81 @@
+{
+  "evaluatedOn": "2026-09-05",
+  "revision": "astra-review-2026-09-05-final",
+  "baseCommit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+  "state": "working-tree; skill files identified by sha256",
+  "target": "GPT-6 Astra",
+  "executionSurface": "Codex desktop subagents; inherited model settings; no independent raw API run",
+  "files": [
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+      "bytes": 9658,
+      "sha256": "fef734d6d33f80c24560100a19abfbcb7c0e2dd97c18a8cd42bbcfbd92adc145"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/agents/openai.yaml",
+      "bytes": 399,
+      "sha256": "72ef38e6be4a878cc6eeca33d8f17e5dad1290e8b3258839c1b64a16a7e2d839"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-gems-prompt-design.md",
+      "bytes": 6304,
+      "sha256": "3a2e3abb5f5da51996dc4b0685a0d2ee640e9ff8376932eb51aed226a6e33967"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-media-generation-prompt-design.md",
+      "bytes": 5503,
+      "sha256": "eee6059578262ade556277ae7ca7df0af6e732e0b6aa51d98edeaf50b41c6edb"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-prompt-design.md",
+      "bytes": 4530,
+      "sha256": "f7ba08d4d07f1eb83a52977caae765233d95de986eb7abf751b214703ccf0919"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+      "bytes": 8773,
+      "sha256": "d1f66e70829120e02804ffd870e57e6771669cf8a464d1d818e5e088d59583ec"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md",
+      "bytes": 8964,
+      "sha256": "07fd226c8e1b92c190cedc647619b494db746b51448dc7f424002b9aea1dc543"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md",
+      "bytes": 7096,
+      "sha256": "2e73369191b768e3ab00a293243d46f229ad78855c3725dcd37c285138d8ca8f"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md",
+      "bytes": 3843,
+      "sha256": "098320d26a8956bdab57356e3f33d0ef33e3170fd0f9be400981f565870e548f"
+    }
+  ],
+  "cases": {
+    "path": "evals/agent-design-tools/prompt-design/evaluation-cases.json",
+    "sha256": "ab174a11dbf6079117ebdac7e30bd1bfe57d50c6a10f9143177b876eb6cfec3e"
+  },
+  "baselineReadBytes": {
+    "skill": 12674,
+    "openaiReference": 15066,
+    "total": 27740
+  },
+  "evidence": [
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-05-agent-a.json",
+      "bytes": 6145,
+      "sha256": "4a2896e72d3b6a0ce39a8d580017d6c66168dd9c1e4f491fc6b5536f77771b60"
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-05-agent-b.json",
+      "bytes": 17818,
+      "sha256": "437c0a068dfc7d7c66bdd957a12020e517e76a26fe3df64442c1405edeecc798"
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-05-downstream.json",
+      "bytes": 2879,
+      "sha256": "1b876ef08ea16df6f076fd517240e9287284884a06d4e0b7fbf98521fbff1289"
+    }
+  ]
+}

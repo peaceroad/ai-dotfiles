@@ -1,0 +1,109 @@
+{
+  "evaluatedOn": "2026-09-05",
+  "revision": "astra-source-preservation-2026-09-05",
+  "baseCommit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+  "target": "GPT-6 Astra",
+  "executionSurface": "Codex desktop existing subagents; inherited model settings; no isolated raw API or model comparison",
+  "previousManifest": {
+    "path": "evals/agent-design-tools/prompt-design/evaluation-manifest.json",
+    "bytes": 3220,
+    "sha256": "3564ae39152ca13767785bc9d17b5dd8978c7114e88f64657c16055be049f56f"
+  },
+  "files": [
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+      "bytes": 9658,
+      "sha256": "fef734d6d33f80c24560100a19abfbcb7c0e2dd97c18a8cd42bbcfbd92adc145"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/agents/openai.yaml",
+      "bytes": 399,
+      "sha256": "72ef38e6be4a878cc6eeca33d8f17e5dad1290e8b3258839c1b64a16a7e2d839"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-gems-prompt-design.md",
+      "bytes": 6304,
+      "sha256": "3a2e3abb5f5da51996dc4b0685a0d2ee640e9ff8376932eb51aed226a6e33967"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-media-generation-prompt-design.md",
+      "bytes": 5503,
+      "sha256": "eee6059578262ade556277ae7ca7df0af6e732e0b6aa51d98edeaf50b41c6edb"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-prompt-design.md",
+      "bytes": 4530,
+      "sha256": "f7ba08d4d07f1eb83a52977caae765233d95de986eb7abf751b214703ccf0919"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+      "bytes": 8987,
+      "sha256": "ec8936cad16b1a869253ee3c4fc1a33ca86e66b5b722f8372f21ec7c32bac58a"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md",
+      "bytes": 8964,
+      "sha256": "07fd226c8e1b92c190cedc647619b494db746b51448dc7f424002b9aea1dc543"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md",
+      "bytes": 7096,
+      "sha256": "2e73369191b768e3ab00a293243d46f229ad78855c3725dcd37c285138d8ca8f"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md",
+      "bytes": 3843,
+      "sha256": "098320d26a8956bdab57356e3f33d0ef33e3170fd0f9be400981f565870e548f"
+    }
+  ],
+  "change": {
+    "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+    "previousSha256": "d1f66e70829120e02804ffd870e57e6771669cf8a464d1d818e5e088d59583ec",
+    "addedTextToRemove": "If outputs strengthen source claims, clarify preservation of scope and certainty in the governing instruction: “available to A” does not establish “only A,” and an explicit exclusion must remain explicit.\n\n",
+    "addedBytes": 214,
+    "reconstruction": "Remove addedTextToRemove once from the current UTF-8 text to reproduce the previous file hash."
+  },
+  "artifacts": [
+    {
+      "path": "evals/agent-design-tools/prompt-design/source-preservation-cases.json",
+      "bytes": 4552,
+      "sha256": "f7aa689d5ec6fa9db83d2f6dba50a06e82ba7df63528e5bbe501cf62fd0fa05b"
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/source-preservation-skill-cases.json",
+      "bytes": 3647,
+      "sha256": "a9f0d4354fe18f58b2477ce1660d2cabb2351fc947f1f9e66e1626b780daea9c"
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-a.json",
+      "bytes": 3994,
+      "sha256": "9883bc4e5378bdeafec5bd4536c4d9fb027c68f53bdb51ed564de892fd1b4de4"
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-b.json",
+      "bytes": 4276,
+      "sha256": "f56ddc99321d06017a5ab54f8b8a3e5db70d69e8d9fd1235cdff2e5bbd7e8e40"
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-generated.json",
+      "bytes": 2385,
+      "sha256": "397f46a1b8eb8704a845345bb0cfae844cfaa67a0206930266162e68e0def7a4"
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-downstream.json",
+      "bytes": 3070,
+      "sha256": "9ff997a862d6fe479dbd629c749cc9e17bb418474356534d67657de0b4536a89"
+    }
+  ],
+  "trials": {
+    "pairedPromptOutputs": 6,
+    "skillGeneratedPrompts": 2,
+    "downstreamOutputs": 2
+  },
+  "limitations": [
+    "Existing agent context reused; no per-case isolation or repeated sampling.",
+    "Two related wording changes compared together; individual effects not isolated.",
+    "No pre-change skill run for G01; the added skill sentence is not established as necessary for the observed behavior.",
+    "Residual near-repetition in H01; source preservation and concision assessed separately."
+  ]
+}

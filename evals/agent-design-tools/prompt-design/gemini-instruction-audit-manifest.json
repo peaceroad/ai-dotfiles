@@ -1,0 +1,142 @@
+{
+  "reviewedOn": "2026-09-06",
+  "revision": "gemini-instruction-audit-2026-09-06",
+  "baseCommit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+  "assessment": "Full static review of all three Gemini references for authoring clarity, scope, instruction strength, contradictions, repetition, and completion. Boundary cases were inspected against the text; no Gemini execution or media generation.",
+  "previousManifest": {
+    "path": "evals/agent-design-tools/prompt-design/gemini-reference-manifest.json",
+    "bytes": 4313,
+    "sha256": "c387fb8ba8807c43c8fa9163e4a6d45ef4cea5ff6dfb3b2165ac20918e9330ef"
+  },
+  "files": [
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+      "bytes": 9869,
+      "sha256": "e9326aa2853c8911374658821323db5a18610a04d40e2a0da763b102d0680766"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/agents/openai.yaml",
+      "bytes": 399,
+      "sha256": "72ef38e6be4a878cc6eeca33d8f17e5dad1290e8b3258839c1b64a16a7e2d839"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-gems-prompt-design.md",
+      "bytes": 5534,
+      "sha256": "8fed0dd13aa6ef39a3ac7b705c8eb752208f8ee34d8c94b9b25cb2d917727817"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-media-generation-prompt-design.md",
+      "bytes": 8769,
+      "sha256": "db82a4fe330f01ac719135a02d4f9326f6270f286bdc04a82849d2b4522474b1"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-prompt-design.md",
+      "bytes": 5004,
+      "sha256": "e70087472750143fcd98dde1f8bb613a0fa4a3f687fcff21f87a3c80b66baaff"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-5.6-prompt-design.md",
+      "bytes": 3163,
+      "sha256": "a75307fff60efb2da727a1b606099e4a889e5b0f02c00c31213256c7b6f637d1"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+      "bytes": 8987,
+      "sha256": "ec8936cad16b1a869253ee3c4fc1a33ca86e66b5b722f8372f21ec7c32bac58a"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md",
+      "bytes": 8964,
+      "sha256": "07fd226c8e1b92c190cedc647619b494db746b51448dc7f424002b9aea1dc543"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md",
+      "bytes": 7096,
+      "sha256": "2e73369191b768e3ab00a293243d46f229ad78855c3725dcd37c285138d8ca8f"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md",
+      "bytes": 3843,
+      "sha256": "098320d26a8956bdab57356e3f33d0ef33e3170fd0f9be400981f565870e548f"
+    }
+  ],
+  "changes": [
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-prompt-design.md",
+      "previousSha256": "b2a68c61048f5ee595395ae1124a13524b322d2578578b6049a51e7ffe50c690",
+      "edits": [
+        {
+          "before": "Write the task directly, with its intended audience or use and an observable result. Add the input's role, relevant definitions, requirements, and output format where they change the answer. Keep hard constraints, defaults, and user-overridable preferences distinct.\n\nGoogle's Gemini 3 guidance emphasizes direct instructions and efficient answers. When the deliverable needs explanation, specify the useful context, evidence, assumptions, or worked examples. Avoid a blanket brevity rule that suppresses them. Persona, task, context, and format are optional design lenses, not required headings.",
+          "after": "Google's Gemini 3 guidance emphasizes direct instructions and efficient answers. State the task and intended result plainly. When the deliverable needs explanation, specify the audience and useful context, evidence, assumptions, or worked examples instead of imposing blanket brevity. Use persona, task, context, and format as optional design lenses, not required headings."
+        },
+        {
+          "before": "Specify whether the task is extraction from supplied material, interpretation with labelled inference, or research using external sources. Preserve scope and certainty when transforming claims. Missing information is unknown; it is not automatically false, excluded, or forbidden. Use a strict context-only rule when the task requires it, without importing that restriction into ordinary analysis or creative work.",
+          "after": "Specify whether the task is extraction from supplied material, interpretation with labelled inference, or research using external sources. Preserve scope and certainty when transforming claims. Missing factual information stays unknown unless the task explicitly defines an absence rule, such as treating an unlisted item as outside a supplied allowlist. Use a strict context-only rule when the task requires it, without importing that restriction into ordinary analysis or creative work."
+        },
+        {
+          "before": "Use representative examples for subtle tone, transformations, classification boundaries, formats, or recurring mistakes. Keep them consistent with the written rules and include variation that discourages copying incidental details. Check cases beyond the examples; their presence alone does not establish reliability.",
+          "after": "Use examples when they clarify subtle tone, transformations, classification boundaries, formats, or recurring mistakes. Keep them consistent with the written rules and vary incidental details so the model can generalize the intended pattern."
+        },
+        {
+          "before": "When changes warrant behavioral checks, examine task success, evidence preservation, format, unnecessary verbosity, and missing-input behavior. Compare one coherent revision group with a reliable baseline. Confirm that added guidance resolves a concrete need without turning a preference into an obligation.",
+          "after": "When testing revised instructions, include cases beyond the examples and target the changed behavior: for instance, required explanation under a brevity preference or missing evidence under a context-only rule. Successful sample answers alone do not establish reliability across tasks."
+        }
+      ],
+      "reconstruction": "Starting with this revision, replace each after string with its before string once in reverse edit order to reproduce previousSha256."
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-gems-prompt-design.md",
+      "previousSha256": "0b1f2d0a52b65838f72e32b2d1e5039767934f2201354fce23bb2bfd318db923",
+      "edits": [
+        {
+          "before": "Keep essential behavior in Instructions. Use Knowledge for reusable criteria, terminology, examples, and background, with a clear instruction describing each source's purpose and priority when needed. Distinguish normative guidance from factual evidence and examples. Do not duplicate the same rules across files.",
+          "after": "Use Knowledge for detailed criteria, terminology, examples, and background. Describe each source's role and any needed priority in Instructions, distinguishing normative guidance from evidence and examples. Keep the essential condition of a governing rule in Instructions and link to its supporting detail; avoid competing copies of the same rule."
+        },
+        {
+          "before": "- Resolve conflicting rules at their governing source. Adding a \"read first\" file is useful only if it simplifies an actual priority problem.\n\nFile names and consultation instructions guide source use; they do not prove that every relevant passage was retrieved. Test important rules embedded in long or multiple sources. If a rule must govern every response, keep its essential condition in Instructions and the supporting detail in Knowledge.",
+          "after": "- Resolve conflicting rules at their governing source. Add an index or reading order when it clarifies file selection or dependencies, without creating another copy of the rules.\n\nFile names and consultation instructions guide source use; they do not prove that every relevant passage was retrieved. When testing a Gem that depends on long or multiple sources, include requests that require the important passages."
+        },
+        {
+          "before": "Report separately what was authored, tested in preview, saved, and verified after saving. If only instruction files were prepared, describe them as prepared files.",
+          "after": "Report the completed work and any material limits without a mandatory stage-by-stage recap. Describe prepared instruction files or a preview accurately; neither is a saved Gem."
+        }
+      ],
+      "reconstruction": "Starting with this revision, replace each after string with its before string once in reverse edit order to reproduce previousSha256."
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-media-generation-prompt-design.md",
+      "previousSha256": "5a414df74f7c3f76aad8b20d6f3e216e192b14e3e0cbc9313907298177ef1c4e",
+      "edits": [
+        {
+          "before": "Use to write or review image/video generation and editing prompts for Gemini or a Gem. Read [Gemini prompt design](gemini-prompt-design.md) as the foundation. The deliverable here is instruction text; generating media or changing a product's configuration is a separate action.",
+          "after": "Use for the instruction-design part of Gemini image/video generation and editing tasks. Read [Gemini prompt design](gemini-prompt-design.md) as the foundation. If execution is also requested, continue with the target surface's generation workflow within the existing authorization. Writing a prompt alone does not require generating a sample."
+        },
+        {
+          "before": "Use camera, material, texture, and spatial language to resolve a visible decision. Reserve space for captions or UI when the intended use needs it, without inventing left/right placement. Resolve competing directions before piling on more adjectives. Optional labelled lines can help a complex brief; no fixed template is required.",
+          "after": "Use camera, material, texture, and spatial language to resolve a visible decision. Reserve space for captions or UI when needed; preserve a specified layout, or choose a suitable placement when composition is part of the requested design. Resolve competing directions before adding more adjectives. Optional labelled lines can help a complex brief; no fixed template is required."
+        },
+        {
+          "before": "- For localization, distinguish the prompt language from the image's target language. Specify which wording and regional details change and which design elements remain; supply approved translations when exact copy matters.\n- Keep text concise when possible without dropping required content. Do not import an old Imagen character-count recommendation as a Gemini limit.\n- Check actual spelling, symbols, numbers, layout, and unintended extra text. A prompt requesting exact lettering does not guarantee it.",
+          "after": "- For localization, distinguish the prompt language from the image's target language. Specify which wording and regional details change and which design elements remain; supply exact target-language text when wording matters.\n- Keep text concise when possible without dropping required content. Do not import an old Imagen character-count recommendation as a Gemini limit."
+        },
+        {
+          "before": "For an edit, describe the change and the important invariants: identity, product geometry, composition, crop, lettering, or scene relationships. Match the edit's lighting, shadows, perspective, scale, and texture to the base. Use a broad \"keep everything else\" instruction only when that is the intended scope; avoid locking an attribute that the requested change must alter.",
+          "after": "For an edit, describe the change and only the preservation conditions that matter, such as identity, product geometry, crop, or lettering. Leave attributes affected by the request free to change: a relighting or restyling request must be able to alter lighting or texture. For an inserted element that should blend into the base, match lighting, shadows, perspective, and scale. Use \"keep everything else\" when that is the intended scope."
+        },
+        {
+          "before": "For variants or a visual sequence, distinguish separate images from a single sheet and specify what stays consistent between them. Check actual output count and continuity; requesting several images does not guarantee that the surface returns them all.",
+          "after": "For variants or a visual sequence, distinguish separate images from a single sheet and specify what stays consistent between them. Treat the requested count as an output requirement to check, not a guaranteed property of the surface."
+        },
+        {
+          "before": "Express an exclusion as a desired scene state when that helps, while retaining explicit absence requirements. An Imagen or Veo negative-prompt field is not a universal Gemini control. Likewise, an OpenAI image tool's fidelity, mask, transparency, or quality controls do not configure Gemini. If the deliverable needs real alpha transparency, exact pixels, or a specific file format, verify the supported output and the resulting file; a checkerboard appearance or \"4K\" in prose is not proof.",
+          "after": "Express an exclusion as a desired scene state when that helps, while retaining explicit absence requirements. An Imagen or Veo negative-prompt field is not a universal Gemini control, and OpenAI image-tool controls do not configure Gemini. Treat real alpha transparency, exact pixels, and file format as output requirements: use supported controls or an appropriate processing step when execution is in scope. A checkerboard appearance or \"4K\" in prose does not satisfy those requirements."
+        },
+        {
+          "before": "When reviewing generated results, inspect the artifact rather than its description. Check subject fidelity, requested changes, preserved details, text, composition, and factual content. For video, also check motion, cuts, continuity, event timing, dialogue, and audio balance. Revise for observed defects and stop when the requested result and relevant checks are satisfied. Without generated output, report a prompt review, not verified visual quality.",
+          "after": "Review at the stage the task reaches. For prompt text alone, check intent, input roles, compatible constraints, and supported capabilities. When generated output is available, inspect the artifact against the requested result: relevant identity and preservation conditions, lettering and numbers, composition, factual content, image count, and file properties. For video, include relevant motion, cuts, continuity, timing, and audio. Correct observed defects and stop when the requested result and relevant checks are satisfied. Distinguish prompt review from verified output quality."
+        }
+      ],
+      "reconstruction": "Starting with this revision, replace each after string with its before string once in reverse edit order to reproduce previousSha256."
+    }
+  ]
+}

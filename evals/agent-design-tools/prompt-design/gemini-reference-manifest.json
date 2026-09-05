@@ -1,0 +1,95 @@
+{
+  "reviewedOn": "2026-09-06",
+  "revision": "gemini-reference-review-2026-09-06",
+  "baseCommit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+  "assessment": "Static review against current Google guidance and local imagegen prompting guidance; no Gemini model execution, Gem setup, or media generation.",
+  "previousManifest": {
+    "path": "evals/agent-design-tools/prompt-design/model-reference-manifest.json",
+    "bytes": 3777,
+    "sha256": "eba164c10756388263179989d343f616d9a1b6c0cc8944359714617e514f5745"
+  },
+  "files": [
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+      "bytes": 9869,
+      "sha256": "e9326aa2853c8911374658821323db5a18610a04d40e2a0da763b102d0680766"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/agents/openai.yaml",
+      "bytes": 399,
+      "sha256": "72ef38e6be4a878cc6eeca33d8f17e5dad1290e8b3258839c1b64a16a7e2d839"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-gems-prompt-design.md",
+      "bytes": 5517,
+      "sha256": "0b1f2d0a52b65838f72e32b2d1e5039767934f2201354fce23bb2bfd318db923"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-media-generation-prompt-design.md",
+      "bytes": 8618,
+      "sha256": "5a414df74f7c3f76aad8b20d6f3e216e192b14e3e0cbc9313907298177ef1c4e"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-prompt-design.md",
+      "bytes": 5251,
+      "sha256": "b2a68c61048f5ee595395ae1124a13524b322d2578578b6049a51e7ffe50c690"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-5.6-prompt-design.md",
+      "bytes": 3163,
+      "sha256": "a75307fff60efb2da727a1b606099e4a889e5b0f02c00c31213256c7b6f637d1"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+      "bytes": 8987,
+      "sha256": "ec8936cad16b1a869253ee3c4fc1a33ca86e66b5b722f8372f21ec7c32bac58a"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md",
+      "bytes": 8964,
+      "sha256": "07fd226c8e1b92c190cedc647619b494db746b51448dc7f424002b9aea1dc543"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md",
+      "bytes": 7096,
+      "sha256": "2e73369191b768e3ab00a293243d46f229ad78855c3725dcd37c285138d8ca8f"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md",
+      "bytes": 3843,
+      "sha256": "098320d26a8956bdab57356e3f33d0ef33e3170fd0f9be400981f565870e548f"
+    }
+  ],
+  "changes": [
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-gems-prompt-design.md",
+      "previousSha256": "3a2e3abb5f5da51996dc4b0685a0d2ee640e9ff8376932eb51aed226a6e33967",
+      "gitBaseline": {
+        "commit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+        "bytes": 6304,
+        "sha256": "3a2e3abb5f5da51996dc4b0685a0d2ee640e9ff8376932eb51aed226a6e33967"
+      },
+      "reconstruction": "Read this path from gitBaseline.commit to reproduce the preceding reference exactly."
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-media-generation-prompt-design.md",
+      "previousSha256": "eee6059578262ade556277ae7ca7df0af6e732e0b6aa51d98edeaf50b41c6edb",
+      "gitBaseline": {
+        "commit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+        "bytes": 5503,
+        "sha256": "eee6059578262ade556277ae7ca7df0af6e732e0b6aa51d98edeaf50b41c6edb"
+      },
+      "reconstruction": "Read this path from gitBaseline.commit to reproduce the preceding reference exactly."
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/gemini-prompt-design.md",
+      "previousSha256": "f7ba08d4d07f1eb83a52977caae765233d95de986eb7abf751b214703ccf0919",
+      "gitBaseline": {
+        "commit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+        "bytes": 4530,
+        "sha256": "f7ba08d4d07f1eb83a52977caae765233d95de986eb7abf751b214703ccf0919"
+      },
+      "reconstruction": "Read this path from gitBaseline.commit to reproduce the preceding reference exactly."
+    }
+  ]
+}

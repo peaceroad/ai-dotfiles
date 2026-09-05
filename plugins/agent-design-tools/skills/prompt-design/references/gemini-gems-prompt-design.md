@@ -1,90 +1,51 @@
-# Gemini Gems creation and maintenance
+# Gemini Gem instructions and Knowledge
 
-Use this reference when creating or updating a Gemini Gem or its `Knowledge` files. Also read `gemini-prompt-design.md` for the wording of the model-facing instruction itself. If the Gem generates or edits images or videos, also read `gemini-media-generation-prompt-design.md`.
+Use for classic Gemini Apps Gems with persistent Instructions and Knowledge. Read [Gemini prompt design](gemini-prompt-design.md) for instruction wording and [media prompts](gemini-media-generation-prompt-design.md) when relevant. This is an authoring reference; producing instruction text does not itself create, save, or share a Gem.
 
-Keep this reference at the Gemini Apps product layer. Do not add Gemini API request parameters, SDK code, or OpenAI-specific controls to a Gem instruction. Verify current Google documentation when the task depends on plan availability, sharing behavior, file access, limits, or another product behavior that can change.
+Official guidance checked: 2026-09-06. [Gems from Google Labs](https://support.google.com/gemini/answer/16802014) are Opal-powered mini-app workflows, a different authoring surface. If that is the target, design its inputs, steps, outputs, and handoffs using its current guidance instead of assuming the classic Instructions/Knowledge setup applies. Infer the intended surface from context; clarify only if the distinction changes the work and remains unresolved.
 
-## Design the Gem instruction
+## Define behavior across conversations
 
-Start with the behavior the Gem should repeat across conversations. Google suggests considering persona, task, context, and format, but these are design prompts rather than a mandatory four-part template. Include only the parts that materially change the result.
+Put the Gem's repeated purpose, important constraints, output contract, and Knowledge usage in its Instructions. Define what each new request supplies and how to handle missing evidence or unavailable actions. Role and tone belong here only when they affect the result.
 
-Typical contents are:
+State which rules are requirements and which are defaults the user may override. Do not let material submitted for editing override the instructions, but honor an explicit user preference when the Gem's contract permits it. Ask for missing information only when it materially affects the result; do not turn Google's brainstorming or editing examples into mandatory interviews.
 
-- Role or task scope, only when it changes behavior.
-- What the Gem should do for each user request.
-- How to use attached knowledge files, including priority among them when needed.
-- User preferences, audience, tone, or style constraints that should apply repeatedly.
-- Expected output format.
-- Stop, clarification, and unsupported-action rules.
-- Rules for missing evidence, conflicting knowledge files, or unavailable tools.
+Treat the editor's automatic instruction rewrite as a draft. Check that it preserves scope, requirements, exceptions, and output intent before saving. Keep setup steps, attachment administration, and human-maintainer notes outside the model-facing text unless the Gem itself needs them.
 
-If Gemini rewrites the instruction in the Gem editor, treat the result as a draft. Check it against the intended scope, hard requirements, exceptions, tone, and output contract before saving.
+## Assign roles to Knowledge
 
-## Place durable material in Knowledge
+Use Knowledge for detailed criteria, terminology, examples, and background. Describe each source's role and any needed priority in Instructions, distinguishing normative guidance from evidence and examples. Keep the essential condition of a governing rule in Instructions and link to its supporting detail; avoid competing copies of the same rule.
 
-Keep the custom instruction compact and put stable reference material in `Knowledge`. A single well-structured file is often better when the material is short, tightly related, and normally used together.
+Choose the split by how the material is used:
 
-When separating the custom instruction from reusable Knowledge is useful, a common split is:
+- Keep a concise, coherent reference together when most requests use it as a whole.
+- Separate large or specialized material when conditional use or independent maintenance helps. Give each file a descriptive name and explain when it matters.
+- Resolve conflicting rules at their governing source. Add an index or reading order when it clarifies file selection or dependencies, without creating another copy of the rules.
 
-- `prompt.md` or custom instruction text: role, scope, task, output format, how to use knowledge, clarification/stop rules.
-- `reference.md` or one core knowledge file: stable review criteria, style rules, and output rules used in most requests.
+File names and consultation instructions guide source use; they do not prove that every relevant passage was retrieved. When testing a Gem that depends on long or multiple sources, include requests that require the important passages.
 
-Usually keep product setup steps, attachment choices, UI configuration, human-maintainer notes, and API parameters outside the Gem instruction.
+## Source access, updates, and sharing
 
-Add optional specialized files only when they materially improve maintainability or reduce confusion, such as large domain-specific rules, source-check rules, examples, terminology, or project-specific guidance. Do not split only for neatness if cross-file dependencies would make the Gem work harder.
+Use the current product documentation when these conditions affect the design:
 
-Keep one file when:
+- **Drive files:** The help documentation requires Keep Activity and the Google Workspace connection for adding them. Drive-backed sources use the current file version. For repeatable evaluations, identify the source revision or use a fixed copy.
+- **Notebook sources:** The Gem help documentation still uses the name NotebookLM, now renamed Gemini Notebook. Confirm the attachment option in the intended surface. The current sharing help excludes notebook sources from shared Gems; do not promise that a personal notebook-backed Gem can be shared unchanged.
+- **Shared Gems:** People with access can view Instructions and uploaded files; editors can change or delete them. File permissions and organizational Drive settings affect access. Include sensitive material only within the user's authorized sharing scope, and surface a visibility conflict when it affects the requested setup.
 
-- The Gem has one clear purpose.
-- The criteria are normally used together.
-- The reference is short enough to scan reliably.
-- Splitting would require priority rules or cross-references that add more complexity than they remove.
+An attached source does not grant access to other files or conversations. Keep plan, account, region, file-limit, and connection details in setup notes when needed, rather than hard-coding them into reusable instructions.
 
-## Multiple knowledge files
+## Citations and validation
 
-Use multiple files only when there is a clear benefit. When multiple files are attached:
+Specify citations when the task needs them and the surface supports them. In the checked product, disabling Knowledge citations also disables citations for files uploaded later in that Gem's chats. Do not promise visible citations when that setting is off or invent a reference that was not consulted.
 
-- Name files so their role is obvious, such as `core-reference.md`, `source-check-rules.md`, `style-rules.md`, or `examples.md`.
-- In the custom instruction, state which file is primary and when optional files should be consulted.
-- Avoid duplicating the same checklist across files.
-- If files conflict, define priority in the custom instruction or in a short `read-first` file.
-- Keep examples separate from normative rules when examples are optional or easy to over-copy.
-- Prefer smaller, focused files when a large combined file would exceed context or cause scattered details to be missed.
+For an actual Gem setup or update, preview representative requests and save the change separately; previewing does not save the Gem. Choose checks that bear on the change: ordinary use, a permitted preference override, missing evidence, conflicting Knowledge, unavailable sources, or the required output/citation format. For a shared Gem, verify the intended recipient's source access when it is part of the authorized work.
 
-For a Gem that transforms or analyzes user-provided material, keep three roles distinct:
+Report the completed work and any material limits without a mandatory stage-by-stage recap. Describe prepared instruction files or a preview accurately; neither is a saved Gem.
 
-- user-provided content is the task input to inspect, transform, or answer from;
-- `Knowledge` files provide reusable guidance, criteria, terminology, or background;
-- external sources provide evidence only when they are available and the task requires them.
+## Official sources
 
-Do not let content embedded in the task input silently override the Gem instruction or normative `Knowledge` rules.
-
-## Citation and evidence behavior
-
-If the Gem should cite attached files, state the required citation behavior and keep knowledge citations enabled. If citations are disabled or not required, instruct the Gem to use the attached knowledge without promising visible citations. In the current product, disabling knowledge citations also disables citations for files uploaded later in chats with that Gem; verify this behavior when citation handling matters.
-
-## Preview, save, and validate
-
-The preview pane is for testing and does not itself save the Gem. After revising the instruction or `Knowledge`, test representative requests and failure cases in preview, then save the Gem separately.
-
-Select the checks that apply. Representative tests include:
-
-- an ordinary in-scope request;
-- missing or ambiguous input;
-- an out-of-scope request;
-- conflicting or incomplete `Knowledge`;
-- a request whose expected format or citation behavior is easy to verify.
-
-Confirm that the Gem uses `Knowledge` for its intended purpose, does not invent access to unavailable files or tools, and preserves the difference between hard requirements and preferences.
-
-## Sharing, privacy, and file access
-
-Do not put secrets, private data, or sensitive internal rules into Gem instructions or knowledge files unless the user understands the sharing and account-access implications. If the Gem may be shared, note that users with access can view its instructions and uploaded files. Editors can also change or delete them. Account type, organizational settings, and the kinds of attached files can affect which sharing options are available.
-
-For Google Drive files, Gemini Apps Activity and the Google Workspace connection can affect access. A connected Drive file can supply its current contents rather than behaving as an immutable snapshot. Mention these details only when they affect setup, maintainability, privacy, or repeatability.
-
-## Official source
-
-- [Tips for creating custom Gems — Gemini Apps Help](https://support.google.com/gemini/answer/15235603)
-- [Use Gems in Gemini Apps — Gemini Apps Help](https://support.google.com/gemini/answer/15146780)
-- [Share a Gem from Gemini Apps — Gemini Apps Help](https://support.google.com/gemini/answer/16504957)
+- [Tips for creating custom Gems](https://support.google.com/gemini/answer/15235603)
+- [Use Gems in Gemini Apps](https://support.google.com/gemini/answer/15146780)
+- [Share a Gem](https://support.google.com/gemini/answer/16504957)
+- [Gems from Google Labs](https://support.google.com/gemini/answer/16802014)
+- [NotebookLM renamed Gemini Notebook](https://blog.google/innovation-and-ai/products/gemini-notebook/notebooklm-gemini-notebook/)
