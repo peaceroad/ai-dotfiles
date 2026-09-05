@@ -1,0 +1,220 @@
+{
+  "version": "2026-09-06-second-review-v1",
+  "date": "2026-09-06",
+  "acceptedVersion": "candidate-v4",
+  "predecessor": {
+    "path": "evals/agent-design-tools/agent-workflow-design/manifest.json",
+    "bytes": 16501,
+    "sha256": "2064e623736b04c0fd39b5b088cbeb6da5803d90b859a1e436a85c877bf2d118"
+  },
+  "baseline": {
+    "version": "candidate-v2",
+    "files": [
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "bytes": 8091,
+        "sha256": "897cc93a83c0f59df2c9f7fb4569f870632a6793cde19168695db83fe9e45a0e"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/agents/openai.yaml",
+        "bytes": 327,
+        "sha256": "d0d9e0813cee14610b8062e4f97a8af011272f5dbd0eceea36d40bc8ee23d3e6"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md",
+        "bytes": 3386,
+        "sha256": "982938364d9222dd28c712c068bf88cd6e3b26217493ee5a051c6b9ef1a63930"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+        "bytes": 8784,
+        "sha256": "6d942583ebc674b34a12e9092529538cdfaf4aac96619b470cd10107436c8840"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+        "bytes": 10177,
+        "sha256": "fcee937dad8dd352c353786b5bae30da901f9a92f4370f668bbdda350da8433d"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md",
+        "bytes": 4832,
+        "sha256": "a7504cba63e1c8a585f954882a08efe1128050c8ea09eae3c5b7e2e0bd9e21cd"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+        "bytes": 11217,
+        "sha256": "38fbe8bce55064500f3da2b539b8cb2224c5d7d17c586d3a6ce43444db410849"
+      }
+    ],
+    "restoration": "evals/agent-design-tools/agent-workflow-design/candidate-snapshots.json"
+  },
+  "versions": {
+    "candidate-v3": {
+      "files": [
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+          "bytes": 6065,
+          "sha256": "a722c5a102cf1cc76eb302ec933e6b6b386412e051526f99505c6a73092ec6e9"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/agents/openai.yaml",
+          "bytes": 327,
+          "sha256": "d0d9e0813cee14610b8062e4f97a8af011272f5dbd0eceea36d40bc8ee23d3e6"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md",
+          "bytes": 3386,
+          "sha256": "982938364d9222dd28c712c068bf88cd6e3b26217493ee5a051c6b9ef1a63930"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+          "bytes": 7286,
+          "sha256": "46bf89776aac40b7b0d8f8ce86c725d720a8f959a81fd6a7c81d604012f7ed60"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+          "bytes": 8730,
+          "sha256": "a861a2ff418ef79766f82dc433ffa59730c68e7ab74bfe48bf5e22cb398bfa4c"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md",
+          "bytes": 4286,
+          "sha256": "cbea524ad2ec2cc05a4f28883887fe16cf4d1fef8dcb5fad885b6a3366d2383d"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+          "bytes": 10017,
+          "sha256": "acea8b7e84be37b4599fbd30cbee09e28f54ca18a937207d548205641700e9d9"
+        }
+      ],
+      "restoration": "evals/agent-design-tools/agent-workflow-design/second-review-snapshots.json: candidate-v3 files"
+    },
+    "candidate-v4": {
+      "files": [
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+          "bytes": 6065,
+          "sha256": "a722c5a102cf1cc76eb302ec933e6b6b386412e051526f99505c6a73092ec6e9"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/agents/openai.yaml",
+          "bytes": 327,
+          "sha256": "d0d9e0813cee14610b8062e4f97a8af011272f5dbd0eceea36d40bc8ee23d3e6"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md",
+          "bytes": 3286,
+          "sha256": "16c2e6d8d2ea7496bfb06c3005caeee3d3a113a1fe2247d8b604378143437c52"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+          "bytes": 7286,
+          "sha256": "46bf89776aac40b7b0d8f8ce86c725d720a8f959a81fd6a7c81d604012f7ed60"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+          "bytes": 8719,
+          "sha256": "e46a9a68dbd2cfb12966e4b8e4a2b611f7011b29c7fd027d96826ebdbc5721c0"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md",
+          "bytes": 4247,
+          "sha256": "a7b920428f0b87da0b8130963a82c9a1389763fd8b594facca7fe585fef580b7"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+          "bytes": 10017,
+          "sha256": "acea8b7e84be37b4599fbd30cbee09e28f54ca18a937207d548205641700e9d9"
+        }
+      ],
+      "restoration": "evals/agent-design-tools/agent-workflow-design/second-review-snapshots.json: candidate-v3 plus candidate-v4 replacements"
+    }
+  },
+  "runs": [
+    {
+      "id": "second_review_baseline",
+      "target": "candidate-v2",
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-baseline.md"
+    },
+    {
+      "id": "second_review_candidate",
+      "target": "candidate-v3",
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-candidate.md"
+    },
+    {
+      "id": "second_review_recheck",
+      "target": "candidate-v4",
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-recheck.md"
+    }
+  ],
+  "protocol": {
+    "cases": [
+      "new-runtime-policy",
+      "small-workflow-review"
+    ],
+    "generation": "One fresh subagent context per version (fork_turns=none), containing both requests in the same order. The generator extracts only case IDs and requests, reads the assigned immutable snapshot and task-relevant references, and does not read criteria, prior outputs, live source, or decision docs.",
+    "artifacts": "Generated in a temporary workspace. Selected original outputs were copied unchanged into the project evaluation evidence directory after inspection.",
+    "allowedEffects": "Fictional designs and reviews only; no live operations from the case workflows.",
+    "model": "Inherited from the current GPT-6 Astra session; no explicit override",
+    "reasoningEffort": "Inherited, exact effective value not separately captured",
+    "perRunModelResponseMetadata": null,
+    "actualSkillReads": [
+      "SKILL.md",
+      "references/loop-patterns-and-control.md",
+      "references/state-evidence-and-recovery.md"
+    ],
+    "otherSourceCoverage": "Improvement, maintenance-record, and template changes were reviewed statically by the primary maintainer.",
+    "assessment": "Primary maintainer qualitative review. Shared-filesystem read separation is instruction-based. Full tool transcripts, hidden reasoning, token usage, latency, and costs were not retained.",
+    "recheck": "The v3 result exposed extra numeric caps; the settings condition was narrowed and the same two requests were regenerated under v4. The criteria and old outputs were not edited. Paired cases share context; this is not isolated-case repeated sampling or proof of causality."
+  },
+  "checks": [
+    {
+      "check": "skill-creator quick_validate.py",
+      "result": "pass",
+      "target": "candidate-v4"
+    },
+    {
+      "check": "npm run check:plugins",
+      "result": "pass",
+      "target": "candidate-v4"
+    },
+    {
+      "check": "Historical evaluation record hashes and current final source against snapshots",
+      "result": "pass"
+    }
+  ],
+  "records": [
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/second-review-cases.json",
+      "bytes": 3279,
+      "sha256": "f675641219c73076069f1d99b3da30aa2afb6f33180f899ae183b144157777d1"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/second-review-results.json",
+      "bytes": 4553,
+      "sha256": "61852d8cd465ac3021eeab74d1c6bbe42384bd87c1bec07aecdc6625e162d810"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/second-review-snapshots.json",
+      "bytes": 60079,
+      "sha256": "ee068896036db7ab443b2888b62f606f4c301281914988349fc4ff1b1b352305"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-baseline.md",
+      "bytes": 7858,
+      "sha256": "1bcd3395168255057708335fa6e90a1e8674708d74fcecb719bae756df06a571"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-candidate.md",
+      "bytes": 7050,
+      "sha256": "4b981ed6a5245b23a7eea41a75045ab5f3b0e8343dbfe8e6d371095e0a43af75"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-recheck.md",
+      "bytes": 6857,
+      "sha256": "0b4b1caf607623bb270f36c02b8c27c172ac73b04e04ad2864378ab59fa3a788"
+    }
+  ],
+  "report": "docs/agent-workflow-design/second-review.md",
+  "retention": "Preserve the baseline and rejected intermediate output as recorded. Do not update historical target hashes to match future live source."
+}

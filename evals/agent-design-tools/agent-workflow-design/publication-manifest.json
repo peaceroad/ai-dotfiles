@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-06",
+  "kind": "publication-redaction",
+  "scope": "evals/agent-design-tools/agent-workflow-design",
+  "originalManifests": [
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/manifest.json",
+      "bytes": 16501,
+      "sha256": "2064e623736b04c0fd39b5b088cbeb6da5803d90b859a1e436a85c877bf2d118"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/second-review-manifest.json",
+      "bytes": 10000,
+      "sha256": "94d500b37bb610ca86e6c1eb224aea53210b261c37fc5c7ec1dd7c4e98fed974"
+    }
+  ],
+  "transformations": [
+    {
+      "id": "repository-root",
+      "scope": "Absolute local checkout prefix",
+      "replacement": "",
+      "meaning": "Remaining path is relative to the repository root"
+    },
+    {
+      "id": "evaluation-workspace",
+      "scope": "Absolute temporary evaluation workspace prefix",
+      "replacement": "<evaluation-workspace>/",
+      "meaning": "Logical workspace label; version and source-relative filename are preserved"
+    }
+  ],
+  "files": [
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-a.md",
+      "original": {
+        "bytes": 13082,
+        "sha256": "d47d57c7e84b32ad65ca8f011f7f317f558b3275e873f47f065ff99ed6ad7394"
+      },
+      "published": {
+        "bytes": 12935,
+        "sha256": "98f60d3c1c18dae329988efd0559ac6680a66dd30b4f9a42d7b00cd2c980312e"
+      },
+      "replacements": {
+        "evaluation-workspace": 3
+      },
+      "changedLines": [
+        66,
+        67,
+        68
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-b.md",
+      "original": {
+        "bytes": 11056,
+        "sha256": "e50a278525a8665ffaa924bb1b9d0d2c7a6749f28bfd3b92c55792b2d3918cc9"
+      },
+      "published": {
+        "bytes": 10860,
+        "sha256": "4d681d66c141e8322ff117b30a695bb35b496ac9347f331fee84051e2bfeec29"
+      },
+      "replacements": {
+        "evaluation-workspace": 4
+      },
+      "changedLines": [
+        36,
+        37,
+        38,
+        39
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-a.md",
+      "original": {
+        "bytes": 11087,
+        "sha256": "689b3352efce22806a75c0fc47d1b17181cdd9f052b0099d50c9453f7f9e4b7c"
+      },
+      "published": {
+        "bytes": 10940,
+        "sha256": "7b4f88d8427b456b90004a1a0873cf6870147b6135430a79d0e6d9bd898e418b"
+      },
+      "replacements": {
+        "evaluation-workspace": 3
+      },
+      "changedLines": [
+        53,
+        54,
+        55
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-b.md",
+      "original": {
+        "bytes": 10987,
+        "sha256": "2b9fe3c49554a1741e329f0d908457282eee30792fdf93698fd8a3191fe9ea69"
+      },
+      "published": {
+        "bytes": 10791,
+        "sha256": "d5c53efe07726833d84f3ba45adc0a8a5cd9ca3f146c3de54780ecca58cd676f"
+      },
+      "replacements": {
+        "evaluation-workspace": 4
+      },
+      "changedLines": [
+        45,
+        46,
+        47,
+        48
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-followthrough.md",
+      "original": {
+        "bytes": 11001,
+        "sha256": "a08ac84139591b258cad010515634dd10168db96f5b38c2a690de9bef94a16d7"
+      },
+      "published": {
+        "bytes": 10915,
+        "sha256": "fb3775936df67d6fc33a3af903b731fb889dc505c79587d093c756970bef685b"
+      },
+      "replacements": {
+        "repository-root": 2
+      },
+      "changedLines": [
+        53,
+        54
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v2-followthrough.md",
+      "original": {
+        "bytes": 7994,
+        "sha256": "4916fad6bcb83b75a738a0a5bbd75138b446b12ac342d29eaa292e1646868458"
+      },
+      "published": {
+        "bytes": 7908,
+        "sha256": "e7c87a83cc7a31e40b63bab42990309137a76b86dfdd0db0ec45462cc7987f58"
+      },
+      "replacements": {
+        "repository-root": 2
+      },
+      "changedLines": [
+        43,
+        44
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v2-monitor.md",
+      "original": {
+        "bytes": 6448,
+        "sha256": "99e8eebcadc65afa4c439999e3c58855dc276f482aa929741d7fca985af51911"
+      },
+      "published": {
+        "bytes": 6258,
+        "sha256": "571dfd76756eee1d18feb2471c11095fbcfa1d5e676d31f5e0562280c51b4639"
+      },
+      "replacements": {
+        "repository-root": 1,
+        "evaluation-workspace": 3
+      },
+      "changedLines": [
+        32,
+        33,
+        34,
+        35
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-baseline.md",
+      "original": {
+        "bytes": 7858,
+        "sha256": "1bcd3395168255057708335fa6e90a1e8674708d74fcecb719bae756df06a571"
+      },
+      "published": {
+        "bytes": 7668,
+        "sha256": "c330bdb1c0bcc107a127fa45d235302b2612c2737ee85dc03d1a13bf0806e4a7"
+      },
+      "replacements": {
+        "repository-root": 1,
+        "evaluation-workspace": 3
+      },
+      "changedLines": [
+        50,
+        51,
+        52,
+        53
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-candidate.md",
+      "original": {
+        "bytes": 7050,
+        "sha256": "4b981ed6a5245b23a7eea41a75045ab5f3b0e8343dbfe8e6d371095e0a43af75"
+      },
+      "published": {
+        "bytes": 6860,
+        "sha256": "24053ddd85d324ca7650182077f6af67fe8cfa6f53814c39d0399b3c214ae7a7"
+      },
+      "replacements": {
+        "repository-root": 1,
+        "evaluation-workspace": 3
+      },
+      "changedLines": [
+        51,
+        52,
+        53,
+        54
+      ]
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-recheck.md",
+      "original": {
+        "bytes": 6857,
+        "sha256": "0b4b1caf607623bb270f36c02b8c27c172ac73b04e04ad2864378ab59fa3a788"
+      },
+      "published": {
+        "bytes": 6667,
+        "sha256": "139b4f0b770121405ebb8bffe68d0e0b0d2c0ba4c47140116e1532705da6bfe5"
+      },
+      "replacements": {
+        "repository-root": 1,
+        "evaluation-workspace": 3
+      },
+      "changedLines": [
+        44,
+        45,
+        46,
+        47
+      ]
+    }
+  ],
+  "preserved": "Only the two local path prefixes in provenance footers changed. Requests, generated designs, decisions, criteria, source snapshots, model settings, version identities, and historical manifests are unchanged.",
+  "verification": "Historical manifests retain original evidence hashes. Compare those with files[].original, then verify repository evidence using files[].published. Unlisted records still match their historical hashes directly.",
+  "review": {
+    "repositoryFilesScanned": 22,
+    "temporaryFilesScanned": 37,
+    "method": "Repository secret patterns plus local-path, username, email, private-address, session-ID, cookie and credential-URL checks; JSON string values decoded; input fixtures and detected provenance fields inspected.",
+    "finding": "User-identifying absolute path prefixes in 10 repository evidence files (34 occurrences) and 3 redundant temporary evidence copies (12 occurrences). No additional credential or contact-data pattern matched.",
+    "limitation": "Pattern checks and contextual inspection are not an exhaustive guarantee against every form of sensitive information."
+  },
+  "externalWorkspace": {
+    "label": "agent-workflow-design-astra-20260906",
+    "verifiedFiles": 37,
+    "sourceGroups": [
+      {
+        "version": "baseline",
+        "fileCount": 6,
+        "source": {
+          "commit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+          "pathsUnder": "plugins/agent-design-tools/skills/agent-workflow-design/"
+        },
+        "verification": "byte-identical to Git blobs and recorded hashes"
+      },
+      {
+        "version": "candidate-v1",
+        "fileCount": 7,
+        "source": {
+          "path": "evals/agent-design-tools/agent-workflow-design/candidate-snapshots.json",
+          "version": "candidate-v1"
+        },
+        "verification": "byte-identical to restored snapshot and recorded hashes"
+      },
+      {
+        "version": "candidate-v2",
+        "fileCount": 7,
+        "source": {
+          "path": "evals/agent-design-tools/agent-workflow-design/candidate-snapshots.json",
+          "version": "candidate-v2"
+        },
+        "verification": "byte-identical to restored snapshot and recorded hashes"
+      },
+      {
+        "version": "candidate-v3",
+        "fileCount": 7,
+        "source": {
+          "path": "evals/agent-design-tools/agent-workflow-design/second-review-snapshots.json",
+          "version": "candidate-v3"
+        },
+        "verification": "byte-identical to restored snapshot and recorded hashes"
+      },
+      {
+        "version": "candidate-v4",
+        "fileCount": 7,
+        "source": {
+          "path": "evals/agent-design-tools/agent-workflow-design/second-review-snapshots.json",
+          "version": "candidate-v4"
+        },
+        "verification": "byte-identical to restored snapshot and recorded hashes"
+      }
+    ],
+    "evidenceCopies": [
+      {
+        "temporaryRelativePath": "second-review-baseline.md",
+        "repositoryPath": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-baseline.md",
+        "originalSha256": "1bcd3395168255057708335fa6e90a1e8674708d74fcecb719bae756df06a571"
+      },
+      {
+        "temporaryRelativePath": "second-review-candidate.md",
+        "repositoryPath": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-candidate.md",
+        "originalSha256": "4b981ed6a5245b23a7eea41a75045ab5f3b0e8343dbfe8e6d371095e0a43af75"
+      },
+      {
+        "temporaryRelativePath": "second-review-recheck.md",
+        "repositoryPath": "evals/agent-design-tools/agent-workflow-design/evidence/second-review-recheck.md",
+        "originalSha256": "0b4b1caf607623bb270f36c02b8c27c172ac73b04e04ad2864378ab59fa3a788"
+      }
+    ],
+    "missingRepositoryEvidence": [],
+    "disposition": "Verified redundant scratch copies; no new file transfer is needed. Cleanup was rejected by the tool approval settings because the workspace is outside the project. All 37 files remain, including 3 original local evidence copies whose provenance footers contain local paths. They are not part of the repository publication."
+  },
+  "report": "docs/agent-workflow-design/publication-review.md"
+}

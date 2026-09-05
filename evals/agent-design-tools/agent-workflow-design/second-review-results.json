@@ -1,0 +1,52 @@
+{
+  "version": "2026-09-06-second-review-v1",
+  "assessor": "Primary maintainer; qualitative assessment of saved generated artifacts.",
+  "baseline": {
+    "target": "candidate-v2",
+    "new-runtime-policy": "pass: correct semantic versus enforcing ownership, justified configurable timeout/retry proposals, existing concurrency and approximate latency preserved",
+    "small-workflow-review": "pass: concise review-only revision, unanimity loop removed, required checks and content preservation retained, no new numeric repair cap",
+    "interpretation": "The former wording did not prevent these two requests from being handled. Static ambiguity is not a demonstrated universal failure."
+  },
+  "first_candidate": {
+    "target": "candidate-v3",
+    "new-runtime-policy": "Requested decisions and initial settings are present, but an additional request-wide cap of six attempts is also proposed. This adds control outside the specifically requested timeout/retry settings.",
+    "small-workflow-review": "partial: keeps the required checks and removes unanimity, but proposes a new one-repair cap that can stop useful authorized repair without evidence of stagnation",
+    "finding": "The broad allowance for proposing new settings does not sufficiently distinguish requested configuration design from routine workflow revision. The extra-cap issue was observed after the predefined inputs and criteria were fixed; they were not rewritten to fit it."
+  },
+  "final_candidate": {
+    "target": "candidate-v4",
+    "new-runtime-policy": "pass: requested timeout/retry settings are explicit proposals; semantic judgment and enforcement are separate; max concurrency two and approximate twenty-second goal are preserved; no new whole-request attempt cap is added",
+    "small-workflow-review": "pass: required heading checks and content preservation remain; review-only scope is respected; no extra agents, storage, approval, or numeric repair cap is introduced",
+    "interpretation": "Selected behavior is acceptable after restricting numeric proposals to settings that are part of the request. This is one fresh-context recheck, not a causal or statistical estimate."
+  },
+  "static_review": {
+    "scope": "SKILL.md, all four references, agents/openai.yaml, and the optional maintenance-notes template; role boundaries with prompt-design and skill-creator",
+    "changes": [
+      "Corrected tool and argument selection ownership versus tool validation and allowed effects.",
+      "Consolidated repeated authorization, validation scope, evaluator independence, reporting, and cross-model caveats while preserving task-specific applications.",
+      "Preserved existing limits and approximate targets; allowed justified numeric proposals only when selecting those settings is part of the request.",
+      "Clarified optional maintenance-template review ownership and separate audit retention."
+    ],
+    "preserved": [
+      "Existing authorization, dependent-question pauses, and binding runtime denials.",
+      "Partial progress, supported waiting, latest-scope completion, and outstanding-operation lifecycle.",
+      "Verified replay guarantees, operation identity, version validity, and conflicting-effect recovery.",
+      "Required checks, semantic quality judgment, protected acceptance and historical evidence.",
+      "Maintenance ownership, scoped lookup, deduplication, cleanup, and authorized local convention."
+    ],
+    "unexecuted": "Maintenance-record and template changes were reviewed statically. No new downstream simulation or live integration trial was conducted in this second review."
+  },
+  "size_comparison": {
+    "unit": "UTF-8 bytes, not measured runtime tokens or performance",
+    "SKILL.md": {"baseline": 8091, "final": 6065},
+    "SKILL.md_plus_four_references": {"baseline": 43101, "final": 36334}
+  },
+  "decision": "Adopt candidate-v4 as the current usable revision. Preserve the failed intermediate proposal and the baseline's successful behavior as evidence.",
+  "limits": [
+    "Two cases per version, in one shared generation context per version; no repeated sampling or independent grader.",
+    "Read separation was instruction-based on a shared filesystem, not enforced isolation.",
+    "No tool latency, cost, token usage, persistence, cancellation, or permission-enforcement measurements.",
+    "The initial five-case suite was not replayed; static preservation and focused new generation trials are distinct evidence.",
+    "No proof of general superiority, Astra-specific gains, or optimality."
+  ]
+}

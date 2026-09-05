@@ -1,0 +1,16 @@
+{
+  "version": "2026-09-06-v1",
+  "purpose": "Additional case fixed after candidate-v1 was written. No live maintenance actions are authorized by this fictional request.",
+  "cases": [
+    {
+      "id": "shared-maintenance-records",
+      "request": "二つの編集スキルが共有する保守メモの運用を設計してください。ユーザーは docs/editorial-maintenance/ の作成と記録の保存を許可済みです。両スキルから同じ共通規則の改善候補が記録され、別名の候補が重複しています。共通規則には既存の保守担当がいます。候補の一部はすでに解決したと書かれていますが、現行スキルへ反映されたかは未確認です。元の実行記録には独立した監査保存の要件があります。候補が多いという理由で規則を増やさず、次の保守時に未解決候補を使いやすくする最小限の設計を返してください。今回は設計のみで、実際のメモ整理やスキル修正は行いません。"
+    }
+  ],
+  "criteria": [
+    "Respects design-only scope while accepting the explicitly authorized storage location without a repeated approval gate.",
+    "Uses the common rule owner and a shared lifecycle rather than separate competing stores or schemas.",
+    "Checks current authoritative instructions and evidence, deduplicates by owner and issue, and does not treat candidate counts as adoption evidence.",
+    "Separates cleanup of resolved candidates from retention of independently required audit evidence."
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "version": "2026-09-06-second-review-v1",
+  "purpose": "Focused comparison for a second review of decision ownership, proposed configuration, and proportional design detail. Fictional designs only; no live service operations.",
+  "cases": [
+    {
+      "id": "new-runtime-policy",
+      "request": "新しい社内文書検索エージェントの制御設計を、実装担当向けに作ってください。問い合わせの意味から検索語と検索先を選びます。exact_search と semantic_search はJSONスキーマで引数を検証しますが、問い合わせに適切な検索先か、検索結果が回答を裏づけるかは判定しません。アクセス可能な文書はサービス側が制限します。検索は副作用のない読み取りで、一時的な混雑なら失敗応答に retry_after 秒が付く場合があります。ランタイムは同時に2呼び出しまで許可します。ツールごとのタイムアウトと再試行回数は未設定なので、あなたが初期値を提案し、理由と変更可能な設定であることを明記してください。利用者は通常20秒程度で根拠のある回答がほしいと考えていますが、20秒は厳密な打ち切り条件ではありません。誰が何を判断・強制するかと、失敗時の挙動まで含め、簡潔で実装可能な設計を返してください。"
+    },
+    {
+      "id": "small-workflow-review",
+      "request": "以下の議事録整形エージェントの設計だけをレビューしてください。実ファイルは変更しません。入力を読み、表記を整え、必須の見出しチェックに通った版を保存して終える小さな処理です。草稿の編集と保存は許可済みで戻せます。現状は、チェック後に独立した3人の評価エージェントが全文レビューし、全員が同意するまでやり直します。表記には複数の許容形があり、その違いで同意が揃わず、時間がかかっています。追加のレビュー制度や記録の保存先を作らずに改善したいです。重要な指摘と改訂後の流れを、おおむね400〜600字の日本語で返してください。"
+    }
+  ],
+  "criteria": {
+    "new-runtime-policy": [
+      "Assigns semantic routing, query selection, and evidence assessment to the model; assigns schema validation, access restrictions, concurrency, and retry accounting to enforcing implementation layers.",
+      "Proposes justified, configurable timeout and retry initial values under the explicit request without presenting them as established runtime limits.",
+      "Preserves the approximate latency target and stated concurrency limit, respects retry_after where applicable, and does not fabricate live service evidence."
+    ],
+    "small-workflow-review": [
+      "Respects review-only scope and provides a concise usable revision, without adding agents, storage, or an approval ceremony.",
+      "Removes the unnecessary unanimity loop while preserving required heading checks and a meaningful source-content or meaning check.",
+      "Allows authorized reversible judgment and completion under the stated requirements rather than unbounded polishing."
+    ]
+  }
+}

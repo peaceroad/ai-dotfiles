@@ -1,155 +1,81 @@
 # Loop patterns and control
 
-Use this reference to decide whether a workflow needs a loop and to define its trigger, control flow, stopping behavior, retries, replanning, and parallel work.
+Use this reference to choose a trigger and define progress, waiting, steering, stopping, and coordination. Adapt the control to the task and the runtime already available.
 
-## Contents
+## Choose the smallest useful shape
 
-- When to use a loop
-- Deterministic workflow or model-directed agent
-- Trigger patterns
-- Recall, validation, and enforcement
-- Loop contract
-- Stop and convergence
-- Retry, replan, and escalation
-- Parallel work
-- Common failure modes
+A loop is useful when another action can obtain new evidence, change an artifact, repair a known failure, or respond to a meaningful external change. Complexity alone does not justify repetition. A linear transformation with an adequate check can stay linear; a monitor can spend most of its lifetime waiting.
 
-## When to use a loop
+| Trigger | Design question |
+| --- | --- |
+| User turn | What completes this request, and what input would materially change it? |
+| Persistent goal | What evidence keeps the goal active or establishes completion, and what runtime owns continuation? |
+| Schedule | What recurs, how often can meaningful change occur, and when does the routine end? |
+| Event | What event starts which bounded task, and what prevents duplicates or obsolete work? |
 
-A loop is justified when a pass can produce a changed artifact, new measurement, tool result, reviewer finding, external-state update, or other evidence that should affect the next pass. Typical examples include repairing an artifact from validation feedback, monitoring an external system, responding to incoming work, or improving a workflow from repeated failure patterns.
+Compose triggers only when each serves a distinct purpose. For schedules, specify timezone, overlap, and missed-run handling where they affect correctness and are not already settled by the scheduler. For events, verify delivery, ordering, replay, and burst behavior where they can repeat effects or invalidate decisions. A recurring routine and the individual jobs it starts have different lifetimes.
 
-Keep the task linear when one action followed by one feasible validation is enough. Do not create a loop for a one-shot answer, a deterministic transformation, an ordinary local edit, or a task whose next pass has no new signal.
+## Progress, waiting, and completion
 
-## Deterministic workflow or model-directed agent
+Define what the next decision actually needs. Use partial results when their dependencies and versions permit useful work; wait for the whole set only for a comparison, synthesis, version lock, or other real dependency.
 
-Choose who controls the next transition:
+| Current evidence | Control decision |
+| --- | --- |
+| A useful authorized action is ready | Proceed and inspect its result before dependent work |
+| Some work is pending and independent work is ready | Advance the independent work |
+| Only a future time, answer, event, or pending result can advance the task | Use the supported wait, suspension, or continuation mechanism |
+| An assumption is invalidated or an approach repeatedly fails without progress | Replan or report the remaining block |
+| Acceptance evidence is sufficient | Finish the requested work |
+| A configured limit, cancellation, denial, or unresolved authority boundary is reached | Stop or hand off under that contract, accounting for in-flight work |
 
-- Use deterministic workflow control when steps, branches, retries, and completion checks can be specified reliably in code or configuration.
-- Use model-directed control when the required subtasks or next action depend on semantic interpretation, cannot be predicted in advance, and benefit from flexible tool use or replanning.
-- Use a hybrid when code owns triggers, budgets, permissions, required persistence, and state transitions while the model owns bounded judgments inside a state.
+These are semantic distinctions, not mandatory status names. Map them to the runtime's states. Dispatch, a worker's completion, and a response ending do not by themselves establish task completion.
 
-Do not equate a multi-step workflow with an autonomous agent. Add model-directed control only when representative tasks show that a fixed path is insufficient and the expected gain justifies the additional cost, failure surface, and review burden.
+An unchanged pending status is normally a reason to wait; infer a stall from relevant evidence such as a runtime timeout, a lost job, or a violated progress expectation. Use supported waits and events rather than tight polling, repeated analysis, or narration of unchanged status.
 
-## Trigger patterns
+If monitoring is authorized, preserve the user's notification intent: notify on the changes or decisions they asked about, and keep non-actionable checks quiet unless periodic reports were requested. On wake, reconcile current state before acting. Stop the monitor when its purpose ends. Without a supported continuation mechanism, report that limit rather than promise future work.
 
-Choose the simplest trigger pattern that fits the work.
+## Steering and cancellation
 
-### Turn-based
+Interpret new input as clarification, a constraint, a side question, a scope change, replacement, or cancellation. Answer side questions while preserving the active objective and useful completed work. Reassess earlier evidence and pending branches against changed requirements; an old result may no longer support the current decision.
 
-A user request starts the work. The agent gathers context, acts, checks the result, and returns when it is complete or needs material input. Use this for irregular or bounded tasks.
+Judge completion against the latest accepted scope. Retiring a no-longer-needed branch can complete a narrowed request; keep any uncancelled external operation's state separate from whether the current request is done.
 
-### Goal-based
+Receipt of an update, application of that update, and cancellation of an operation are separate events. Updated instructions do not undo completed effects or prove that a tool stopped. Define handling of obsolete work using the actual [cancellation and recovery contract](state-evidence-and-recovery.md#uncertain-outcomes-and-recovery). For routine information gaps, use context and reasonable assumptions; pause dependent work when the missing answer matters.
 
-A request starts the work and an evaluator checks explicit completion criteria. The workflow returns to work until the criteria pass or another stop condition is reached. Use this when completion can be observed reliably.
+## Retry, replan, and stop
 
-### Time-based
+Retry when the approach is still valid, another attempt can help, and the tool's replay contract makes it safe. Replan when evidence changes the assumptions or the same approach no longer reduces the remaining delta. Escalate when the next step requires missing authority, a protected verdict, or material knowledge that cannot be obtained within scope.
 
-A schedule or interval starts each run. Use this when the task recurs or observes an external system. Match the interval to the rate of meaningful change and avoid polling without a reason.
+Track the remaining outcome, failed criterion, or unresolved decision. Preserve supplied limits and their strength, including approximate targets. Use existing runtime settings or an explicit progress condition unless choosing new settings is part of the request. In that case, propose justified, configurable values only for those settings and identify them as proposals.
 
-When timing semantics can affect correctness, define the timezone, overlapping-run policy, and missed- or delayed-run behavior. Omit these controls when the scheduler or task already makes those cases impossible or harmless.
+A block should explain the evidence, what remains, and what would allow progress. Apply runtime-owned stop policies as given, including their conditions for marking a task blocked.
 
-### Event-driven or proactive
+Stopping model work is separate from stopping scheduled jobs, tools, and child agents. At completion, cancellation, or a limit, account for outstanding work and release or retain resources according to their runtime contracts. Do not label an incomplete outcome successful merely because a budget ended.
 
-An external event starts a run without a user present in real time. Each run needs a bounded goal, safe permissions, enough authoritative state or reconciliation capability for its recovery and side effects, and a clear escalation path. Use durable state only when replay, resumption, audit, or cross-run coordination requires it. The recurring routine and each task instance have separate stop conditions.
+## Parallel work and resource control
 
-Verify the event source's delivery, ordering, and replay guarantees. Where duplicates, delays, reordering, or bursts can change the outcome or repeat a side effect, define only the needed controls, such as deduplication, reconciliation, concurrency or backpressure limits, and conditions for safe replay.
+Use delegation only under the current policy. When allowed, choose bounded work that benefits from independent execution or context and leaves useful coordination or work for the owner. Simple independent tool calls may need no agent. Keep dependent decisions and conflicting writes ordered.
 
-These patterns may be composed, but every added trigger must have a distinct role. Do not add a scheduler, evaluator loop, or multi-agent branch merely because the platform supports it.
+Give each worker the necessary input, artifact version, scope, result contract, and limits. Assign ownership of shared resources, integration, overall verification, and failed or stale branches. Worktree or context isolation can reduce conflicts; access enforcement belongs to the runtime's security controls.
 
-## Recall, validation, and enforcement
+For nested delegation, use the runtime's inheritance, depth, fan-out, lifecycle, and cancellation controls. Delegated authority remains within the parent's granted scope and the child's actual permissions. Collect results through supported completion signals.
 
-For lifecycle hooks, gates, or feedback-driven controls, separate three functions:
+Where limits must be enforced, identify the controlled quantity and enforcement point. Concurrent work may need atomic reservation of shared capacity or budget before dispatch, followed by settlement of actual usage. Include in-flight work and retries in the accounting. Distinguish a spending alert, a per-call limit, and a hard run-level budget; state costs or operations outside the guarantee.
 
-- **Recall:** Retrieve an applicable accepted rule or a specifically triggered unresolved candidate for review.
-- **Validation:** Inspect the current artifact, action, event, or evidence and decide whether the condition actually applies.
-- **Enforcement:** Warn, request approval, block, repair, or otherwise change control flow.
+Consider end-to-end completion time, synthesis, verification, queue growth, and human review when those downstream costs are material. Use backpressure, reduced concurrency, or prioritization when the next stage becomes the bottleneck. Small bounded work does not need a capacity analysis.
 
-A hook can reliably trigger a check without making the check semantically correct. A stored finding or another independent observation may justify recall and review, but it does not by itself authorize stronger enforcement. Choose advisory, approval, or blocking behavior from the consequence, scope, detection reliability, and policy authority of the current rule rather than from a recurrence count. Define what happens when the hook, evaluator, or required evidence is unavailable: a low-consequence quality aid may continue with a reported gap, while a required safety or side-effect boundary may need escalation or a fail-closed path. Bound any repair or stop-hook re-entry so the control cannot continue indefinitely.
+## Hooks and evaluators in a loop
 
-Place feedback close enough to the action to change the current pass when a reliable, affordable check is available. An inner self-check can accelerate repair, but it is not automatically an independent final verdict; use a separate context, deterministic check, human, or protected system only when the consequence or evaluator weakness justifies that independence. Do not add a separate verifier when the existing check already provides sufficient evidence.
+Separate recall of a relevant rule, validation that it applies to the current evidence, and enforcement that changes control flow. A reliable hook trigger does not make a semantic verdict correct. Recurrence may justify review, but does not alone justify a stronger gate.
 
-## Loop contract
+Place feedback near the action when it can improve the current result. Choose evaluator independence using the [evidence and evaluation criteria](state-evidence-and-recovery.md#evidence-and-evaluation), and bound repair or stop-hook re-entry with the runtime limits and progress rules.
 
-Select only the fields that affect the workflow:
+If a check is unavailable, choose the response from its role. A quality aid may be omitted with a reported limitation; a required permission or consequential-action gate cannot be silently skipped.
 
-- **Trigger:** What starts a run or iteration?
-- **Goal:** What user-visible outcome should exist?
-- **Scope:** What may change, and what is protected?
-- **State:** What must survive the next iteration or interruption?
-- **Action:** What may the agent or worker do?
-- **Observation:** What artifact, result, or external state is read after action?
-- **Evidence:** What supports the next decision?
-- **Evaluator:** Who or what judges the evidence?
-- **Delta:** What remains unresolved?
-- **Retry/Replan:** When should the workflow repeat the action or change its approach?
-- **Budget:** Which configured attempts, time, tokens, cost, or concurrency limits apply?
-- **Stop:** Which conditions end the loop?
-- **Escalation:** Which conditions require human or protected-system judgment?
-- **Recovery:** How can an interrupted run resume safely?
-- **Audit:** What record explains progress and decisions?
+## Source notes
 
-The contract may be prose, a state diagram, a table, pseudocode, or a schema. Use the smallest representation that makes transitions and ownership clear.
+Reviewed 2026-09-06; apply the model and runtime distinctions in `SKILL.md`.
 
-## Stop and convergence
-
-A bounded workflow normally stops for one or more of these reasons:
-
-1. Acceptance criteria pass.
-2. A configured attempt, time, token, cost, or other budget is exhausted.
-3. The unresolved delta stops changing or the same failure repeats without new evidence.
-4. A required dependency, permission, or source remains unavailable after meaningful fallback attempts.
-5. The next decision needs human judgment, approval, or domain knowledge.
-6. Continuing would exceed the authorized scope or risk boundary.
-
-Success is not the only legitimate stop. A focused handoff with evidence and a stable remaining delta is better than an unbounded attempt to appear complete.
-
-Track convergence through the remaining delta, not the number of edits or the agent's confidence. A loop that changes many files while the same validation failure remains is not converging.
-
-## Retry, replan, and escalation
-
-- **Retry** when the approach is still valid and the failure is transient or input-specific.
-- **Replan** when evidence invalidates an assumption, the same approach stalls, or the task needs a different decomposition.
-- **Escalate** when resolution requires a protected decision, new authority, missing domain judgment, or material scope expansion.
-
-Do not convert every failure into another retry. Record the reason for retry or replan so the next pass does not repeat completed work or the same unsupported assumption.
-
-## Parallel work
-
-Parallelize only workstreams that are sufficiently independent and whose results can be compared or synthesized. Define:
-
-- The isolated scope of each worker.
-- Shared resources that must remain read-only or serialized.
-- Where outputs and status are stored.
-- How failed or stale branches are cancelled.
-- Who synthesizes results and resolves conflicts.
-- Whether the gain is expected in quality, coverage, or wall-clock time.
-
-For nested delegation, define who may spawn descendants, what scope, permissions, state, and budgets they inherit, how depth and fan-out are bounded, how results return to the owner, and how supported completion, pause, stop, or cancellation signals propagate through the tree.
-
-Keep dependent decisions sequential. More agents increase orchestration, review, and token costs; parallelism is not a quality guarantee.
-
-When acceleration or parallelism changes the load on later stages, consider end-to-end completion time, queue growth, validation or review burden, rework, and approval latency rather than throughput alone. If downstream capacity becomes the constraint, possible responses include reducing concurrency, applying backpressure, prioritizing, batching, or narrowing scope. Small bounded work whose downstream load is negligible or already controlled does not need this analysis.
-
-## Common failure modes
-
-- Stopping because the model says it is done without artifact-level evidence.
-- Repeating the same prompt without carrying the unresolved delta.
-- Rebuilding state from the full transcript on every pass.
-- Retrying deterministic failures instead of replanning or stopping.
-- Inventing fixed limits unrelated to the runtime or risk.
-- Running time-based checks more frequently than the external state changes.
-- Repeating completed side effects after interruption.
-- Expanding scope to improve a metric rather than the requested outcome.
-- Using parallel agents where each result changes the next decision.
-- Leaving the final synthesis or validation unspecified.
-
-## Sources
-
-- [Loop engineering: Getting started with loops - Claude by Anthropic](https://claude.com/blog/getting-started-with-loops)
-- [The AI-Native SDLC playbook - Claude by Anthropic](https://claude.com/blog/the-ai-native-sdlc-playbook)
-- [Automate work with routines - Claude Code Docs](https://code.claude.com/docs/en/routines)
-- [Building effective agents - Anthropic](https://www.anthropic.com/engineering/building-effective-agents)
-- [Build iterative repair loops with Codex - OpenAI Cookbook](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex)
-- [Symphony Service Specification - OpenAI](https://github.com/openai/symphony/blob/main/SPEC.md)
-- [Model guidance: Using GPT-5.6 - OpenAI Developers](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)
-- [Hooks reference - Claude Code Docs](https://code.claude.com/docs/en/hooks)
+- [OpenAI: Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling) and [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering): pending results, application-owned job execution, and the distinction between updated instructions and cancellation.
+- [OpenAI: Codex as a platform](https://developers.openai.com/blog/codex-as-a-platform): reuse a harness and decide what the surrounding application owns.
+- [OpenAI Cookbook: Per-run spending controller](https://developers.openai.com/cookbook/articles/per_run_spending_controller_responses_api): reservation and settlement, with explicit limits on the example's cost coverage and execution modes.

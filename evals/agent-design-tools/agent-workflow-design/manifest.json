@@ -1,0 +1,370 @@
+{
+  "version": "2026-09-06-v1",
+  "date": "2026-09-06",
+  "targetSkill": "plugins/agent-design-tools/skills/agent-workflow-design",
+  "acceptedVersion": "candidate-v2",
+  "baseline": {
+    "commit": "7c687ab81b7a30e76ac7ee90afc8fce31f5693e3",
+    "files": [
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "bytes": 11440,
+        "sha256": "15440332f4022ee10d59cc894e12f0d9ee2c8a439c79e122c150f775325b757b"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/agents/openai.yaml",
+        "bytes": 459,
+        "sha256": "d50a97afafb67328ed649a2d02219c333b9514fdee8e8ba2e69552fc451408ea"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md",
+        "bytes": 3386,
+        "sha256": "982938364d9222dd28c712c068bf88cd6e3b26217493ee5a051c6b9ef1a63930"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+        "bytes": 15302,
+        "sha256": "10c64e5429400d471d451a049ce095972c9205d43e5d7017f09f4c0388d0925d"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+        "bytes": 10922,
+        "sha256": "c2d557b1581ab003a7f57d263b4e929d1fef4413b2ba688342972ea9cd3bc74e"
+      },
+      {
+        "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+        "bytes": 19089,
+        "sha256": "335fda9b4c9ce7ec40a9a3a72b8ab49e93f090f9e504b97874ba3f3ee61dc18b"
+      }
+    ]
+  },
+  "candidateVersions": {
+    "candidate-v1": {
+      "restoration": "evals/agent-design-tools/agent-workflow-design/candidate-snapshots.json: versions.candidate-v1.files",
+      "files": [
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+          "bytes": 8091,
+          "sha256": "897cc93a83c0f59df2c9f7fb4569f870632a6793cde19168695db83fe9e45a0e"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/agents/openai.yaml",
+          "bytes": 327,
+          "sha256": "d0d9e0813cee14610b8062e4f97a8af011272f5dbd0eceea36d40bc8ee23d3e6"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md",
+          "bytes": 3386,
+          "sha256": "982938364d9222dd28c712c068bf88cd6e3b26217493ee5a051c6b9ef1a63930"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+          "bytes": 8784,
+          "sha256": "6d942583ebc674b34a12e9092529538cdfaf4aac96619b470cd10107436c8840"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+          "bytes": 9957,
+          "sha256": "cee697e340432dddf7c999b54b7731798c58e3cf65ac33681c34313a87cd781a"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md",
+          "bytes": 4832,
+          "sha256": "a7504cba63e1c8a585f954882a08efe1128050c8ea09eae3c5b7e2e0bd9e21cd"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+          "bytes": 11217,
+          "sha256": "38fbe8bce55064500f3da2b539b8cb2224c5d7d17c586d3a6ce43444db410849"
+        }
+      ]
+    },
+    "candidate-v2": {
+      "restoration": "evals/agent-design-tools/agent-workflow-design/candidate-snapshots.json: candidate-v1 plus candidate-v2 replacements",
+      "files": [
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+          "bytes": 8091,
+          "sha256": "897cc93a83c0f59df2c9f7fb4569f870632a6793cde19168695db83fe9e45a0e"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/agents/openai.yaml",
+          "bytes": 327,
+          "sha256": "d0d9e0813cee14610b8062e4f97a8af011272f5dbd0eceea36d40bc8ee23d3e6"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md",
+          "bytes": 3386,
+          "sha256": "982938364d9222dd28c712c068bf88cd6e3b26217493ee5a051c6b9ef1a63930"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+          "bytes": 8784,
+          "sha256": "6d942583ebc674b34a12e9092529538cdfaf4aac96619b470cd10107436c8840"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+          "bytes": 10177,
+          "sha256": "fcee937dad8dd352c353786b5bae30da901f9a92f4370f668bbdda350da8433d"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md",
+          "bytes": 4832,
+          "sha256": "a7504cba63e1c8a585f954882a08efe1128050c8ea09eae3c5b7e2e0bd9e21cd"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+          "bytes": 11217,
+          "sha256": "38fbe8bce55064500f3da2b539b8cb2224c5d7d17c586d3a6ce43444db410849"
+        }
+      ]
+    }
+  },
+  "runtime": {
+    "tool": "Codex collaboration subagents",
+    "model": "Inherited from the current GPT-6 Astra session; no explicit override requested",
+    "perRunModelResponseMetadata": null,
+    "reasoningEffort": "Inherited; exact effective value not separately captured",
+    "samplingSeed": null,
+    "tokenLatencyAndCostMeasurements": "Not collected",
+    "context": "Fresh agent contexts (fork_turns=none), shared filesystem and available runtime tools. Common session and repository instructions still apply."
+  },
+  "protocol": {
+    "design": "Read the selected request text and the assigned immutable skill snapshot plus task-relevant references. Do not read criteria, continuation events, other trials, current source, or decision docs. Produce a fictional design, not live effects.",
+    "continuation": "A separate fresh executor reads the fixed generated design and the selected requests and ordered continuation events. It selects actions, waiting/completion, state, and identifies gaps; it does not read skills, criteria, or other trials.",
+    "freshCase": "The maintenance-record case was added after candidate-v1 was fixed; the generator reads only its request, not its criteria.",
+    "scope": "Five cases per version, grouped into two generation contexts per version. Six continuations per baseline and candidate-v1, one fresh candidate-v1 design, then one candidate-v2 design and three continuations for the affected monitor case.",
+    "separation": "Read restrictions are instruction-based, not filesystem enforcement. Output footers report actual input reads. Full tool transcripts and hidden reasoning are not retained.",
+    "assessment": "Primary maintainer applies qualitative criteria to saved artifacts. No independent scoring model or statistical comparison.",
+    "recheck": "Only the affected monitor case was rerun after the general scope-completion clarification. Other candidate-v1 evidence remains tied to v1 and is not relabeled as v2 execution."
+  },
+  "runs": [
+    {
+      "id": "baseline_design_a",
+      "kind": "design",
+      "target": "baseline",
+      "cases": [
+        "authorized-records",
+        "pending-monitor",
+        "uncertain-release"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-a.md",
+      "allowedReads": [
+        "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md"
+      ]
+    },
+    {
+      "id": "baseline_design_b",
+      "kind": "design",
+      "target": "baseline",
+      "cases": [
+        "subjective-repair",
+        "harness-maintenance"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-b.md",
+      "allowedReads": [
+        "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md"
+      ]
+    },
+    {
+      "id": "candidate_design_a",
+      "kind": "design",
+      "target": "candidate-v1",
+      "cases": [
+        "authorized-records",
+        "pending-monitor",
+        "uncertain-release"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-a.md",
+      "allowedReads": [
+        "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md"
+      ]
+    },
+    {
+      "id": "candidate_design_b",
+      "kind": "design",
+      "target": "candidate-v1",
+      "cases": [
+        "subjective-repair",
+        "harness-maintenance"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-b.md",
+      "allowedReads": [
+        "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md"
+      ]
+    },
+    {
+      "id": "baseline_followthrough",
+      "kind": "simulated-continuation",
+      "target": "baseline",
+      "cases": [
+        "pending-monitor",
+        "uncertain-release"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-followthrough.md",
+      "allowedReads": [
+        "evals/agent-design-tools/agent-workflow-design/evidence/baseline-a.md: selected design sections",
+        "evals/agent-design-tools/agent-workflow-design/cases.json: selected requests and continuations"
+      ]
+    },
+    {
+      "id": "candidate_followthrough",
+      "kind": "simulated-continuation",
+      "target": "candidate-v1",
+      "cases": [
+        "pending-monitor",
+        "uncertain-release"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-followthrough.md",
+      "allowedReads": [
+        "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-a.md: selected design sections and incidental provenance footer",
+        "evals/agent-design-tools/agent-workflow-design/cases.json: selected requests and continuations"
+      ]
+    },
+    {
+      "id": "candidate_fresh_design",
+      "kind": "design",
+      "target": "candidate-v1",
+      "cases": [
+        "shared-maintenance-records"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-fresh.md",
+      "allowedReads": [
+        "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md"
+      ]
+    },
+    {
+      "id": "candidate_v2_monitor",
+      "kind": "design",
+      "target": "candidate-v2",
+      "cases": [
+        "pending-monitor"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v2-monitor.md",
+      "allowedReads": [
+        "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md"
+      ]
+    },
+    {
+      "id": "candidate_v2_followthrough",
+      "kind": "simulated-continuation",
+      "target": "candidate-v2",
+      "cases": [
+        "pending-monitor"
+      ],
+      "evidence": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v2-followthrough.md",
+      "allowedReads": [
+        "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v2-monitor.md",
+        "evals/agent-design-tools/agent-workflow-design/cases.json: pending-monitor request and continuations"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "check": "skill-creator quick_validate.py",
+      "result": "pass",
+      "target": "candidate-v2"
+    },
+    {
+      "check": "npm run check:plugins",
+      "result": "pass",
+      "target": "candidate-v2"
+    },
+    {
+      "check": "Local Markdown reference existence",
+      "result": "pass",
+      "target": "candidate-v2"
+    },
+    {
+      "check": "Baseline blobs match recorded Git commit; final source matches candidate-v2 snapshot",
+      "result": "pass"
+    }
+  ],
+  "records": [
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/cases.json",
+      "bytes": 6538,
+      "sha256": "38666bd4b6b4f28f004677484968862255f4521d68abef2e27140fbfccfeadaa"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/criteria.json",
+      "bytes": 2679,
+      "sha256": "0897fea2f5931ddd3c9fdfe5f169919b17edd302ab43c3b66b2a3554edcb8878"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/fresh-cases.json",
+      "bytes": 1575,
+      "sha256": "a37f88c1d849d02d049c3488277356f0ff01bf9fd1920c23adddc2e64ea8186d"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/results.json",
+      "bytes": 5557,
+      "sha256": "434090d5fd0af544a711ef9bf75c749a1dfca343dffe8af8d6b84b4647337c30"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/candidate-snapshots.json",
+      "bytes": 61196,
+      "sha256": "417bc69a9af5b32b52892485eb0d5a65fcd623831b16d20727c4efa9f0a2b235"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-a.md",
+      "bytes": 13082,
+      "sha256": "d47d57c7e84b32ad65ca8f011f7f317f558b3275e873f47f065ff99ed6ad7394"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-b.md",
+      "bytes": 11056,
+      "sha256": "e50a278525a8665ffaa924bb1b9d0d2c7a6749f28bfd3b92c55792b2d3918cc9"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-a.md",
+      "bytes": 11087,
+      "sha256": "689b3352efce22806a75c0fc47d1b17181cdd9f052b0099d50c9453f7f9e4b7c"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-b.md",
+      "bytes": 10987,
+      "sha256": "2b9fe3c49554a1741e329f0d908457282eee30792fdf93698fd8a3191fe9ea69"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/baseline-followthrough.md",
+      "bytes": 9725,
+      "sha256": "970cfb9cc89db779fffdf420a63ec5ce2d6276b3684163acdbfcb7455b63a099"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-followthrough.md",
+      "bytes": 11001,
+      "sha256": "a08ac84139591b258cad010515634dd10168db96f5b38c2a690de9bef94a16d7"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v1-fresh.md",
+      "bytes": 6046,
+      "sha256": "652ab176dbe5f3e16abbfcc1a14f2e4d7ef0b1a825a71e254069e369d68fd462"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v2-monitor.md",
+      "bytes": 6448,
+      "sha256": "99e8eebcadc65afa4c439999e3c58855dc276f482aa929741d7fca985af51911"
+    },
+    {
+      "path": "evals/agent-design-tools/agent-workflow-design/evidence/candidate-v2-followthrough.md",
+      "bytes": 7994,
+      "sha256": "4916fad6bcb83b75a738a0a5bbd75138b446b12ac342d29eaa292e1646868458"
+    }
+  ],
+  "retention": "Preserve the recorded hashes and original outputs. Restore old targets separately from their baseline commit or saved content instead of rewriting historical target hashes.",
+  "report": "docs/agent-workflow-design/README.md"
+}
