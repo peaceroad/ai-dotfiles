@@ -15,6 +15,7 @@ node_modules/
 
 # Machine-specific agent development targets
 .agents/development.json
+home/.agents/development.json
 
 # Locally installed copies; tools/agent is the repository source
 .agents/development.schema.json

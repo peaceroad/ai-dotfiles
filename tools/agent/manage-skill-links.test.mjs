@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 
-const MANAGER = resolve(import.meta.dirname, "..", "..", ".agents", "scripts", "manage-skill-links.mjs");
+const MANAGER = resolve(import.meta.dirname, "..", "..", "home", ".agents", "scripts", "manage-skill-links.mjs");
 
 function writeJson(path, value) {
   mkdirSync(dirname(path), { recursive: true });

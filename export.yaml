@@ -1,4 +1,4 @@
-# Paths are relative to both the home directory and this repository.
+# Paths are relative to the home directory and are exported below this repository's home/ directory.
 # Add only files and directories that are safe to publish.
 paths:
   - .codex/AGENTS.md

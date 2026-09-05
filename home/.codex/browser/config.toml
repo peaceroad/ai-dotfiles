@@ -1,0 +1,55 @@
+# Codex Browser固有の設定。
+# ~/.codex/config.tomlのapproval_policyとは別に、サイトアクセス、履歴、
+# ファイル転送、Full CDPの確認と許可範囲を制御する。
+
+# 未許可のサイトへアクセスするときの確認方法。
+# "always_ask": アクセス前に確認する。未指定時もこの動作。
+# "never_ask": 確認を省略する。[origins].deniedや管理ポリシーによる拒否は優先される。
+# "disabled"は、サイトアクセスを無効化する値ではない。
+approval_mode = "never_ask"
+
+# Browser履歴を読み取るときの確認方法。
+# "always_ask": 読み取り前に確認する。未指定時もこの動作。
+# "never_ask": 確認なしで読み取りを許可する。
+# "disabled": 読み取りを拒否する。
+# 履歴の読み取りを拒否しても、Browserによる履歴の保存は無効にならない。
+history_approval_mode = "disabled"
+iab_history_approval_mode = "disabled" # 内蔵Browser（IAB）の履歴
+
+# ファイル転送の確認方法。
+# "always_ask": 転送前に確認する。未指定時もこの動作。
+# "never_ask": 許可・拒否リストに一致しない転送を確認なしで許可する。
+# [downloads].deniedと[uploads].deniedによる拒否は優先される。
+# download_approval_mode = "always_ask"
+# upload_approval_mode = "always_ask"
+
+# サイト単位の許可・拒否リスト。必要な場合だけ有効にする。
+# allowedに一致するサイトは確認なしで許可され、deniedに一致するサイトは拒否される。
+# 両方に一致する場合はdeniedが優先される。"*"はワイルドカード。
+#
+# [origins]
+# allowed = ["https://example.com", "https://*.trusted.example.com"]
+# denied = ["https://accounts.example.com", "https://*.internal.example.com"]
+
+# ダウンロードの許可・拒否リスト。
+# denied = ["*"]はすべて拒否する。
+# 特定サイトを許可する場合はdenied = ["*"]を削除し、allowedへ指定する。
+# すべて許可する場合はallowed = ["*"]へ置き換える。
+[downloads]
+# allowed = ["https://downloads.example.com"]
+denied = ["*"]
+
+# アップロードの許可・拒否リスト。
+# 特定サイトまたはすべてのサイトを許可する方法は[downloads]と同じ。
+[uploads]
+# allowed = ["https://uploads.example.com"]
+denied = ["*"]
+
+# Full CDP（Chrome DevTools Protocol）の許可・拒否リスト。
+# Full CDPは、コンソールやネットワークなどを調べる高度なデバッグ機能。
+# 通常のページ閲覧には必要ない。
+# 特定サイトを許可する場合はdenied = ["*"]を削除し、allowedへ指定する。
+# すべて許可する場合はallowed = ["*"]へ置き換える。
+[full_cdp]
+# allowed = ["http://localhost:*"]
+denied = ["*"]

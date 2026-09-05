@@ -7,11 +7,11 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 > [!IMPORTANT]
 > このリポジトリの設定は個人用です。再利用する場合は、ファイルアクセス、ネットワーク、環境変数の各権限を自分の環境に合わせて確認してください。
 >
-> Codexでこのリポジトリを信頼済みプロジェクトとして開くと、`.codex/config.toml`がプロジェクト設定としても読み込まれます。このため、プロジェクトを信頼する前に設定内容を確認してください。
+> ホームディレクトリから取り込んだ設定は`home/`配下に保存します。`home/.codex/config.toml`はこのリポジトリのプロジェクト設定として読み込まれないため、ユーザー設定のサンプルを管理しながら、このプロジェクト固有のCodex設定と分離できます。背景は[Codexの新規チャットでモデル設定が反映されない問題](docs/notes/codex-new-chat-model-selection.md)を参照してください。
 >
 > These settings are personal. Before reusing them, review file access, network, and environment variable permissions for your environment.
 >
-> When this repository is opened as a trusted project in Codex, `.codex/config.toml` is also loaded as project configuration. Therefore, review it before trusting the project.
+> Settings exported from the home directory are stored below `home/`. Because `home/.codex/config.toml` is not loaded as this repository's project configuration, the user-setting sample remains separate from project-specific Codex settings.
 
 エクスポートの仕組みと使い方は、[Export guide](docs/export.md)を参照してください。
 

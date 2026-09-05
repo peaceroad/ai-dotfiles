@@ -7,12 +7,12 @@
     "check": "node export.js --dry-run && npm run check:agent-dev && npm run check:skill-links && npm run check:plugin-tools && npm run check:plugins",
     "check:agent-dev": "node --test tools/agent/agent.test.mjs && pwsh -NoProfile -File scripts/test-install-agent.ps1",
     "check:plugins": "node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs plugins/agent-design-tools && node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs plugins/agent-plugin-tools",
-    "check:skill-links": "node --test tools/agent/manage-skill-links.test.mjs && node .agents/scripts/manage-skill-links.mjs validate",
+    "check:skill-links": "node --test tools/agent/manage-skill-links.test.mjs && node home/.agents/scripts/manage-skill-links.mjs validate",
     "check:plugin-tools": "node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.test.mjs && node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/manage-local-agent-plugin.test.mjs && node --test plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.test.mjs plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/assemble-agent-marketplace.test.mjs && node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/check-builtin-plugin-creator.test.mjs",
     "build": "node export.js --write",
-    "skill-links:status": "node .agents/scripts/manage-skill-links.mjs status",
-    "skill-links:check": "node .agents/scripts/manage-skill-links.mjs check",
-    "skill-links:sync": "node .agents/scripts/manage-skill-links.mjs sync"
+    "skill-links:status": "node home/.agents/scripts/manage-skill-links.mjs status",
+    "skill-links:check": "node home/.agents/scripts/manage-skill-links.mjs check",
+    "skill-links:sync": "node home/.agents/scripts/manage-skill-links.mjs sync"
   },
   "engines": {
     "node": ">=18"

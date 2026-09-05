@@ -314,7 +314,7 @@ try {
   )
   $payload = @(
     $corePayload
-    @{ Source = (Join-Path $projectRoot '.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $destinationScripts 'manage-skill-links.mjs'); Markers = @($agentMarker, $legacyAgentMarker) }
+    @{ Source = (Join-Path $projectRoot 'home\.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $destinationScripts 'manage-skill-links.mjs'); Markers = @($agentMarker, $legacyAgentMarker) }
     @{ Source = (Join-Path $pluginToolsSource 'scripts\manage-local-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\manage-local-agent-plugin.mjs'); Markers = @($localPluginMarker, $agentMarker) }
     @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-agent-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-agent-marketplace.mjs'); Markers = @($marketplaceAssemblerMarker, $agentMarker) }
     @{ Source = (Join-Path $pluginToolsSource 'scripts\validate-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\validate-agent-plugin.mjs'); Markers = @($portableValidatorMarker, $agentMarker) }

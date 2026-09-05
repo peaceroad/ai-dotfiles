@@ -13,6 +13,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const REPOSITORY_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const REPOSITORY_HOME_ROOT = path.join(REPOSITORY_ROOT, "home");
 const CONFIG_PATH = path.join(REPOSITORY_ROOT, "export.yaml");
 const HOME_DIRECTORY = os.homedir();
 const LOCAL_USER_NAME = path.basename(HOME_DIRECTORY);
@@ -186,7 +187,7 @@ function redactDisplayPaths(text) {
 function usage() {
   console.log(`Usage:
   npm run check             Show the export plan and scan source files
-  npm run build             Scan and copy source files into this repository
+  npm run build             Scan and copy source files into this repository's home/ mirror
 
 Direct usage:
   node export.js --dry-run
@@ -890,7 +891,7 @@ async function buildDirectorySyncPlan(
       .filter((directoryRelativePath) =>
         !existingDirectories.has(pathComparisonKey(directoryRelativePath)))
       .map((directoryRelativePath) =>
-        resolveContained(REPOSITORY_ROOT, directoryRelativePath)),
+        resolveContained(REPOSITORY_HOME_ROOT, directoryRelativePath)),
     obsoleteFiles: destination.files.filter(
       ({ relativePath: filePath }) =>
         !expectedFiles.has(pathComparisonKey(filePath)),
@@ -959,7 +960,7 @@ async function writeFiles(files, directorySyncPlan) {
     IO_CONCURRENCY,
     async (file) => {
       const destinationPath = resolveContained(
-        REPOSITORY_ROOT,
+        REPOSITORY_HOME_ROOT,
         file.relativePath,
       );
       await assertNoDestinationSymbolicLinks(destinationPath);
@@ -1043,7 +1044,7 @@ async function main() {
     IO_CONCURRENCY,
     async (relativePath) => {
       const sourcePath = resolveContained(HOME_DIRECTORY, relativePath);
-      const destinationPath = resolveContained(REPOSITORY_ROOT, relativePath);
+      const destinationPath = resolveContained(REPOSITORY_HOME_ROOT, relativePath);
       const sourceDirectories = new Set();
       const skippedFiles = [];
       const files = await collectFiles(

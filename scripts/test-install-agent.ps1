@@ -130,7 +130,7 @@ try {
   )
   $files = @(
     $coreFiles
-    @{ Source = (Join-Path $projectRoot '.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $agentsRoot 'scripts\manage-skill-links.mjs') }
+    @{ Source = (Join-Path $projectRoot 'home\.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $agentsRoot 'scripts\manage-skill-links.mjs') }
     $pluginRuntimeFiles
   )
   foreach ($file in $pluginRuntimeFiles) {
