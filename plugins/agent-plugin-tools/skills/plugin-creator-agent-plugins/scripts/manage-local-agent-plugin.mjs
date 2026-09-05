@@ -634,20 +634,16 @@ function readMarketplaceAtRoot(marketplaceRoot, pluginRoot, pluginName) {
     fail(`${displayPath(marketplacePath)} has no plugins array.`);
   }
 
-  const matches = marketplace.plugins.filter((entry) => {
-    if (
-      entry?.name !== pluginName
-      || entry?.source?.source !== "local"
-      || typeof entry?.source?.path !== "string"
-    ) {
-      return false;
-    }
-    return samePath(resolve(marketplaceRoot, entry.source.path), pluginRoot);
-  });
-  if (matches.length > 1) {
-    fail(`Marketplace ${marketplace.name} contains duplicate local entries for ${pluginName}.`);
+  const namedEntries = marketplace.plugins.filter((entry) => entry?.name === pluginName);
+  if (namedEntries.length > 1) {
+    fail(`Marketplace ${marketplace.name} contains duplicate entries for ${pluginName}.`);
   }
-  if (matches.length === 0) {
+  const [entry] = namedEntries;
+  if (
+    entry?.source?.source !== "local"
+    || typeof entry.source.path !== "string"
+    || !samePath(resolve(marketplaceRoot, entry.source.path), pluginRoot)
+  ) {
     return null;
   }
   return {

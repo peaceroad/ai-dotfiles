@@ -272,10 +272,11 @@ test("sync and check can use an external assembly definition", async () => {
   try {
     await createPlugin(source, "sample-plugin");
     await writeJson(configuration, {
-      schemaVersion: 1,
+      schemaVersion: 2,
       name: "external-marketplace",
       displayName: "External Marketplace",
       plugins: [{ source, category: "Tools" }],
+      skills: [],
     });
 
     const synced = invoke(["sync", marketplaceRoot, "--config", configuration], tempRoot);
@@ -293,6 +294,25 @@ test("sync and check can use an external assembly definition", async () => {
     const defaultCheck = invoke(["check", marketplaceRoot], tempRoot);
     assert.equal(defaultCheck.status, 1);
     assert.match(defaultCheck.stderr, /configuration.*does not exist/iu);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("assembly rejects obsolete configuration schema versions", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "plugin-marketplace-schema-v1-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  const configuration = path.join(tempRoot, "obsolete-config.json");
+  try {
+    await writeJson(configuration, {
+      schemaVersion: 1,
+      name: "obsolete-marketplace",
+      displayName: "Obsolete Marketplace",
+      plugins: [],
+    });
+    const result = invoke(["check", marketplaceRoot, "--config", configuration], tempRoot);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /config\.json\.schemaVersion must be 2/u);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

@@ -262,16 +262,19 @@ function validateInitInputs(options) {
     fail(`Marketplace catalog does not exist: ${marketplacePath}`);
   }
   const marketplace = JSON.parse(readFileSync(marketplacePath, "utf8"));
-  const matches = Array.isArray(marketplace.plugins)
-    ? marketplace.plugins.filter((entry) => (
-      entry?.name === manifest.name
-      && entry?.source?.source === "local"
-      && typeof entry?.source?.path === "string"
-      && canonicalPath(resolve(options.repositoryRoot, marketplaceRoot, entry.source.path))
-        === canonicalPath(pluginPath)
-    ))
+  const namedEntries = Array.isArray(marketplace.plugins)
+    ? marketplace.plugins.filter((entry) => entry?.name === manifest.name)
     : [];
-  if (matches.length !== 1) {
+  if (namedEntries.length > 1) {
+    fail(`Marketplace contains duplicate entries for ${manifest.name}.`);
+  }
+  const [entry] = namedEntries;
+  if (
+    entry?.source?.source !== "local"
+    || typeof entry.source.path !== "string"
+    || canonicalPath(resolve(options.repositoryRoot, marketplaceRoot, entry.source.path))
+      !== canonicalPath(pluginPath)
+  ) {
     fail(`Marketplace must contain exactly one matching local entry for ${manifest.name}.`);
   }
   return { ...options, pluginName: manifest.name, pluginRoot, marketplaceRoot };

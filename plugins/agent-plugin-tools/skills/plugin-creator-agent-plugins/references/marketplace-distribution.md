@@ -36,6 +36,8 @@ Keep a repository Skill as the normal source of truth. An explicitly configured 
 
 An orchestrator that owns a separate private configuration may call `sync` or `check` with `--config <configuration>`. The assembler then reads that external schema-version-2 assembly definition instead of the root `config.json`; relative plugin and Skill sources still resolve from the Marketplace root. It does not copy the external definition into the Marketplace. The orchestrator owns any safe, source-path-free reference file it creates at the normal `config.json` location. Do not mix an orchestrator-managed reference configuration with direct `init` or `add` commands in the same Marketplace root.
 
+The assembler accepts only schema version 2 for both root and external assembly definitions. It rejects earlier configuration versions rather than migrating them implicitly.
+
 The same root layout works in a local Git checkout and on an accessible network filesystem. Run Git operations, release publication, NAS uploads, and consumer installation as separate authorized steps.
 
 The assembler validates portable package structure but intentionally does not run source-repository tests, apply a repository version policy, or install through Codex. When a source uses the optional `.agents/plugin-development/` contract, run its repository-owned `validate` command before assembly. `sync` then copies the package version already recorded in the source `plugin.json`; it does not bump that version. This keeps the Repository development flow separate from the shared-distribution flow.

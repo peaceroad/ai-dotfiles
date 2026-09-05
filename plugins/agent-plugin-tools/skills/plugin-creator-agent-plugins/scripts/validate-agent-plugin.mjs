@@ -3,6 +3,7 @@
 // @plugin-creator-agent-plugins managed-portable-validator v1
 
 import { lstat, readFile, readdir, realpath } from "node:fs/promises";
+import { isIP } from "node:net";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -231,7 +232,13 @@ function validateRemoteUrl(urlText, label, errors) {
     errors.push(`${label}.url is not a valid URL.`);
     return;
   }
-  const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1" || url.hostname === "[::1]";
+  const hostname = url.hostname.startsWith("[") && url.hostname.endsWith("]")
+    ? url.hostname.slice(1, -1)
+    : url.hostname;
+  const addressFamily = isIP(hostname);
+  const loopback = hostname === "localhost"
+    || (addressFamily === 4 && hostname.startsWith("127."))
+    || (addressFamily === 6 && hostname === "::1");
   if (url.protocol !== "http:" && url.protocol !== "https:") errors.push(`${label}.url must use HTTP or HTTPS.`);
   if (!loopback && url.protocol !== "https:") errors.push(`${label}.url must use HTTPS for a non-loopback connection.`);
   if (url.username || url.password) errors.push(`Do not embed credentials in ${label}.url.`);

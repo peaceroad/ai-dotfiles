@@ -63,7 +63,7 @@ Move-Item `
   -Destination '.agents\marketplace-development'
 ```
 
-組み立てスクリプトを直接使う場合、`config.json`だけが人間の管理する組み立て設定です。`schema.json`、`state.json`、二つのカタログ、`plugins/<plugin-name>/`、`skills/<skill-name>/`は生成物なので、直接編集しません。
+組み立てスクリプトを直接使う場合、`config.json`だけが人間の管理する組み立て設定です。この設定もschema v2だけを受け付け、旧v1を自動変換しません。`schema.json`、`state.json`、二つのカタログ、`plugins/<plugin-name>/`、`skills/<skill-name>/`は生成物なので、直接編集しません。
 
 後述する`agent dev marketplace`で管理する場合は境界が異なります。人が管理する正本は開発マシンの`~/.agents/development.json`であり、Marketplace側の`config.json`も生成物です。二つの方式を同じMarketplaceルートで混在させません。
 

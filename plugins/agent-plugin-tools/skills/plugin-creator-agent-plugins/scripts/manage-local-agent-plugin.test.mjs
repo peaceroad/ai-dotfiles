@@ -349,6 +349,56 @@ try {
     [invalidMarketplace.stdout, invalidMarketplace.stderr].join("\n"),
   );
 
+  const duplicateMarketplaceRepository = await createRepository(
+    "duplicate-marketplace-plugin",
+  );
+  const duplicateMarketplacePath = path.join(
+    duplicateMarketplaceRepository.repoRoot,
+    ".agents",
+    "plugins",
+    "marketplace.json",
+  );
+  const duplicateMarketplace = JSON.parse(
+    await readFile(duplicateMarketplacePath, "utf8"),
+  );
+  duplicateMarketplace.plugins.push({
+    name: "duplicate-marketplace-plugin",
+    source: { source: "local", path: "./plugins/another-copy" },
+  });
+  await writeJson(duplicateMarketplacePath, duplicateMarketplace);
+  await writeJson(
+    repositoryConfigPath(
+      duplicateMarketplaceRepository.repoRoot,
+      "duplicate-marketplace-plugin",
+    ),
+    {
+      schemaVersion: 1,
+      pluginRoot: "plugins/duplicate-marketplace-plugin",
+      versionPolicy: "keep",
+    },
+  );
+  const duplicateMarketplaceResult = runManager(
+    [
+      "validate",
+      "--config",
+      repositoryConfigPath(
+        duplicateMarketplaceRepository.repoRoot,
+        "duplicate-marketplace-plugin",
+      ),
+    ],
+    fakeCodex,
+    statePath,
+    duplicateMarketplaceRepository.repoRoot,
+  );
+  check(
+    "Marketplace binding rejects duplicate plugin names",
+    duplicateMarketplaceResult.status === 1
+      && duplicateMarketplaceResult.stderr.includes(
+        "contains duplicate entries for duplicate-marketplace-plugin",
+      ),
+    [duplicateMarketplaceResult.stdout, duplicateMarketplaceResult.stderr].join("\n"),
+  );
+
   const failingRepository = await createRepository("failing-check-plugin");
   const failingCheck = path.join(
     failingRepository.repoRoot,

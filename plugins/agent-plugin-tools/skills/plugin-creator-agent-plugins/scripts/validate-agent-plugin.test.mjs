@@ -73,6 +73,15 @@ try {
   const insecureMcp = await createPlugin("insecure-mcp", { mcp: { remote: { type: "streamable-http", url: "http://example.com/mcp" } } });
   run("non-loopback HTTP MCP", insecureMcp, { status: 1, errorIncludes: "must use HTTPS" });
 
+  const ipv4LoopbackMcp = await createPlugin("ipv4-loopback-mcp", { mcp: { remote: { type: "streamable-http", url: "http://127.0.0.2/mcp" } } });
+  run("IPv4 loopback range HTTP MCP", ipv4LoopbackMcp, { status: 0 });
+
+  const ipv6LoopbackMcp = await createPlugin("ipv6-loopback-mcp", { mcp: { remote: { type: "streamable-http", url: "http://[::1]/mcp" } } });
+  run("IPv6 loopback HTTP MCP", ipv6LoopbackMcp, { status: 0 });
+
+  const nonLoopbackMcp = await createPlugin("non-loopback-mcp", { mcp: { remote: { type: "streamable-http", url: "http://128.0.0.1/mcp" } } });
+  run("non-loopback IPv4 HTTP MCP", nonLoopbackMcp, { status: 1, errorIncludes: "must use HTTPS" });
+
   const badNamespace = await createPlugin("bad-namespace", { manifest: { $schema: pluginSchema, name: "bad-namespace", extensions: { codex: {} } } });
   run("invalid extension namespace", badNamespace, { status: 1, errorIncludes: "reverse-domain notation" });
 

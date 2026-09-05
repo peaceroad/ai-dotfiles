@@ -347,6 +347,57 @@ test("init validates the Marketplace contract before writing files", async () =>
   }
 });
 
+test("init rejects duplicate Marketplace plugin names before writing files", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "agent-plugin-scaffold-duplicate-"));
+  const repositoryRoot = path.join(tempRoot, "repository");
+  const pluginRoot = path.join(repositoryRoot, "plugins", "sample-plugin");
+  try {
+    await mkdir(pluginRoot, { recursive: true });
+    await writeJson(path.join(pluginRoot, "plugin.json"), {
+      $schema: schema,
+      name: "sample-plugin",
+      version: "0.1.0",
+    });
+    await writeJson(
+      path.join(repositoryRoot, ".agents", "plugins", "marketplace.json"),
+      {
+        name: "sample-marketplace",
+        plugins: [
+          {
+            name: "sample-plugin",
+            source: { source: "local", path: "./plugins/sample-plugin" },
+          },
+          {
+            name: "sample-plugin",
+            source: { source: "local", path: "./plugins/another-copy" },
+          },
+        ],
+      },
+    );
+    const result = invoke(
+      ["init", repositoryRoot, "plugins/sample-plugin", "--keep-version"],
+      tempRoot,
+    );
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Marketplace contains duplicate entries for sample-plugin/u);
+    assert.equal(
+      existsSync(path.join(
+        repositoryRoot,
+        ".agents",
+        "plugin-development",
+        "sample-plugin.json",
+      )),
+      false,
+    );
+    assert.equal(
+      existsSync(path.join(repositoryRoot, "scripts", "local-plugin.mjs")),
+      false,
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("import places a pending config without deleting its source and rolls back failures", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "agent-plugin-import-"));
   const repositoryRoot = path.join(tempRoot, "repository");
