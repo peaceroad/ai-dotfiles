@@ -35,6 +35,8 @@
 
 この案を説明しただけでは、`~/.agents/notes/`、所有者ディレクトリ、候補、判断記録を作成しません。規約を採用するときは、`~/.agents/notes/README.md`を運用上の正本として設置または調整します。既存のファイルがある場合は、内容を確認し、適用できる規則を残したうえで調整します。採用後も、具体的な記録と書き込み範囲が決まるまでは、所有者ディレクトリや記録を増やしません。
 
+すでに許可された保存目的・場所・範囲は引き継ぎます。その範囲に含まれるディレクトリ作成や記録の追加を、保存先がまだ存在しないという理由だけで再確認する必要はありません。新しい保存目的や範囲への拡張が許可されていなければ、対象を具体化してから不足する許可を確認します。
+
 ## 候補と判断記録を分ける
 
 `candidates/`には、後から得られる証拠と比較する価値がある未解決の判断を置きます。候補の存在は、規則が採用されたことや、正しさが確認されたことを意味しません。採否を判断するときは、候補が参照するセッション、成果物、検証結果、利用者の修正などを改めて確認します。
@@ -72,6 +74,8 @@
 - 根拠を確認できなくなった。
 - 対象範囲や保守の必要性がなくなった。
 
+候補の整理と、独立した監査要件による証拠の保存は別に扱います。候補を削除することを理由に、監査契約で保持する必要がある評価結果や操作の証拠まで削除しません。
+
 判断記録は、将来の保守に影響する間だけ正本との対応を保ちます。判断が大きく変わった場合は、生の実行履歴を追記し続けず、所有者の規約に従って改訂または置き換えます。
 
 ## `config`やランタイム状態との違い
@@ -104,5 +108,6 @@
 
 - `~/.agents/notes/README.md`に置く運用規約
 - [skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md#改善記録とruntime-stateを必要な場合だけ持つ)
+- [Maintenance records（`agent-workflow-design`）](../../plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md)
 - [State, evidence, and recovery（`agent-workflow-design`）](../../plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md)
 - [Agent Skills Specification](https://agentskills.io/specification)

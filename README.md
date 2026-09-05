@@ -19,8 +19,12 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 
 再利用するスキルは、Agent Plugins v1形式の二つのプラグインを正本として管理します。
 
-- `plugins/agent-design-tools/`：`prompt-design`と`agent-workflow-design`
+- `plugins/agent-design-tools/`：[prompt-design](plugins/agent-design-tools/skills/prompt-design/README.md)と[agent-workflow-design](plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)
 - `plugins/agent-plugin-tools/`：`plugin-creator-agent-plugins`
+
+設計用の2スキルと組み込みの`skill-creator`の選び方、Astraの既定値とGPT-5.6用参照、検証・記録の分担は、[3スキルの役割と使い分け](docs/notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
+
+評価の入力・応答・manifestは[evals/](evals/README.md)でプラグイン別に管理し、評価の説明と判断は`docs/`に置きます。
 
 開発中の正本を`~/.agents/skills/`から直接参照するローカルリンクは、`~/.agents/skill-links.json`で一括管理します。公開用コピーには、このリポジトリ内を参照する宣言だけを書き出します。コマンド、状態表示、安全境界は[開発中のスキルをユーザースコープへリンクする](docs/skill-links.md)を参照してください。
 
