@@ -2,7 +2,7 @@
 
 Use for the Astra target selected in `SKILL.md`. These are conditional adjustments, not a template or a reason to add every rule below.
 
-Official guidance checked: 2026-09-05. The [Astra model guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra) identifies clarification that can interrupt expected progress, sensitivity to instruction files, detailed formatting, less delegation than some workflows want, and thorough testing that can exceed small changes' needs. Treat these as reported tendencies to investigate, not guaranteed failures in an application.
+Official guidance checked: 2026-09-05. The Astra model guide identifies clarification that can interrupt expected progress, sensitivity to instruction files, detailed formatting, less delegation than some workflows want, and thorough testing that can exceed small changes' needs. Treat these as reported tendencies to investigate, not guaranteed failures in an application.
 
 ## Initiative and confirmation
 
@@ -40,7 +40,7 @@ For visual work, render and inspect the affected result when appearance matters.
 
 Tune delegation to the available runtime and its policy. Specify explicit-only or proactive use when needed. For proactive use, consider independent bounded work, separate-context benefits, coordination cost, shared writes, and useful parallel work by the root. Avoid mandatory delegation for small tasks or a single dependent chain. Respect applicable runtime limits when choosing parallelism.
 
-Give a subagent the needed context and result contract, then integrate and verify relevant findings. Inter-agent messages should be human-readable. A subagent's completion does not establish that the overall task is done. The [Multi-agent guide](https://developers.openai.com/api/docs/guides/responses-multi-agent) explains tradeoffs; use the runtime reference only when designing API coordination.
+Give a subagent the needed context and result contract, then integrate and verify relevant findings. Inter-agent messages should be human-readable. A subagent's completion does not establish that the overall task is done. Use the runtime reference only when designing API coordination.
 
 ## Updates, pending work, and continuity
 
@@ -60,4 +60,11 @@ For a skill that designs instructions, evaluate both its generated instructions 
 
 Choose cases affected by the revision: authorized edits and review-only near misses; existing authorization and consequential missing input; optional guidance conflicting with a user request; small changes with required checks; mid-task corrections; or a runtime that forbids delegation. Keep some fresh cases outside the tuning set. These are evaluation ideas, not rules to append to every prompt.
 
-Report structural validation, manual review, generated-prompt comparison, and downstream execution separately. None alone proves general improvement. See [Evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices) and [instruction hierarchy](https://developers.openai.com/api/docs/guides/prompt-engineering#message-roles-and-instruction-following).
+Report structural validation, manual review, generated-prompt comparison, and downstream execution separately. None alone proves general improvement.
+
+## Official sources
+
+- [Astra model guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra)
+- [Multi-agent guide](https://developers.openai.com/api/docs/guides/responses-multi-agent)
+- [Evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices)
+- [Instruction hierarchy](https://developers.openai.com/api/docs/guides/prompt-engineering#message-roles-and-instruction-following)

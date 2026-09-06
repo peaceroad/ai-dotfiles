@@ -1,13 +1,22 @@
 # Repository instructions
 
-- `home/.agents/`と`home/.codex/`は、ホームディレクトリにある公開用ファイルのエクスポート先として扱う。ユーザー名、マシン固有の絶対パス、認証情報を不用意に追加しない。リポジトリルートの`.agents/`や`.codex/`と混同しない。
-- このリポジトリへエクスポートするスクリプトでは、通常出力、ヘルプ、エラーに、ユーザー名や展開済みのホームディレクトリの絶対パスを含めない。内部処理には実パスを使い、表示は`~`などの公開可能な表記に置き換える。
-- `export.js`の機密情報チェックを広く無効化しない。例外が必要な場合は、対象と検査項目を限定する。
-- `export.js`または`export.yaml`を変更したら、`node --check export.js`と`npm run check`を実行する。dry runで指摘が残っている場合は`npm run build`を実行しない。
-- Windows版Codexのサンドボックス内では、`npm run build`が`home/.agents/`と`home/.codex/`への書き込みで`EPERM`になることがある。Codexは`npm run check`まで実行し、`npm run build`はユーザーに依頼する。
-- 外部依存は、標準モジュールだけでは明確に実現できない要件が出るまで追加しない。
+## Public exports
 
-## Language policy
+- `home/.agents/` and `home/.codex/` are export destinations for publishable files from the user's home directory. Avoid introducing personal usernames, machine-specific absolute paths, or credentials. These destinations are distinct from repository-root `.agents/` and `.codex/`.
+- For scripts exported to this repository, keep usernames and expanded home-directory paths out of normal output, help, and errors. Use actual paths internally and public-safe forms such as `~` for display.
+- Preserve the sensitive-information checks in `export.js`. Scope any necessary exception to a specific target and check.
 
-- `plugins/`配下の説明文、指示、参照、README、UIメタデータ、汎用テンプレートは英語を基本とする。特定言語を扱う例文、引用、評価入力、翻訳対象は、目的に必要な言語を保持する。
-- `docs/`配下の利用者向け解説、公開ノート、評価の説明は日本語を基本とする。同じ文書の二言語版は、利用上の必要性がある場合だけ作る。
+## Export validation
+
+- After changing `export.js` or `export.yaml`, run `node --check export.js` and `npm run check`. Do not run `npm run build` while the dry run has outstanding findings.
+- For export work in the Windows Codex sandbox, complete the checks and ask the user to run `npm run build`; writes to `home/.agents/` and `home/.codex/` can fail with `EPERM` there.
+
+## Dependencies
+
+- Add an external dependency only when a clear requirement cannot be met with standard modules alone.
+
+## Documentation layout and language
+
+- Put plugin usage and setup guidance in `plugins/<plugin>/README.md`. Keep individual skill roots free of `README.md`; keep each skill's entry-point instructions and reference-loading conditions in `SKILL.md`. Purpose-specific README files within assets or templates may remain with those resources.
+- Use English by default for this file and for descriptions, instructions, references, READMEs, UI metadata, and generic templates under `plugins/`. Preserve the language needed by language-specific examples, quotations, evaluation inputs, and translation targets.
+- Use Japanese by default for user-facing explanations, public notes, and evaluation write-ups under `docs/`. Create parallel language versions of a document only when there is a concrete user need.

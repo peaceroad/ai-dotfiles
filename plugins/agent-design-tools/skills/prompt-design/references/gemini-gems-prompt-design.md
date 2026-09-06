@@ -2,7 +2,7 @@
 
 Use for classic Gemini Apps Gems with persistent Instructions and Knowledge. Read [Gemini prompt design](gemini-prompt-design.md) for instruction wording and [media prompts](gemini-media-generation-prompt-design.md) when relevant. This is an authoring reference; producing instruction text does not itself create, save, or share a Gem.
 
-Official guidance checked: 2026-09-06. [Gems from Google Labs](https://support.google.com/gemini/answer/16802014) are Opal-powered mini-app workflows, a different authoring surface. If that is the target, design its inputs, steps, outputs, and handoffs using its current guidance instead of assuming the classic Instructions/Knowledge setup applies. Infer the intended surface from context; clarify only if the distinction changes the work and remains unresolved.
+Official guidance checked: 2026-09-06. Gems from Google Labs are Opal-powered mini-app workflows, a different authoring surface. If that is the target, design its inputs, steps, outputs, and handoffs using its current guidance instead of assuming the classic Instructions/Knowledge setup applies. Infer the intended surface from context; clarify only if the distinction changes the work and remains unresolved.
 
 ## Define behavior across conversations
 
