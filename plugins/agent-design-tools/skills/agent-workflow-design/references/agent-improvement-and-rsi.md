@@ -53,7 +53,7 @@ Accept, revise, reject, or leave the candidate unresolved under that contract. A
 
 Keep reusable evaluation definitions under their project's review and versioning rules. Retain cases when their future detection value justifies maintenance. Choose manual, change-triggered, scheduled, release, or incident-time evaluation from feedback needs and cost; CI is an option, not a requirement.
 
-Keep generated outputs and traces temporary unless comparison, audit, or recovery warrants retention in an authorized project or runtime location. Saving the selected case, original output, relevant settings, and content hashes can make a comparison inspectable without retaining the whole session. Follow [state and persistence](state-evidence-and-recovery.md#persistence-decision).
+Keep generated outputs and traces temporary unless comparison, audit, or recovery warrants retention in an authorized project or runtime location. Distinguish being able to inspect a past evaluation from being able to rerun it. When future reruns are in scope, preserve or reference the inputs and execution setup they require. Follow [state and persistence](state-evidence-and-recovery.md#persistence-decision).
 
 Alongside the revision report, identify the diagnosed layer, adoption decision, and activation status. Preserve the evaluated version and limits of the comparison.
 
