@@ -6,3 +6,8 @@
 - `export.js`または`export.yaml`を変更したら、`node --check export.js`と`npm run check`を実行する。dry runで指摘が残っている場合は`npm run build`を実行しない。
 - Windows版Codexのサンドボックス内では、`npm run build`が`home/.agents/`と`home/.codex/`への書き込みで`EPERM`になることがある。Codexは`npm run check`まで実行し、`npm run build`はユーザーに依頼する。
 - 外部依存は、標準モジュールだけでは明確に実現できない要件が出るまで追加しない。
+
+## Language policy
+
+- `plugins/`配下の説明文、指示、参照、README、UIメタデータ、汎用テンプレートは英語を基本とする。特定言語を扱う例文、引用、評価入力、翻訳対象は、目的に必要な言語を保持する。
+- `docs/`配下の利用者向け解説、公開ノート、評価の説明は日本語を基本とする。同じ文書の二言語版は、利用上の必要性がある場合だけ作る。

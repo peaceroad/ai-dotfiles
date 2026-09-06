@@ -63,7 +63,7 @@
 
 | 必要な情報 | 主な参照先 |
 | --- | --- |
-| Astra・GPT-5.6向けの指示調整とモデル設定 | `prompt-design`のモデル別参照。具体的な読み分けは[利用者向けREADME](../../plugins/agent-design-tools/skills/prompt-design/README.md) |
+| Astra・GPT-5.6向けの指示調整とモデル設定 | `prompt-design`のモデル別参照。具体的な読み分けは[プラグインのREADME](../../plugins/agent-design-tools/README.md#reference-selection) |
 | OpenAI APIのツール経路、状態、機能の組み合わせ | `prompt-design`の[tools and runtime boundaries](../../plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md)と公式資料。Codexなどの管理された製品では、公開されているツール契約を使う |
 | 進行・待機・再開・評価・権限の設計 | `agent-workflow-design`の[共通参照への入口](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md#reference-routing) |
 | GPT-5.6を維持・適用・比較する際の補足 | `agent-workflow-design`の[GPT-5.6用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/openai-gpt-5.6-workflow-design.md)。モデルやランタイムの差が関係するときだけ読み、Astraだけを対象にする仕事には読み込まない |

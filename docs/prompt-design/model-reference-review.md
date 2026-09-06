@@ -36,7 +36,7 @@ Geminiの参照は、一般的な指示設計、GemのInstructionsとKnowledge�
 
 ## 検証と限界
 
-利用者向けの説明として、[スキルのREADME](../../plugins/agent-design-tools/skills/prompt-design/README.md)へモデル選択の例を追加しました。既定のAstraと既存の利用先の優先関係、実行中モデルへ自動追従しないことを説明しています。同日にGPT-5.6公式ガイドのPrompting best practicesを再確認し、簡潔さ、権限、Pro mode、PTCの助言を専用参照・共通本文・API参照と照合しました。追加修正を要する点は見つからず、指示ファイルは維持しています。
+利用者向けの説明として、スキルのREADMEへモデル選択の例を追加しました（現在は[プラグインのREADME](../../plugins/agent-design-tools/README.md#target-model)へ統合）。既定のAstraと既存の利用先の優先関係、実行中モデルへ自動追従しないことを説明しています。同日にGPT-5.6公式ガイドのPrompting best practicesを再確認し、簡潔さ、権限、Pro mode、PTCの助言を専用参照・共通本文・API参照と照合しました。追加修正を要する点は見つからず、指示ファイルは維持しています。
 
 参照の復元時に変更した指示は、`SKILL.md`のGPT-5.6への入口とGPT-5.6参照です。Astra・Gemini・APIの既存参照とスキルのdescriptionは維持しています。入口の条件と本文の適用範囲、設定の出典、相対リンク、文書の意味と読みやすさを静的に確認しました。`quick_validate.py`と`npm run check:plugins`、JSON・ハッシュ・差分・LFの検証も行いました。
 
