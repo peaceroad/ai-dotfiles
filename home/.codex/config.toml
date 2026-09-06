@@ -14,7 +14,8 @@ model_reasoning_effort = "medium"
 personality = "pragmatic"
 
 # リクエストの処理速度・料金クラス。利用可能な値はモデルやログイン方式によって異なる。
-# Fastを永続的に有効にする場合は、service_tier = "fast" と [features] の fast_mode = true を設定する。
+# Fastを既定にする場合は service_tier = "fast" を指定する。利用量も増えるため必要に応じて選ぶ。
+# features.fast_mode は現在既定でtrue。選択機能の有効化であり、それだけでFastには切り替わらない。
 service_tier = "default"
 
 # 応答時の説明度合。 "low"、"medium"、"high"
@@ -45,27 +46,46 @@ approval_policy = "never"
 # Permission profileでローカルコマンドのファイルアクセスとネットワークを制御する
 default_permissions = "workspace-with-agents"
 
-# CodexアプリがComputer Useのターン終了を通知するためのローカル設定。
-# "turn-ended" は補助プログラムの必須サブコマンド。
-# アプリが自動生成するマシン固有設定なので、公開・手編集しない。
+[features]
+# 機能フラグの設定場所として残す。fast_modeやmulti_agentなど、既定で有効な機能は追加指定しない。
+# js_replは削除済みの機能フラグなので記載しない。
+# 許可ドメインの強制にはnetwork_proxyが必要（管理者設定で有効になる場合を除く）。
+# 実験的なため、アプリでの実効設定と通信を確認してから有効にする。
+# network_proxy = true
+
+[features.context_management]
+# Astraの実験的コンテキスト管理。メモと同じタスクの検索可能な履歴で詳細を保持する。
+# 既定はfalse。設定リファレンス上の対象はChatGPTサインインのPlus・Pro・Pro Lite。
+# 対応クライアントで有効にし、新しいタスクを開始して利用する。
+# https://learn.chatgpt.com/docs/config-file/config-reference
+
+# 安定性を優先して無効化（2026-09-06）。以下のIssueの対応状況を確認して再検討する。
+# 閾値の上書きで引き継ぎ指示が欠落: https://github.com/openai/codex/issues/42918
+# 圧縮後に未完了の作業が停止: https://github.com/openai/codex/issues/42693
+# notes/historyツール不足で作業を反復: https://github.com/openai/codex/issues/42449
+# Windows版Astraで圧縮が停止・再発: https://github.com/openai/codex/issues/43062
+# Astraで途中停止・圧縮・修正を反復: https://github.com/openai/codex/issues/43103
+# 42918は閾値を上書きしない現在の設定では条件外。42693・42449は別モデルまたは旧版の報告。
+# 43062・43103は、この実験機能が原因か未確認。
+experimental_mode = false
 
 # CodexアプリのWindows環境におけるサンドボックス設定
 # elevated: 管理者権限でセットアップする、Codex推奨のWindows隔離方式。
 # エージェントのコマンド自体を管理者として実行する意味ではない。
 # unelevated: 管理者権限を使えない場合や、elevatedのセットアップに失敗する場合のフォールバック。
-# ユーザープロファイル以下にあるツールを実行する場合には、unelevatedにしたほうが広く利用できる。
-# Permission profileを使う場合、unelevatedでは管理者権限が必要な操作は失敗するため、elevatedにして、ユーザープロファイル以下のツール実行に必要な権限をPermission profileで許可することになる。
+# ユーザープロファイル以下の開発ツールは、必要な読み取り・書き込み先をPermission profileで許可する。
+# elevatedでも、エージェントのコマンドに管理者権限が付与されるわけではない。
 [windows]
 sandbox = "elevated"
 
 # エージェント権限 workspace-with-agents の説明
 [permissions.workspace-with-agents]
-description = "ワークスペース、~/.agents、および許可した開発キャッシュを編集し、ネットワークアクセスは許可ドメインのみに制限。 / Edits the workspace, ~/.agents, and approved development caches with allowlisted network access."
+description = "ワークスペース、~/.agents、および許可した開発キャッシュを編集し、通信を許可。ドメイン制限にはプロキシの有効化が必要。 / Edits the workspace, ~/.agents, and approved development caches; allows networking. Domain restrictions require an enabled proxy."
 
 # workspace-with-agents:
-# ワークスペース、~/.agents、プロジェクト内の.agents/.codex、
-# および許可した開発キャッシュへの書き込みを許可し、
-# ネットワークアクセスは許可ドメインだけに制限する。
+# ワークスペース、~/.agents、および許可した開発キャッシュへの書き込みを許可する。
+# プロジェクト内の.agents/.codexの保護を解除する個別ルールは、現在は無効。
+# 通信を許可する。ドメイン制限の適用条件はnetwork節を参照する。
 [permissions.workspace-with-agents.filesystem]
 ":minimal" = "read"            # Codexや一般的なコマンド実行に必要最低限のシステム領域
 
@@ -125,9 +145,9 @@ description = "ワークスペース、~/.agents、および許可した開発�
 # 認証情報を保存するauth.jsonやCOMPOSER_AUTHとは分離すること。
 # "~/AppData/Local/Composer" = "write"
 
-# `**`を含むglobパターンをWindowsで事前展開する最大深さ。
-# 1以上。値を大きくすると起動時のスキャン量が増える。
-# 深いモノレポでは、必要に応じて5程度への引き上げを検討する。
+# 読み取り拒否用globをサンドボックス起動前に展開する環境での、探索の最大深さ。
+# 1以上。read/writeルール全般の探索深度を変更する設定ではない。
+# denyの対象が深い階層にある場合に検討する。深くすると起動時のスキャン量も増える。
 # glob_scan_max_depth = 3
 
 # `:workspace_roots`は、Codexアプリ・IDE・CLIなどがセッションに渡した
@@ -163,12 +183,13 @@ description = "ワークスペース、~/.agents、および許可した開発�
 
 # NOTE: `.codex`配下には、将来、プロジェクト固有の設定・フック・MCP設定など、
 # 次回以降のCodexの動作に影響するファイルが置かれる可能性がある。
-# そのリスクを理解したうえで、プロジェクト内のCodex設定も編集できるようwriteを許可する。
+# 以下はプロジェクト内のCodex設定も編集可能にする設定例。現在は無効。
 # `.codex`自体ではなく配下を指定し、`.codex/.codex`などの再帰展開を避ける。
 # ".codex/**" = "write" # デフォルトの保護を明示的に解除する
 
-# 実際の認証情報・接続情報が入る可能性がある.env系ファイルは、
-# ワークスペースが書き込み可能でも読み書き禁止にする。
+# .env系ファイルへの読み取りを拒否する設定例。現在はすべて無効。
+# この設定のままでは.envファイルへのアクセスを禁止しない。
+# 環境変数のfiltersとは別の制御。必要な場合に実環境で動作を確認して有効化する。
 # denyでは再帰globを使用できる。
 # ".env" = "deny"
 # ".env.*" = "deny"
@@ -184,13 +205,19 @@ description = "ワークスペース、~/.agents、および許可した開発�
 # ".env.sample" = "read"
 # ".env.template" = "read"
 
-# エージェントによるネットワーク操作に関する設定。
+# サンドボックス内のコマンドによるネットワーク操作に関する設定。
+# enabled=trueだけではプロキシは起動しない。features.network_proxy、または管理者設定で
+# プロキシが有効な場合に限り、modeとdomainsによる通信先制限が適用される。
+# 現在はこのファイルではプロキシを有効化していないため、単体では直接通信を許可する。
+# Web検索・Apps・MCPなどの通信は、このドメインリストの制御対象外。
 [permissions.workspace-with-agents.network]
 enabled = true      # 許可するかどうか。true, false
 mode = "limited"    # モード。制限付き（"limited"）、全許可（"full"）
 # mode = "full"
 
-# 許可するドメインのリスト。
+# プロキシ有効時に許可するドメインのリスト。常時接続を行う設定ではない。
+# 日常的に使う取得先を許可し、追加の配布元やリダイレクト先は必要時に個別に確認する。
+# 許可は読み取り専用を意味しない。同じホストへの送信・更新操作も通信可能になる。
 [permissions.workspace-with-agents.network.domains]
 # GitHub
 "github.com" = "allow"
@@ -202,6 +229,10 @@ mode = "limited"    # モード。制限付き（"limited"）、全許可（"ful
 
 # ドキュメント。
 "**.openai.com" = "allow"
+"learn.chatgpt.com" = "allow" # Codexの公式ドキュメント
+"developer.mozilla.org" = "allow" # HTML・CSS・JavaScriptなどの資料
+"nodejs.org" = "allow"            # Node.jsの資料・配布物
+"docs.astral.sh" = "allow"        # uvなどの資料
 "platform.claude.com" = "allow"
 "ai.google.dev" = "allow"
 "developers.google.com" = "allow"
@@ -246,13 +277,16 @@ mode = "limited"    # モード。制限付き（"limited"）、全許可（"ful
 
 [shell_environment_policy]
 # Codexが起動するコマンドへ、親プロセスの環境変数をどこまで渡すか。
+# 以下の除外は、秘密値や認証設定の環境変数経由の継承を減らすためのもの。
+# 設定ファイル・OSの認証ストア・起動後のシェル設定からの再取得は遮断しない。
+# URLやCONFIG全般を一括除外せず、用途が分かる名前を指定する。
 # all: すべて引き継ぐ（既定値）。PATHや各種開発ツールの設定をそのまま利用しやすい。
 # core: OSやシェルの実行に必要な基本的な環境変数だけを引き継ぐ。
 # none: 親プロセスの環境変数を引き継がない。
 # 現在は、ローカルの開発ツールを問題なく使えることを優先してallを明示する。
 inherit = "all"
 
-# false（既定値）では、変数名にKEY、SECRET、TOKENを含む環境変数を自動的に除外する。
+# 現行の既定値はtrue。ここではfalseを明示し、変数名にKEY、SECRET、TOKENを含む環境変数を自動的に除外する。
 # 判定対象は変数名だけで、変数の内容が秘密情報かどうかは検査しない。
 # そのため、別の名前で保存された秘密情報は自動除外されない。
 ignore_default_excludes = false
@@ -266,50 +300,62 @@ ignore_default_excludes = false
 # 依存関係の復元にプライベートレジストリの認証が必要な場合も、
 # 認証情報を常時Codexへ渡すのではなく、必要な作業だけユーザー側で実行するか、
 # 用途と対象を限定した別設定で明示的に許可する。
-exclude = [
-  # 一般的な認証・セッション情報
-  "*PASSWORD*",
-  "*PASSWD*",
-  "*CREDENTIAL*",
-  "*COOKIE*",
-  "*JWT*",
-  "*BEARER*",
+# filtersは環境変数名とinclude/excludeの対応表。旧exclude/include_only配列と同じレイヤーで併用しない。
+[shell_environment_policy.filters]
+# 一般的な認証・セッション情報
+"*PASSWORD*" = "exclude"
+"*PASSWD*" = "exclude"
+"*CREDENTIAL*" = "exclude"
+"*COOKIE*" = "exclude"
+"*JWT*" = "exclude"
+"*BEARER*" = "exclude"
 
-  # データベース・外部サービスの接続情報
-  "DATABASE_URL",
-  "REDIS_URL",
-  "MONGODB_URI",
-  "*CONNECTION_STRING*",
-  "*_DSN",
+# データベース・外部サービスの接続情報
+"DATABASE_URL" = "exclude"
+"REDIS_URL" = "exclude"
+"MONGODB_URI" = "exclude"
+"*CONNECTION_STRING*" = "exclude"
+"*_DSN" = "exclude"
+# MYSQL_PWDはPASSWORD/PASSWDのパターンに一致しない。
+"MYSQL_PWD" = "exclude"
+# 接続URLの名前はアプリごとに異なる。POSTGRES_URLなど、実際に使う名前も必要に応じて追加する。
 
-  # Python: pip・uvのURLには認証情報が埋め込まれる場合がある
-  "PIP_INDEX_URL",
-  "PIP_EXTRA_INDEX_URL",
-  "UV_INDEX_URL",
-  "UV_EXTRA_INDEX_URL",
+# Python: pip・uvのURLには認証情報が埋め込まれる場合がある。
+# 認証のないミラー指定も除外されるため、専用インデックスを使う環境では取得先を確認する。
+"PIP_INDEX_URL" = "exclude"
+"PIP_EXTRA_INDEX_URL" = "exclude"
+"UV_INDEX_URL" = "exclude"
+"UV_EXTRA_INDEX_URL" = "exclude"
+"UV_DEFAULT_INDEX" = "exclude"
+"UV_INDEX" = "exclude"
 
-  # Node.js: npm・Yarnの認証情報
-  "NPM_CONFIG_*AUTH*",
-  "YARN_NPM_AUTH_*",
+# Node.js: npm・Yarnの認証情報
+"NPM_CONFIG_*AUTH*" = "exclude"
+"YARN_NPM_AUTH_*" = "exclude"
 
-  # PHP: Composerの認証情報をJSONで保持する変数
-  "COMPOSER_AUTH",
+# PHP: Composerの認証情報をJSONで保持する変数
+"COMPOSER_AUTH" = "exclude"
 
-  # Ruby: Bundlerのホスト別認証情報
-  "BUNDLE_GEMS__*",
+# Docker: 環境変数で渡されるレジストリ認証設定
+"DOCKER_AUTH_CONFIG" = "exclude"
 
-  # .NET: Azure ArtifactsなどのNuGetフィード認証情報
-  "VSS_NUGET_EXTERNAL_FEED_ENDPOINTS",
+# Ruby: Bundlerのホスト別認証情報
+"BUNDLE_GEMS__*" = "exclude"
 
-  # 秘密値や認証ファイルへの参照
-  "KUBECONFIG",
-  "DOCKER_CONFIG",
-  "NETRC",
+# .NET: Azure ArtifactsなどのNuGetフィード認証情報
+"VSS_NUGET_EXTERNAL_FEED_ENDPOINTS" = "exclude"
 
-  # 値自体は秘密鍵ではないが、外部認証を可能にするエージェント接続
-  "SSH_AUTH_SOCK",
-  "SSH_AGENT_PID",
-  "SSH_ASKPASS",
-  "GIT_ASKPASS",
-  "GPG_AGENT_INFO",
-]
+# 認証を含み得る設定ファイルへの参照。秘密値そのものではないが、既定では継承しない。
+# 除外するとツールが既定の設定場所へ戻る場合があり、認証を無効化する保証にはならない。
+# Kubernetes/Docker等を使う場合は、意図した設定先が変わらないか確認して見直す。
+"KUBECONFIG" = "exclude"
+"DOCKER_CONFIG" = "exclude"
+"NETRC" = "exclude"
+
+# エージェント接続と認証入力用ヘルパーへの参照。値自体は秘密鍵ではない。
+# 除外によりGit/SSH認証が使えなくなる場合がある。認証を許可する用途では個別に見直す。
+"SSH_AUTH_SOCK" = "exclude"
+"SSH_AGENT_PID" = "exclude"
+"SSH_ASKPASS" = "exclude"
+"GIT_ASKPASS" = "exclude"
+"GPG_AGENT_INFO" = "exclude"
