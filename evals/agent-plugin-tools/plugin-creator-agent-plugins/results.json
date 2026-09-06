@@ -1,0 +1,56 @@
+{
+  "assessment": "Manual qualitative assessment of simulated decisions; not execution pass rates.",
+  "cases": [
+    {
+      "id": "source-revision",
+      "baseline": "criteria met",
+      "candidate": "criteria met",
+      "baselineQuestion": null,
+      "candidateQuestion": null
+    },
+    {
+      "id": "review-only",
+      "baseline": "criteria met",
+      "candidate": "criteria met",
+      "baselineQuestion": null,
+      "candidateQuestion": null
+    },
+    {
+      "id": "authorized-install",
+      "baseline": "criteria met",
+      "candidate": "criteria met",
+      "baselineQuestion": null,
+      "candidateQuestion": null
+    },
+    {
+      "id": "uncertain-install",
+      "baseline": "criteria met",
+      "candidate": "criteria met",
+      "baselineQuestion": null,
+      "candidateQuestion": null
+    },
+    {
+      "id": "consumer-marketplace",
+      "baseline": "criteria met",
+      "candidate": "criteria met",
+      "baselineQuestion": null,
+      "candidateQuestion": null
+    },
+    {
+      "id": "scoped-share",
+      "baseline": "criteria met",
+      "candidate": "criteria met",
+      "baselineQuestion": null,
+      "candidateQuestion": null
+    },
+    {
+      "id": "new-portable-source",
+      "baseline": "criteria met",
+      "candidate": "criteria met",
+      "baselineQuestion": null,
+      "candidateQuestion": null
+    }
+  ],
+  "conclusion": "Both versions meet all seven decision criteria in these single simulated trials. No comparative performance improvement is established.",
+  "adoption": "Adopt for clearer governing instructions, outcome-specific verification, and explicit existing implementation limits; preserve script behavior."
+}

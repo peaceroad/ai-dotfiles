@@ -52,7 +52,9 @@ Match the `name` in `SKILL.md` to its parent directory and make the `description
 
 Agent Plugins discovers plugin skills only from immediate children of the plugin's `skills/` directory. Other skill scanners may use different discovery behavior. Do not vendor another complete skill with a nested `SKILL.md` merely as a reusable reference. Install it separately when it must remain an independent skill, or incorporate only the necessary guidance into ordinary reference files while respecting its license.
 
-Use `skill-creator` when creating or structurally revising a contained skill. Review its trigger description against neighboring skills so the plugin does not introduce ambiguous routing.
+Use `skill-creator` when creating or structurally revising a contained skill. Check its trigger against neighboring skills and review the instructions and resources affected by the change.
+
+Preserve the established target model, runtime, and output contract. For OpenAI or Codex instructions without a target model, use GPT-6 Astra for design; do not turn this into a portable package requirement or client setting. Use `prompt-design` or `agent-workflow-design` when available and relevant, without making the package depend on those separate plugins. For model-dependent decisions, consult current model guidance; a model upgrade should include affected references and examples, not just the entrypoint. The [Astra guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra) is a source for that case, not required reading for model-independent packaging.
 
 Skill-local client metadata such as `skills/<name>/agents/openai.yaml` may remain when the Agent Skills package permits additional files and clients that do not understand it can safely ignore it. Treat that file as optional metadata for the named client, not as an Agent Plugins core component or a root `plugin.json` extension. Do not invent a root extension namespace merely to reclassify existing skill-local metadata.
 
@@ -80,16 +82,14 @@ Add a root `mcp.json` only when the plugin provides MCP servers:
 
 Agent Plugins v1.0.0 supports `stdio`, `streamable-http`, and legacy HTTP+SSE through `sse`. Prefer `streamable-http` for new remote integrations; `sse` is deprecated and client support is optional. Do not put an entire shell command line in `command`. A bundled executable uses a `./` plugin-relative path that remains inside the plugin root; a non-bundled executable uses a bare name. Use only absolute HTTP or HTTPS URLs, require HTTPS outside loopback, omit fragments and user information, and do not embed credentials in the package. Use `${PLUGIN_ROOT}` for read-only package resources and `${PLUGIN_DATA}` in supported fields for persistent writable state. Keep `cwd` within the selected root after resolving `.` and `..` segments.
 
-This skill owns the MCP packaging boundary: `mcp.json`, packaged paths and resources, portable configuration, and integration validation. Implement or debug the server's application-specific behavior with the relevant engineering workflow, then validate its packaged startup and representative tool calls here.
+Validate affected packaged startup and representative calls using [validation.md](validation.md).
 
 ## Client-specific features
 
 Use a reverse-domain namespace only when the target client owns and documents it. Put manifest data under the same namespace in `plugin.json` `extensions`, and put extension files in a top-level directory named with that namespace when the client requires files. Some extensions use only one of those surfaces, so follow the target client's specification. A namespace or behavior invented by a plugin author will not become recognized merely by appearing in the package.
 
-If no documented namespace exists, keep the portable package separate from the client-specific package or retain the compatibility files documented by that client. When several formats must coexist, keep one source of truth and generate derived compatibility files where practical.
+If no documented namespace exists, maintain a separate derived client-specific package when that client is required. For conversion to a portable source, use [codex-migration.md](codex-migration.md) to account for client-native features and remove the old manifest from the final portable package. Do not silently discard a required capability or invent an extension to preserve it.
 
 ## Repository and distribution data
 
 Marketplace catalogs, signing, installation policy, evaluations, and release automation can live outside the portable package. Their presence at the repository root is compatible with Agent Plugins as long as the marketplace points to a conforming plugin directory.
-
-Propagate changes in one direction from the source of truth to installed copies. Do not edit a cache or installed copy and copy it back into the repository.

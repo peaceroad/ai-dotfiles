@@ -34,19 +34,15 @@ The `.agents/marketplace-development/` name is intentionally scoped to Marketpla
 
 Keep a repository Skill as the normal source of truth. An explicitly configured installed Skill may be copied from `~/.agents/skills/<name>` as a durable snapshot for reuse on another machine, but the snapshot and generated Marketplace copy do not become editable sources. Do not scan or publish the installed Skill root implicitly. Preserve optional provenance such as the upstream repository URL, and check redistribution terms before sharing third-party material beyond the authorized audience.
 
-An orchestrator that owns a separate private configuration may call `sync` or `check` with `--config <configuration>`. The assembler then reads that external schema-version-2 assembly definition instead of the root `config.json`; relative plugin and Skill sources still resolve from the Marketplace root. It does not copy the external definition into the Marketplace. The orchestrator owns any safe, source-path-free reference file it creates at the normal `config.json` location. Do not mix an orchestrator-managed reference configuration with direct `init` or `add` commands in the same Marketplace root.
+For private external configuration, `--merge`, or contributor/consumer ownership, use [marketplace-orchestration.md](marketplace-orchestration.md). Detect an existing orchestrator-owned configuration before choosing `init` or `add`; do not replace its reference file with a standalone definition.
 
 The assembler accepts only schema version 2 for both root and external assembly definitions. It rejects earlier configuration versions rather than migrating them implicitly.
 
-The same root layout works in a local Git checkout and on an accessible network filesystem. Run Git operations, release publication, NAS uploads, and consumer installation as separate authorized steps.
-
-The assembler validates portable package structure but intentionally does not run source-repository tests, apply a repository version policy, or install through Codex. When a source uses the optional `.agents/plugin-development/` contract, run its repository-owned `validate` command before assembly. `sync` then copies the package version already recorded in the source `plugin.json`; it does not bump that version. This keeps the Repository development flow separate from the shared-distribution flow.
+The assembler validates portable package structure but does not run source-repository tests or apply a version policy. When a source uses `.agents/plugin-development/`, run its repository-owned `validate` before assembly. `sync` copies the version already recorded in source `plugin.json`.
 
 ## Non-interactive commands
 
 Running the script without arguments prints help and makes no changes. The standard interface never prompts for terminal input, so an agent or CI job can use it without waiting on an interactive session.
-
-The `init` and `add` commands are the low-level interface for a standalone Marketplace whose root `config.json` is human-owned. Do not use them when `~/.agents/development.json` or another orchestrator-owned configuration is the source of truth; use that orchestrator's configuration and `sync` commands instead.
 
 Initialize a Marketplace definition:
 
@@ -96,7 +92,7 @@ For a standalone Skill, add a `skills` entry to the schema-version-2 human-owned
 }
 ```
 
-`init` and `add` update only the development configuration. Assemble or refresh the distribution explicitly:
+`init` creates the development configuration and managed schema; `add` updates the configuration. Neither assembles package copies or catalogs. Assemble or refresh the distribution explicitly:
 
 ```powershell
 node scripts/assemble-agent-marketplace.mjs sync 'C:\path\to\marketplace-root'
@@ -118,25 +114,9 @@ node scripts/assemble-agent-marketplace.mjs check 'C:\path\to\marketplace-root' 
   --plugin 'another-plugin'
 ```
 
-A scoped operation reads every configured `plugin.json` to preserve unique names and verify the expected catalog structure, but validates, hashes, and compares only the selected package. Without an orchestrator merge, it requires the generated schema, catalog, and catalog digest from a prior full sync to be current. If Marketplace membership, name, display name, plugin name, or category changed, run a full `sync` instead. A successful scoped result certifies only the named plugin; run a full `check` at a release or handoff boundary.
+A scoped operation reads every configured `plugin.json` to preserve unique names and verify the expected catalog structure, but validates, hashes, and compares only the selected package. Without an orchestrator merge, it requires the generated schema, catalog, and catalog digest from a prior full sync to be current. If Marketplace membership, name, display name, plugin name, or category changed, run a full `sync` instead. A successful scoped result certifies only the named plugin; run a full `check` when handing off or releasing the whole Marketplace. A handoff limited to one package may retain the scoped result and its stated limit.
 
 Use `--skill <name>` for the corresponding scoped standalone-Skill operation. Because the Skill catalog includes content digests, a scoped Skill sync updates both the selected copy and its catalog entry while preserving unrelated entries.
-
-To use an assembly definition owned by another local workflow without publishing it into the Marketplace root:
-
-```powershell
-node scripts/assemble-agent-marketplace.mjs sync 'C:\path\to\marketplace-root' `
-  --config 'C:\path\to\private-effective-config.json'
-
-node scripts/assemble-agent-marketplace.mjs check 'C:\path\to\marketplace-root' `
-  --config 'C:\path\to\private-effective-config.json'
-```
-
-The external file uses the same `source`-based schema-version-2 structure as the normal human-owned `config.json`. Keep it private when it contains machine-specific absolute paths, and let its owning workflow manage creation and cleanup.
-
-An orchestrator that connects multiple developers to one shared Marketplace may combine `--config`, one of `--plugin` or `--skill`, and `--merge`. In that mode, the external definition contains the selected source plus existing generated copies for catalog context. The assembler preserves every unrelated catalog entry and updates only the selected copy, its catalog entry, and state. The orchestrator must validate the source-free Marketplace reference, hold a Marketplace-wide writer lock across reading the reference, running the assembler, and updating the reference, and clearly report that unrelated contents were not checked. Do not invoke `--merge` manually with an improvised configuration.
-
-If an orchestrator supports complete single-owner management, scoped multi-contributor management, and read-only consumption, make every transition explicit. Before narrowing a complete definition to contributor or consumer scope, require a successful full `check` so every configured source, package copy, catalog, schema, state, and reference is synchronized. Before expanding a contributor or consumer definition into the complete source of truth, require locally resolvable sources for every plugin and Skill already present in the shared Marketplace. A consumer may list and install published content but must not invoke development synchronization. Refuse a transition when its evidence or authority is incomplete rather than inferring ownership from generated copies.
 
 Use the same commands with an accessible UNC root when direct NAS assembly is intended:
 
@@ -144,11 +124,13 @@ Use the same commands with an accessible UNC root when direct NAS assembly is in
 node scripts/assemble-agent-marketplace.mjs sync '\\server\share\agents\marketplace'
 ```
 
-The script does not establish network credentials, map a drive, or change share permissions. When a recognized filesystem error occurs, it preserves the operating-system error and reported path, then adds guidance for access denial, a disconnected share, insufficient space or quota, and files in use. Restore access outside this workflow and rerun the same command; the assembler does not silently redirect output or retry indefinitely.
+The script does not establish network credentials, map a drive, or change share permissions. For recognized filesystem errors, it preserves the original error and path and adds recovery guidance. It does not redirect output or retry indefinitely; reconcile the destination before retrying as described below.
 
-Treat the Marketplace as a single-writer-at-a-time destination. Do not run `init`, `add`, or direct assembler `sync` commands concurrently against the same root. A higher-level multi-contributor workflow may serialize writers with a Marketplace-owned lock and use scoped merge operations, but different plugins do not make concurrent catalog or state writes safe. If a NAS operation fails, restore the connection or permissions, confirm that no other writer is active, rerun the same command, and use `check` afterward when an independent drift confirmation is useful. A secondary cleanup or rollback failure is reported separately so that it does not hide the original error; inspect the reported temporary or backup path before removing any remnant manually.
+Treat the Marketplace as a single-writer-at-a-time destination. The direct assembler does not acquire a writer lock; serialization must come from the caller or orchestrator. Do not run `init`, `add`, or direct assembler `sync` commands concurrently against the same root. A higher-level multi-contributor workflow may serialize writers with a Marketplace-owned lock and use scoped merge operations, but different plugins do not make concurrent catalog or state writes safe. After an interrupted or failed NAS operation, inspect reported effects and current source/output state, restore access within the authorized environment, and confirm that no writer remains active. Resume the intended sync only when its sources and ownership still match, then run `check` for the affected scope. A secondary cleanup or rollback failure is reported separately so that it does not hide the original error; inspect the reported temporary or backup path before removing any remnant manually.
 
 ## Synchronization guarantees
+
+A sync stages and verifies copies before replacement, but it is not a transaction over every package, catalog, and state file. A failure after some replacements can leave mixed generations. Reconcile that state before retrying; do not infer rollback from the exit code or bypass an overwrite refusal by editing digests.
 
 Before changing output, a full `sync` validates every configured source, derives plugin names from `plugin.json` and Skill names from `SKILL.md`, rejects duplicate names within each component type, and checks that existing managed output was not changed outside the assembler. It rejects broken or absolute symbolic links and links that resolve outside the package root. It stages changed packages, validates staged copies, and replaces each package directory before writing the generated catalogs. Unchanged copies are skipped, which reduces local and network filesystem work. Scoped `sync --plugin <name>` and `sync --skill <name>` preserve overwrite protection for the selected copy but intentionally do not certify unrelated contents. With `--merge`, the assembler also verifies that entries outside the selected name still match the current catalogs before changing the selected entry.
 

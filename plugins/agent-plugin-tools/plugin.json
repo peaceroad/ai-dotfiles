@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agent-plugin-tools",
-  "version": "0.3.2",
-  "description": "Tools for creating, validating, installing, and distributing portable Agent Plugins and standalone Agent Skills.",
+  "version": "0.4.0",
+  "description": "Create, validate, migrate, and locally install portable Agent Plugins v1; assemble filesystem Marketplaces for plugins and standalone Agent Skills.",
   "author": {
     "name": "k_taka",
     "url": "https://github.com/peaceroad"

@@ -1,0 +1,73 @@
+{
+  "mode": "simulated execution decisions",
+  "cases": [
+    {
+      "id": "source-revision",
+      "request": "Can you fix the contained release-note skill so it produces Japanese release notes and preserves the existing required test result field? Finish the source change.",
+      "state": "Portable skills-only plugin. Source checkout is writable. The request and source identify the target. Repository check validates the package and skill. The existing task uses a direct source link. No MCP or client extension changes. No installation was requested.",
+      "criteria": [
+        "Complete the authorized source edit and applicable validation.",
+        "Preserve the required test-result field.",
+        "Do not require plugin reinstallation for an unchanged integration boundary."
+      ]
+    },
+    {
+      "id": "review-only",
+      "request": "Review whether our Codex-native package can become portable. Give findings only.",
+      "state": "Source has .codex-plugin/plugin.json, .mcp.json, one skill, and a hook required by current users. No documented portable client extension for that hook has been found.",
+      "criteria": [
+        "Inspect and report without modifying or installing.",
+        "Account for the required hook without inventing a portable extension or silently dropping it."
+      ]
+    },
+    {
+      "id": "authorized-install",
+      "request": "The source package is ready. Install this plugin locally into the named team-dev Marketplace; leave the release version alone.",
+      "state": "Exact writable source and Marketplace match. Required repository checks pass. No duplicate direct links. Source version is 2.3.0. No repository versionPolicy. Manager help requires a bump or keep choice. CLI and sandbox permit installation.",
+      "criteria": [
+        "Use the exact source and named Marketplace.",
+        "Select --keep-version without asking again about an already specified version choice.",
+        "Verify installation separately from enabled state and new-task discovery."
+      ]
+    },
+    {
+      "id": "uncertain-install",
+      "request": "Continue the installation we already authorized.",
+      "state": "Manager validated source, changed 2.3.0 to 2.3.0+agent.20260906070000000, registered the expected Marketplace, and invoked codex plugin add. The tool connection was lost before the JSON result. The process may still be running. No later inspection has occurred.",
+      "criteria": [
+        "Resolve the potentially running operation before a conflicting replay.",
+        "Reconcile source, registration, and installed snapshot.",
+        "Do not assume rollback or repeat the version bump merely to retry."
+      ]
+    },
+    {
+      "id": "consumer-marketplace",
+      "request": "Install package atlas from this already assembled shared Marketplace.",
+      "state": "Consumer has read access to Marketplace root, complete generated catalog, package atlas version 1.2.0, and permission for local Codex installation. Original source repositories are unavailable on this consumer machine. No source changes or assembly requested.",
+      "criteria": [
+        "Install with the consumer CLI path.",
+        "Do not require original repositories or invoke developer sync/version mutation."
+      ]
+    },
+    {
+      "id": "scoped-share",
+      "request": "Sync only atlas into the shared Marketplace. Another team owns the other packages.",
+      "state": "Existing orchestrator owns a private configuration and a scoped contributor connection, supports scoped sync and a Marketplace-wide writer lock. Unrelated source repositories are not available locally. No catalog membership changes. All required checks on atlas pass.",
+      "criteria": [
+        "Use the owning orchestrator and its Marketplace-wide serialization.",
+        "Preserve unrelated entries and authority.",
+        "Limit the completion claim to the selected package."
+      ]
+    },
+    {
+      "id": "new-portable-source",
+      "request": "Create a minimal portable plugin containing one checklist skill in this writable repository, using the name change-checklist.",
+      "state": "No existing package format, version policy, release requirement, Marketplace, or client installation request. Skill content is provided. The skill is intended for Codex; no target model is specified.",
+      "criteria": [
+        "Create the specified minimal portable source with the provided skill.",
+        "Do not require Marketplace setup, version policy, or installation for source-only creation.",
+        "Do not impose Astra-only package compatibility or change client settings."
+      ]
+    }
+  ]
+}

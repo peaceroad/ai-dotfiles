@@ -1,30 +1,24 @@
 # Integrate a Local Agent Plugin with Codex
 
-Use this reference after validating a portable Agent Plugins v1 source package that must be tested through a local Codex marketplace. Registering a marketplace here makes a local path or Git source recognizable to Codex; it does not by itself upload the plugin to a public directory.
+Use for requested local installation, refresh, or integration testing after a portable source or assembled Marketplace exists. A local Marketplace registration makes its catalog available to Codex; it is distinct from publication and plugin installation. Package-format conversion is covered in [codex-migration.md](codex-migration.md).
 
-This reference owns recurring Codex operations after a portable source exists: marketplace registration, installation, refresh, snapshot inspection, and new-task verification. It does not convert a Codex-native package. For that one-time structural change, read [codex-migration.md](codex-migration.md) first.
+## Choose the source and execution path
 
-## Choose direct skill discovery or plugin integration
+| Input and purpose | Path |
+| --- | --- |
+| Iterative work on source skills | Existing user-scoped source links and repository validation. Use a new task to exercise revised instructions when needed. |
+| Developer-controlled plugin source | Prefer its repository-owned manager after inspecting checks and side effects; otherwise use this skill's manager. |
+| Assembled shared Marketplace | Register the assembled root and install with the current Codex CLI. Keep version policy and repository tests upstream. |
 
-For day-to-day work on a plugin's skills, a developer may expose each source skill through a user-scoped link under `~/.agents/skills/` and run the source repository's validation without installing the plugin after every edit. This keeps the writable source repository authoritative and avoids treating an installed Codex cache as the development copy.
+Direct-link testing does not establish plugin installation, MCP integration, client extensions, cache refresh, or Marketplace resolution. Use installation when those properties belong to the requested outcome. Source-only work does not require switching discovery paths.
 
-Marketplace registration and plugin installation are separate. Registering a Marketplace makes its catalog available but does not by itself create a second active copy of the contained skills. Installing a plugin while a direct link with the same skill `name` is active can create duplicate discovery paths and different effective versions. Codex does not merge same-named skills, so do not rely on precedence between those paths. Keep only one active in the same development environment:
+Before an installation test, inspect only the same-named direct links relevant to the plugin. Installing alongside them can expose different effective skill versions; do not rely on duplicate-name precedence. Use an isolated client environment when practical. Otherwise make the selected links inactive within the authorized scope, retain their targets for restoration, and keep one discovery path active during the test. Do not remove unrelated links or installed skills. Registration alone does not activate another copy.
 
-- Use direct links, repository validation, and a new Codex task for iterative work on skill instructions, references, assets, and scripts.
-- Remove or disable the direct links, or use an isolated user environment without them, before installing the plugin for an integration check.
-- Remove the installed plugin before restoring direct links for continued source development.
+## Establish the installation inputs
 
-Direct-link testing does not verify the plugin manifest, MCP integration, client extensions, Marketplace resolution, installation, cache refresh, or installed snapshot. Use the installation flow below when those boundaries are part of the requested outcome.
+Identify the exact plugin and Marketplace, source root, current version policy, and requested client. Validate the source and any required repository checks before installation effects. For a request that includes assembly, complete `sync` and the appropriate `check` before installing the generated copy; see [marketplace-distribution.md](marketplace-distribution.md).
 
-## Check before installation
-
-1. Read the repository instructions and inspect any existing management scripts.
-2. Confirm that the marketplace entry points to the same source of truth being edited.
-3. Check for user-scoped direct links with the same names as the plugin's contained skills, and keep them inactive during installation testing.
-4. Validate the portable `plugin.json`, contained skills, and `mcp.json` when present.
-5. Check `codex plugin --help` and the relevant subcommand help for the installed CLI. Prefer the current CLI when its command syntax differs from these examples. Keep the Agent Plugins specification authoritative for the portable package itself.
-
-Useful read-only probes in versions that expose them include:
+Inspect the installed CLI's help for the operations needed. These examples match `codex-cli 0.153.4` help checked on 2026-09-06; they are not a promise for other builds:
 
 ```powershell
 codex plugin --help
@@ -32,73 +26,79 @@ codex plugin marketplace list --json
 codex plugin list --available --json
 ```
 
-Command availability and JSON fields can change. Inspect help and identify entries by plugin and marketplace names rather than relying on array position.
+Read-only listing establishes the current registration and snapshot. Select by plugin and Marketplace identity, including source path where available, rather than array position. If a command or JSON contract changed, use the current documented equivalent or repair the repository wrapper before relying on its result.
 
-## Marketplace registration
+### Provide the developer-source catalog entry
 
-List local marketplaces and their roots:
+For a new developer source, the manager and repository scaffold require a local entry in `<marketplace-root>/.agents/plugins/marketplace.json`; neither creates it. If no matching entry exists, create or extend the catalog as part of the requested repository setup or local installation, preserving unrelated entries. A minimal catalog for `<marketplace-root>/plugins/my-plugin` is:
 
-```powershell
-codex plugin marketplace list
+```json
+{
+  "name": "local-plugins",
+  "plugins": [
+    {
+      "name": "my-plugin",
+      "source": { "source": "local", "path": "./plugins/my-plugin" }
+    }
+  ]
+}
 ```
 
-If the repository marketplace is not registered, add its root:
+The entry name must match root `plugin.json`. Resolve `source.path` from the selected Marketplace root, not from `.agents/plugins/`. This shape follows the [Codex Marketplace catalog documentation](https://learn.chatgpt.com/docs/enterprise/plugin-management) and the bundled manager's binding checks; it is not part of portable Agent Plugins v1. Use the intended existing Marketplace name when extending a catalog. Do not run the shared assembler to create this developer-source entry: it produces a generated copy. For an already assembled Marketplace, use its generated catalog without hand-editing it.
+
+### Register and install
+
+Register the intended root only when it is not already registered or discovered as the personal default Marketplace:
 
 ```powershell
-codex plugin marketplace add 'C:\path\to\repository'
-```
-
-Do not add a duplicate when the client already discovers the personal default marketplace. If the existing marketplace name or root is uncertain, inspect the list instead of guessing and creating another entry.
-
-## Install or refresh
-
-If the repository supplies a script that combines validation and reinstallation, inspect its help and side effects, then prefer it. Otherwise, confirm the marketplace and plugin names before installing:
-
-```powershell
+codex plugin marketplace add 'C:\path\to\marketplace-root'
 codex plugin add '<plugin-name>@<marketplace-name>'
 ```
 
-Use a repository-owned script or this skill's manager only with a developer-controlled source package. A consumer installing from an assembled shared Marketplace should register that Marketplace and use the Codex CLI directly. Do not use the developer manager to install from the generated copy: its optional local version policy and source-oriented checks belong upstream, before Marketplace assembly. If the shared root has not been assembled yet, follow [marketplace-distribution.md](marketplace-distribution.md) first.
+An existing name pointing at another root needs reconciliation, not duplicate registration. Do not uninstall before an ordinary refresh; consider documented removal only after establishing that reinstalling cannot refresh the plugin. Do not hand-edit a client cache.
 
-Do not uninstall before an ordinary update. Consider the current CLI's documented removal flow only after confirming that reinstalling cannot refresh the plugin.
+## Included developer manager
 
-If an old cache remains, do not edit `~/.codex/plugins/cache/` or copy from it back to the source repository. Use the repository's update script when it manages a single cachebuster. In general-purpose work, do not append version suffixes unless the target client requires them.
-
-Do not change the portable version during `status` or `validate`. Change it during `install` only when Codex demonstrably uses the version for cache freshness and the repository has chosen an automatic local-development policy. When a repository uses a suffix such as `0.1.0+agent.<UTC timestamp>`:
-
-- Preserve the repository's base-version policy.
-- Replace one existing local-development suffix rather than appending suffixes repeatedly.
-- Validate the source before changing the version, update root `plugin.json` once, validate the updated manifest, install, and compare the installed snapshot with the new source version.
-- Do not create or update `.codex-plugin/plugin.json` as a cachebuster.
-
-Prefer a repository-owned management script for this sequence when one exists. If that script depends on this skill's validator and the validator is unavailable, fail with the expected path and remediation; do not copy a validator from an installed cache or unrelated checkout.
-
-After installation, use `codex plugin list --available --json` or its current equivalent to confirm the intended plugin and marketplace, source version, enabled state, and local source path when applicable. Verify the result in a new Codex task. A task that was already running may retain skill instructions or tool definitions loaded at startup.
-
-## Included local-development manager
-
-When a developer-controlled Agent Plugins v1 repository has no management script of its own, use the common manager included with this skill. Run it from the skill root or pass its absolute path:
+Run from the skill root or pass the script's absolute path:
 
 ```powershell
 node scripts/manage-local-agent-plugin.mjs status 'C:\path\to\plugin-root'
 node scripts/manage-local-agent-plugin.mjs validate 'C:\path\to\plugin-root'
-node scripts/manage-local-agent-plugin.mjs install 'C:\path\to\plugin-root' --bump-version
+node scripts/manage-local-agent-plugin.mjs install 'C:\path\to\plugin-root' --keep-version
 ```
 
-If the repository must run the same repository-specific checks on every validation and install, use the optional self-contained scaffold in [repository-management.md](repository-management.md). Do not add configuration merely to avoid passing a plugin path once.
+These commands are alternatives by task, not a mandatory sequence. `install` includes portable validation and configured repository checks. Direct mode owns portable validation and Codex installation; it does not infer application tests, releases, or publication policy. Use [repository-management.md](repository-management.md) when those checks need a shared development entrypoint.
 
-The manager discovers a local marketplace entry by walking from the plugin root toward its ancestors and then checking the default personal marketplace. Use `--marketplace-root <root>` when the intended root must override that order. It never edits marketplace files or installed caches.
+The manager finds a local Marketplace entry by walking source ancestors, then checking the personal default Marketplace. `--marketplace-root <root>` selects a different intended root. It never edits the catalog or installed cache directly, and refuses installation from a generated shared Marketplace copy.
 
-`status` and `validate` are read-only. `install` validates the portable package, registers a matching non-default local marketplace when needed, installs the plugin, and compares the Codex snapshot and installed manifest with the source. It replaces existing build metadata with `+agent.<UTC timestamp>` only when `--bump-version` is specified or the current version already uses that managed suffix. Use `--keep-version` for a repository that does not use version-based local cache freshness. For a new repository without either policy, the manager stops and requires an explicit choice; it does not invent a version.
+### Version policy
 
-In direct mode, this manager owns only the reusable Agent Plugins v1 validation and Codex installation boundary. It does not infer a repository's application tests, generated files, MCP behavior checks, release process, or publication policy. When those checks must share the same entrypoint, use the explicit Repository development contract in [repository-management.md](repository-management.md).
+`status` and `validate` do not change the version, registration, or installed state. For `install`, select policy from the request and repository:
 
-A higher-level local development index may store a repository plus plugin-root reference and route its read-only plugin check to this direct mode. Treat installation as a separate capability: require that index to record an explicit `bump` or `keep` policy before it invokes `install`, even when the current source version would let this manager infer a policy. This prevents an imported distribution reference from becoming installable merely because of its version text. The source plugin must still have a discoverable local Marketplace entry; never substitute an assembled shared Marketplace copy.
+- `--keep-version` preserves the source version, including an absent version.
+- `--bump-version` replaces build metadata with one `+agent.<UTC timestamp>` suffix. It requires an existing source version and preserves its base before `+`.
+- Explicit flags override repository `versionPolicy`. Without either, an existing managed suffix implies bump; otherwise the manager requires a choice.
 
-## Format boundary
+The CLI's explicit-choice requirement does not by itself require a user question. Use an established policy; if none exists and the request does not call for a version change, use `--keep-version`. Adopt bump only for an authorized local-development policy supported by cache-freshness evidence. Do not add suffixes as a precaution or change portable version rules to match a client convention.
 
-Do not replace the portable Agent Plugins v1 source of truth merely because the built-in OpenAI `plugin-creator` or another Codex document describes `.codex-plugin/plugin.json`. Treat root `plugin.json` support as the expected baseline for the current Codex plugin runtime, and do not add the Codex manifest to the portable source as a precaution. A separate client-native package is appropriate only for an explicitly targeted historical or different client that still requires it.
+A higher-level index may impose a stricter contract requiring an explicit stored `bump` or `keep` policy before install. Preserve that contract instead of inferring permission from an imported source reference or a suffix. Developer-manager inputs must still resolve to the source package's own Marketplace entry.
 
-`node scripts/check-builtin-plugin-creator.mjs` inspects only whether the built-in skill instructions describe Agent Plugins v1. It does not prove support in the Codex runtime. Verify runtime behavior separately with the installed CLI and an actual local installation.
+### What the command establishes
 
-Official OpenAI documentation, built-in skill instructions, CLI command availability, successful installation, installed snapshots, and component discovery answer different questions and can temporarily disagree. Do not use documentation wording alone to infer runtime rejection, and do not use one successful installation to claim support across untested Codex versions or publishing surfaces. For migration from `.codex-plugin/plugin.json`, read [codex-migration.md](codex-migration.md) and use its portable-only verification gate; the final portable source must not retain the Codex manifest.
+The manager validates before mutation, optionally updates root `plugin.json`, registers a matching non-default Marketplace if needed, calls Codex, and compares the reported installed manifest and snapshot with the source identity and version. It also checks a reported local source path when available. It does not check enabled state or component execution, and equal name/version values do not prove byte-for-byte resource equality.
+
+For a refresh, inspect affected installed resources when freshness is in doubt. Check enabled state separately and verify required skills or MCP behavior in a new task. Do not create an extra task merely to satisfy this reference if the runtime requires explicit user authorization for task creation; report the remaining new-task check or use an already authorized test surface.
+
+## Interruption and recovery
+
+Installation is a sequence of effects, not a transaction across the source and client. The manager restores the original manifest only if validation immediately after its version change fails. A later registration, install, or snapshot failure can leave the new source version, Marketplace registration, or installed plugin in place.
+
+After interruption or an uncertain result, inspect the source manifest, registration, install result when retained, and current snapshot before replaying. If the requested version is already installed, continue the missing verification. If installation remains incomplete, resume under the existing authority and version policy; avoid another bump merely to retry the same intended version. Use `--keep-version` for that retry when the current source is still the validated candidate and the repository contract permits it.
+
+Serialize operations on the same source or client installation. This manager has no cross-process lock. A pending command must finish or be reconciled before a conflicting version change, reinstall, or restoration. New user input can change the remaining work but does not reverse effects already performed.
+
+If a runtime denies a write, keep the completed source work and report the denied operation and available recovery command. Do not change locations or bypass the denial. Restore a prior installation or discovery path only within the authorized scope, using the recorded state rather than assumed defaults.
+
+## Format compatibility
+
+Preserve the portable root `plugin.json`; a native-format example in built-in `plugin-creator` instructions does not establish runtime rejection. `scripts/check-builtin-plugin-creator.mjs` inspects instruction wording only. For a conversion or documentation/runtime mismatch, use [codex-migration.md](codex-migration.md#interpret-evidence-and-recover). Report installed identity, version, tested build, and material verification limits.

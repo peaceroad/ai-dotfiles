@@ -1,35 +1,44 @@
 # Validate Agent Plugins v1
 
-Use this reference after creating or changing a portable package, or while auditing conformance.
+Select evidence for the requested outcome and affected behavior. Portable validation, repository checks, distribution drift checks, installation snapshots, and runtime discovery establish different properties.
+
+## Choose the validation boundary
+
+| Change or requested outcome | Relevant evidence |
+| --- | --- |
+| Package or contained-skill edit | Portable validation, applicable skill validation, and review of affected instructions, references, and resources. |
+| Instruction structure or behavior | Representative activation and task cases where useful; distinguish manual review, simulated decisions, and real execution. |
+| Helper script or generated runner change | Related script tests and the affected generated behavior. |
+| MCP or client-extension change | Configuration and resource checks plus packaged startup, affected transports, or representative calls in the required client. |
+| Shared Marketplace assembly | Source checks owned by the repository, then assembler `sync` and a scoped or full `check` appropriate to the handoff. |
+| Client installation or refresh, including when part of a migration | Intended source and version, install result and snapshot, enabled state, and discovery or representative use in a new task. |
+
+Run required repository checks. Reuse evidence from a command that already performed a check on the same relevant state; do not duplicate the sequence by hand. After relevant checks pass, broaden or repeat them only for a new change, failure, or unresolved concern. A wording edit does not by itself require installation, MCP calls, or tests of unaffected clients.
+
+Do not start a live effect solely to fill a verification checklist. Prepare what is authorized; report a required but unavailable integration check separately. Source completion and verified client operation may have different statuses.
 
 ## Included validator
 
-When Node.js is available, run this command from the skill root:
+Run from the skill root, or use the script's absolute path:
 
 ```powershell
 node scripts/validate-agent-plugin.mjs 'C:\path\to\plugin-root'
-```
-
-Add `--json` for machine-readable output:
-
-```powershell
 node scripts/validate-agent-plugin.mjs 'C:\path\to\plugin-root' --json
 ```
 
-The script currently validates Agent Plugins specification version 1.0.0 and reports that version in its result. It rejects other schema versions instead of guessing compatibility. Check the current specification before adding support for a newer version.
+Choose the normal or JSON form for the consumer; running both is unnecessary. The validator targets Agent Plugins 1.0.0 and rejects other schema identifiers. Check the normative specification before adding version support.
 
-The script checks:
+It checks root manifest syntax, allowed keys and basic types; plugin names; immediate skill directories and basic frontmatter; optional MCP configuration including command, cwd, and URL rules; extension namespace syntax; and links escaping the package.
 
-- The presence and JSON syntax of root `plugin.json`, its v1.0.0 schema identifier, allowed keys, and basic field types.
-- Plugin-name syntax.
-- Immediate children of `skills/`, their `SKILL.md` files, and basic `name` and `description` fields.
-- The basic structure of optional `mcp.json`, transport-specific fields, `command` and `cwd` containment, and remote URL semantics.
-- Reverse-domain client-extension namespaces. Extension contents remain client-defined.
-- Symbolic links or junctions that resolve outside the package.
+It is a partial structural validator, not a complete JSON Schema implementation, YAML parser, client-extension validator, secret scanner, or runtime test. It does not establish semantic instruction quality or whether Codex enables and discovers the components. Use applicable skill-specific checks and inspect credentials, packaged resources, or documented extension support when those surfaces change. A schema check cannot sandbox commands launched by the package.
 
-This is not a complete JSON Schema implementation, a complete YAML parser, or a validator for client extensions. It does not replace checking the current Agent Plugins and Agent Skills specifications, applicable official schemas, Repository- or client-provided Skill validation, or behavior in each target client.
+`scripts/manage-local-agent-plugin.mjs validate <plugin-root>` calls this validator. A configured repository runner additionally validates its Marketplace binding and runs its declared checks. The direct manager does not infer application-specific tests; see [repository-management.md](repository-management.md).
 
-After changing the validator, local plugin manager, Repository scaffold, Marketplace assembler, or built-in compatibility checker, run the related test scripts:
+For new or structurally revised skills, run an available skill validator after checking what it covers. For a small edit, use the repository's relevant checks without adding validators merely because they are installed.
+
+## Helper regression tests
+
+Run tests for changed helpers and affected consumers. These are the bundled entrypoints, not a requirement to run every suite for each prose edit:
 
 ```powershell
 node scripts/validate-agent-plugin.test.mjs
@@ -39,23 +48,12 @@ node --test scripts/assemble-agent-marketplace.test.mjs
 node scripts/check-builtin-plugin-creator.test.mjs
 ```
 
-`scripts/manage-local-agent-plugin.mjs validate <plugin-root>` calls this bundled validator through the common local-development interface. A Repository scaffold may add structured Repository checks through a per-plugin `.agents/plugin-development/<plugin-name>.json` file; those checks supplement rather than replace portable validation, available Skill-specific validation, or target-client behavior checks.
+Generated runners share the manager and validator implementations. For a template change, include scaffold checks and any repository-required consumer checks. Keep tests about observable guarantees, such as refusing invalid sources before mutation or preserving unrelated output, rather than matching revised instruction wording.
 
-## Additional checks
+## Missing evidence and failures
 
-Run Repository-specific Skill checks when they are defined. When the current client provides a bundled Skill validator, use it as a separate client-specific check after confirming what it covers.
+If a command's required validator is missing, report the expected path and repair the dependency from its authoritative source before running that dependent command. Do not substitute a validator copied from an installed cache or unrelated checkout. Independent inspection can continue.
 
-If a repository management script depends on this skill's bundled validator and the expected file is missing, stop with a clear error that names the missing path. Do not copy a validator from an installed plugin cache, another checkout, or an unrelated skill directory.
+If current specifications cannot be retrieved securely, report the retrieval failure and identify bundled guidance as last-known information. Keep TLS verification enabled. Continue version-independent work; defer a version-sensitive change that requires unavailable normative evidence.
 
-When current specifications must be retrieved and the connection fails, do not disable TLS verification or silently continue as though current guidance was confirmed. Report the retrieval failure, use bundled references only as explicitly identified last-known guidance, and avoid changing version-sensitive rules until the current normative source can be checked.
-
-When the package includes MCP, client extensions, or compatibility files, check these separately:
-
-- MCP startup, each configured transport, and representative tool calls.
-- Absence of credentials from manifests, headers, and packaged environment files.
-- Actual client support for the declared namespace and file layout.
-- Installation, update, and rollback behavior when a legacy format remains.
-- Whether the marketplace points to the intended source of truth.
-- Skill and MCP discovery in a new task after installation.
-
-Do not report an unrun check as successful. State what could not be verified and why.
+Report what failed, what was verified, and what remains unknown. Use [Codex integration](codex-integration.md#interruption-and-recovery) or [Marketplace distribution](marketplace-distribution.md#synchronization-guarantees) to reconcile effects before retrying a failed mutation. A nonzero exit code does not prove that nothing changed.

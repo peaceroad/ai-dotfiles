@@ -2,13 +2,15 @@
 
 > **確認時点：** 2026年9月5日。Windows版Codex CLI 0.150.1、[OpenAIのプラグインドキュメント](https://developers.openai.com/plugins/build/plugins)、手元の実行結果で確認した内容です。CLIのオプションやローカルMarketplaceの扱いは、Codexの更新で変わる可能性があります。
 
+2026年9月6日にCLI 0.153.4の一覧表示・Marketplace登録・Git snapshot更新のヘルプを再確認し、導入後の検証範囲と失敗後の復旧説明を更新しました。この追記で実際の導入やNAS同期を再試行したわけではありません。
+
 Codexでは、複数のプラグインを一つのMarketplaceへまとめ、ローカルディレクトリ、NAS、Gitリポジトリから導入できます。このリポジトリの`agent`コマンドは、同じルートに単体Skillの配布用コピーと独自カタログも生成します。開発者は各ソースをそれぞれのリポジトリで管理し、共有してよい版だけを一つの場所へ集約できます。
 
 このノートでは、Agent Plugins v1形式のプラグインと単体Agent Skillを対象に、`plugin-creator-agent-plugins`付属の`assemble-agent-marketplace.mjs`でファイルシステム上のMarketplaceを作成・更新する方法を説明します。プラグインはCodexのMarketplace機能で、単体Skillは`agent marketplace skill`で導入します。OpenAIへ提出して共通のPlugins Directoryへ掲載する公開工程は対象外です。
 
 ## 開発元、Marketplace、インストール先を分ける
 
-Marketplaceを共有するときは、次の三つを別のものとして扱います。
+Marketplaceを共有するときは、次の各層を別のものとして扱います。
 
 | 層 | 役割 | 手で編集するか |
 | --- | --- | --- |
@@ -299,7 +301,7 @@ codex plugin marketplace add 'owner/repository' --ref main
 codex plugin marketplace list
 ```
 
-インストールしていないプラグインも含めて確認する場合、Codex CLI 0.150.1では`--available`と`--json`を一緒に指定します。
+インストールしていないプラグインも含めて確認する場合、2026年9月6日に確認したCodex CLI 0.153.4では`--available`と`--json`を一緒に指定します。
 
 ```powershell
 codex plugin list --available --json
@@ -311,7 +313,7 @@ codex plugin list --available --json
 codex plugin add 'my-plugin@team-plugins'
 ```
 
-インストール後はChatGPTデスクトップを再起動し、新しいCodexタスクでスキルやMCPサーバーが読み込まれることを確認します。実行中のタスクには、開始時に読み込んだプラグインの指示やツール定義が残る場合があります。
+インストール後はプラグインの有効状態を確認し、新しいCodexタスクでスキルやMCPサーバーの発見と代表的な動作を確かめます。実行中のタスクには、開始時に読み込んだ指示やツール定義が残る場合があります。導入成功や名前・versionの一致だけでは、実際に使われるファイルの同一性やコンポーネントの動作までは証明できません。
 
 ## 利用者が更新版を取り込む
 
@@ -332,7 +334,7 @@ codex plugin marketplace upgrade 'team-plugins'
 codex plugin add 'my-plugin@team-plugins'
 ```
 
-どちらの場合も、再インストール後はChatGPTデスクトップを再起動し、新しいタスクで確認します。
+どちらの場合も、再インストール後は有効状態と新しいタスクでの動作を確認します。更新が反映されたか疑わしい場合は、変更した導入済みリソースをソースと照合します。
 
 ## 別のMarketplaceへ切り替える
 
@@ -367,9 +369,11 @@ Marketplaceの構成はどの配布先でも同じです。一つのMarketplace�
 
 NASへの同期で、アクセス拒否、接続断、容量・クォータ不足、ファイルの使用中など、判別できるファイルシステムエラーが発生した場合、スクリプトはOSのエラーと対象パスを残し、確認事項を表示して停止します。元のエラーに加えて後始末やロールバックにも失敗した場合は、元の原因を隠さず、追加の失敗として対象パスを表示します。
 
-スクリプトが共有への認証、ドライブの割り当て、権限変更、NASの容量確保を行うことはありません。Windowsから共有へ接続できること、共有とファイルシステムの権限、実行ユーザーの資格情報、空き容量をスクリプトの外で確認し、復旧後に同じコマンドを再実行します。インターネット接続の許可と、UNCパスへのファイル書き込み許可は別の制御です。
+スクリプトが共有への認証、ドライブの割り当て、権限変更、NASの容量確保を行うことはありません。Windowsから共有へ接続できること、共有とファイルシステムの権限、実行ユーザーの資格情報、空き容量をスクリプトの外で確認します。インターネット接続の許可と、UNCパスへのファイル書き込み許可は別の制御です。
 
-同じMarketplaceに対する`init`、`add`、`sync`は同時に実行しないでください。再実行後に独立した確認が必要なら`check`を使います。一時ファイルやバックアップの後始末に失敗したと表示された場合は、示されたパスとMarketplaceの状態を確認してから手動で処理します。
+`sync`は、すべてのパッケージ、カタログ、stateをまとめて取り消せる処理ではありません。途中で失敗すると新旧の生成物が混在することがあるため、終了コードだけで元に戻ったとは判断しません。報告された変更、現在のソースと配布先、実行中の同期を確認し、アクセスが回復して対象と管理権限が変わっていないことを確かめてから再試行します。その後、更新した範囲の`check`で確認します。
+
+同じMarketplaceに対する`init`、`add`、`sync`は同時に実行しないでください。直接のassemblerには書き込みロックがないため、呼び出し側で直列化します。`agent dev`経由のロックとは区別してください。一時ファイルやバックアップの後始末に失敗したと表示された場合は、示されたパスとMarketplaceの状態を確認してから手動で処理します。
 
 ## 参考資料
 
@@ -378,3 +382,4 @@ NASへの同期で、アクセス拒否、接続断、容量・クォータ不�
 - [CodexのAgent SkillsとAgent Pluginsの構成と使い分け](codex-skills-and-plugins.md)
 - [`plugin-creator-agent-plugins`](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)
 - [Marketplace組み立て手順](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-distribution.md)
+- [非公開設定と複数担当者の管理](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-orchestration.md)

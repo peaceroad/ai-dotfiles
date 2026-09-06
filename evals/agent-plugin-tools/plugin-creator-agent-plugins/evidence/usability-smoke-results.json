@@ -1,0 +1,74 @@
+{
+  "reviewedOn": "2026-09-06",
+  "kind": "Real helper execution in isolated temporary repositories; no Codex installation or registration",
+  "cases": [
+    {
+      "name": "Fresh scaffold rejects absent source catalog",
+      "arguments": [
+        "init",
+        "<fixture-root>\\fresh",
+        "plugins/my-plugin",
+        "--keep-version"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "Error: Marketplace catalog does not exist: <fixture-root>\\fresh\\.agents\\plugins\\marketplace.json\n"
+    },
+    {
+      "name": "Documented minimal catalog enables fresh scaffold",
+      "arguments": [
+        "init",
+        "<fixture-root>\\fresh",
+        "plugins/my-plugin",
+        "--keep-version"
+      ],
+      "exitCode": 0,
+      "stdout": "Created: .agents/plugin-development/schema.json\nCreated: scripts/local-plugin.mjs\nCreated: scripts/validate-agent-plugin.mjs\nCreated: .agents/plugin-development/my-plugin.json\nOK: <fixture-root>/fresh/plugins/my-plugin\nskills: 0, mcp.json: absent\n",
+      "stderr": ""
+    },
+    {
+      "name": "Prepare writes only pending configuration",
+      "arguments": [
+        "prepare",
+        "<fixture-root>\\pending",
+        "plugins/my-plugin",
+        "<fixture-root>\\pending-config.json",
+        "--keep-version"
+      ],
+      "exitCode": 0,
+      "stdout": "Prepared: <fixture-root>\\pending-config.json\nReview or extend the pending configuration, then run:\n  node '<workspace>\\plugins\\agent-plugin-tools\\skills\\plugin-creator-agent-plugins\\scripts\\scaffold-local-agent-plugin.mjs' import '<fixture-root>\\pending' '<fixture-root>\\pending-config.json'\n",
+      "stderr": ""
+    },
+    {
+      "name": "Import generates runner and executes added repository check",
+      "arguments": [
+        "import",
+        "<fixture-root>\\pending",
+        "<fixture-root>\\pending-config.json"
+      ],
+      "exitCode": 0,
+      "stdout": "Created: .agents/plugin-development/schema.json\nCreated: scripts/local-plugin.mjs\nCreated: scripts/validate-agent-plugin.mjs\nImported: .agents/plugin-development/my-plugin.json\nOK: <fixture-root>/pending/plugins/my-plugin\nskills: 0, mcp.json: absent\nRepository check: repository contract\nREPOSITORY_CHECK_PASSED\nPending source retained: <fixture-root>\\pending-config.json\n",
+      "stderr": ""
+    },
+    {
+      "name": "Refresh check compares templates without running repository checks",
+      "arguments": [
+        "refresh",
+        "<fixture-root>\\pending",
+        "--check"
+      ],
+      "exitCode": 0,
+      "stdout": "Managed files are current.\n",
+      "stderr": ""
+    }
+  ],
+  "assertions": [
+    "Missing catalog fails before scaffold creation.",
+    "The documented catalog binds the source without a generated Marketplace copy.",
+    "Scaffold preserves the catalog and source version and creates no native plugin manifest.",
+    "Prepare creates no managed scaffold files.",
+    "Import runs configured repository checks and retains the pending source.",
+    "Refresh --check does not rerun repository checks."
+  ],
+  "outputNormalization": "Local workspace and temporary-directory roots are replaced with <workspace> and <fixture-root>; command results and package-relative paths are preserved."
+}

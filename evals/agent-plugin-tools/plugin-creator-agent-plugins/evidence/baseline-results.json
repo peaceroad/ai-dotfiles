@@ -1,0 +1,144 @@
+[
+  {
+    "id": "source-revision",
+    "actions": [
+      "Read the selected repository instructions, source release-note SKILL.md, and required test-result field contract. Inspect the repository check command and preserve the portable structure and existing direct source link.",
+      "Edit the authoritative contained skill so generated release notes are Japanese while preserving the exact required test-result field and its semantics. Keep the instruction-language policy separate from the language of generated release notes. Do not initialize the existing skill again.",
+      "Read back the saved skill, inspect the focused diff, and run the existing repository command that validates the package and skill. Do not introduce another manager or repeat an equivalent validator unnecessarily.",
+      "Report the source change and check result. A fresh task may exercise the revised source-linked instructions when behavioral confirmation is useful; do not register a Marketplace, install, disable the direct link, or change the version for this source-only request."
+    ],
+    "question": null,
+    "completion": [
+      "The identified source contains the Japanese-output instruction and retains the required test-result field contract.",
+      "The saved change has been read back and the required repository package-and-skill check passes.",
+      "The report identifies the changed source and any behavior not exercised; source completion does not depend on installation."
+    ],
+    "limitations": [
+      "The test does not include actual skill content or the repository command name; the precise edit and invocation must come from the supplied source in a real execution.",
+      "The existing task may retain previously loaded instructions. Source validation does not establish successful generation in a fresh task."
+    ]
+  },
+  {
+    "id": "review-only",
+    "actions": [
+      "Read the source Codex-native manifest, .mcp.json, contained skill, and required hook as review inputs. Check the relevant current Agent Plugins and Agent Skills specifications and documented extension support for version-sensitive findings.",
+      "Report that the skill can remain a portable component after validation, and that supported MCP configuration can be converted to root mcp.json after checking portable semantics rather than simply renaming .mcp.json.",
+      "Report that portable metadata belongs in root plugin.json and that .codex-plugin/plugin.json would be migration input, not a second manifest retained in the final portable source.",
+      "Identify the required hook as a functional portability gap: the supplied evidence establishes no portable core equivalent or documented client extension. Describe a portable package plus a separate Codex-native distribution as a possible preservation strategy; omission would remove functionality current users require.",
+      "Give findings only. Do not edit or remove compatibility files, convert manifests, install a candidate, or require a migration-design decision merely to complete this review."
+    ],
+    "question": null,
+    "completion": [
+      "Findings distinguish portable skill/MCP components, migration work, and the unresolved required hook.",
+      "The report explains that portable conformance does not establish preservation of all current behavior and identifies separate distribution or a future documented extension as conditional options.",
+      "Source and installation state remain unchanged."
+    ],
+    "limitations": [
+      "No documented extension has been found in the supplied state; this does not prove every client or future version lacks one.",
+      "Review findings do not establish installation or new-task runtime compatibility."
+    ]
+  },
+  {
+    "id": "authorized-install",
+    "actions": [
+      "Use the already identified developer source, exact team-dev Marketplace binding, passing repository checks, and absence of duplicate links. Inspect the chosen manager help and relevant installed Codex help for supported syntax.",
+      "Choose keep explicitly because the user instructed that the release version remain unchanged. No additional version-policy question is needed.",
+      "Prefer an existing repository manager and pass its supported keep-version override. Otherwise, from the selected skill root run: node scripts/manage-local-agent-plugin.mjs install '<source-plugin-root>' --marketplace-root '<team-dev-marketplace-root>' --keep-version .",
+      "Let the manager validate before mutations, register the exact Marketplace only if missing, install, and verify the result. Do not uninstall first or edit installed caches.",
+      "Use codex plugin list --available --json, or its current equivalent, to confirm the intended plugin at team-dev, version 2.3.0, enabled state, expected source, and installed manifest. Tell the user to verify discovery and representative skill behavior in a new task."
+    ],
+    "question": null,
+    "completion": [
+      "The authorized local installation is verified against the named Marketplace and exact source.",
+      "Both source and installed version remain 2.3.0, and the plugin is enabled.",
+      "The final report states installation evidence and identifies any new-task behavior check still outstanding."
+    ],
+    "limitations": [
+      "The actual plugin name and paths are omitted from the test text, so commands use descriptive placeholders.",
+      "An install snapshot does not prove runtime activation; an existing task may retain older definitions."
+    ]
+  },
+  {
+    "id": "uncertain-install",
+    "actions": [
+      "Reconcile the interrupted operation before another mutation. Resume the original supported process/tool wait if its handle is recoverable; otherwise inspect only relevant operation status to determine whether the existing manager or Codex add process is still running.",
+      "While the original operation remains active, use its supported wait mechanism. Do not launch a concurrent installation or regenerate the local version suffix.",
+      "After it settles, read the authoritative source version and run codex plugin marketplace list --json plus codex plugin list --available --json, or current equivalents. Compare the selected installed manifest, plugin identity, expected Marketplace, enabled state, source path, and version 2.3.0+agent.20260906070000000.",
+      "If the installation and snapshot match, finish verification without reinstalling. If the original process has ended and evidence establishes an incomplete or failed install, diagnose that failure and resume the already authorized operation using the existing bumped source version.",
+      "For a necessary retry, prefer the repository manager with an explicit keep-version override, or run the common manager install with --keep-version and the same source and Marketplace. Revalidate as required, retain existing registration, and avoid another bump, prior uninstall, or cache edit.",
+      "Verify the final snapshot and report whether the initial invocation succeeded or a verified retry was needed. Identify new-task discovery as a separate runtime check."
+    ],
+    "question": null,
+    "completion": [
+      "The original operation is no longer ambiguously in flight, and no duplicate concurrent install was started.",
+      "The intended plugin is verified enabled in the expected Marketplace with the intended source and already chosen version 2.3.0+agent.20260906070000000.",
+      "Any remaining inability to inspect process or installed state is reported accurately rather than treating lost connectivity as proof of success or failure."
+    ],
+    "limitations": [
+      "The supplied skill describes installation snapshots and version policy but does not prescribe a durable checkpoint protocol for a lost tool connection. The exact process-resumption mechanism depends on the execution runtime.",
+      "A retry decision needs later inspection evidence that is not supplied by this case."
+    ]
+  },
+  {
+    "id": "consumer-marketplace",
+    "actions": [
+      "Read the complete assembled catalog to obtain its Marketplace identity and atlas entry. Inspect current codex plugin help and local registration with codex plugin marketplace list --json.",
+      "Register the supplied shared root only if its exact Marketplace is absent: codex plugin marketplace add '<shared-marketplace-root>' .",
+      "Install through the consumer CLI: codex plugin add 'atlas@<catalog-marketplace-name>' . Use the actual catalog name.",
+      "Inspect codex plugin list --available --json and the installed manifest to confirm atlas, the supplied Marketplace, version 1.2.0, and enabled state. Check new-task discovery separately.",
+      "Do not invoke the developer manager, source-repository checks, assembly sync, or version changes against generated content. Original repositories are not required for this consumer installation."
+    ],
+    "question": null,
+    "completion": [
+      "The local installation resolves atlas from the supplied Marketplace and verifies installed version 1.2.0 and enabled state.",
+      "Generated Marketplace files and upstream source versions are unchanged.",
+      "The report identifies any new-task runtime behavior not yet checked."
+    ],
+    "limitations": [
+      "The catalog name is omitted from the case text, so its command argument is a placeholder.",
+      "Consumer verification does not certify unexamined upstream repository checks or source conformance."
+    ]
+  },
+  {
+    "id": "scoped-share",
+    "actions": [
+      "Inspect the existing orchestrator's scoped sync/check interface and use its established private configuration and contributor connection for atlas. Retain current ownership scope and catalog membership.",
+      "Run that orchestrator's sync operation with its atlas selector. It must hold the Marketplace-wide writer lock across reading and validating the source-free reference, invoking the scoped assembler merge, and updating the reference.",
+      "Through the orchestrator, select only atlas for validation and copying. Its private effective configuration may use existing generated copies for unrelated catalog context, preserving other entries without requiring those teams' source repositories.",
+      "Run the orchestrator's corresponding scoped check for atlas and inspect the result. Confirm that its copy, catalog entry, and state agree with source, and unrelated entries and membership are preserved.",
+      "Do not run direct init/add, manually improvise --merge configuration, change ownership scope, or require a full check needing unavailable unrelated sources for this atlas-only request. Explicitly report that unrelated package contents were not checked."
+    ],
+    "question": null,
+    "completion": [
+      "Atlas is synchronized and its scoped check passes under the existing serialized contributor workflow.",
+      "Unrelated entries, packages, ownership, and membership remain unchanged, apart from any shared state update required for atlas.",
+      "The verification claim is limited to atlas, with other packages explicitly unvalidated."
+    ],
+    "limitations": [
+      "The orchestrator executable and flags are not supplied. Obtain the concrete invocation from its existing interface rather than inventing a command.",
+      "Scoped success does not certify the entire Marketplace; a later full release or ownership-scope transition has different verification requirements."
+    ]
+  },
+  {
+    "id": "new-portable-source",
+    "actions": [
+      "Read repository instructions and use the requested writable repository as source. Since no package format exists, choose Agent Plugins v1 without a format question.",
+      "Check current normative Agent Plugins and Agent Skills specifications for the introduced fields. Use skill-creator for the contained skill, retaining the supplied content and a narrow trigger description.",
+      "Create minimal plugin.json with {\"$schema\":\"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json\",\"name\":\"change-checklist\"}, subject to current specification confirmation.",
+      "Create skills/change-checklist/SKILL.md with matching name, a description of checklist capability and triggering requests, and the supplied instructions. Author the minimal file directly when the initializer would add unnecessary optional metadata.",
+      "Do not invent a version, release policy, Marketplace, manager configuration, MCP server, extension directory, or model pin. Codex targeting does not itself require model-specific configuration or a Codex-native manifest.",
+      "Read back both files. Run node '<skill-root>/scripts/validate-agent-plugin.mjs' '<new-plugin-root>' --json, skill-creator's quick_validate.py against skills/change-checklist, and any applicable existing repository checks.",
+      "Report authoritative source files and performed validation. Finish at the requested source deliverable without registration or installation."
+    ],
+    "question": null,
+    "completion": [
+      "The repository contains the minimal portable manifest named change-checklist and the requested contained skill with the provided content.",
+      "Portable validation, contained-skill validation, and any required existing repository checks pass.",
+      "No unsupported metadata or unrequested installation/distribution structure is added; unresolved validation is reported instead of assumed successful."
+    ],
+    "limitations": [
+      "The provided skill content is not reproduced in the case text, so its final wording cannot be determined here.",
+      "Bundled guidance and validator target Agent Plugins 1.0.0. Current normative sources were not queried in this simulation, and client runtime behavior remains untested."
+    ]
+  }
+]

@@ -1,0 +1,101 @@
+{
+  "reviewedOn": "2026-09-06",
+  "kind": "Follow-up static usability review and isolated helper execution",
+  "priorEvaluation": {
+    "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/manifest.json",
+    "bytes": 8343,
+    "sha256": "9841f773002bfe1c30a2bf60194ac5298922c22245f2952199aca6f53b523214"
+  },
+  "priorCandidate": {
+    "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/candidate-snapshot.json",
+    "bytes": 67803,
+    "sha256": "6d506abcc2b707d40b539789708e460f88804d31be13cf3a1027e036aad9c11a"
+  },
+  "sourceFiles": [
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md",
+      "bytes": 5192,
+      "sha256": "8627da3dc58ea52e13d211a84ea0c03b17eaf5da15bb7c0fb19a0483457e9499"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/authoring.md",
+      "bytes": 7195,
+      "sha256": "f33052d7daf914acda3784ae83ee3ac392effdac3f9a16814d9ab3f0e8a4e114"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/codex-integration.md",
+      "bytes": 9632,
+      "sha256": "c46dc9cdc29dce8ced77509db7e3ffa9c08f50c3d37c20da95b0fe281515921e"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/codex-migration.md",
+      "bytes": 4735,
+      "sha256": "73ddfa37fc8a863e147340ac55a6bf7fec240a76b4cf26723b8ff9b3c8761dee"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-distribution.md",
+      "bytes": 11117,
+      "sha256": "1edafa3320058d69d8bf56787ab974fb2e9c1dfbe586b0ee7569f229a6562a7a"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-orchestration.md",
+      "bytes": 3933,
+      "sha256": "d138211d29b1462e12c39d0c84c4007e774e05c0a13114e768368fec79e01dca"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/repository-management.md",
+      "bytes": 11124,
+      "sha256": "231f2f515417d387f190b60e3b68b0c704885e56f6d877a0bfafacdb50f91c29"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/validation.md",
+      "bytes": 5325,
+      "sha256": "d2904923fe9b08d123108dd4dbe8b071d832f89947a64338939793bb0d358964"
+    }
+  ],
+  "evidence": {
+    "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/evidence/usability-smoke-results.json",
+    "bytes": 3251,
+    "sha256": "0cf4d6086091c717e731d432c1d6b432099dbf99bbc89557e2093232ab8d361e"
+  },
+  "independentReview": {
+    "surface": "One Codex subagent with inherited parent settings; no independent model telemetry collected.",
+    "initialScope": "Entrypoint and all seven references, plus relevant manager and scaffold implementation. Earlier evaluation records and rationale were withheld.",
+    "findings": [
+      "Missing developer-source catalog bootstrap instructions, confirmed against both manager and scaffold prerequisites.",
+      "Repeated source, installation, discovery, and completion guidance could be consolidated."
+    ],
+    "followUpScope": "Revised entrypoint, integration, repository management, migration, and validation guidance.",
+    "followUpResult": "No further concrete issue found in the changed routing and prerequisite guidance. This field summarizes the reviewer report, not a separate runtime trial."
+  },
+  "adoptedChanges": [
+    "Add a minimal source catalog and link the scaffold prerequisite.",
+    "Consolidate repeated completion and evidence guidance without dropping client-specific limitations.",
+    "Remove general prompting advice already owned by companion design skills.",
+    "Limit generated-file refresh guidance to relevant template adoption.",
+    "Clarify when pending checks are defined and when import executes them.",
+    "Place conditional scaffold write recovery after the normal configuration and execution path."
+  ],
+  "checks": {
+    "portable": "Passed for agent-plugin-tools.",
+    "skill": "Bundled quick_validate.py passed.",
+    "localReferences": "30 local links and anchors resolved across eight instruction files.",
+    "helperSmoke": "Five actual helper invocations with expected outcomes; no live client mutations.",
+    "nonInstructionFiles": "All 15 non-Markdown plugin files match the first candidate hashes; scripts, templates, schemas, manifest, and client metadata were not changed by this follow-up."
+  },
+  "instructionVolume": {
+    "measure": "UTF-8 bytes, not model tokens",
+    "before": 60558,
+    "after": 58253,
+    "entrypointBefore": 5942,
+    "entrypointAfter": 5192
+  },
+  "limitations": [
+    "Earlier seven-case comparison evaluates the frozen first candidate, not this follow-up.",
+    "Fresh catalog execution exercises local source binding and scaffolding, not a real Codex install.",
+    "No measured success-rate, latency, or token-efficiency improvement.",
+    "No live client discovery, actual cache refresh, interrupted client install, or network-share concurrency trial.",
+    "No claim that the wording is globally optimal; further tuning should follow concrete execution evidence."
+  ],
+  "evidenceNormalization": "Publication review on 2026-09-06 replaced two remaining home-relative temporary-directory roots in helper stdout with <fixture-root>. Outcomes and assertions were not changed."
+}

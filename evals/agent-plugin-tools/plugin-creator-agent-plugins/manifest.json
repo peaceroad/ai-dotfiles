@@ -1,0 +1,173 @@
+{
+  "reviewedOn": "2026-09-06",
+  "baseCommit": "a00affea7efec3902e4d78dd79d20b7ce07a9d29",
+  "target": "GPT-6 Astra",
+  "executionSurface": "Two Codex desktop subagents, separate contexts, inherited parent model settings; no independently queried model/effort telemetry or raw API run.",
+  "procedure": "Apply one frozen skill version to the same seven requests and supplied facts. Return simulated actions, questions, completion, and limits. No actual case operations. Case criteria were saved before parent inspection of either result.",
+  "baseline": "Read plugin source files from baseCommit.",
+  "candidate": {
+    "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/candidate-snapshot.json",
+    "bytes": 67803,
+    "sha256": "6d506abcc2b707d40b539789708e460f88804d31be13cf3a1027e036aad9c11a"
+  },
+  "inputs": {
+    "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/cases.json",
+    "bytes": 4643,
+    "sha256": "b0016b4412c102f3bb335cad755a2b0c5b502b7092ec87636e26d96e05166a1a"
+  },
+  "evidence": [
+    {
+      "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/evidence/baseline-results.json",
+      "bytes": 13777,
+      "sha256": "5271d28ed06c4ae0c5ac4eecb85efe24c4aebda4757ece6e14fcfe711c0c3998"
+    },
+    {
+      "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/evidence/candidate-results.json",
+      "bytes": 13923,
+      "sha256": "15c30605b49af4d0842b47a3545c5227b68e4559199804508a1b511c47ace3e1"
+    }
+  ],
+  "assessment": {
+    "path": "evals/agent-plugin-tools/plugin-creator-agent-plugins/results.json",
+    "bytes": 1681,
+    "sha256": "9541e5dfe85c6b2436bf3eca54b76b615056c3e36cf0ab9c9df78ab5a90c4111"
+  },
+  "sourceFiles": [
+    {
+      "path": "plugins/agent-plugin-tools/plugin.json",
+      "bytes": 572,
+      "sha256": "4e890e9c4832eb8f452a10faa4999deb792c9ec01dccf0cd7d226cddb5ff63d3"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md",
+      "bytes": 5942,
+      "sha256": "e00d54257d1506899e392a67b5df22a3acfd4a172fd99644f16991347abacc49"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/agents/openai.yaml",
+      "bytes": 248,
+      "sha256": "5778b34d40362054e42ed76d76e9db0a6a53e26a1f7dc90929c8de128beaf07e"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/assets/marketplace-distribution/marketplace-development.schema.json",
+      "bytes": 3856,
+      "sha256": "33384581302faa874643699f94dd135e1852e7bc2dbb15bf52acb23da5adaa20"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/assets/repository-management/plugin-development.json",
+      "bytes": 135,
+      "sha256": "10f31418fb5ce0d2f55a9ea88222882ddcfbc477a397f4b8e3c9e268f89d3595"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/assets/repository-management/plugin-development.schema.json",
+      "bytes": 1598,
+      "sha256": "2958f4209c4c644223f46054e4a181d67e70f423288e8f0c3e874e9c0ce4121c"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/authoring.md",
+      "bytes": 8091,
+      "sha256": "6ef23adf22824cb102660113858e1b55373e25c0a1724525bed35d57ca91018e"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/codex-integration.md",
+      "bytes": 8721,
+      "sha256": "0799cf94eec8fd3bf2b1897e42ee2406d07713ca5934bde333bfdaa8fe7bd304"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/codex-migration.md",
+      "bytes": 5268,
+      "sha256": "9421b5e33adf770dd53c3916e6dea9fa078454b098f75048850ee91dc851a4a0"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-distribution.md",
+      "bytes": 11663,
+      "sha256": "8cdc267907820c62e96ad903c9d55e56806716d2560a8be64b3b29722c13890d"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-orchestration.md",
+      "bytes": 3933,
+      "sha256": "d138211d29b1462e12c39d0c84c4007e774e05c0a13114e768368fec79e01dca"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/repository-management.md",
+      "bytes": 11632,
+      "sha256": "5751230af76c9f781405e27811c376306f9d0e7f59786609780e80f7ac78ba1b"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/validation.md",
+      "bytes": 5308,
+      "sha256": "10cc20d2553314c6163af63e2ee0026c62aa04effbf248f390da1327cd135c97"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/assemble-agent-marketplace.mjs",
+      "bytes": 50115,
+      "sha256": "029d1ca451f70eac9ed0a1ec8f6200bae5fcd51afbc2bc6b85e6d51644ca84b2"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/assemble-agent-marketplace.test.mjs",
+      "bytes": 21898,
+      "sha256": "16c8714afa12c4f9a71a4a4f293b260d68bf81537d7b3e56b96de72563927872"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/check-builtin-plugin-creator.mjs",
+      "bytes": 3088,
+      "sha256": "9730d78af945335c3cfcbd74b89f16f477a8835681adb46df1e9421696550dc7"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/check-builtin-plugin-creator.test.mjs",
+      "bytes": 1732,
+      "sha256": "8326ac746229d516e16c5469717c9efa987bfb5078bacb608cfeb40aec614dc4"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/manage-local-agent-plugin.mjs",
+      "bytes": 30051,
+      "sha256": "9829bbf81c8e749d68434440196a2fe3ec2a717edb001ddd1242b0e6ad82b3cb"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/manage-local-agent-plugin.test.mjs",
+      "bytes": 17661,
+      "sha256": "d805efe9fc751537232812ba6b29b6af06e703acc858e6725a68ed67091ff50f"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.mjs",
+      "bytes": 22253,
+      "sha256": "37da715159d514ba86d0c682cff3437c719ad4a8797a26ba6ff6ddcda627fe64"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/scaffold-local-agent-plugin.test.mjs",
+      "bytes": 16624,
+      "sha256": "fe5b849cdf96690028162c1f13deb5d6c496d0b5fcfc8965ef43c02d50b3f966"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs",
+      "bytes": 15016,
+      "sha256": "bbe268b8c12432159a2a6661baa56e407e8af82ab280bb446074f2d2df30d1a2"
+    },
+    {
+      "path": "plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.test.mjs",
+      "bytes": 7265,
+      "sha256": "d670b1d13ba9b9651eb933a180388bbc23690378716e3aff978fff57143e29c2"
+    }
+  ],
+  "checks": {
+    "portable": "npm run check:plugins passed for both repository plugins.",
+    "skill": "Bundled quick_validate.py passed for the revised skill.",
+    "links": "All local Markdown targets and anchors resolved in the eight instruction files.",
+    "helpers": {
+      "totalCases": 57,
+      "initialCombinedRun": "50 of 53 reached cases passed; three subprocess failures, including one VirtualAlloc failure.",
+      "targetedSerialRerun": "All three failed cases passed with --test-concurrency=1.",
+      "remainingSuite": "Four built-in instruction-checker cases passed separately.",
+      "combinedCommandStatus": "Initial npm run check:plugin-tools exited 1; no claim of an uninterrupted green run."
+    },
+    "cliHelp": "codex-cli 0.153.4; plugin, marketplace list, plugin list, and add help inspected.",
+    "liveInstallation": "Not performed."
+  },
+  "limitations": [
+    "Simulated decisions, not agent execution of source edits or effects.",
+    "One response per version and case, judged manually.",
+    "Inherited Codex instructions and model knowledge may compensate for baseline ambiguity.",
+    "No measured efficiency or reliability advantage.",
+    "No live installation, interruption, network concurrency, or downstream generated-skill trial."
+  ]
+}
