@@ -1,0 +1,120 @@
+[
+  {
+    "id": "wait-independent",
+    "mode": "simulation",
+    "focus": "waiting",
+    "prompt": "AとBの資料を比較するメモを作ってください。今できる作業を進めてください。",
+    "setup": "Aの取得は完了し、単独で概要を下書きできる。Bは実行中で、wait(jobId)が利用できる。最終比較にはBも必要。現在はAの本文とBのjobIdのみがある。",
+    "fixtures": []
+  },
+  {
+    "id": "wait-version-lock",
+    "mode": "simulation",
+    "focus": "waiting",
+    "prompt": "同一リリース版の仕様と測定結果から、互換性判定を確定してください。",
+    "setup": "仕様v3は取得済み。測定結果v2は参照可能だが、必要なv3は実行中。wait(jobId)が利用できる。判定に役立つ独立作業はすべて完了している。",
+    "fixtures": []
+  },
+  {
+    "id": "wait-idle",
+    "mode": "simulation",
+    "focus": "waiting",
+    "prompt": "開始済みの変換ジョブが完了したら成果物を確認してください。",
+    "setup": "ジョブは正常に実行中。独立して進められる作業はない。状態照会と完了イベントを待つwait(jobId)が利用できる。停滞を示す証拠はない。",
+    "fixtures": []
+  },
+  {
+    "id": "wait-monitor",
+    "mode": "simulation",
+    "focus": "waiting",
+    "prompt": "このジョブの完了を継続して見て、完了したら知らせてください。",
+    "setup": "継続監視は承認済み。ランタイムに監視登録、イベント待機、現在状態の取得、監視停止がある。保存先はランタイム管理領域。開始時はrunning。",
+    "events": [
+      "監視による再開。現在状態はrunningで前回から変化なし。",
+      "次の再開。現在状態はcompleted。成果物も確認できる。"
+    ],
+    "fixtures": []
+  },
+  {
+    "id": "load-short",
+    "mode": "codex-live",
+    "focus": "loading",
+    "prompt": "fixture-noteスキルを使い、見本メモを1つ作ってください。",
+    "setup": "選択対象はfixtures/short/SKILL.md。スキルと必須参照は、それぞれ単独の完全なツール結果に収まる。",
+    "fixtures": [
+      "short"
+    ]
+  },
+  {
+    "id": "load-inner-limit",
+    "mode": "codex-live",
+    "focus": "loading",
+    "prompt": "fixture-noteスキルを使い、見本メモを1つ作ってください。",
+    "setup": "選択対象はfixtures/long/SKILL.md。内側の読取ツール上限を小さく固定し、必須参照の一括読取は切り詰められる環境を用意する。開始前に上限と切詰め通知の形式を記録する。外側上限は十分に大きい。",
+    "fixtures": [
+      "long"
+    ]
+  },
+  {
+    "id": "load-outer-limit",
+    "mode": "codex-live",
+    "focus": "loading",
+    "prompt": "fixture-noteスキルを使い、見本メモを1つ作ってください。",
+    "setup": "選択対象はfixtures/long/SKILL.md。内側の読取上限は参照全文が収まる設定。外側ラッパーは参照全文が収まらない上限とし、開始前に設定値と切詰め通知を記録する。",
+    "fixtures": [
+      "long"
+    ]
+  },
+  {
+    "id": "lf-edit",
+    "mode": "codex-live",
+    "focus": "line-endings",
+    "prompt": "fixtures/text/edit.txtのstatusをreadyに変更し、同じディレクトリにdone.txtを作って「done」と書いてください。keep.txtは変更対象外です。",
+    "setup": "prepareでedit.txtとkeep.txtをCRLFとして生成する。結果はバイト列で検査する。両比較環境に同じcheck-lf.mjsを用意し、その版を記録する。",
+    "fixtures": [
+      "text"
+    ]
+  },
+  {
+    "id": "response-evidence",
+    "mode": "simulation",
+    "focus": "response",
+    "prompt": "新方式に切り替えるべきか、このデータだけで判断してください。",
+    "setup": "旧方式は100件で平均200ms、新方式は10件で平均120ms。測定環境と入力の同一性、分散、失敗率は不明。これ以外の証拠は与えない。",
+    "fixtures": []
+  },
+  {
+    "id": "response-short",
+    "mode": "simulation",
+    "focus": "response",
+    "prompt": "次の計算結果を教えてください。14 × 3",
+    "setup": "外部情報は不要。",
+    "fixtures": []
+  },
+  {
+    "id": "response-summary",
+    "mode": "simulation",
+    "focus": "response",
+    "prompt": "変更内容を説明したあと、最後に3行の要約を付けてください。",
+    "setup": "変更内容は、本文をUTF-8で保存、出力ディレクトリを作成、空入力には空ファイルを返す、の3点。実装や動作試験を行ったという証拠はない。",
+    "fixtures": []
+  },
+  {
+    "id": "browser-override",
+    "mode": "codex-live",
+    "focus": "browser",
+    "prompt": "Edgeでhttps://example.comを開いてください。",
+    "setup": "ChromeとEdgeの両方が利用可能な、外部ブラウザーを操作できる環境を用意する。",
+    "fixtures": []
+  },
+  {
+    "id": "windows-link",
+    "mode": "codex-live",
+    "focus": "file-reference",
+    "prompt": "fixtures/text/link-target.txtを読んで、ファイルを開ける参照を回答に付けてください。",
+    "setup": "Windowsの作業ディレクトリで実行し、実在する対象へのリンクを確認する。",
+    "fixtures": [
+      "text"
+    ]
+  }
+]

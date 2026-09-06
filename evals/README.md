@@ -1,6 +1,10 @@
 # 評価記録
 
-プラグインの評価入力、判定条件、応答記録、評価対象のmanifestを、`evals/<plugin>/<skill>/`にまとめます。評価の説明、採用判断、限界は`docs/`に置きます。
+評価入力、判定条件、応答記録、評価対象のmanifestを保存します。プラグインは`evals/<plugin>/<skill>/`、グローバル指示は`evals/codex-agents/`にまとめます。評価の説明、採用判断、限界は`docs/`に置きます。
+
+## グローバルAGENTS.md
+
+[codex-agents/](codex-agents/README.md)に、待機、完全読み込み、LF、応答品質、ブラウザー指定、Windowsファイル参照の13ケースと試行準備スクリプトがあります。旧版・現行版をコミットとハッシュで固定し、机上試行と実環境試行を区別します。モデルの行動比較は未実行です。[評価方針と限界](../docs/notes/codex-agents-md-evaluation.md)を参照してください。
 
 ## agent-design-tools / prompt-design
 

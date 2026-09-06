@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "created": "2026-09-06",
+  "status": "behavior_not_run",
+  "targetPath": "home/.codex/AGENTS.md",
+  "variants": {
+    "baseline": {
+      "commit": "c09fde5f11face8d0c146933b8fd7a5bc4a4c0a3",
+      "sha256": "16cae531290eb18fa4bdd0ebd4bb09a5ecc65be486dc39e5166790f687dee22e",
+      "bytes": 3896
+    },
+    "current": {
+      "commit": "a99578dfcea859a4075a72e9f84ef27b46c378f1",
+      "sha256": "6c11dbde3c06b0856739452a38c569b476068e9f2c0efb4168057fa24953ea85",
+      "bytes": 2561
+    }
+  },
+  "comparison": {
+    "model": "gpt-6-astra",
+    "recordAndHoldConstant": [
+      "effective reasoning effort",
+      "runtime version and higher-priority instructions",
+      "tools and inner/outer output limits",
+      "permissions",
+      "fixture bytes and prompts",
+      "token and time budgets",
+      "available skills and check-lf.mjs version"
+    ],
+    "optionalControl": "no-global（他の指示やツールは同じ。無指示モデルという意味ではない）"
+  },
+  "limits": [
+    "No model trials have been run by this suite's structural check.",
+    "Published cases are development cases, not protected held-out cases.",
+    "Simulation does not establish actual runtime behavior."
+  ]
+}
