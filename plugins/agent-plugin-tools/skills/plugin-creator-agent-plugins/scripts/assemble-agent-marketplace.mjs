@@ -479,22 +479,23 @@ async function inspectSkills(config, root, inspectionOptions) {
   return skills;
 }
 
-async function treeDigest(root) {
+export async function treeDigest(root, legacy = false) {
   const hash = createHash("sha256");
   const realRoot = await realpath(root);
   async function visit(directory, relativeDirectory) {
     const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((a, b) => a.name.localeCompare(b.name, "en"));
+    entries.sort((a, b) => legacy ? a.name.localeCompare(b.name, "en") : Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)));
     for (const entry of entries) {
       const relative = path.join(relativeDirectory, entry.name).replaceAll(path.sep, "/");
       const target = path.join(directory, entry.name);
       const stats = await lstat(target);
       if (stats.isDirectory()) {
-        hash.update(`d\0${relative}\0${stats.mode & 0o777}\0`);
+        hash.update(legacy ? `d\0${relative}\0${stats.mode & 0o777}\0` : `d\0${relative}\0`);
         await visit(target, path.join(relativeDirectory, entry.name));
       } else if (stats.isFile()) {
-        hash.update(`f\0${relative}\0${stats.mode & 0o777}\0`);
-        hash.update(await readFile(target));
+        hash.update(legacy ? `f\0${relative}\0${stats.mode & 0o777}\0` : `f\0${relative}\0`);
+        const content = await readFile(target);
+        hash.update(legacy ? content : createHash("sha256").update(content).digest("hex"));
         hash.update("\0");
       } else if (stats.isSymbolicLink()) {
         const linkTarget = await readlink(target);
@@ -514,7 +515,7 @@ async function treeDigest(root) {
     }
   }
   await visit(root, "");
-  return `sha256:${hash.digest("hex")}`;
+  return `${legacy ? "sha256" : "sha256-tree-v2"}:${hash.digest("hex")}`;
 }
 
 function byteDigest(value) {
@@ -624,7 +625,10 @@ async function assertDestinationsSafe(root, plugins, skills, catalogText, skillC
     }
     if (type !== "directory") fail(`Plugin destination is not a directory: ${destination}`);
     const currentDigest = await treeDigest(destination);
-    if (currentDigest !== plugin.digest && state?.plugins?.[plugin.name]?.digest !== currentDigest) {
+    const recordedDigest = state?.plugins?.[plugin.name]?.digest;
+    const unchanged = currentDigest === plugin.digest || recordedDigest === currentDigest
+      || (recordedDigest?.startsWith("sha256:") && recordedDigest === await treeDigest(destination, true));
+    if (!unchanged) {
       fail(`Refusing to overwrite a plugin changed outside this assembler: ${destination}`);
     }
     pluginDestinationDigests.set(plugin.name, currentDigest);
@@ -638,7 +642,10 @@ async function assertDestinationsSafe(root, plugins, skills, catalogText, skillC
     }
     if (type !== "directory") fail(`Skill destination is not a directory: ${destination}`);
     const currentDigest = await treeDigest(destination);
-    if (currentDigest !== skill.digest && state?.skills?.[skill.name]?.digest !== currentDigest) {
+    const recordedDigest = state?.skills?.[skill.name]?.digest;
+    const unchanged = currentDigest === skill.digest || recordedDigest === currentDigest
+      || (recordedDigest?.startsWith("sha256:") && recordedDigest === await treeDigest(destination, true));
+    if (!unchanged) {
       fail(`Refusing to overwrite a Skill changed outside this assembler: ${destination}`);
     }
     skillDestinationDigests.set(skill.name, currentDigest);

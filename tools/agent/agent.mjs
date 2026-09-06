@@ -1106,22 +1106,26 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
   }
 }
 
-function treeDigestSync(root) {
+function treeDigestSync(root, expectedDigest) {
+  const legacy = expectedDigest?.startsWith("sha256:") ?? false;
   const hash = createHash("sha256");
   const realRoot = realpathSync(root);
   function visit(directory, relativeDirectory) {
     const entries = readdirSync(directory, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name, "en"));
+      .sort((left, right) => legacy ? left.name.localeCompare(right.name, "en") : Buffer.compare(Buffer.from(left.name), Buffer.from(right.name)));
     for (const entry of entries) {
-      const relativePath = join(relativeDirectory, entry.name).replaceAll("\\", "/");
+      const rawRelativePath = join(relativeDirectory, entry.name);
+      const relativePath = legacy || process.platform === "win32"
+        ? rawRelativePath.replaceAll("\\", "/") : rawRelativePath;
       const target = join(directory, entry.name);
       const stats = lstatSync(target);
       if (stats.isDirectory()) {
-        hash.update(`d\0${relativePath}\0${stats.mode & 0o777}\0`);
+        hash.update(legacy ? `d\0${relativePath}\0${stats.mode & 0o777}\0` : `d\0${relativePath}\0`);
         visit(target, join(relativeDirectory, entry.name));
       } else if (stats.isFile()) {
-        hash.update(`f\0${relativePath}\0${stats.mode & 0o777}\0`);
-        hash.update(readFileSync(target));
+        hash.update(legacy ? `f\0${relativePath}\0${stats.mode & 0o777}\0` : `f\0${relativePath}\0`);
+        const content = readFileSync(target);
+        hash.update(legacy ? content : createHash("sha256").update(content).digest("hex"));
         hash.update("\0");
       } else if (stats.isSymbolicLink()) {
         const linkTarget = readlinkSync(target);
@@ -1139,7 +1143,7 @@ function treeDigestSync(root) {
     }
   }
   visit(root, "");
-  return `sha256:${hash.digest("hex")}`;
+  return `${legacy ? "sha256" : "sha256-tree-v2"}:${hash.digest("hex")}`;
 }
 
 function readMarketplaceSkillState() {
@@ -1157,7 +1161,7 @@ function readMarketplaceSkillState() {
     validateSkillName(name, "Installed Marketplace Skill name");
     assertKnownKeys(entry, MARKETPLACE_SKILL_STATE_ENTRY_KEYS, `state.skills.${name}`);
     assertTargetName(entry.marketplace, `state.skills.${name}.marketplace`);
-    if (!/^sha256:[0-9a-f]{64}$/u.test(entry.digest)) fail(`state.skills.${name}.digest is invalid.`);
+    if (!/^(?:sha256|sha256-tree-v2):[0-9a-f]{64}$/u.test(entry.digest)) fail(`state.skills.${name}.digest is invalid.`);
   }
   return state;
 }
@@ -1186,7 +1190,7 @@ function readMarketplaceSkillCatalog(localName, entry, { verifySkill = null } = 
     if (catalogPathValue !== `../../skills/${name}`) {
       fail(`Marketplace ${localName} Skill ${name} path must be ../../skills/${name}.`);
     }
-    if (!/^sha256:[0-9a-f]{64}$/u.test(skill.digest)) fail(`Marketplace ${localName} Skill ${name} digest is invalid.`);
+    if (!/^(?:sha256|sha256-tree-v2):[0-9a-f]{64}$/u.test(skill.digest)) fail(`Marketplace ${localName} Skill ${name} digest is invalid.`);
     if (skill.sourceUrl !== undefined) validateSourceUrl(skill.sourceUrl, `Marketplace ${localName} Skill ${name} sourceUrl`);
     const source = resolve(dirname(catalogPath), catalogPathValue);
     if (verifySkill === name) {
@@ -1200,7 +1204,7 @@ function readMarketplaceSkillCatalog(localName, entry, { verifySkill = null } = 
       if (!sameOrWithin(realpathSync(skillRoot), realSource)) {
         fail(`Marketplace ${localName} Skill ${name} resolves outside its skills directory.`);
       }
-      if (treeDigestSync(source) !== skill.digest) {
+      if (treeDigestSync(source, skill.digest) !== skill.digest) {
         fail(`Marketplace ${localName} Skill copy does not match its catalog digest: ${name}.`);
       }
     }
@@ -1238,11 +1242,19 @@ function replaceManagedSkillDirectory(source, destination, name, state, stateEnt
   const backup = join(agentsRoot, `.marketplace-skill-${process.pid}-${randomUUID()}.bak`);
   const existed = existsSync(destination);
   let replaced = false;
-  cpSync(source, staged, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
   try {
-    if (treeDigestSync(staged) !== stateEntry.digest) fail(`Copied Skill differs from the Marketplace source: ${name}.`);
+    cpSync(source, staged, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
+    if (treeDigestSync(staged, stateEntry.digest) !== stateEntry.digest) fail(`Copied Skill differs from the Marketplace source: ${name}.`);
     if (existed) renameSync(destination, backup);
-    renameSync(staged, destination);
+    try {
+      renameSync(staged, destination);
+    } catch (error) {
+      if (existed) {
+        try { renameSync(backup, destination); }
+        catch (restoreError) { error.message += `\nAdditionally, the previous Skill could not be restored: ${restoreError.message}`; }
+      }
+      throw error;
+    }
     replaced = true;
     state.skills[name] = stateEntry;
     try {
@@ -1265,8 +1277,8 @@ function handleConsumerMarketplaceSkillMutation(action, skillName, requestedMark
   if (action === "remove") {
     if (!existingState) fail(`Skill ${name} is not managed by agent marketplace.`, 2);
     const destination = join(HOME_PATH, ".agents", "skills", name);
-    if (!existsSync(destination) || !statSync(destination).isDirectory()) fail(`Managed Skill directory is missing: ${name}.`);
-    if (treeDigestSync(destination) !== existingState.digest) {
+    if (!existsSync(destination) || !lstatSync(destination).isDirectory()) fail(`Managed Skill directory is missing: ${name}.`);
+    if (treeDigestSync(destination, existingState.digest) !== existingState.digest) {
       fail(`Refusing to remove locally changed Skill: ${name}. Preserve or revert the changes first.`);
     }
     const backup = join(HOME_PATH, ".agents", `.marketplace-skill-${process.pid}-${randomUUID()}.bak`);
@@ -1295,11 +1307,11 @@ function handleConsumerMarketplaceSkillMutation(action, skillName, requestedMark
     digest: skill.digest,
   };
   if (existsSync(destination)) {
-    if (!statSync(destination).isDirectory()) fail(`Skill destination is not a directory: ${name}.`);
+    if (!lstatSync(destination).isDirectory()) fail(`Skill destination is not a directory: ${name}.`);
     if (!existingState) fail(`Refusing to replace an unmanaged Skill: ${name}. Remove or relocate it explicitly first.`);
-    const currentDigest = treeDigestSync(destination);
+    const currentDigest = treeDigestSync(destination, existingState.digest);
     if (currentDigest !== existingState.digest) fail(`Refusing to replace locally changed Skill: ${name}.`);
-    if (currentDigest === skill.digest) {
+    if (currentDigest === skill.digest || (existingState.digest.startsWith("sha256:") && treeDigestSync(destination, skill.digest) === skill.digest)) {
       if (existingState.marketplace !== marketplaceName || existingState.digest !== skill.digest) {
         state.skills[name] = nextStateEntry;
         writeAtomic(MARKETPLACE_SKILL_STATE_PATH, jsonText(state));

@@ -27,3 +27,6 @@ home/.agents/development.json
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local temporary work
+/.tmp/

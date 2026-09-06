@@ -921,3 +921,90 @@ test("skill commands do not require plugin and Marketplace configuration", () =>
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+
+test("migrates legacy Marketplace and installed Skill digests without discarding local edits", async () => {
+  const { treeDigest } = await import("../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/assemble-agent-marketplace.mjs");
+  const { createHash } = await import("node:crypto");
+  const { mkdtempSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "agent-digest-migration-"));
+  const home = join(root, "home");
+  const marketplace = join(root, "marketplace");
+  const source = join(root, "portable");
+  const assemblyConfig = join(root, "assembly.json");
+  const config = join(home, ".agents", "development.json");
+  const env = { AGENT_DEV_HOME: home, AGENT_DEV_CONFIG: config };
+  const invoke = (...args) => run(CLI, args, env);
+  const sync = () => run(MARKETPLACE_MANAGER, ["sync", marketplace, "--config", assemblyConfig], {});
+  try {
+    mkdirSync(source, { recursive: true });
+    mkdirSync(dirname(config), { recursive: true });
+    writeFileSync(join(source, "SKILL.md"), "---\nname: portable\ndescription: Portable test\n---\nBody\n");
+    writeJson(assemblyConfig, { schemaVersion: 2, name: "portable", displayName: "Portable", plugins: [], skills: [{ source }] });
+    writeJson(config, { schemaVersion: 2, skills: {}, plugins: {}, marketplaces: { team: {
+      root: marketplace, name: "portable", displayName: "Portable", mode: "consumer", plugins: [], skills: [],
+    } } });
+    let result = sync();
+    assert.equal(result.status, 0, result.stderr);
+    const catalogFile = join(marketplace, ".agents", "skills", "catalog.json");
+    const stateFile = join(marketplace, ".agents", "marketplace-development", "state.json");
+    const catalog = JSON.parse(readFileSync(catalogFile, "utf8"));
+    const state = JSON.parse(readFileSync(stateFile, "utf8"));
+    const oldDigest = await treeDigest(join(marketplace, "skills", "portable"), true);
+    catalog.skills[0].digest = oldDigest;
+    writeJson(catalogFile, catalog);
+    state.skills.portable.digest = oldDigest;
+    state.skillCatalogDigest = `sha256:${createHash("sha256").update(readFileSync(catalogFile)).digest("hex")}`;
+    writeJson(stateFile, state);
+    result = invoke("marketplace", "skill", "install", "portable");
+    assert.equal(result.status, 0, result.stderr);
+    const installed = join(home, ".agents", "skills", "portable", "SKILL.md");
+    // A changed generated copy remains protected while its recorded digest is legacy.
+    const copy = join(marketplace, "skills", "portable", "SKILL.md");
+    const original = readFileSync(copy);
+    writeFileSync(copy, "local change");
+    result = sync();
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /changed outside/);
+    writeFileSync(copy, original);
+    writeFileSync(join(source, "SKILL.md"), original.toString("utf8") + "Updated source\n");
+    result = sync();
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(JSON.parse(readFileSync(catalogFile, "utf8")).skills[0].digest, /^sha256-tree-v2:/);
+    const hook = join(root, "fail-replacement.mjs");
+    writeFileSync(hook, `import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+const rename = fs.renameSync;
+fs.renameSync = (source, target) => {
+  if (String(source).includes(".marketplace-skill-") && String(source).endsWith(".tmp")) {
+    const error = new Error("Injected replacement failure"); error.code = "EACCES"; throw error;
+  }
+  return rename(source, target);
+};
+syncBuiltinESMExports();
+`);
+    const { pathToFileURL } = await import("node:url");
+    const installedBefore = readFileSync(installed);
+    const localStateFile = join(home, ".agents", "marketplace-skill-state.json");
+    const stateBefore = readFileSync(localStateFile);
+    result = run(CLI, ["marketplace", "skill", "update", "portable"], {
+      ...env, NODE_OPTIONS: `--import=${pathToFileURL(hook).href}`,
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Injected replacement failure/);
+    assert.deepEqual(readFileSync(installed), installedBefore);
+    assert.deepEqual(readFileSync(localStateFile), stateBefore);
+    const { readdirSync } = await import("node:fs");
+    assert.equal(readdirSync(join(home, ".agents")).some(name => name.startsWith(".marketplace-skill-")), false);
+    result = invoke("marketplace", "skill", "update", "portable");
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(JSON.parse(readFileSync(localStateFile, "utf8")).skills.portable.digest, /^sha256-tree-v2:/);
+    writeFileSync(installed, "local edit");
+    for (const action of ["update", "remove"]) {
+      result = invoke("marketplace", "skill", action, "portable");
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /locally changed/);
+      assert.equal(readFileSync(installed, "utf8"), "local edit");
+    }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

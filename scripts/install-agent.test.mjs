@@ -1,0 +1,153 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { installAgent } from './install-agent.mjs';
+
+function fixture(t) {
+  const root = fs.mkdtempSync(join(fs.realpathSync(tmpdir()), 'agent-install-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  return { agentsRoot: join(root, 'space and 日本語', '.agents'), binDir: join(root, 'bin'), searchPath: '', log() {} };
+}
+
+test('dry run creates nothing for each supported platform', t => {
+  const options = fixture(t);
+  for (const platform of ['win32', 'linux', 'darwin']) installAgent({ ...options, platform, dryRun: true });
+  assert.equal(fs.existsSync(options.agentsRoot), false);
+  assert.equal(fs.existsSync(options.binDir), false);
+});
+
+test('shared installation preserves configuration, is idempotent, and preflights all collisions', t => {
+  const options = { ...fixture(t), platform: 'win32' };
+  fs.mkdirSync(options.agentsRoot, { recursive: true });
+  const config = join(options.agentsRoot, 'development.json');
+  fs.writeFileSync(config, '{"local":"keep"}\n');
+  installAgent(options);
+  const implementation = join(options.agentsRoot, 'scripts', 'agent.mjs');
+  const timestamp = fs.statSync(implementation).mtimeMs;
+  installAgent(options);
+  assert.equal(fs.statSync(implementation).mtimeMs, timestamp);
+  assert.equal(fs.readFileSync(config, 'utf8'), '{"local":"keep"}\n');
+  const command = join(options.agentsRoot, 'scripts', 'agent.cmd');
+  fs.writeFileSync(command, 'rem @ai-dotfiles agent-dev-runtime managed\nstale');
+  fs.writeFileSync(implementation, 'unmanaged');
+  assert.throws(() => installAgent(options), /unmanaged/);
+  assert.match(fs.readFileSync(command, 'utf8'), /stale/);
+  installAgent({ ...options, force: true });
+  const result = spawnSync(process.execPath, [implementation, '--help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('Unix command collisions reject even force before writing runtime', t => {
+  const options = fixture(t);
+  fs.mkdirSync(options.binDir);
+  fs.writeFileSync(join(options.binDir, 'agent'), 'another command');
+  for (const platform of ['linux', 'darwin']) {
+    assert.throws(() => installAgent({ ...options, platform, force: true }), /collision/);
+    assert.equal(fs.existsSync(options.agentsRoot), false);
+  }
+});
+
+test('directory targets reject even force', t => {
+  const options = { ...fixture(t), platform: 'win32', force: true };
+  fs.mkdirSync(join(options.agentsRoot, 'scripts', 'agent.mjs'), { recursive: true });
+  assert.throws(() => installAgent(options), /regular file/);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'scripts', 'agent.cmd')), false);
+});
+
+test('native Unix entry executes with its runtime and repairs execute permission', { skip: process.platform === 'win32' }, t => {
+  const options = fixture(t);
+  installAgent(options);
+  const entry = join(options.binDir, 'agent');
+  assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'scripts', 'agent.cmd')), false);
+  const result = spawnSync(entry, ['--help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  fs.chmodSync(join(options.agentsRoot, 'scripts', 'agent.mjs'), 0o644);
+  installAgent(options);
+  assert.notEqual(fs.statSync(entry).mode & 0o111, 0);
+  fs.unlinkSync(entry);
+  fs.symlinkSync('unrelated-missing-target', entry);
+  assert.throws(() => installAgent({ ...options, force: true }), /collision/);
+});
+
+test('native Unix refuses redirected runtime directories', { skip: process.platform === 'win32' }, t => {
+  const options = fixture(t);
+  fs.mkdirSync(options.agentsRoot, { recursive: true });
+  fs.mkdirSync(options.binDir);
+  fs.symlinkSync(options.binDir, join(options.agentsRoot, 'scripts'));
+  assert.throws(() => installAgent({ ...options, force: true }), /real directory/);
+  assert.deepEqual(fs.readdirSync(options.binDir), []);
+});
+
+
+test('Unix PATH collision is detected before runtime writes', t => {
+  const options = fixture(t);
+  const otherBin = join(options.binDir, 'other');
+  fs.mkdirSync(otherBin, { recursive: true });
+  fs.writeFileSync(join(otherBin, 'agent'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  assert.throws(() => installAgent({ ...options, platform: 'linux', searchPath: otherBin }), /already on PATH/);
+  assert.equal(fs.existsSync(options.agentsRoot), false);
+});
+
+
+test('Unix reinstall accepts its own command through an aliased parent', { skip: process.platform === 'win32' }, t => {
+  const options = fixture(t);
+  const actual = join(options.binDir, 'actual');
+  const alias = join(options.binDir, 'alias');
+  fs.mkdirSync(actual, { recursive: true });
+  fs.symlinkSync(actual, alias);
+  const throughAlias = { ...options, agentsRoot: join(alias, '.agents'), binDir: join(alias, 'bin') };
+  installAgent(throughAlias);
+  installAgent({ ...throughAlias, searchPath: throughAlias.binDir });
+  const result = spawnSync(join(throughAlias.binDir, 'agent'), ['--help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('macOS zsh finds and launches agent through PATH', { skip: process.platform !== 'darwin' }, t => {
+  const options = fixture(t);
+  installAgent(options);
+  const result = spawnSync('/bin/zsh', ['-f', '-c', 'agent --help'], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${options.binDir}:${process.env.PATH ?? ''}` },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Agent Skill/);
+});
+
+
+test('unsupported Node version is rejected before installation', t => {
+  const options = fixture(t);
+  const descriptor = Object.getOwnPropertyDescriptor(process.versions, 'node');
+  try {
+    Object.defineProperty(process.versions, 'node', { ...descriptor, value: '22.12.0' });
+    assert.throws(() => installAgent(options), /Node.js 24 or later/);
+    assert.equal(fs.existsSync(options.agentsRoot), false);
+  } finally { Object.defineProperty(process.versions, 'node', descriptor); }
+});
+
+
+test('empty PATH entry still detects a command in the current directory', t => {
+  const options = fixture(t);
+  fs.mkdirSync(options.binDir, { recursive: true });
+  fs.writeFileSync(join(options.binDir, 'agent'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  const previousDirectory = process.cwd();
+  try {
+    process.chdir(options.binDir);
+    assert.throws(() => installAgent({ ...options, binDir: join(options.binDir, 'new-bin'), platform: 'linux', searchPath: '' }), /already on PATH/);
+    assert.equal(fs.existsSync(options.agentsRoot), false);
+  } finally { process.chdir(previousDirectory); }
+});
+
+test('existing installation roots use filesystem canonical spelling', { skip: process.platform === 'win32' }, t => {
+  const options = fixture(t);
+  const root = join(options.binDir, 'MixedCase');
+  fs.mkdirSync(root, { recursive: true });
+  const otherSpelling = join(options.binDir, 'mixedcase');
+  if (!fs.existsSync(otherSpelling)) return t.skip('Case-sensitive filesystem');
+  installAgent({ ...options, agentsRoot: root });
+  installAgent({ ...options, agentsRoot: otherSpelling });
+  assert.equal(fs.realpathSync(join(options.binDir, 'agent')), join(fs.realpathSync(root), 'scripts', 'agent.mjs'));
+});

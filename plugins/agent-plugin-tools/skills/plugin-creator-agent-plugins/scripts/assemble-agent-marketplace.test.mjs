@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { filesystemGuidance } from "./assemble-agent-marketplace.mjs";
+import { filesystemGuidance, treeDigest } from "./assemble-agent-marketplace.mjs";
 
 const scriptRoot = path.dirname(fileURLToPath(import.meta.url));
 const assembler = path.join(scriptRoot, "assemble-agent-marketplace.mjs");
@@ -84,7 +84,7 @@ test("syncs standalone Skills with optional source provenance", async () => {
     ));
     assert.equal(catalog.skills[0].name, "sample-skill");
     assert.equal(catalog.skills[0].sourceUrl, "https://example.com/sample-skill");
-    assert.match(catalog.skills[0].digest, /^sha256:[0-9a-f]{64}$/u);
+    assert.match(catalog.skills[0].digest, /^sha256-tree-v2:[0-9a-f]{64}$/u);
     assert.equal(invoke(["check", marketplaceRoot, "--config", configPath], tempRoot).status, 0);
 
     await writeFile(path.join(skillRoot, "content.txt"), "updated\n", "utf8");
@@ -568,4 +568,27 @@ test("init is non-interactive and refuses invalid or existing configuration", as
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+
+test("portable tree digest has deterministic byte ordering and excludes host permissions", async () => {
+  const { createHash } = await import("node:crypto");
+  const { chmod } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(os.tmpdir(), "portable-digest-"));
+  try {
+    await writeFile(path.join(root, "a.txt"), "a");
+    await writeFile(path.join(root, "Z.txt"), "z");
+    const fileHash = value => createHash("sha256").update(value).digest("hex");
+    const expected = createHash("sha256").update(`f\0Z.txt\0${fileHash("z")}\0f\0a.txt\0${fileHash("a")}\0`).digest("hex");
+    const before = await treeDigest(root);
+    assert.equal(before, `sha256-tree-v2:${expected}`);
+    if (process.platform !== "win32") {
+      const legacyBefore = await treeDigest(root, true);
+      await chmod(path.join(root, "a.txt"), 0o700);
+      assert.equal(await treeDigest(root), before);
+      assert.notEqual(await treeDigest(root, true), legacyBefore);
+    }
+    await writeFile(path.join(root, "a.txt"), "changed");
+    assert.notEqual(await treeDigest(root), before);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

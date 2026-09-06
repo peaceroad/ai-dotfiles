@@ -16,6 +16,8 @@
 
 ## 配置とインストール
 
+Windows／Linux／macOSともNode.js 24以降が必要です。インストーラーは要件未満のNode.jsでは書き込み前に停止します。起動用スクリプトとランタイムの改行は、リポジトリの`.gitattributes`でLFに固定しています。
+
 公開する正本は、このリポジトリの`tools/agent/`と、各管理処理を所有するディレクトリに置きます。利用時はインストーラーが、CLIとその実行に必要なmanager、validator、schemaを同じ版のランタイムとして`~/.agents/`へコピーします。
 
 ```text
@@ -26,6 +28,8 @@ ai-dotfiles/
 │   ├── agent.test.mjs
 │   └── development.schema.json
 └── scripts/
+    ├── install-agent.mjs
+    ├── install-agent.test.mjs
     └── install-agent.ps1
 
 ~/.agents/
@@ -47,6 +51,66 @@ PowerShellから次を実行すると、`agent.cmd`、`agent.mjs`、schemaと固
 PowerShellプロファイルの影響を除外したい場合や、PowerShell以外のホスト、CIから呼び出す場合は、`pwsh -NoProfile -File .\scripts\install-agent.ps1`という完全な形も使えます。インストーラー自身は実行ポリシーを変更または迂回しません。
 
 ユーザー`Path`へ追加した場合は、新しいターミナルを開いて`agent --help`で確認します。更新時も同じコマンドを再実行します。内容が同じなら`Current`と表示して置換せず、管理済みの旧版なら`Updated`として更新します。marker導入前にこのリポジトリが出力した3ファイル一式は自動的に移行し、当時インストール先へ置かれていたテストファイルも既知の内容と完全一致する場合だけ削除します。それ以外の管理外の同名ファイルや別の`agent`コマンドがある場合は停止します。管理外ファイルを確認済みで置き換える場合に限り`-Force`を使えますが、別コマンドとの名前衝突は先に解消する必要があります。無人実行でユーザー`Path`へ追加する場合は`-AddToPath`、変更しない場合は`-SkipPathRegistration`を指定します。変更予定だけを見る場合は、Path登録も含めるなら`-AddToPath -WhatIf`を使います。
+
+### Linux／macOSへの導入
+
+ファイルの配置・更新・保護はNode.js製の`install-agent.mjs`が共通で担当します。Windowsの`install-agent.ps1`は共通処理を呼び出し、ユーザーPATH登録と`-WhatIf`／確認を扱います。`-Confirm`はランタイム一式に対して確認します。
+
+Linux／macOSではNode.jsを用意し、リポジトリのルートから実行します。テストと同梱ツールも動かす環境にはNode.js 24以降を使ってください。PowerShellやPythonは不要です。
+
+```sh
+node scripts/install-agent.mjs --dry-run
+node scripts/install-agent.mjs
+agent --help
+```
+
+共通ランタイムを`~/.agents/scripts/`へコピーし、実行権限を付けた`agent.mjs`への相対シンボリックリンクを`~/.local/bin/agent`に作ります。リンク先はインストール済みコピーなので、実行に元のcheckoutは不要です。Linux／macOSには`agent.cmd`をコピーしません。`--agents-root PATH`と`--bin-dir PATH`で配置先を変更できます。
+
+`~/.local/bin`がPATHにない場合は、使用するシェルの設定へ追加します。bash／zshでは次を現在の端末で実行できます。永続化する場合は自身のシェルの起動設定へ記載してください。インストーラーは起動設定を編集しません。
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+更新も同じ導入コマンドを再実行します。`--force`は確認済みの管理外の通常ファイルを置き換える指定です。別の`agent`ファイル・リンク、PATH上の別コマンド、配置ルート自体やその内部を転送するリンクは強制指定でも拒否します。上位ディレクトリのリンク（macOSの`/tmp`など）は実体へ解決します。aliasやfunctionとの衝突は検出できないため、起動先が違う場合は`type agent`で確認してください。個々のファイルは一時ファイル経由で置き換えますが、一式全体の更新はトランザクションではありません。途中で失敗した場合は原因を解消して再実行します。
+
+`development.json`は各環境で管理します。Windowsのドライブ文字やUNCパスをLinuxへそのまま引き継がず、Linux側で参照できるcheckoutやマウント先を指定してください。外部CLIを呼ぶ機能には、その環境内のCLIも必要です。
+
+### macOSのターミナルから使う
+
+macOSも共通のNode.jsインストーラーで導入します。`sh install-agent.mjs`ではなく、上記の`node scripts/install-agent.mjs`を実行してください。インストール後の`agent`は、先頭の`#!/usr/bin/env node`によってNode.jsで起動します。zsh／bash用の別実装はありません。
+
+zshでPATHを永続化する場合は、`~/.zshrc`（`ZDOTDIR`を設定している場合はそのディレクトリの`.zshrc`）に、未設定の場合だけ次の行を追加します。
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+新しいターミナルを開き、起動先とヘルプを確認します。
+
+```sh
+command -v node
+command -v agent
+agent --help
+```
+
+Node.jsの配置先は固定していません。Apple Silicon／Intelとも、そのMacで動くNode.js 24以降をPATHから使用します。ただし、両アーキテクチャでの実測は未実施です。更新時も同じインストーラーを再実行します。
+
+### OSをまたぐMarketplaceの利用
+
+新しい配布物は`sha256-tree-v2:`形式で、相対パス・ファイル種別・内容・相対リンク先を検証します。名前の順序はUTF-8バイト順に固定し、OSやマウント方法で変わる権限値・所有者・時刻は含めません。内容の一致は実行権限の保証ではありません。必要な権限は利用環境で管理し、スクリプトは必要に応じて`node script.mjs`など指定されたインタープリターから起動します。権限だけの変更は同期の対象になりません。
+
+旧`sha256:`形式も従来の権限込みの計算で検証します。既存Marketplaceは元の環境で全体`sync`を実行してからOS間で移動してください。手編集された配布物は移行時も上書きしません。利用側の`agent`も新形式を読める版へ更新します。導入済みSkillの旧管理状態は、`update`時に既存内容の一致を確認して新形式へ移行します。Gitの改行変換などで内容自体が変わった場合は、引き続き不一致になります。
+
+### 検証範囲と実環境での確認
+
+```sh
+npm run check:agent-dev
+```
+
+Windowsでは共通テストとPowerShellインストーラーテストを実行します。Linux／macOSでは実行権限、リンク経由の起動、リンク先の保護、上位ディレクトリの別名を経由した再インストールも確認します。macOSではさらに`/bin/zsh`からPATH経由の起動を検証します。対象外のOSでは各テストをスキップします。共通テストだけの入口は`npm run check:agent-dev:common`です。
+
+この対応はWindows環境で実装しました。Ubuntu（WSL2）およびmacOSでの実測は未実施です。実環境では、まず上記テストを実行し、導入、`agent --help`、再インストールを確認してください。Skillのcheck/syncやMarketplace操作は試験用のソースと配布先で確認し、Codexへのplugin syncは実際のインストール操作として別途確認します。特定ディストリビューションのパッケージ管理には依存しませんが、他のLinuxで実測済みとは扱いません。
 
 CLIが実行する共通managerは、`~/.agents/skills/`の発見リンクから読み込みません。直接リンクを一時的に外してプラグイン統合を確認する場合もCLI自身の依存が失われず、インストール済みCLIとmanagerの版もそろいます。スキルに同梱したスクリプトは、単独利用とプラグイン側の正本として引き続き保持します。
 
