@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agent-design-tools",
-  "version": "0.1.0",
-  "description": "Skills for designing model-facing prompts and bounded, observable agent workflows.",
+  "version": "0.2.0",
+  "description": "Skills for designing, reviewing, and improving model-facing instructions and agent workflows.",
   "author": {
     "name": "k_taka",
     "url": "https://github.com/peaceroad"

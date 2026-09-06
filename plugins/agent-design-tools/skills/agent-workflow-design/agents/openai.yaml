@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Workflow Design"
   short_description: "Design agent workflows that progress and recover"
-  default_prompt: "Use $agent-workflow-design to design or revise this workflow so it completes authorized work, waits and recovers correctly, and places the necessary controls in the available runtime."
+  default_prompt: "Use $agent-workflow-design to design, review, or revise this agent workflow, clarifying how it progresses, waits, recovers, and completes authorized work."
