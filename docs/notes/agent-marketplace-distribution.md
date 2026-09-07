@@ -67,7 +67,7 @@ Move-Item `
 
 組み立てスクリプトを直接使う場合、`config.json`だけが人間の管理する組み立て設定です。この設定もschema v2だけを受け付け、旧v1を自動変換しません。`schema.json`、`state.json`、二つのカタログ、`plugins/<plugin-name>/`、`skills/<skill-name>/`は生成物なので、直接編集しません。
 
-後述する`agent dev marketplace`で管理する場合は境界が異なります。人が管理する正本は開発マシンの`~/.agents/development.json`であり、Marketplace側の`config.json`も生成物です。二つの方式を同じMarketplaceルートで混在させません。
+後述する`agent dev marketplace`で管理する場合は境界が異なります。人が管理する正本は開発マシンの`~/.agents/ai-dotfiles/development.json`であり、Marketplace側の`config.json`も生成物です。二つの方式を同じMarketplaceルートで混在させません。
 
 直接利用する方式の`config.json`はMarketplaceのルートに置かれるため、そのディレクトリやリポジトリへアクセスできる利用者からも読めます。絶対ソースパスにはユーザー名やローカルのディレクトリ構成が含まれる場合があるので、公開するGitリポジトリでは、Marketplaceとソースリポジトリの配置をそろえて相対パスを使い、commit前に設定内容を確認してください。`config.json`に認証情報や秘密情報を記録してはいけません。`agent dev`方式の生成済み`config.json`は、ソースパスを含まず、配布するプラグイン名とカテゴリー、Skill名と任意の来歴URLだけを記録します。
 
@@ -91,7 +91,7 @@ node "$HOME/.agents/skills/plugin-creator-agent-plugins/scripts/assemble-agent-m
 
 ## 最初のMarketplaceを作成する
 
-この節の`init`と次節の`add`は、Marketplace内の`config.json`を正本にして、組み立てスクリプトを直接使う場合の低水準コマンドです。`~/.agents/development.json`を正本にする`agent dev`方式では使わず、後述する`configure`と`sync`を使います。
+この節の`init`と次節の`add`は、Marketplace内の`config.json`を正本にして、組み立てスクリプトを直接使う場合の低水準コマンドです。`~/.agents/ai-dotfiles/development.json`を正本にする`agent dev`方式では使わず、後述する`configure`と`sync`を使います。
 
 ここでは、二つのプラグインを`team-plugins`というMarketplaceへまとめます。`<marketplace-root>`、`<first-plugin-root>`、`<second-plugin-root>`は、実際の絶対パスへ置き換えてください。同じ`--category`が、`init`で指定したすべてのプラグインへ適用されます。
 
@@ -177,7 +177,7 @@ agent dev marketplace sync --skill my-skill
 
 ## 開発と共有を分ける
 
-複数リポジトリや複数Marketplaceを扱う開発環境では、`~/.agents/development.json`をローカルな正本にして、次の共通入口を使えます。初回設定や構成変更は対話式の`configure`で行います。`setup`も同じ操作です。
+複数リポジトリや複数Marketplaceを扱う開発環境では、`~/.agents/ai-dotfiles/development.json`をローカルな正本にして、次の共通入口を使えます。初回設定や構成変更は対話式の`configure`で行います。`setup`も同じ操作です。
 
 ```powershell
 agent dev marketplace configure
@@ -277,7 +277,7 @@ Marketplaceが複数ある場合、`install`ではSkill名の後にローカルM
 agent marketplace skill install my-skill team
 ```
 
-一覧表示は共有側のカタログだけを読み、配布用コピーの全件検査は行いません。`install`と`update`は選択したSkillについてカタログdigestとSkillコピーを照合し、導入状態を`~/.agents/marketplace-skill-state.json`へ記録します。管理外の同名Skillや、導入後にローカル変更されたSkillは上書き・削除しません。Skillディレクトリ自体には管理stateを書かないため、パッケージ内容のdigestを変えません。導入・更新・削除は`~/.agents/.marketplace-skill.lock`で直列化し、一覧表示はロックせず読み取りだけを行います。異常終了後にロックが残った場合は、ほかの変更操作が動いていないことを確認してから、そのディレクトリだけを削除します。
+一覧表示は共有側のカタログだけを読み、配布用コピーの全件検査は行いません。`install`と`update`は選択したSkillについてカタログdigestとSkillコピーを照合し、導入状態を`~/.agents/ai-dotfiles/state/skill-installations.json`へ記録します。管理外の同名Skillや、導入後にローカル変更されたSkillは上書き・削除しません。Skillディレクトリ自体には管理stateを書かないため、パッケージ内容のdigestを変えません。導入・更新・削除は`~/.agents/ai-dotfiles/state/skill-installations.lock`で直列化し、一覧表示はロックせず読み取りだけを行います。異常終了後にロックが残った場合は、ほかの変更操作が動いていないことを確認してから、そのディレクトリだけを削除します。
 
 プラグインについて同じキャッシュ機能は実装しません。CodexのMarketplaceとインストール済みプラグインはCodexアプリ／CLIが管理するため、利用者側では次節の公式経路を使います。
 

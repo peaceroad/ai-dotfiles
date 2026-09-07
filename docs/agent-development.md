@@ -12,7 +12,7 @@
 | `agent dev plugin ...` | プラグインの開発リポジトリ | リポジトリ内Marketplaceを経由したCodexのインストール状態 |
 | `agent dev marketplace ...` | プラグイン／Skillの開発リポジトリ、または明示した導入済みSkill | NASやGit checkoutなどの共有Marketplace |
 
-プラグイン本体を`~/.agents/`へ複製しません。`~/.agents/development.json`は、`agent dev`が扱う開発対象と共有Marketplaceの望ましい構成について、人が管理するローカルな正本です。ただし、プラグイン本体、Skill本体、配布用コピー、Codexのインストール済みコピーの正本ではありません。共有Marketplaceへの同期も、ローカルのプラグイン統合確認とは別の明示的な操作です。
+プラグイン本体を`~/.agents/`へ複製しません。`~/.agents/ai-dotfiles/development.json`は、`agent dev`が扱う開発対象と共有Marketplaceの望ましい構成について、人が管理するローカルな正本です。ただし、プラグイン本体、Skill本体、配布用コピー、Codexのインストール済みコピーの正本ではありません。共有Marketplaceへの同期も、ローカルのプラグイン統合確認とは別の明示的な操作です。
 
 ## 配置とインストール
 
@@ -33,13 +33,20 @@ ai-dotfiles/
     └── install-agent.ps1
 
 ~/.agents/
-├── development.schema.json
+├── ai-dotfiles/
+│   ├── development.json
+│   ├── development.schema.json
+│   ├── skill-links.json
+│   ├── state/
+│   │   ├── marketplaces/
+│   │   │   └── <marketplace-name>--<root-id>.json
+│   │   └── skill-installations.json
+│   └── runtime/
+│       ├── agent.mjs
+│       ├── manage-skill-links.mjs
+│       └── plugin-tools/
 └── scripts/
-    ├── agent.cmd
-    ├── agent.mjs
-    ├── manage-skill-links.mjs
-    └── agent-runtime/
-        └── plugin-tools/
+    └── agent.cmd  ← Windowsの起動入口
 ```
 
 PowerShellから次を実行すると、`agent.cmd`、`agent.mjs`、schemaと固定されたランタイム一式を`~/.agents/`へ導入します。`~/.agents/scripts`がユーザーまたはマシンの永続的な`Path`にない場合だけ、インストール後にユーザー`Path`へ追加するかを`[y/N]`で確認します。PowerShellプロファイルは変更しません。
@@ -50,7 +57,7 @@ PowerShellから次を実行すると、`agent.cmd`、`agent.mjs`、schemaと固
 
 PowerShellプロファイルの影響を除外したい場合や、PowerShell以外のホスト、CIから呼び出す場合は、`pwsh -NoProfile -File .\scripts\install-agent.ps1`という完全な形も使えます。インストーラー自身は実行ポリシーを変更または迂回しません。
 
-ユーザー`Path`へ追加した場合は、新しいターミナルを開いて`agent --help`で確認します。更新時も同じコマンドを再実行します。内容が同じなら`Current`と表示して置換せず、管理済みの旧版なら`Updated`として更新します。marker導入前にこのリポジトリが出力した3ファイル一式は自動的に移行し、当時インストール先へ置かれていたテストファイルも既知の内容と完全一致する場合だけ削除します。それ以外の管理外の同名ファイルや別の`agent`コマンドがある場合は停止します。管理外ファイルを確認済みで置き換える場合に限り`-Force`を使えますが、別コマンドとの名前衝突は先に解消する必要があります。無人実行でユーザー`Path`へ追加する場合は`-AddToPath`、変更しない場合は`-SkipPathRegistration`を指定します。変更予定だけを見る場合は、Path登録も含めるなら`-AddToPath -WhatIf`を使います。
+ユーザー`Path`へ追加した場合は、新しいターミナルを開いて`agent --help`で確認します。更新時も同じコマンドを再実行します。内容が同じなら`Current`と表示して置換せず、管理済みの旧版なら`Updated`として更新します。管理外の同名ファイルや別の`agent`コマンドがある場合は停止します。管理外ファイルを確認済みで置き換える場合に限り`-Force`を使えますが、別コマンドとの名前衝突は先に解消する必要があります。無人実行でユーザー`Path`へ追加する場合は`-AddToPath`、変更しない場合は`-SkipPathRegistration`を指定します。変更予定だけを見る場合は、Path登録も含めるなら`-AddToPath -WhatIf`を使います。
 
 ### Linux／macOSへの導入
 
@@ -64,7 +71,7 @@ node scripts/install-agent.mjs
 agent --help
 ```
 
-共通ランタイムを`~/.agents/scripts/`へコピーし、実行権限を付けた`agent.mjs`への相対シンボリックリンクを`~/.local/bin/agent`に作ります。リンク先はインストール済みコピーなので、実行に元のcheckoutは不要です。Linux／macOSには`agent.cmd`をコピーしません。`--agents-root PATH`と`--bin-dir PATH`で配置先を変更できます。
+共通ランタイムを`~/.agents/ai-dotfiles/runtime/`へコピーし、実行権限を付けた`agent.mjs`への相対シンボリックリンクを`~/.local/bin/agent`に作ります。リンク先はインストール済みコピーなので、実行に元のcheckoutは不要です。Linux／macOSには`agent.cmd`をコピーしません。`--agents-root PATH`と`--bin-dir PATH`で配置先を変更できます。
 
 `~/.local/bin`がPATHにない場合は、使用するシェルの設定へ追加します。bash／zshでは次を現在の端末で実行できます。永続化する場合は自身のシェルの起動設定へ記載してください。インストーラーは起動設定を編集しません。
 
@@ -116,7 +123,17 @@ CLIが実行する共通managerは、`~/.agents/skills/`の発見リンクから
 
 インストーラーはファイルごとの所有マーカーを検査します。`@ai-dotfiles`マーカーはCLIとスキルリンク管理など、このリポジトリ固有のファイルだけに使います。汎用plugin manager、validator、Marketplace assembler、schemaは`@plugin-creator-agent-plugins`のマーカーを保持し、他のプラグインリポジトリへ生成したrunnerへ`ai-dotfiles`固有の所有情報を持ち込みません。以前インストールしたランタイムに限り、更新時の移行判定で旧`@ai-dotfiles`マーカーも受け付けます。
 
-マシン固有のリポジトリやUNCパスを含む設定は、インストーラーが作成も変更もしない`~/.agents/development.json`に置きます。このリポジトリでは対応する`.agents/development.json`を`.gitignore`の対象とし、`export.js`も`export.yaml`からの出力を拒否します。公開側には設定値を含まないschemaだけを保存します。
+マシン固有のリポジトリやUNCパスを含む設定は、`~/.agents/ai-dotfiles/development.json`に置きます。開発設定と`state/`はGitと公開用エクスポートから除外します。`skill-links.json`はこのリポジトリ内を参照する宣言だけを書き出し、公開するschemaの正本は`tools/agent/development.schema.json`に置きます。
+
+### ローカル設定と状態
+
+`ai-dotfiles/`直下に人が管理する設定とschema、`state/`にCLIが更新する状態、`runtime/`に実装と内部ツールを置きます。`skill-links.json`もこのリポジトリが所有する設定として同じ場所にまとめます。スキル本体の配置先`~/.agents/skills/`は変更しません。Windowsの起動入口は`~/.agents/scripts/agent.cmd`、Linux／macOSは`~/.local/bin/agent`に残し、どちらも`runtime/agent.mjs`を実行します。
+
+インストーラーはランタイムとschemaだけを更新し、設定や状態の作成・移動は行いません。旧配置を使っている環境のデータ移動は、ほかの`agent`操作を止めて個別に行います。受け入れ済みリビジョンを捨てて初回扱いにすると共有側の変更を見逃す可能性があるため、設定だけでなく記録も保持してください。
+
+`AGENT_DEV_CONFIG`で設定先を指定する場合、受け入れ記録はその設定に隣接する`state/marketplaces/`を使います。Skillの導入状態は設定ファイル別ではなく、ユーザーの`~/.agents/ai-dotfiles/state/`で共有します。
+
+### 初回設定と更新
 
 初回設定と更新には、対話式の`configure`を使えます。`setup`は同じ操作の別名です。どちらもローカル設定を保存するだけで、Marketplaceの同期やプラグインのインストールは始めません。
 
@@ -265,7 +282,9 @@ agent dev plugin status my-plugin
 agent dev marketplace status team
 ```
 
-全体同期では、共有設定、配布state、カタログの内容を前回受け入れた版と比較します。変更がなければ通常どおり同期し、変更がある場合や既存Marketplaceの版をまだ受け入れていない場合は停止します。`status`と`check`は受け入れ記録を更新しません。記録は`development.json`と同じディレクトリの`marketplace-observations/`に保存され、全体同期の成功後または次の対話操作で更新されます。
+全体同期では、共有設定、配布state、カタログの内容を前回受け入れた版と比較し、変更があれば停止します。初回だけは、共有側とローカルの登録内容が一致すれば別途承認せずに同期し、成功後にリビジョンを記録します。登録内容が異なる場合は、次の対話操作で確認します。ソース本文やGitの版が最新であることを保証する判定ではありません。
+
+受け入れ記録は、`development.json`に隣接する`state/marketplaces/`へ保存します。ファイル名はMarketplace名とルートパスのSHA-256識別子を組み合わせ、中に`marketplace`、`rootId`、`revision`、`acceptedAt`を保持します。日付別の履歴ではなく最新の基準を1件保持し、Marketplace名を変更しても接続先の識別子で照合します。`acceptedAt`はこのPCが受け入れた日時であり、共有側の更新日時や更新者ではありません。`status`と通常の`check`は記録を更新しません。
 
 ```powershell
 agent dev marketplace check team --interactive
@@ -326,7 +345,7 @@ agent marketplace skill remove my-skill
 agent marketplace skill install my-skill team
 ```
 
-`agent marketplace list`は`agent marketplace skill list`の短縮形です。一覧表示はカタログだけを読み、配布用コピーの内容検証は行いません。`install`と`update`は選択したSkillについてカタログのdigestと共有先のコピーを照合してから導入し、管理外の同名Skillや導入後にローカル変更されたSkillを上書きしません。Skill内のシンボリックリンクは相対リンクに限り、Skillルート内へ解決できないリンク、壊れたリンク、絶対リンクを拒否します。`remove`も、このCLIが導入し、内容が導入時のdigestと一致するSkillだけを削除します。管理状態は`~/.agents/marketplace-skill-state.json`へ置き、導入済みSkillディレクトリには書き込みません。状態を変更する操作は`~/.agents/.marketplace-skill.lock`で直列化し、一覧表示はロックせず読み取りだけを行います。異常終了後にロックが残った場合は、ほかの導入・更新・削除が動いていないことを確認してから、そのディレクトリだけを削除します。
+`agent marketplace list`は`agent marketplace skill list`の短縮形です。一覧表示はカタログだけを読み、配布用コピーの内容検証は行いません。`install`と`update`は選択したSkillについてカタログのdigestと共有先のコピーを照合してから導入し、管理外の同名Skillや導入後にローカル変更されたSkillを上書きしません。Skill内のシンボリックリンクは相対リンクに限り、Skillルート内へ解決できないリンク、壊れたリンク、絶対リンクを拒否します。`remove`も、このCLIが導入し、内容が導入時のdigestと一致するSkillだけを削除します。管理状態は`~/.agents/ai-dotfiles/state/skill-installations.json`へ置き、導入済みSkillディレクトリには書き込みません。状態を変更する操作は`~/.agents/ai-dotfiles/state/skill-installations.lock`で直列化し、一覧表示はロックせず読み取りだけを行います。異常終了後にロックが残った場合は、ほかの導入・更新・削除が動いていないことを確認してから、そのディレクトリだけを削除します。
 
 プラグインについて同じキャッシュ機能は重複実装しません。Codexへ登録したMarketplace、利用可能なプラグイン、インストール済みコピーはCodexアプリとCLIが管理するためです。`agent`は共有用プラグインを組み立てますが、利用者側のプラグイン導入にはCodexのMarketplace機能を使います。
 
@@ -339,7 +358,7 @@ agent marketplace skill install my-skill team
 | `skill check` / `skill sync` | `manage-skill-links.mjs check` / `sync` |
 | `plugin check` | `repository-managed`ではリポジトリの`local-plugin.mjs validate --config ...`、`direct`では共通managerの`validate <plugin-root>` |
 | `plugin sync` | `repository-managed`ではリポジトリの`local-plugin.mjs install --config ...`、`direct`では明示されたversion方針を付けた共通managerの`install <plugin-root>` |
-| `marketplace configure` / `marketplace setup` | `~/.agents/development.json`の対話的な作成・更新 |
+| `marketplace configure` / `marketplace setup` | `~/.agents/ai-dotfiles/development.json`の対話的な作成・更新 |
 | `marketplace check` / `marketplace sync` | `development.json`から一時的な組み立て定義を作り、`assemble-agent-marketplace.mjs check` / `sync --config ...`を実行 |
 | `agent marketplace skill ...` | 共有先の`.agents/skills/catalog.json`を検証し、`~/.agents/skills`の管理済みコピーを導入・更新・削除 |
 

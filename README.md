@@ -7,35 +7,44 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 > [!IMPORTANT]
 > このリポジトリの設定は個人用です。再利用する場合は、ファイルアクセス、ネットワーク、環境変数の各権限を自分の環境に合わせて確認してください。
 >
-> ホームディレクトリから取り込んだ設定は`home/`配下に保存します。`home/.codex/config.toml`はこのリポジトリのプロジェクト設定として読み込まれないため、ユーザー設定のサンプルを管理しながら、このプロジェクト固有のCodex設定と分離できます。背景は[Codexの新規チャットでモデル設定が反映されない問題](docs/notes/codex-new-chat-model-selection.md)を参照してください。
->
 > These settings are personal. Before reusing them, review file access, network, and environment variable permissions for your environment.
->
-> Settings exported from the home directory are stored below `home/`. Because `home/.codex/config.toml` is not loaded as this repository's project configuration, the user-setting sample remains separate from project-specific Codex settings.
 
-エクスポートの仕組みと使い方は、[Export guide](docs/export.md)を参照してください。
+## 目的から探す
 
-## Agent Plugins
+- **設定や`AGENTS.md`を参考にする**：[公開用の設定サンプル](home/)から必要なファイルを確認します。
+- **自分の設定を公開用に書き出す**：[Export guide](docs/export.md)で、対象の指定、機密情報の検査、書き出し手順を確認します。
+- **スキル・プラグインを開発する、NASへ同期する**：[`agent`コマンドのガイド](docs/agent-development.md)へ進みます。[インストール](docs/agent-development.md#配置とインストール)、[状態確認・検査・同期](docs/agent-development.md#使い方)をまとめています。
+- **Marketplaceの単体Skillを利用する**：[別マシンで単体Skillを利用する](docs/agent-development.md#別マシンで単体skillを利用する)で、一覧表示・導入・更新・削除を確認します。
+- **Windows版Codexの既知の問題を調べる**：[Codex関連スクリプト](home/.agents/scripts/codex/README.md)で、状態確認と修復の対象条件を確認します。汎用の修復ツールではないため、適用前に各スクリプトの安全条件を読んでください。
 
-再利用するスキルは、Agent Plugins v1形式の二つのプラグインを正本として管理します。
+## このリポジトリのスキル・プラグイン
 
-- [agent-design-tools](plugins/agent-design-tools/README.md)：`prompt-design`と`agent-workflow-design`
-- [agent-plugin-tools](plugins/agent-plugin-tools/README.md)：`plugin-creator-agent-plugins`
+再利用するスキルは、Agent Plugins v1形式の二つのプラグインとして管理しています。用途と使い方は、各プラグインのREADMEを参照してください。
 
-設計用の2スキルと組み込みの`skill-creator`の選び方、Astraの既定値とGPT-5.6用参照、検証・記録の分担は、[3スキルの役割と使い分け](docs/notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
+- [agent-design-tools](plugins/agent-design-tools/README.md)：プロンプトなどのモデル向け指示を設計する`prompt-design`と、反復・長時間の作業の進め方を設計する`agent-workflow-design`。
+- [agent-plugin-tools](plugins/agent-plugin-tools/README.md)：ポータブルなプラグインの作成・検証・移行やMarketplaceの構築を支援する`plugin-creator-agent-plugins`。
 
-評価の入力・応答・manifestは[evals/](evals/README.md)でプラグイン別に管理し、評価の説明と判断は`docs/`に置きます。
+組み込みの`skill-creator`も含めた選び方は、[3スキルの役割と使い分け](docs/notes/skill-creator-prompt-design-agent-workflow-design.md)にまとめています。
 
-開発中の正本を`~/.agents/skills/`から直接参照するローカルリンクは、`~/.agents/skill-links.json`で一括管理します。公開用コピーには、このリポジトリ内を参照する宣言だけを書き出します。コマンド、状態表示、安全境界は[開発中のスキルをユーザースコープへリンクする](docs/skill-links.md)を参照してください。
+開発中のスキルをコピーせずに使いたい場合は、[スキルリンクのガイド](docs/skill-links.md)を参照してください。同名スキルの直接リンクとインストール済みプラグインは併用せず、日常のスキル開発とプラグイン全体の統合確認で切り替えます。
 
-複数リポジトリにまたがるスキルリンク、ローカルのプラグイン統合、プラグインと単体Skillを含む共有Marketplaceの検査と同期には、短い共通入口として`agent dev`を使えます。Marketplaceで配布された単体Skillは`agent marketplace skill`で一覧表示・導入・更新・削除でき、`marketplace`は`mp`へ短縮できます。CLIの正本は`tools/agent/`に置き、`scripts/install-agent.ps1`でホームディレクトリへ導入します。マシン固有の対象は公開しない`~/.agents/development.json`へ登録します。構成と使い方は[`agent dev`でローカル開発を管理する](docs/agent-development.md)を参照してください。
+## 正本と公開用コピー
 
-インストーラーは、コマンドのディレクトリが永続的な`Path`に未登録の場合だけ、ユーザー`Path`へ追加するか確認します。無人実行では`-AddToPath`または`-SkipPathRegistration`で選択を明示できます。
+- [`plugins/`](plugins/)：このリポジトリで開発するプラグインの正本です。Marketplaceへ登録するのは検証済みのプラグインディレクトリで、インストール済みコピーやCodexのキャッシュは正本として編集しません。
+- [`tools/agent/`](tools/agent/)：`agent` CLIの正本です。利用環境への導入・更新には、ガイドに記載したインストーラーを使います。
+- [`home/`](home/)：ホームディレクトリから取り込んだ公開用コピーです。エクスポートは「ホーム → このリポジトリ」の一方向で、ここを編集してもホーム側へは反映されません。
 
-ポータブルなプラグイン構造は、次のコマンドで検証できます。
+`home/.codex/config.toml`は、このリポジトリ固有の`.codex/config.toml`と区別して配置しています。背景は[Codexの新規チャットでモデル設定が反映されない問題](docs/notes/codex-new-chat-model-selection.md)を参照してください。
 
-```powershell
-npm run check:plugins
-```
+マシン固有の開発対象は、公開しない`~/.agents/ai-dotfiles/development.json`で管理します。スキルリンクの宣言は`~/.agents/ai-dotfiles/skill-links.json`で管理し、公開用コピーにはこのリポジトリ内を参照する宣言だけを書き出します。
 
-`npm run check`は、ホームディレクトリから公開設定を取り込むエクスポート計画、スキルリンクのマニフェスト、二つのプラグインを続けて検証します。Marketplaceへ登録するのは、検証済みのプラグインディレクトリです。インストール済みコピーやCodexのキャッシュは正本として編集しません。
+## 変更後の検証・評価記録
+
+リポジトリの検証にはNode.js 24以降を使います。Windowsで`npm run check`を実行する場合は、インストーラーのテスト用にPowerShell 7（`pwsh`）も必要です。次のコマンドはリポジトリのルートで実行します。
+
+- `npm run check`：エクスポート計画のドライラン、`agent` CLI・スキルリンク・プラグイン管理ツールのテスト、マニフェストと二つのプラグインの検証。
+- `npm run check:plugins`：二つのプラグインのポータブルな構造だけを検証。
+
+設定の書き出しは検証とは別の操作です。[Export guide](docs/export.md#使い方)の順序に従い、ホーム側の正本と書き出し予定を確認してから実行してください。
+
+スキルや指示の評価入力・応答・manifestは[評価記録](evals/README.md)からたどれます。評価の説明、採用判断、限界は、そこからリンクした`docs/`内の文書にまとめています。

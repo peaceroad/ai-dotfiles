@@ -24,8 +24,11 @@ const SHARED_SECTION_START = "# Shared settings start here.";
 const SHARED_SECTION_END = "# Shared settings end here.";
 const REQUIRE_SHARED_SECTIONS = new Set([".codex/config.toml"]);
 const CODEX_CONFIG_PATH = ".codex/config.toml";
-const SKILL_LINKS_PATH = ".agents/skill-links.json";
-const LOCAL_ONLY_EXPORT_PATHS = new Set([".agents/development.json"]);
+const SKILL_LINKS_PATH = ".agents/ai-dotfiles/skill-links.json";
+const LOCAL_ONLY_EXPORT_PATHS = [
+  ".agents/development.json", ".agents/ai-dotfiles/development.json", ".agents/ai-dotfiles/state",
+  ".agents/skill-links.json",
+];
 const CODEX_COMPUTER_USE_NOTIFY_PATTERN =
   /^\s*notify\s*=\s*\[\s*"[^"\r\n]*[\\/]codex-computer-use\.exe"\s*,\s*"turn-ended"\s*,?\s*\]\s*(?:#.*)?$/i;
 const TOML_TABLE_PATTERN = /^\s*\[([^\]]+)\]\s*(?:#.*)?$/;
@@ -205,7 +208,7 @@ username is treated as intentional.
 Other checks still apply to those lines. Configured directories are synchronized:
 dry runs list obsolete destination entries, and writes remove them.
 
-When exporting .agents/skill-links.json, only links whose targets are inside this
+When exporting .agents/ai-dotfiles/skill-links.json, only links whose targets are inside this
 repository are written to the public copy.
 
 OS metadata files such as Desktop.ini, .DS_Store, and Thumbs.db are skipped.
@@ -1011,7 +1014,8 @@ async function main() {
   const normalizedPaths = configuredPaths.map(normalizeConfiguredPath);
 
   for (const relativePath of normalizedPaths) {
-    if (LOCAL_ONLY_EXPORT_PATHS.has(pathComparisonKey(relativePath))) {
+    const key = pathComparisonKey(relativePath);
+    if (LOCAL_ONLY_EXPORT_PATHS.some(local => key === local || key.startsWith(`${local}/`) || local.startsWith(`${key}/`))) {
       throw new Error(
         `${relativePath} contains machine-specific development targets and must not be exported`,
       );

@@ -6,7 +6,7 @@ Use when a private configuration, multiple contributors, or a higher-level devel
 
 An orchestrator that owns a separate private configuration may call `sync` or `check` with `--config <configuration>`. The assembler then reads that external schema-version-2 assembly definition instead of the root `config.json`; relative plugin and Skill sources still resolve from the Marketplace root. It does not copy the external definition into the Marketplace. The orchestrator owns any safe, source-path-free reference file it creates at the normal `config.json` location. Do not mix an orchestrator-managed reference configuration with direct `init` or `add` commands in the same Marketplace root.
 
-The `init` and `add` commands are the low-level interface for a standalone Marketplace whose root `config.json` is human-owned. Do not use them when `~/.agents/development.json` or another orchestrator-owned configuration is the source of truth; use that orchestrator's configuration and `sync` commands instead.
+The `init` and `add` commands are the low-level interface for a standalone Marketplace whose root `config.json` is human-owned. Do not use them when `~/.agents/ai-dotfiles/development.json` or another orchestrator-owned configuration is the source of truth; use that orchestrator's configuration and `sync` commands instead.
 
 ## External definitions and scoped merging
 

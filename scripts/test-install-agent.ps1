@@ -4,7 +4,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $installer = Join-Path $PSScriptRoot 'install-agent.ps1'
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agent-install-test-' + [guid]::NewGuid().ToString('N'))
+$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agent-install-test 日本語 ' + [guid]::NewGuid().ToString('N'))
 $agentsRoot = Join-Path $tempRoot '.agents'
 
 function Assert-AgentTest {
@@ -14,21 +14,6 @@ function Assert-AgentTest {
   )
 
   if (-not $Condition) { throw $Message }
-}
-
-function Get-LegacyAgentContent {
-  param([Parameter(Mandatory = $true)][string]$Source)
-
-  $content = [IO.File]::ReadAllText($Source)
-  switch (Split-Path -Leaf $Source) {
-    'agent.cmd' { return $content -replace '(?m)^rem @ai-dotfiles agent-dev-runtime managed\r?\n', '' }
-    'agent.mjs' { return $content -replace '(?m)^// @ai-dotfiles agent-dev-runtime managed\r?\n\r?\n', '' }
-    'development.schema.json' {
-      $legacyContent = $content -replace '(?m)^  "\$comment": "@ai-dotfiles agent-dev-runtime managed",\r?\n', ''
-      return $legacyContent.Replace('/tools/agent/development.schema.json', '/.agents/development.schema.json')
-    }
-    default { throw "No legacy test fixture exists for: $Source" }
-  }
 }
 
 try {
@@ -80,8 +65,8 @@ try {
   & $installer -AgentsRoot $whatIfRoot -SkipPathRegistration -WhatIf
   Assert-AgentTest (-not (Test-Path -LiteralPath $whatIfRoot)) 'Installer changed files during -WhatIf.'
 
-  New-Item -ItemType Directory -Path $agentsRoot -Force | Out-Null
-  $localConfig = Join-Path $agentsRoot 'development.json'
+  New-Item -ItemType Directory -Path (Join-Path $agentsRoot 'ai-dotfiles') -Force | Out-Null
+  $localConfig = Join-Path $agentsRoot 'ai-dotfiles\development.json'
   Set-Content -LiteralPath $localConfig -Value '{"schemaVersion":2,"plugins":{},"marketplaces":{}}' -Encoding utf8NoBOM
   $configBefore = Get-Content -LiteralPath $localConfig -Raw
 
@@ -105,23 +90,13 @@ try {
     [Environment]::GetEnvironmentVariable('Path', 'User') -eq $userPathBefore
   ) 'Installer changed the user Path after detecting a command collision.'
 
-  $obsoleteMarketplaceAssembler = Join-Path $agentsRoot 'scripts\agent-runtime\plugin-tools\scripts\assemble-plugin-marketplace.mjs'
-  New-Item -ItemType Directory -Path (Split-Path -Parent $obsoleteMarketplaceAssembler) -Force | Out-Null
-  Set-Content `
-    -LiteralPath $obsoleteMarketplaceAssembler `
-    -Value "#!/usr/bin/env node`n`n// @plugin-creator-agent-plugins managed-marketplace-assembler v1`n" `
-    -Encoding utf8NoBOM `
-    -NoNewline
-  & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
-  Assert-AgentTest (-not (Test-Path -LiteralPath $obsoleteMarketplaceAssembler)) 'Installer retained the obsolete Marketplace assembler.'
-
   $coreFiles = @(
     @{ Source = (Join-Path $projectRoot 'tools\agent\agent.cmd'); Destination = (Join-Path $agentsRoot 'scripts\agent.cmd') }
-    @{ Source = (Join-Path $projectRoot 'tools\agent\agent.mjs'); Destination = (Join-Path $agentsRoot 'scripts\agent.mjs') }
-    @{ Source = (Join-Path $projectRoot 'tools\agent\development.schema.json'); Destination = (Join-Path $agentsRoot 'development.schema.json') }
+    @{ Source = (Join-Path $projectRoot 'tools\agent\agent.mjs'); Destination = (Join-Path $agentsRoot 'ai-dotfiles\runtime\agent.mjs') }
+    @{ Source = (Join-Path $projectRoot 'tools\agent\development.schema.json'); Destination = (Join-Path $agentsRoot 'ai-dotfiles\development.schema.json') }
   )
   $pluginToolsSource = Join-Path $projectRoot 'plugins\agent-plugin-tools\skills\plugin-creator-agent-plugins'
-  $pluginToolsDestination = Join-Path $agentsRoot 'scripts\agent-runtime\plugin-tools'
+  $pluginToolsDestination = Join-Path $agentsRoot 'ai-dotfiles\runtime\plugin-tools'
   $pluginRuntimeFiles = @(
     @{ Source = (Join-Path $pluginToolsSource 'scripts\manage-local-agent-plugin.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\manage-local-agent-plugin.mjs') }
     @{ Source = (Join-Path $pluginToolsSource 'scripts\assemble-agent-marketplace.mjs'); Destination = (Join-Path $pluginToolsDestination 'scripts\assemble-agent-marketplace.mjs') }
@@ -130,7 +105,7 @@ try {
   )
   $files = @(
     $coreFiles
-    @{ Source = (Join-Path $projectRoot 'home\.agents\scripts\manage-skill-links.mjs'); Destination = (Join-Path $agentsRoot 'scripts\manage-skill-links.mjs') }
+    @{ Source = (Join-Path $projectRoot 'home\.agents\ai-dotfiles\runtime\manage-skill-links.mjs'); Destination = (Join-Path $agentsRoot 'ai-dotfiles\runtime\manage-skill-links.mjs') }
     $pluginRuntimeFiles
   )
   foreach ($file in $pluginRuntimeFiles) {
@@ -145,27 +120,6 @@ try {
       (Get-FileHash -LiteralPath $file.Destination -Algorithm SHA256).Hash
     ) "Installed file differs from its source: $($file.Destination)"
   }
-
-  $legacyRoot = Join-Path $tempRoot '.agents-legacy'
-  foreach ($file in $coreFiles) {
-    $legacyDestination = $file.Destination.Replace($agentsRoot, $legacyRoot)
-    New-Item -ItemType Directory -Path (Split-Path -Parent $legacyDestination) -Force | Out-Null
-    Set-Content -LiteralPath $legacyDestination -Value (Get-LegacyAgentContent -Source $file.Source) -Encoding utf8NoBOM -NoNewline
-  }
-  $obsoleteTest = Join-Path $legacyRoot 'scripts\agent.test.mjs'
-  Copy-Item -LiteralPath (Join-Path $projectRoot 'tools\agent\agent.test.mjs') -Destination $obsoleteTest
-  & $installer -AgentsRoot $legacyRoot -SkipPathRegistration
-  foreach ($file in $files) {
-    $legacyDestination = $file.Destination.Replace($agentsRoot, $legacyRoot)
-    Assert-AgentTest (
-      (Get-FileHash -LiteralPath $file.Source -Algorithm SHA256).Hash -eq
-      (Get-FileHash -LiteralPath $legacyDestination -Algorithm SHA256).Hash
-    ) "Installer did not migrate the known legacy file: $legacyDestination"
-  }
-  Assert-AgentTest (-not (Test-Path -LiteralPath $obsoleteTest)) 'Installer did not remove the known obsolete test file.'
-  Set-Content -LiteralPath $obsoleteTest -Value '// preserve me' -Encoding utf8NoBOM
-  & $installer -AgentsRoot $legacyRoot -SkipPathRegistration
-  Assert-AgentTest (Test-Path -LiteralPath $obsoleteTest -PathType Leaf) 'Installer removed an unrecognized obsolete-path file.'
 
   & $installer -AgentsRoot $agentsRoot -SkipPathRegistration
 
@@ -182,7 +136,7 @@ try {
   }
 
   $agentCommand = Join-Path $agentsRoot 'scripts\agent.cmd'
-  $agentImplementation = Join-Path $agentsRoot 'scripts\agent.mjs'
+  $agentImplementation = Join-Path $agentsRoot 'ai-dotfiles\runtime\agent.mjs'
   $staleManagedCommand = "@echo off`nrem @ai-dotfiles agent-dev-runtime managed`nrem stale`n"
   Set-Content -LiteralPath $agentCommand -Value $staleManagedCommand -Encoding utf8NoBOM -NoNewline
   Set-Content -LiteralPath $agentImplementation -Value '// unmanaged collision' -Encoding utf8NoBOM
@@ -196,6 +150,16 @@ try {
   Assert-AgentTest ((Get-Content -LiteralPath $agentCommand -Raw) -eq $staleManagedCommand) 'Installer changed a file before rejecting a later collision.'
 
   & $installer -AgentsRoot $agentsRoot -SkipPathRegistration -Force
+  $launcherHelp = & $agentCommand --help | Out-String
+  Assert-AgentTest ($LASTEXITCODE -eq 0 -and $launcherHelp.Contains('Agent Skill')) 'Windows launcher failed to start its runtime.'
+  $previousConfig = $env:AGENT_DEV_CONFIG
+  try {
+    $env:AGENT_DEV_CONFIG = $localConfig
+    $launcherError = & $agentCommand dev plugin status 'name with spaces' 2>&1 | Out-String
+    Assert-AgentTest ($LASTEXITCODE -ne 0 -and $launcherError.Contains('name with spaces') -and -not $launcherError.Contains('Unexpected argument')) 'Windows launcher did not preserve quoted arguments or failure status.'
+  } finally {
+    $env:AGENT_DEV_CONFIG = $previousConfig
+  }
   Write-Output 'Agent installer tests passed.'
 } finally {
   $resolvedTemp = [IO.Path]::GetFullPath($tempRoot)

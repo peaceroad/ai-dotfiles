@@ -4,6 +4,6 @@
 /scripts/install-agent.ps1 text eol=lf
 /scripts/install-agent.test.mjs text eol=lf
 /scripts/test-install-agent.ps1 text eol=lf
-/home/.agents/scripts/manage-skill-links.mjs text eol=lf
+/home/.agents/ai-dotfiles/runtime/manage-skill-links.mjs text eol=lf
 /plugins/agent-plugin-tools/**/*.mjs text eol=lf
 /plugins/agent-plugin-tools/**/*.json text eol=lf

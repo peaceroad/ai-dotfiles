@@ -26,17 +26,17 @@ Marketplaceの登録と、そこからのプラグインのインストールは
 
 ## 構成
 
-`~/.agents/skill-links.json`が、作成するリンクと参照先の期待状態を宣言します。`~/.agents/scripts/manage-skill-links.mjs`が宣言を検証し、ローカル環境の状態を確認または同期します。
+`~/.agents/ai-dotfiles/skill-links.json`が、作成するリンクと参照先の期待状態を宣言します。`~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs`が宣言を検証し、ローカル環境の状態を確認または同期します。
 
 ```text
-~/.agents/skill-links.json
+~/.agents/ai-dotfiles/skill-links.json
   └─ 宣言: ~/.agents/skills/<skill-name>
                → 開発リポジトリ内のskills/<skill-name>/（編集する正本）
 ```
 
 ホームディレクトリにあるマニフェストと管理スクリプトが編集上の正本です。ホーム側のマニフェストは、開発用PCで利用する複数リポジトリのリンクをまとめたローカル設定であり、全体をそのまま公開しません。
 
-`npm run build`でこのdotfilesリポジトリの`home/.agents/skill-links.json`へ書き出す際は、参照先がこのリポジトリ内にある宣言だけを選びます。他の開発リポジトリの名前や配置は公開用コピーへ含めません。このため、ホーム側では複数リポジトリを一括管理しながら、公開側のマニフェストをこのリポジトリが正本を持つスキルだけに限定できます。
+`npm run build`でこのdotfilesリポジトリの`home/.agents/ai-dotfiles/skill-links.json`へ書き出す際は、参照先がこのリポジトリ内にある宣言だけを選びます。他の開発リポジトリの名前や配置は公開用コピーへ含めません。このため、ホーム側では複数リポジトリを一括管理しながら、公開側のマニフェストをこのリポジトリが正本を持つスキルだけに限定できます。
 
 ## マニフェストを編集する
 
@@ -74,25 +74,25 @@ agent dev skill sync
 マニフェストを変更したら、最初に構造だけを検証します。この段階では、参照先やリンクが存在することを要求しません。
 
 ```powershell
-node ~/.agents/scripts/manage-skill-links.mjs validate
+node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs validate
 ```
 
 次に、宣言したすべてのリンクについて現在の状態を表示します。`status`は不整合があっても終了コードを失敗にしないため、状況の確認に使えます。
 
 ```powershell
-node ~/.agents/scripts/manage-skill-links.mjs status
+node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs status
 ```
 
 参照先と`SKILL.md`を確認したうえで、存在しないリンクを作成します。既存の通常ファイル、通常ディレクトリ、異なる参照先を指すリンクは置き換えません。
 
 ```powershell
-node ~/.agents/scripts/manage-skill-links.mjs sync
+node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs sync
 ```
 
 最後に、すべての宣言が現在の環境で成立していることを終了コードも含めて確認します。
 
 ```powershell
-node ~/.agents/scripts/manage-skill-links.mjs check
+node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs check
 ```
 
 ## このリポジトリから使う

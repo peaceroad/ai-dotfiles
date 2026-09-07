@@ -12,9 +12,38 @@ function fixture(t) {
   return { agentsRoot: join(root, 'space and 日本語', '.agents'), binDir: join(root, 'bin'), searchPath: '', log() {} };
 }
 
+function verifyInstalledDefaults(options) {
+  const data = join(options.agentsRoot, 'ai-dotfiles');
+  assert.equal(fs.existsSync(join(data, 'development.schema.json')), true);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'development.schema.json')), false);
+  const config = join(data, 'development.json');
+  fs.writeFileSync(join(data, 'skill-links.json'), '{"schemaVersion":1,"linkRoot":"~/.agents/skills","skills":{"sample-skill":"~/repos/sample-skill"}}\n');
+  const source = join(options.agentsRoot, '..', 'plugin-source');
+  fs.mkdirSync(source);
+  fs.writeFileSync(join(source, 'plugin.json'), JSON.stringify({ $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'sample-plugin', version: '1.0.0', description: 'Test plugin.' }));
+  fs.writeFileSync(config, JSON.stringify({ schemaVersion: 2,
+    plugins: { sample: { repository: source, pluginRoot: '.' } },
+    marketplaces: { team: { root: join(options.agentsRoot, '..', 'shared'), name: 'test-team', displayName: 'Test Team', mode: 'authoritative', plugins: [{ target: 'sample', category: 'Tools' }] } },
+  }));
+  for (const args of [['dev'], ['dev', 'skill', 'status'], ['dev', 'plugin', 'check', 'sample'], ['dev', 'marketplace', 'sync', 'team'], ['dev', 'marketplace', 'check', 'team']]) {
+    const result = spawnSync(process.execPath, [join(options.agentsRoot, 'ai-dotfiles', 'runtime', 'agent.mjs'), ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, AGENT_DEV_HOME: join(options.agentsRoot, '..'), AGENT_DEV_CONFIG: '', AGENT_DEV_SKILL_LINKS: '', AGENT_DEV_SKILL_MANAGER: '', AGENT_DEV_LOCAL_PLUGIN_MANAGER: '', AGENT_DEV_MARKETPLACE_MANAGER: '' },
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'scripts', 'agent.mjs')), false);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'scripts', 'manage-skill-links.mjs')), false);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'scripts', 'agent-runtime')), false);
+}
+
 test('dry run creates nothing for each supported platform', t => {
   const options = fixture(t);
-  for (const platform of ['win32', 'linux', 'darwin']) installAgent({ ...options, platform, dryRun: true });
+  for (const platform of ['win32', 'linux', 'darwin']) {
+    const output = [];
+    installAgent({ ...options, platform, dryRun: true, log: line => output.push(line) });
+    assert.ok(output.some(line => line.includes('/ai-dotfiles/development.schema.json')));
+  }
   assert.equal(fs.existsSync(options.agentsRoot), false);
   assert.equal(fs.existsSync(options.binDir), false);
 });
@@ -22,14 +51,15 @@ test('dry run creates nothing for each supported platform', t => {
 test('shared installation preserves configuration, is idempotent, and preflights all collisions', t => {
   const options = { ...fixture(t), platform: 'win32' };
   fs.mkdirSync(options.agentsRoot, { recursive: true });
-  const config = join(options.agentsRoot, 'development.json');
-  fs.writeFileSync(config, '{"local":"keep"}\n');
+  const config = join(options.agentsRoot, 'ai-dotfiles', 'development.json');
+  fs.mkdirSync(join(options.agentsRoot, 'ai-dotfiles'));
+  fs.writeFileSync(config, '{"schemaVersion":2,"plugins":{},"marketplaces":{}}\n');
   installAgent(options);
-  const implementation = join(options.agentsRoot, 'scripts', 'agent.mjs');
+  const implementation = join(options.agentsRoot, 'ai-dotfiles', 'runtime', 'agent.mjs');
   const timestamp = fs.statSync(implementation).mtimeMs;
   installAgent(options);
   assert.equal(fs.statSync(implementation).mtimeMs, timestamp);
-  assert.equal(fs.readFileSync(config, 'utf8'), '{"local":"keep"}\n');
+  assert.equal(fs.readFileSync(config, 'utf8'), '{"schemaVersion":2,"plugins":{},"marketplaces":{}}\n');
   const command = join(options.agentsRoot, 'scripts', 'agent.cmd');
   fs.writeFileSync(command, 'rem @ai-dotfiles agent-dev-runtime managed\nstale');
   fs.writeFileSync(implementation, 'unmanaged');
@@ -38,6 +68,7 @@ test('shared installation preserves configuration, is idempotent, and preflights
   installAgent({ ...options, force: true });
   const result = spawnSync(process.execPath, [implementation, '--help'], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
+  verifyInstalledDefaults(options);
 });
 
 test('Unix command collisions reject even force before writing runtime', t => {
@@ -52,7 +83,7 @@ test('Unix command collisions reject even force before writing runtime', t => {
 
 test('directory targets reject even force', t => {
   const options = { ...fixture(t), platform: 'win32', force: true };
-  fs.mkdirSync(join(options.agentsRoot, 'scripts', 'agent.mjs'), { recursive: true });
+  fs.mkdirSync(join(options.agentsRoot, 'ai-dotfiles', 'runtime', 'agent.mjs'), { recursive: true });
   assert.throws(() => installAgent(options), /regular file/);
   assert.equal(fs.existsSync(join(options.agentsRoot, 'scripts', 'agent.cmd')), false);
 });
@@ -60,12 +91,13 @@ test('directory targets reject even force', t => {
 test('native Unix entry executes with its runtime and repairs execute permission', { skip: process.platform === 'win32' }, t => {
   const options = fixture(t);
   installAgent(options);
+  verifyInstalledDefaults(options);
   const entry = join(options.binDir, 'agent');
   assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
   assert.equal(fs.existsSync(join(options.agentsRoot, 'scripts', 'agent.cmd')), false);
   const result = spawnSync(entry, ['--help'], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-  fs.chmodSync(join(options.agentsRoot, 'scripts', 'agent.mjs'), 0o644);
+  fs.chmodSync(join(options.agentsRoot, 'ai-dotfiles', 'runtime', 'agent.mjs'), 0o644);
   installAgent(options);
   assert.notEqual(fs.statSync(entry).mode & 0o111, 0);
   fs.unlinkSync(entry);
@@ -77,7 +109,7 @@ test('native Unix refuses redirected runtime directories', { skip: process.platf
   const options = fixture(t);
   fs.mkdirSync(options.agentsRoot, { recursive: true });
   fs.mkdirSync(options.binDir);
-  fs.symlinkSync(options.binDir, join(options.agentsRoot, 'scripts'));
+  fs.symlinkSync(options.binDir, join(options.agentsRoot, 'ai-dotfiles'));
   assert.throws(() => installAgent({ ...options, force: true }), /real directory/);
   assert.deepEqual(fs.readdirSync(options.binDir), []);
 });
@@ -149,5 +181,5 @@ test('existing installation roots use filesystem canonical spelling', { skip: pr
   if (!fs.existsSync(otherSpelling)) return t.skip('Case-sensitive filesystem');
   installAgent({ ...options, agentsRoot: root });
   installAgent({ ...options, agentsRoot: otherSpelling });
-  assert.equal(fs.realpathSync(join(options.binDir, 'agent')), join(fs.realpathSync(root), 'scripts', 'agent.mjs'));
+  assert.equal(fs.realpathSync(join(options.binDir, 'agent')), join(fs.realpathSync(root), 'ai-dotfiles', 'runtime', 'agent.mjs'));
 });

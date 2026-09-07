@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 
-const MANAGER = resolve(import.meta.dirname, "..", "..", "home", ".agents", "scripts", "manage-skill-links.mjs");
+const MANAGER = resolve(import.meta.dirname, "..", "..", "home", ".agents", "ai-dotfiles", "runtime", "manage-skill-links.mjs");
 
 function writeJson(path, value) {
   mkdirSync(dirname(path), { recursive: true });
@@ -23,7 +23,7 @@ test("validates, checks, and safely synchronizes declared skill links", () => {
   const root = join(tmpdir(), `skill-links-${process.pid}-${Date.now()}`);
   const home = join(root, "home");
   const target = join(home, "repos", "sample-skill");
-  const manifest = join(home, ".agents", "skill-links.json");
+  const manifest = join(home, ".agents", "ai-dotfiles", "skill-links.json");
   const link = join(home, ".agents", "skills", "sample-skill");
   mkdirSync(target, { recursive: true });
   writeFileSync(join(target, "SKILL.md"), "---\nname: sample-skill\n---\n", "utf8");

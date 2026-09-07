@@ -4,9 +4,9 @@ paths:
   - .codex/AGENTS.md
   - .codex/config.toml
   - .codex/browser/config.toml
-  - .agents/skill-links.json
+  - .agents/ai-dotfiles/skill-links.json
   - .agents/scripts/check-lf.mjs
-  - .agents/scripts/manage-skill-links.mjs
+  - .agents/ai-dotfiles/runtime/manage-skill-links.mjs
   - .agents/scripts/codex/README.md
   - .agents/scripts/codex/manage-codex-disk-pressure.mjs
   - .agents/scripts/codex/manage-git-write-acl.ps1

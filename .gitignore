@@ -16,6 +16,9 @@ node_modules/
 # Machine-specific agent development targets
 .agents/development.json
 home/.agents/development.json
+.agents/ai-dotfiles/
+home/.agents/ai-dotfiles/development.json
+home/.agents/ai-dotfiles/state/
 
 # Locally installed copies; tools/agent is the repository source
 .agents/development.schema.json

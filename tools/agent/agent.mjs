@@ -26,15 +26,16 @@ import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const HOME_PATH = resolve(process.env.AGENT_DEV_HOME || homedir());
-const CONFIG_PATH = resolve(process.env.AGENT_DEV_CONFIG || join(HOME_PATH, ".agents", "development.json"));
+const DATA_ROOT = join(HOME_PATH, ".agents", "ai-dotfiles");
+const CONFIG_PATH = resolve(process.env.AGENT_DEV_CONFIG || join(DATA_ROOT, "development.json"));
 const SKILL_MANAGER = resolve(process.env.AGENT_DEV_SKILL_MANAGER || join(SCRIPT_DIR, "manage-skill-links.mjs"));
 const MARKETPLACE_MANAGER = resolve(
   process.env.AGENT_DEV_MARKETPLACE_MANAGER
-    || join(SCRIPT_DIR, "agent-runtime", "plugin-tools", "scripts", "assemble-agent-marketplace.mjs"),
+    || join(SCRIPT_DIR, "plugin-tools", "scripts", "assemble-agent-marketplace.mjs"),
 );
 const LOCAL_PLUGIN_MANAGER = resolve(
   process.env.AGENT_DEV_LOCAL_PLUGIN_MANAGER
-    || join(SCRIPT_DIR, "agent-runtime", "plugin-tools", "scripts", "manage-local-agent-plugin.mjs"),
+    || join(SCRIPT_DIR, "plugin-tools", "scripts", "manage-local-agent-plugin.mjs"),
 );
 const TOP_LEVEL_KEYS = new Set(["$schema", "schemaVersion", "skills", "plugins", "marketplaces"]);
 const SKILL_KEYS = new Set(["repository", "skillRoot", "installedSkill", "sourceUrl"]);
@@ -68,8 +69,8 @@ const MARKETPLACE_CONFIG_RELATIVE_PATH = join(".agents", "marketplace-developmen
 const MARKETPLACE_LOCK_RELATIVE_PATH = join(".agents", "marketplace-development", "agent-dev-sync.lock");
 const LEGACY_MARKETPLACE_DEVELOPMENT_RELATIVE_PATH = join(".agents", "plugin-marketplace-development");
 const MARKETPLACE_SKILL_CATALOG_RELATIVE_PATH = join(".agents", "skills", "catalog.json");
-const MARKETPLACE_SKILL_STATE_PATH = join(HOME_PATH, ".agents", "marketplace-skill-state.json");
-const MARKETPLACE_SKILL_LOCK_PATH = join(HOME_PATH, ".agents", ".marketplace-skill.lock");
+const MARKETPLACE_SKILL_STATE_PATH = join(DATA_ROOT, "state", "skill-installations.json");
+const MARKETPLACE_SKILL_LOCK_PATH = join(DATA_ROOT, "state", "skill-installations.lock");
 const MARKETPLACE_SKILL_STATE_MARKER = "@ai-dotfiles agent-marketplace-skill-state v1";
 const MARKETPLACE_SKILL_CATALOG_MARKER = "@plugin-creator-agent-plugins managed-skill-catalog v1";
 
@@ -112,9 +113,11 @@ Behavior:
          The legacy reconcile command remains available as an alias.
 
 Full Marketplace sync stops if shared metadata changed since the last accepted
-revision. Run check --interactive to accept an existing Marketplace for the first time.
-Status and check never acknowledge changes. Revision records are stored beside
-development.json in marketplace-observations/ and do not identify the writer.
+revision. On first use, matching shared and local assignments allow a full sync;
+the revision is recorded only after success. Review differing assignments with
+check --interactive; keeping authoritative mode does not require switching roles.
+Status and check never acknowledge changes. Revision records are stored in
+state/marketplaces/ beside development.json and do not identify the writer.
 In contributor mode, check/sync without a selector processes each local assignment
 as a scoped operation, preserving unassigned shared entries. It is not a single
 transaction: a failure stops the remaining operations without undoing completed ones.
@@ -125,8 +128,10 @@ distributed copy the editable source. Plugin sync refuses to run while a
 same-named user-scoped skill entry is active.
 
 Configuration:
-  ~/.agents/development.json
-  ~/.agents/marketplace-skill-state.json (managed Skill installation state)
+  ~/.agents/ai-dotfiles/development.json
+  ~/.agents/ai-dotfiles/skill-links.json (user-scoped development links)
+  ~/.agents/ai-dotfiles/state/skill-installations.json (managed Skill installation state)
+The installer does not create or migrate user configuration or state.
 
 Marketplace configure uses a nine-item action menu with number and letter
 shortcuts. It can add, edit, or remove Marketplace targets, local plugin and
@@ -957,6 +962,7 @@ function inspectMarketplaceMirror(root, expected, effective) {
   return {
     status: canonicalJson(current) === canonicalJson(expected) ? "current" : "outdated",
     path: pathValue,
+    reference: current,
   };
 }
 
@@ -1029,24 +1035,65 @@ function marketplaceRevision(root) {
   }));
 }
 
-function observationPath(root) {
-  const key = createHash("sha256").update(pathKey(root)).digest("hex");
-  return join(dirname(CONFIG_PATH), "marketplace-observations", `${key}.json`);
+const REVISION_DIRECTORY = join(dirname(CONFIG_PATH), "state", "marketplaces");
+function rootId(root) {
+  return createHash("sha256").update(pathKey(root)).digest("hex");
+}
+function fileInfo(path) {
+  try { return lstatSync(path); } catch (error) { if (error.code === "ENOENT") return null; throw error; }
+}
+function findRevisionFile(id) {
+  const directory = REVISION_DIRECTORY;
+  const info = fileInfo(directory);
+  if (!info) return null;
+  if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Marketplace state must use a real directory.');
+  const matches = readdirSync(directory).filter(name => name === `${id}.json` || name.endsWith(`--${id}.json`));
+  if (matches.length > 1) throw new Error('Conflicting Marketplace revision records. Review local state before continuing.');
+  return matches.length ? join(directory, matches[0]) : null;
+}
+function readRevisionFile(path, id) {
+  if (!fileInfo(path)?.isFile()) throw new Error('Marketplace revision record must be a regular file.');
+  let record;
+  try { record = JSON.parse(readFileSync(path, 'utf8')); } catch (error) {
+    if (error instanceof SyntaxError) throw new Error('Invalid JSON in Marketplace revision record.');
+    throw error;
+  }
+  if (record?.schemaVersion !== 1 || !/^sha256:[a-f0-9]{64}$/.test(record.revision)
+      || (record.rootId !== undefined && record.rootId !== id)
+      || (record.acceptedAt != null && (typeof record.acceptedAt !== 'string' || !Number.isFinite(Date.parse(record.acceptedAt))))) {
+    throw new Error('Invalid Marketplace revision record. Review local state before continuing.');
+  }
+  return record;
+}
+
+function acceptedRevisionRecord(root) {
+  const id = rootId(root);
+  const path = findRevisionFile(id);
+  return path ? { ...readRevisionFile(path, id), path } : null;
 }
 
 function acceptedRevision(root) {
-  const file = observationPath(root);
-  let value;
-  try { value = JSON.parse(readFileSync(file, "utf8")); }
-  catch (error) { if (error.code === "ENOENT") return null; throw error; }
-  if (!isObject(value) || value.schemaVersion !== 1 || !/^sha256:[a-f0-9]{64}$/u.test(value.revision)) {
-    fail("Invalid Marketplace revision record; run marketplace check --interactive to review it again.");
-  }
-  return value.revision;
+  return acceptedRevisionRecord(root)?.revision ?? null;
 }
 
 function acceptRevision(root, revision = marketplaceRevision(root)) {
-  writeAtomic(observationPath(root), jsonText({ schemaVersion: 1, revision }));
+  const id = rootId(root);
+  const reference = readJson(join(root, MARKETPLACE_CONFIG_RELATIVE_PATH), "Marketplace reference");
+  const name = validateMarketplaceName(reference.name, "Marketplace name");
+  const previous = findRevisionFile(id);
+  const file = join(REVISION_DIRECTORY, `${name}--${id}.json`);
+  writeAtomic(file, jsonText({ schemaVersion: 1, marketplace: name, rootId: id, revision, acceptedAt: new Date().toISOString() }));
+  if (previous && previous !== file) rmSync(previous);
+}
+
+function sameMarketplaceAssignments(shared, local) {
+  const comparable = (value) => ({
+    name: value.name,
+    displayName: value.displayName,
+    plugins: [...value.plugins].sort((a, b) => a.name.localeCompare(b.name, "en")),
+    skills: [...(value.skills ?? [])].sort((a, b) => a.name.localeCompare(b.name, "en")),
+  });
+  return canonicalJson(comparable(shared)) === canonicalJson(comparable(local));
 }
 
 function marketplaceStatus(requestedName, config) {
@@ -1056,22 +1103,18 @@ function marketplaceStatus(requestedName, config) {
   console.log(`Local mode: ${entry.mode} (local policy; no shared administrator registry)`);
   console.log(`Local assignments: ${entry.plugins.length} plugins, ${entry.skills.length} Skills`);
   console.log("Mode changes: explicit through configure; never automatic");
-  const inspect = (target) => {
-    try { return lstatSync(target); }
-    catch (error) { if (error.code === "ENOENT") return null; throw error; }
-  };
   try {
-    if (!inspect(root)) {
+    if (!fileInfo(root)) {
       console.log("Access: root missing");
       return 1;
     }
     const legacy = join(root, LEGACY_MARKETPLACE_DEVELOPMENT_RELATIVE_PATH);
     const current = join(root, dirname(MARKETPLACE_CONFIG_RELATIVE_PATH));
-    const hasLegacy = Boolean(inspect(legacy));
-    const hasCurrent = Boolean(inspect(current));
+    const hasLegacy = Boolean(fileInfo(legacy));
+    const hasCurrent = Boolean(fileInfo(current));
     console.log(`Layout: ${hasLegacy && hasCurrent ? "conflicting old and current directories" : hasLegacy ? "legacy (.agents/plugin-marketplace-development)" : hasCurrent ? "current" : "management directory missing"}`);
     const directory = hasLegacy && !hasCurrent ? legacy : current;
-    const locked = Boolean(inspect(join(directory, "agent-dev-sync.lock")));
+    const locked = Boolean(fileInfo(join(directory, "agent-dev-sync.lock")));
     console.log(`Sync lock: ${locked ? "present (active or stale; owner not established)" : "absent"}`);
     if (hasLegacy && hasCurrent) {
       console.log("Next: reconcile both management directories before syncing.");
@@ -1082,7 +1125,7 @@ function marketplaceStatus(requestedName, config) {
       return 1;
     }
     const referencePath = join(directory, "config.json");
-    if (!inspect(referencePath)) {
+    if (!fileInfo(referencePath)) {
       console.log("Reference: missing");
       return 1;
     }
@@ -1096,7 +1139,10 @@ function marketplaceStatus(requestedName, config) {
     validateManagedMarketplaceReference(reference, "Marketplace reference");
     console.log(`Reference: valid schema v${reference.schemaVersion} and configuration digest`);
     console.log(`Shared entries: ${reference.plugins.length} plugins, ${(reference.skills ?? []).length} Skills`);
-    const accepted = hasLegacy ? null : acceptedRevision(root);
+    const record = hasLegacy ? null : acceptedRevisionRecord(root);
+    const accepted = record?.revision ?? null;
+    console.log(`Revision record: ${record ? displayPath(record.path) : "not recorded"}`);
+    if (record) console.log(`Last accepted at: ${record.acceptedAt ?? "unknown (legacy record)"}`);
     const needsAcceptance = !hasLegacy && (accepted === null || accepted !== marketplaceRevision(root));
     if (!hasLegacy) console.log(`Shared revision: ${accepted === null ? "not yet accepted" : needsAcceptance ? "changed since acceptance; full sync blocked" : "unchanged since acceptance"}`);
     const local = marketplaceMaterialization(name, entry, config).mirror;
@@ -1108,17 +1154,12 @@ function marketplaceStatus(requestedName, config) {
     };
     compare("plugins", reference.plugins, local.plugins);
     compare("Skills", reference.skills ?? [], local.skills);
-    const comparable = (value) => ({
-      name: value.name,
-      displayName: value.displayName,
-      plugins: [...value.plugins].sort((a, b) => a.name.localeCompare(b.name, "en")),
-      skills: [...(value.skills ?? [])].sort((a, b) => a.name.localeCompare(b.name, "en")),
-    });
-    const differs = canonicalJson(comparable(reference)) !== canonicalJson(comparable(local));
+    const differs = !sameMarketplaceAssignments(reference, local);
     console.log(`Shared definition vs local assignments: ${differs ? "different" : "matching"}`);
     console.log("Update author/history: not recorded; differences do not identify another writer.");
     console.log("Package contents: not checked (status inspects metadata only)");
     if (hasLegacy) console.log("Next: rename the whole legacy management directory to .agents/marketplace-development, preserving state.");
+    else if (accepted === null && !differs && entry.mode === "authoritative") console.log(`Next: agent dev marketplace sync ${name} (first sync; matching assignments, revision recorded after success)`);
     else if (needsAcceptance && entry.mode === "authoritative") console.log(`Next: agent dev marketplace check ${name} --interactive`);
     else if (differs && entry.mode === "authoritative") console.log("Next: review shared differences before full sync; authoritative sync applies local assignments to the entire catalog.");
     else if (entry.mode === "consumer") console.log("Next: browse/install, or explicitly configure contributor mode to publish selected content.");
@@ -1205,10 +1246,17 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
     if (action === "sync" && mirrorState.status === "missing" && hasMarketplaceArtifacts(root)) {
       fail(`Refusing to adopt existing Marketplace artifacts without an agent dev configuration: ${name}.`);
     }
-    if (action === "sync" && !scoped && ["current", "outdated"].includes(mirrorState.status)) {
+    if (!scoped && ["current", "outdated"].includes(mirrorState.status)) {
       const accepted = acceptedRevision(root);
-      if (accepted === null || accepted !== marketplaceRevision(root)) {
-        fail(`Shared Marketplace ${name} ${accepted === null ? "has no accepted revision" : "changed since the last accepted revision"}. Full sync stopped. Run agent dev marketplace check ${name} --interactive to import shared assignments or switch to contributor.`);
+      if (accepted === null) {
+        const shared = validateManagedMarketplaceReference(mirrorState.reference, "Marketplace reference configuration");
+        const matching = sameMarketplaceAssignments(shared, materialized.mirror);
+        if (action === "sync" && !matching) {
+          fail(`Shared Marketplace ${name} has no accepted revision and its assignments differ from the local configuration. Full sync stopped. Run agent dev marketplace check ${name} --interactive to review shared assignments; authoritative mode can be retained.`);
+        }
+        if (matching) console.log("First full sync: no separate acceptance is required because shared and local assignments match. The revision will be recorded after successful synchronization.");
+      } else if (action === "sync" && accepted !== marketplaceRevision(root)) {
+        fail(`Shared Marketplace ${name} changed since the last accepted revision. Full sync stopped. Run agent dev marketplace check ${name} --interactive to review shared changes; authoritative mode can be retained.`);
       }
     }
     const temporaryRoot = mkdtempSync(join(tmpdir(), "agent-dev-marketplace-"));
@@ -2317,7 +2365,7 @@ async function checkMarketplace({ target, pluginTarget, skillTarget, interactive
     console.log("Unavailable information is unknown, not evidence of missing or matching contents.");
   }
   console.log("No managed files or settings were changed; shared changes were not accepted.");
-  if (reviewAvailable) console.log(`Next: use agent dev marketplace check ${name} --interactive to review shared assignments or maintenance scope. Content differences require reviewing local source repositories.`);
+  if (reviewAvailable) console.log(`Review content/validation findings before syncing. If shared assignments or maintenance scope need review, use agent dev marketplace check ${name} --interactive.`);
   else console.log("Next: resolve the reported access, layout, or configuration issue and rerun this check.");
   console.log("Copy this complete report when asking for help.");
   console.log("--- End Marketplace check report ---");

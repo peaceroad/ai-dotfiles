@@ -12,7 +12,6 @@ const coreMarkers = [marker, '@ai-dotfiles agent-command v1'];
 const assemblerMarker = '@plugin-creator-agent-plugins managed-marketplace-assembler v1';
 const stat = path => { try { return fs.lstatSync(path); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } };
 const hasMarker = (content, markers) => content.toString('utf8').split(/\r?\n/).slice(0, 8).some(line => markers.some(value => line.includes(value)));
-const managed = (path, markers) => stat(path)?.isFile() && hasMarker(fs.readFileSync(path), markers);
 const same = (a, b) => process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b);
 export function displayPath(path) {
   const suffix = relative(homedir(), resolve(path));
@@ -47,35 +46,27 @@ function canonicalRoot(value) {
   return resolve(fs.realpathSync(ancestor), relative(ancestor, root));
 }
 
-function legacyContent(content) {
-  return content.toString('utf8')
-    .replace(/^rem @ai-dotfiles agent-dev-runtime managed\r?\n/m, '')
-    .replace(/^\/\/ @ai-dotfiles agent-dev-runtime managed\r?\n\r?\n/m, '')
-    .replace(/^  "\$comment": "@ai-dotfiles agent-dev-runtime managed",\r?\n/m, '')
-    .replace('/tools/agent/development.schema.json', '/.agents/development.schema.json');
-}
-
 export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir = join(homedir(), '.local', 'bin'), platform = process.platform, force = false, dryRun = false, searchPath = process.env.PATH ?? '', log = console.log } = {}) {
   if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('Node.js 24 or later is required.');
   if (!['win32', 'linux', 'darwin'].includes(platform)) throw new Error('Supported installer platforms are Windows, Linux, and macOS.');
   agentsRoot = canonicalRoot(agentsRoot);
   binDir = platform === 'win32' ? resolve(binDir) : canonicalRoot(binDir);
   const checkedParents = new Set();
-  const scripts = join(agentsRoot, 'scripts');
+  const runtime = join(agentsRoot, 'ai-dotfiles', 'runtime');
   const plugin = 'plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins';
   const payload = [];
   const add = (source, target, markers = coreMarkers) => payload.push({ source: join(repository, source), target: join(agentsRoot, target), markers });
-  if (platform === 'win32') add('tools/agent/agent.cmd', 'scripts/agent.cmd');
-  add('tools/agent/agent.mjs', 'scripts/agent.mjs');
-  add('tools/agent/development.schema.json', 'development.schema.json');
-  const core = [...payload];
-  add('home/.agents/scripts/manage-skill-links.mjs', 'scripts/manage-skill-links.mjs');
+  add('tools/agent/agent.mjs', 'ai-dotfiles/runtime/agent.mjs');
+  add('tools/agent/development.schema.json', 'ai-dotfiles/development.schema.json');
+  add('home/.agents/ai-dotfiles/runtime/manage-skill-links.mjs', 'ai-dotfiles/runtime/manage-skill-links.mjs');
   for (const [name, owner] of [
     ['scripts/manage-local-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-local-runner v1'],
     ['scripts/assemble-agent-marketplace.mjs', assemblerMarker],
     ['scripts/validate-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-portable-validator v1'],
     ['assets/marketplace-distribution/marketplace-development.schema.json', '@plugin-creator-agent-plugins managed-marketplace-schema v2'],
-  ]) add(`${plugin}/${name}`, `scripts/agent-runtime/plugin-tools/${name}`, [owner, marker]);
+  ]) add(`${plugin}/${name}`, `ai-dotfiles/runtime/plugin-tools/${name}`, [owner, marker]);
+  // Switch the public entry point only after its complete runtime is installed.
+  if (platform === 'win32') add('tools/agent/agent.cmd', 'scripts/agent.cmd');
   for (const item of payload) {
     assertParents(item.target, checkedParents);
     item.content = fs.readFileSync(item.source);
@@ -87,15 +78,13 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
     item.current = !!item.installed && item.content.equals(item.installed);
     item.managed = !!item.installed && hasMarker(item.installed, item.markers);
   }
-  const legacy = platform === 'win32' && core.every(item => item.existed
-    && (item.managed || item.installed.toString('utf8') === legacyContent(item.content)));
   for (const item of payload) {
-    if (item.existed && !item.current && !force && !item.managed && !(legacy && core.includes(item))) {
+    if (item.existed && !item.current && !force && !item.managed) {
       throw new Error(`Refusing to replace an unmanaged file: ${displayPath(item.target)}. Review it before using --force.`);
     }
   }
   const entry = join(binDir, 'agent');
-  const implementation = join(scripts, 'agent.mjs');
+  const implementation = join(runtime, 'agent.mjs');
   let linkExists = false;
   if (platform !== 'win32') {
     assertParents(entry, checkedParents);
@@ -127,16 +116,6 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
     } finally { if (stat(temporary)) fs.unlinkSync(temporary); }
     log(`${item.existed ? 'Updated' : 'Installed'}: ${displayPath(item.target)}`);
   }
-  for (const [target, recognized] of [
-    [join(scripts, 'agent.test.mjs'), path => fs.readFileSync(path).equals(fs.readFileSync(join(repository, 'tools/agent/agent.test.mjs')))],
-    [join(scripts, 'agent-runtime/plugin-tools/scripts/assemble-plugin-marketplace.mjs'), path => managed(path, [assemblerMarker, marker])],
-  ]) {
-    const info = stat(target);
-    if (!info) continue;
-    if (!info.isFile() || !recognized(target)) { log(`Preserved unrecognized obsolete file: ${displayPath(target)}`); continue; }
-    log(`${dryRun ? 'Would remove' : 'Removed'} obsolete: ${displayPath(target)}`);
-    if (!dryRun) fs.unlinkSync(target);
-  }
   if (platform !== 'win32') {
     if (!dryRun) {
       const mode = fs.statSync(implementation).mode;
@@ -156,7 +135,7 @@ function main(args) {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--help' || arg === '-h') {
-      console.log('Usage: node scripts/install-agent.mjs [--agents-root PATH] [--bin-dir PATH] [--dry-run] [--force]\nRequires Node.js 24 or later. Installs the shared runtime; Linux/macOS also create an agent link in ~/.local/bin.\n--force replaces unmanaged regular runtime files, never command links or redirected paths.\nWindows PATH registration is available through install-agent.ps1.');
+      console.log('Usage: node scripts/install-agent.mjs [--agents-root PATH] [--bin-dir PATH] [--dry-run] [--force]\nRequires Node.js 24 or later. Installs the shared runtime; Linux/macOS also create an agent link in ~/.local/bin.\nConfiguration and state belong under ~/.agents/ai-dotfiles and are never moved or created by the installer.\n--force replaces unmanaged regular runtime files, never command links or redirected paths.\nWindows PATH registration is available through install-agent.ps1.');
       return;
     }
     if (arg === '--dry-run') options.dryRun = true;

@@ -17,10 +17,13 @@ const EXPECTED_LINK_ROOT = "~/.agents/skills";
 
 function usage() {
   return `Usage:
-  node ~/.agents/scripts/manage-skill-links.mjs validate
-  node ~/.agents/scripts/manage-skill-links.mjs status
-  node ~/.agents/scripts/manage-skill-links.mjs check
-  node ~/.agents/scripts/manage-skill-links.mjs sync
+  node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs validate
+  node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs status
+  node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs check
+  node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs sync
+
+Manifest:
+  ~/.agents/ai-dotfiles/skill-links.json (override with AGENT_DEV_SKILL_LINKS)
 
 Commands:
   validate  Validate the manifest without inspecting local links
