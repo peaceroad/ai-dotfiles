@@ -33,6 +33,16 @@ You do not need to name the model in every request. The skills use evidence abou
 
 `agent-workflow-design` selects references for control and coordination, state and recovery, improvement from evidence, or maintenance records according to the design needs. Its GPT-5.6 supplement applies when retaining, adapting, or comparing a GPT-5.6 workflow and model or runtime differences matter. Model-specific prompting advice remains in `prompt-design`.
 
+## Sources for agent and harness improvement
+
+These sources informed [Agent and harness improvement](skills/agent-workflow-design/references/agent-improvement-and-rsi.md). They are background reading, not additional execution requirements. Other-model examples offer design options, not evidence of the target model's behavior.
+
+- [OpenAI: Research acceleration: The view inside OpenAI](https://openai.com/index/research-acceleration-view-inside-openai/): research assistance and progress toward RSI, with activity metrics, human steering, and shifting bottlenecks limiting conclusions about overall acceleration.
+- [OpenAI Cookbook: Agent Improvement Loop with Traces, Evals, and Codex](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop): connects execution evidence, evaluation, and a reviewed configuration change.
+- [OpenAI Cookbook: Iterating Development Workflows with Codex](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex): artifact ownership, observed progress, and evidence-backed retrospective decisions.
+- [Anthropic: How Warp builds self-improving agents](https://claude.com/blog/how-warp-builds-self-improving-agents-on-claude): specific user feedback leading to small, reviewable skill changes.
+- [Anthropic: Harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps): tests removal of model-compensating scaffolding and where an evaluator still adds value.
+
 ## Documentation and evaluation
 
 The following repository documents are in Japanese:

@@ -6,9 +6,10 @@ Use this reference to improve reusable agent machinery from execution evidence.
 
 - **Task repair:** Change the current artifact to satisfy the user's request.
 - **Harness improvement:** Change instructions, references, tools, routing, state, evaluation, or runtime control reused across tasks.
-- **AI self-improvement or RSI:** Improve AI research, model development, training, or a recursively changing improvement mechanism. Use this distinction only when the requested work reaches that domain.
+- **AI research and development assistance:** Improve AI research, model development, or training without assuming recursive capability gains.
+- **Recursive self-improvement (RSI):** Improvements feed back into the system's capability to produce further improvements. Identify what changes, how it affects the next improvement cycle, and which capability gains are observed rather than assumed.
 
-Ordinary prompt maintenance is not evidence of reliable recursive improvement. For work involving AI-development capability, verify relevant guidance and keep protected evaluation, permissions, and activation under an appropriate independent authority.
+Use the AI-development and RSI distinctions only when the requested work reaches those domains. Repeated prompt or harness maintenance alone is not evidence of recursive capability gains. For work involving AI-development capability, verify relevant guidance and keep protected evaluation, permissions, and activation under an appropriate independent authority.
 
 ## Diagnose from evidence
 
@@ -31,6 +32,8 @@ Compare baseline and candidate under the same acceptance criteria, using affecte
 Keep model, effective effort, tools, permissions, relevant context, and budgets comparable when attributing an improvement to instructions. Record unavoidable differences. A previous-model run can help separate model and harness effects, but is not required when unavailable. Do not tune against protected held-out answers or rewrite historical manifests to describe a later revision.
 
 Evaluate the outcome and material costs together: success, evidence, preserved requirements, unnecessary questions, waiting and recovery decisions, repeated effects, validation, human intervention, tokens, latency, or cost as relevant. Smaller output or more passing checks alone does not establish a better workflow. For reviewer independence, use the [evidence and evaluation criteria](state-evidence-and-recovery.md#evidence-and-evaluation).
+
+For acceleration claims, distinguish increased activity (such as code or experiment volume) from faster accepted outcomes. Identify the limiting work and assess whether the change removes it or shifts the bottleneck to review, integration, or resource availability. Report remaining uncertainty when only an intermediate step was measured.
 
 Diagnose a failed candidate before another revision; avoid accumulating universal rules from individual examples.
 
@@ -56,12 +59,3 @@ Keep reusable evaluation definitions under their project's review and versioning
 Keep generated outputs and traces temporary unless comparison, audit, or recovery warrants retention in an authorized project or runtime location. Distinguish being able to inspect a past evaluation from being able to rerun it. When future reruns are in scope, preserve or reference the inputs and execution setup they require. Follow [state and persistence](state-evidence-and-recovery.md#persistence-decision).
 
 Alongside the revision report, identify the diagnosed layer, adoption decision, and activation status. Preserve the evaluated version and limits of the comparison.
-
-## Source notes
-
-Reviewed 2026-09-06; apply the model and runtime distinctions in `SKILL.md`.
-
-- [OpenAI Cookbook: Agent Improvement Loop with Traces, Evals, and Codex](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop): connects execution evidence, evaluation, and a reviewed configuration change.
-- [OpenAI Cookbook: Iterating Development Workflows with Codex](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex): artifact ownership, observed progress, and evidence-backed retrospective decisions.
-- [Anthropic: How Warp builds self-improving agents](https://claude.com/blog/how-warp-builds-self-improving-agents-on-claude): specific user feedback leading to small, reviewable skill changes.
-- [Anthropic: Harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps): tests removal of model-compensating scaffolding and where an evaluator still adds value.

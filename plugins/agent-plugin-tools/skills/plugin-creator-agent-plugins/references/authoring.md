@@ -48,7 +48,9 @@ skills/
     └── assets/
 ```
 
-Match the `name` in `SKILL.md` to its parent directory and make the `description` state both capability and trigger conditions. Keep skill-specific executable code, references, and output assets inside that skill directory. The Agent Skills specification permits additional files and directories, but `SKILL.md` should make their purpose and loading conditions discoverable.
+Match the `name` in `SKILL.md` to its parent directory and make the `description` state both capability and trigger conditions. Keep skill-specific executable code, execution references, and output assets inside that skill directory. The Agent Skills specification permits additional files and directories, but `SKILL.md` should make their purpose and loading conditions discoverable.
+
+Place documentation by its role, loading cost, and distribution needs. Keep required instructions, contracts, evidence, and source links in the relevant skill or execution reference, with conditions for reading or verifying them. Prefer the plugin-root `README.md` for concise background sources and explanations; use suitable project notes for detailed rationale and evaluation records, or for background to standalone skills without a plugin. Reuse existing documents and keep background reading optional. Before moving material, inspect its callers, preserve constraints and attribution, and check access from the installed package. Link to published project notes by URL when they are not bundled.
 
 Agent Plugins discovers plugin skills only from immediate children of the plugin's `skills/` directory. Other skill scanners may use different discovery behavior. Do not vendor another complete skill with a nested `SKILL.md` merely as a reusable reference. Install it separately when it must remain an independent skill, or incorporate only the necessary guidance into ordinary reference files while respecting its license.
 
@@ -58,7 +60,7 @@ Preserve the established target model, runtime, and output contract. For OpenAI 
 
 Skill-local client metadata such as `skills/<name>/agents/openai.yaml` may remain when the Agent Skills package permits additional files and clients that do not understand it can safely ignore it. Treat that file as optional metadata for the named client, not as an Agent Plugins core component or a root `plugin.json` extension. Do not invent a root extension namespace merely to reclassify existing skill-local metadata.
 
-Repository-wide development, release, and evaluation scripts may remain outside the distributed plugin when they are not needed at runtime. Include only resources that the installed plugin must access.
+Repository-wide development, release, and evaluation scripts may remain outside the distributed plugin when they are not needed at runtime.
 
 When repeatable local plugin management needs repository-specific tests or version policy, keep that development contract outside portable `plugin.json`. Use [repository-management.md](repository-management.md) for the optional per-plugin `.agents/plugin-development/<plugin-name>.json` scaffold; do not require it for a simple package.
 

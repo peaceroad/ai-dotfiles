@@ -57,6 +57,6 @@ The manager checks reported identity, version, and available source-path informa
 
 Keep repository-specific behavior in the per-plugin configuration or its check scripts. Refresh generated runners when adopting template changes; `refresh --check` compares generated files without running repository checks. Shared Marketplace consumers install through Codex rather than invoking the developer manager against generated copies.
 
-The [Astra review and follow-up audit](../../docs/agent-plugin-tools/astra-review.md) record the design decisions, frozen evaluation inputs, observed checks, and remaining limits. That record is for maintainers and is not required reading when using the skill.
+The [Astra review and follow-up audit](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-plugin-tools/astra-review.md) records the design decisions, frozen evaluation inputs, observed checks, and remaining limits. That record is for maintainers and is not required reading when using the skill.
 
 Marketplace package digests now use the portable `sha256-tree-v2:` content format. Update consumers before distribution, and run a full sync in the original environment to migrate permission-sensitive legacy digests. File permissions remain a local execution concern; permission-only changes do not trigger copying. See the [distribution contract](skills/plugin-creator-agent-plugins/references/marketplace-distribution.md#distribution-boundary).
