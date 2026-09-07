@@ -4,6 +4,8 @@
 
 英語本文は、ホーム側から書き出した[公開用のAGENTS.md](../../home/.codex/AGENTS.md)で確認できます。更新時のコピー方向と検査方法は、[エクスポート手順](../export.md#使い方)を参照してください。
 
+各節では、英語の指示本文の直後に日本語訳を引用ブロックで置き、その後に設計理由を説明します。実際に使う指示は英語本文で、日本語訳は内容を確認するためのものです。
+
 ## 共通指示に置く内容
 
 `~/.codex/AGENTS.md`には、複数の作業で継続したい利用者の好みと、環境固有の約束を置きます。プロジェクト固有の手順や専門分野の編集基準は、それぞれの`AGENTS.md`やスキルで管理します。
@@ -40,6 +42,12 @@ Codexはグローバルな指示にプロジェクト側の指示を重ね、同
 - In chat responses, use tables only when they clearly improve understanding or I explicitly request one. Prefer prose or lists over simple two-column tables.
 ```
 
+> **日本語訳：回答品質**
+>
+> - 利用者が回答を理解するために必要な文脈、補足説明、留意点を示す。独立した結論や要約を付けるためだけに、すでに明確な内容を繰り返さない。ただし、利用者が結論や要約を求めた場合は除く。回答や成果物が長い場合や複雑な場合も、末尾の整理が役立つなら付けてよい。
+> - 回答に影響する場合は、得られている証拠から直接確認できることと、推論、未解消の不確実性を区別する。前提がその証拠や適用される制約と矛盾し、その矛盾によって回答が変わり得る場合は指摘する。
+> - チャットの回答では、理解を明確に助ける場合、または利用者が表を明示的に求めた場合にのみ表を使う。単純な2列の表より、文章やリストを優先する。
+
 第1項は、回答全体を一律に短くする規則ではありません。利用者が求めた要約や、長く複雑な成果物で理解を助ける最終整理は残せます。
 
 第2項では、ファイル、ログ、ソース、実行結果などから直接確認できることと、推論、未解消の不確実性を区別します。区別や前提の矛盾が回答へ影響する場合だけ説明するため、すべての回答に「事実」「推論」といった見出しを付ける必要はありません。
@@ -60,6 +68,12 @@ Codexはグローバルな指示にプロジェクト側の指示を重ね、同
 - For authorized monitoring across turns, use a supported monitoring mechanism and yield. Preserve only the state needed to resume in runtime-owned state or an already-authorized project location. On resumption, check current state before acting; if nothing actionable changed, return to waiting, back off when supported, and stop recurring monitoring when the task ends.
 ```
 
+> **日本語訳：待機**
+>
+> - 処理の実行中は、役立つ独立した作業を進め、依存関係や版の制約が許す場合には部分結果を使う。全結果を待つのは、その作業で全結果が必要な場合に限る。
+> - 処理が終わるまで有用な作業を進められない場合は、実行環境が提供する待機手段を使う。待ち時間を、推測的な分析、繰り返しの再計画、変化のない状況報告、繰り返しのポーリングで埋めない。停滞や依存関係の変化を示す証拠が作業の完了に関わる場合は調べる。
+> - ターンをまたぐ監視が許可されている場合は、利用可能な監視手段を使い、制御を返す。再開に必要な状態だけを、実行環境が管理する状態領域か、すでに許可されたプロジェクト内の場所へ保存する。再開時は行動前に現在の状態を確認する。行動につながる変化がなければ待機へ戻り、対応している場合は監視の間隔を延ばす。作業が終わったら継続的な監視を停止する。
+
 第1項は、先に得られた部分結果を使える場合と、比較や統合のために全結果が必要な場合を分けます。同じ版への複数のレビューなど、先に対象を変更すると後続の結果が古くなる作業では、版の制約を優先します。
 
 第2項は、結果が返るまでの空白を推測的な分析、再計画、無変化の進捗説明、繰り返しのポーリングで埋めることを防ぎます。停滞や依存関係の変化を示す証拠があれば、完了に関わる問題として調べられます。通常の調査や試行全般に停止条件を課す書き方は避けました。
@@ -76,6 +90,10 @@ Codexはグローバルな指示にプロジェクト側の指示を重ね、同
 - When using an external browser, prefer Chrome unless I specify a browser.
 ```
 
+> **日本語訳：ブラウザ**
+>
+> - 外部ブラウザを使う場合は、利用者が別のブラウザを指定しない限り、Chromeを優先する。
+
 内蔵ブラウザと外部ブラウザのどちらを使うかは固定しません。別のブラウザへの切り替えも禁止せず、現在の依頼での指定を優先します。配置の理由は、[Codex Browserの設定と安全性](codex-browser-config-and-security.md#ブラウザの選択とagentsmd)で説明しています。
 
 ## Windows local file references
@@ -87,6 +105,10 @@ Windows上でローカルファイルを示す際、利用者が開くと役立�
 
 - In Windows responses, link useful local files with absolute drive-letter paths such as `C:/...`, without a leading slash.
 ```
+
+> **日本語訳：Windowsのローカルファイル参照**
+>
+> - Windowsでの回答では、利用者が開くと役立つローカルファイルに、`C:/...`のようなドライブ文字付きの絶対パスでリンクする。パスの先頭にスラッシュを付けない。
 
 `C:/...`のようなドライブ文字付きパスを使い、`/C:/...`のような先頭スラッシュを付けない形式を残しました。
 
@@ -101,6 +123,10 @@ WindowsAppsや実行ファイルを一律にリンク対象から除外する規
 
 - Use LF (`\n`) for text files you create or modify.
 ```
+
+> **日本語訳：改行コード**
+>
+> - 作成または変更するテキストファイルには、LF（`\n`）を使う。
 
 保存後に`check-lf.mjs`を毎回実行する義務と、正規化したファイル名を最終回答へ記載する義務は外しました。LFで保存する責任は残し、改行変換や混在が疑われる場合には、状況に応じて確認方法を選びます。
 
@@ -120,6 +146,13 @@ LFは利用者の共通方針ですが、プロジェクト側の適用される
 - Account for both the reading tool's output limit and any outer wrapper's output limit. Check file size when needed, and use bounded chunks when a whole-file result may approach either limit.
 - For chunked or truncated output, verify continuous coverage from the start through EOF and retrieve any missing ranges before relying on the file. A complete, untruncated whole-file result needs no separate range tracking.
 ```
+
+> **日本語訳：スキルと参照の完全な読み込み**
+>
+> - 選択した各`SKILL.md`と、今回の作業に必要な各参照を、その内容に依存する作業へ進む前に全文読む。
+> - 各指示ファイルの内容は、出力上限に収まる個別のツール結果として返す。共通のラッパー応答に、複数の指示本文や他の大量の出力をまとめない。メタデータはまとめて取得してよい。
+> - 読み取りツールと外側のラッパーの両方の出力上限を考慮する。必要に応じてファイルサイズを調べ、全文を一度に返すといずれかの上限に近づく可能性がある場合は、上限に収まる単位に分割する。
+> - 分割して取得した場合や出力が途中で切れた場合は、先頭からファイル末尾（EOF）まで連続して取得できたことを確かめ、不足する範囲を取得してから、そのファイルに基づいて作業する。全文が途中で切れずに一度に返った場合は、別途取得範囲を管理する必要はない。
 
 2026年9月6日に確認した編集環境では、ファイルを読む`exec_command`と、その結果をまとめて返す`functions.exec`の両方に出力予算があり、既定はいずれも10,000トークンでした。これは呼び出し時に指定できるツール出力の予算で、モデルのコンテキスト容量とは別です。この調査でも、複数の結果をまとめた返却が途中で切れ、必要なファイルを分けて読み直しました。
 
