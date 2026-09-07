@@ -1,105 +1,49 @@
-# エージェントによるGit変更操作の扱い
+# CodexにGit変更操作を任せる場合の設定
 
-## 現在の方針
+通常は`.git`を読み取り専用にし、必要なプロジェクトだけ書き込みを許可します。これにより、`git status`、`git diff`、`git log`などの確認は広く利用しつつ、ブランチ作成、ステージ、コミットなどのGitメタデータ変更を対象リポジトリへ限定できます。
 
-エージェントが利用する通常のPermission profileでは、ワークスペース内の`.git`を読み取り専用にします。
+## 承認方針と書き込み権限
 
-```toml
-[permissions.workspace-with-agents.filesystem.":workspace_roots"]
-"." = "write"
-".git" = "read"
-```
+`approval_policy`は、Codexがコマンド実行前に承認を求める条件を制御します。`approval_policy = "never"`は承認プロンプトを表示しない設定であり、Gitへの書き込み権限を追加する設定ではありません。
 
-この設定では、エージェントは`git status`、`git diff`、`git log`などで状態を確認できます。一方、`git add`、`git commit`、ブランチの作成など、Gitメタデータを変更する操作はユーザーが手動で行います。
+Git操作の可否は、Permission profileのファイルシステム規則で別に決まります。`never`を維持したままGit変更を任せる場合は、対象プロジェクトの`.codex/config.toml`で、使用中のPermission profileへ`.git`の書き込み許可を追加します。許可された操作は承認なしで実行されるため、対象リポジトリと依頼する操作を明確にします。
 
-エージェントは作業完了時に、必要に応じて次の情報を提案します。
+## プロジェクト単位で`.git`を許可する
 
-- ブランチ名
-- ステージ対象のファイル
-- コミットメッセージ
-- ユーザーが実行するGitコマンド
+次の例は、ユーザー設定で`default_permissions = "workspace-with-agents"`を選択している環境を前提とします。`workspace-with-agents`は利用者が定義したプロファイル名です。
 
-現時点では、Git変更操作のためだけに権限やスクリプトを追加しません。手動操作の負担が継続的に問題になった場合に、以下の案を再検討します。
-
-## 案1：Git書き込み用のPermission profileを追加する
-
-通常の`workspace-with-agents`とは別に、`.git`への書き込みを許可した`workspace-with-agents-and-git`を用意する案です。Git操作が必要なタスクだけ、Codexの権限メニューからプロファイルを切り替えます。
+対象リポジトリの`.codex/config.toml`へ次を追加します。
 
 ```toml
-[permissions.workspace-with-agents-and-git]
-description = "ワークスペース、.git、~/.agentsを編集し、ネットワークアクセスは許可ドメインのみ。"
-
-[permissions.workspace-with-agents-and-git.filesystem.":workspace_roots"]
-"." = "write"
-".git" = "write"
+[permissions.workspace-with-agents.filesystem]
+"C:/work/my-project/.git" = "write"
 ```
 
-この例は差分を示すための抜粋です。実際に追加する場合は、通常のプロファイルで定義しているファイルシステム規則、`.env`の拒否規則、ネットワーク規則も定義します。
+パスは対象リポジトリの絶対パスに置き換えます。既存の`approval_policy`と`default_permissions`は変更しません。同じテーブルが既にある場合は、パスの行だけを追加します。
 
-TOMLでは、隣接して複数のテーブルヘッダーを書いても、後続の値を両方のテーブルで共有できません。また、カスタムPermission profile同士の継承は現在の公式ドキュメントで確認できないため、利用する場合は設定の重複を前提とします。
+プロジェクト設定は、信頼済みのプロジェクトで、そのリポジトリを作業ルートにした場合に読み込まれます。設定の優先順位では、プロジェクトの`.codex/config.toml`が`~/.codex/config.toml`より上位です。同じPermission profile名の設定は、必要なエントリーだけを上位レイヤーから追加または置換できます。
 
-### 利点
+Permission profileは、旧方式の`sandbox_mode`や`[sandbox_workspace_write]`と併用しません。いずれかの読み込み済み設定やCLI指定で`sandbox_mode`が有効な場合、このPermission profileの追記だけでは反映されません。
 
-- 通常時は`.git`を保護し、必要なタスクだけ権限を切り替えられます。
-- 一般的なGit CLIをそのまま利用できます。
+絶対パスを含む設定は端末固有なので、`.gitignore`へ次を追加します。
 
-### 懸案
-
-- `.git`全体を書き込み可能にするため、許可範囲が広くなります。
-- 二つのプロファイルでファイルシステム規則とネットワーク規則を同期する必要があります。
-- `approval_policy = "never"`の場合、プロファイル内で許可された操作は確認なしに実行されます。
-
-## 案2：限定的なハンドオフスクリプトを許可する
-
-`.git = "read"`を維持し、`~/.agents/scripts/git-handoff.mjs`のような専用スクリプトだけをCodexのRulesでサンドボックス外実行できるようにする案です。
-
-Rulesの概念例を次に示します。`<absolute-path-to-git-handoff.mjs>`は、実際に利用する環境の絶対パスに置き換えます。
-
-```python
-prefix_rule(
-    pattern = [
-        ["node", "node.exe"],
-        "<absolute-path-to-git-handoff.mjs>",
-        ["stage", "commit", "create-branch"],
-    ],
-    decision = "allow",
-    justification = "検証済みのスクリプトに限定してGitメタデータの変更を許可する",
-)
+```gitignore
+/.codex/
 ```
 
-Rulesの`allow`は、該当するコマンドをサンドボックス外で確認なしに実行する指定です。管理者権限への昇格を指定する設定ではなく、実際に利用できる権限はCodexの実行環境とOS側の権限にも左右されます。
+既に追跡しているファイルは、この指定だけでは追跡解除されません。
 
-ハンドオフスクリプトを実装する場合は、任意のGit引数をそのまま転送しません。少なくとも次を検証します。
+## 反映を確認する
 
-- 操作を`stage`、`commit`、`create-branch`などに限定する
-- 対象を現在のワークスペースに限定する
-- ステージ対象がワークスペース外を指していないことを確認する
-- `reset --hard`、`clean`、強制pushなどの破壊的な操作を受け付けない
-- `push`はローカルのGit変更操作と分離する
+設定後はCodexを再起動するか新しいタスクを開始し、対象リポジトリを作業ルートとして開きます。読み取り専用の`git status`だけで判断せず、必要なGit書き込み操作の終了コードと、ブランチや履歴の実際の状態を確認します。
 
-### 利点
+`.git`の`write`は、特定のGitコマンドだけを許可する設定ではありません。ブランチ作成、ステージ、コミットなど、Codexへ任せる範囲を依頼で指定します。外部リポジトリを変更する`push`は、ローカルの書き込みとは別に扱います。
 
-- `.git`全体を通常プロファイルで書き込み可能にせず、許可する処理を限定できます。
-- 引数と対象リポジトリをスクリプト側でも検証できます。
+## Windowsで拒否ACLが残る場合
 
-### 懸案
-
-- スクリプトとRulesを継続的に保守する必要があります。
-- 設計を誤ると、スクリプトが任意のGitコマンドを実行する迂回路になります。
-- Rulesは実験的な機能であり、今後仕様が変わる可能性があります。
-
-## 再検討する条件
-
-次のような状況になった場合に、自動化を再検討します。
-
-- 手動でのブランチ作成、ステージ、コミットが繰り返し負担になる
-- エージェントにコミット単位まで一貫して整理させたい
-- 複数のリポジトリで同じ運用が必要になる
-- 許可する操作と対象範囲を明確に固定できる
-
-実装する場合は、まず`stage`、`commit`、`create-branch`までを対象にします。外部リポジトリの状態を変更する`push`は別の判断として扱い、初期実装には含めません。
+Windowsでは、設定を有効にしても、以前に付与された拒否ACLが`.git`へ残る場合があります。`.git/HEAD.lock: Permission denied`などが続く場合は、[Windows版CodexでGitの書き込みが拒否される場合の対処](./codex-windows-git-write-acl-recovery.md)に沿って状態を確認します。ACL修復は、書き込みエラーが発生し、対象条件を満たす場合だけ実行します。
 
 ## 参考資料
 
+- [Config basics](https://learn.chatgpt.com/docs/config-file/config-basic)
 - [Permissions](https://learn.chatgpt.com/docs/permissions)
-- [Rules](https://learn.chatgpt.com/docs/agent-configuration/rules)

@@ -1,14 +1,35 @@
 # Codex関連スクリプト
 
-2026年8月時点のWindows版Codex環境で確認した問題を対象に、状態確認や既知の問題を安全条件付きで回避・修復するための管理スクリプトです。いずれも、最初に`status`で現在の状態を確認できます。変更を伴う操作では、対象の状態を検証し、対話確認を求めます。
+2026年8〜9月時点のWindows版Codex環境で確認した問題を対象に、状態確認や既知の問題を安全条件付きで回避・修復するための管理スクリプトです。いずれも、最初に`status`で現在の状態を確認できます。変更を伴う操作では、対象の状態を検証し、対話確認を求めます。
 
 各スクリプトの完全なコマンド一覧と安全条件は、`help`で確認してください。
 
 ```samp
-node "$HOME/.agents/scripts/codex/<スクリプト名>" help
+node "$HOME/.agents/scripts/codex/<スクリプト名>.mjs" help
+& "$HOME/.agents/scripts/codex/manage-git-write-acl.ps1" help
 ```
 
 ## スクリプト一覧
+
+### `manage-git-write-acl.ps1`
+
+[スクリプトを表示](./manage-git-write-acl.ps1) · [対象条件と復旧手順](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-windows-git-write-acl-recovery.md)
+
+**実験的な参考実装です。** 一般化した本スクリプトで、実際のACL変更と配下全体の検証に成功し、修復後のGit参照更新と空コミットの作成・取り消しも確認しています。過去の修復後にはCodexの再起動後に拒否が再付与されたため、再発防止と修復記録からの復元は未検証です。
+
+- 用途：Codexの設定で`.git`への書き込みを許可した後も、Windowsの拒否エントリーが残る場合の確認・修復です。
+- `status <リポジトリ>`：`cap_sid`のパス対応からSIDを取得し、`.git`自体と配下の拒否エントリーを確認します。
+- `repair <リポジトリ>`：変更前のDACLを保存し、対象SIDに一致する、直接設定された書き込み関連の拒否エントリーだけを削除します。
+- 安全対策：通常のWindowsユーザーとしての実行、Codex／ChatGPTの終了、対話での`y`入力、修復記録先のGit除外を必須とします。更新対象をDACLに限定し、検査した配下全体のDACL・所有者・グループ・パス構成を変更前後に照合します。
+- 対象外：`.git`がファイルのworktreeやサブモジュール、ジャンクションやハードリンクを含む構成、`.git`より上から継承された対象SIDの拒否、ファイル内容の読み取りや実行なども拒否する未知のエントリーです。`.git`へ直接設定された既知の拒否が配下へ継承された場合は、親の更新に伴う削除結果を配下全体で検証します。
+
+Windows、PowerShell 7、`git`と、ローカルのNTFS上にあるリポジトリが必要です。リンク数の検査にはWindows APIを使い、追加ツールは不要です。リポジトリは`-Repo <リポジトリ>`でも指定できます。Codexホームは、`-CodexHome <ディレクトリ>`、環境変数`CODEX_HOME`、`~/.codex`の順に決まります。自分のCodexが作成した`cap_sid`を使ってください。
+
+Gitが認識する作業ルートと管理ディレクトリが指定先と一致することを確認します。`GIT_DIR`などでリポジトリの参照先を変更した環境では停止します。検査から修復完了まで、対象リポジトリを変更するほかの処理も停止してください。同時変更には対応しません。
+
+修復記録は、リポジトリの`.codex/git-acl-repair-records/<UTC日時>-<短いID>/`へ実行ごとに保存します。`/.codex/`をGitから除外し、保存先に追跡済みのファイルがない状態で使います。自動復元機能はないため、途中で失敗した場合は保存記録を確認してください。
+
+所有者・グループ・監査の情報は更新用データに含めません。削除結果が空のDACLになる場合や、対象DACLのエントリー順序が非標準の場合も変更前に停止します。`repair-plan.json`には変更前の状態と予定する結果を、`verification.json`には更新後の検査結果を保存します。`verification.json`の存在だけでは成功とは判断せず、完了メッセージと終了コードを確認してください。
 
 ### `manage-codex-disk-pressure.mjs`
 
@@ -82,9 +103,10 @@ python -m pip install PyYAML
 
 ## 基本的な使い方
 
-まず、読み取り専用の`status`を実行します。
+まず、読み取り専用の`status`を実行します。Gitの権限を調べる場合は、対象リポジトリを指定してください。
 
 ```samp
+& "$HOME/.agents/scripts/codex/manage-git-write-acl.ps1" status 'C:/work/my-project'
 node "$HOME/.agents/scripts/codex/manage-codex-disk-pressure.mjs" status
 node "$HOME/.agents/scripts/codex/manage-skill-validator-utf8-patch.mjs" status
 node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" status
@@ -94,7 +116,7 @@ node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" statu
 
 ## CodexアプリまたはCLI更新後の確認
 
-CodexアプリまたはCLIを更新した後は、設定が維持されている場合もあれば、対象ファイルやデータベースの状態が変わっている場合もあります。再適用を決める前に、まず3本の`status`を実行し、現在の状態とSQLiteの管理トリガーを確認します。
+CodexアプリまたはCLIを更新した後は、設定が維持されている場合もあれば、対象ファイルやデータベースの状態が変わっている場合もあります。再適用を決める前に、上記のNode.jsスクリプト3本の`status`で、現在の状態とSQLiteの管理トリガーを確認します。GitのACLスクリプトは、書き込みエラーが起きた場合に対象リポジトリを指定して使います。
 
 - `skill-creator`の`status`が「exact local UTF-8 patch」なら、修正はそのまま有効です。「reviewed unpatched version」の場合は安全条件を確認して`apply`を検討します。「unknown version with an explicit UTF-8 fix」または「unknown version requiring review」の場合は手動パッチを適用せず、内容の確認を優先します。
 - SQLiteの`status`が管理対象ポリシーを`active`と報告するなら、ログ保持設定はすでに有効です。設定を同じレベルへ戻すためだけに`suppress`を再実行する必要はありません。
@@ -112,6 +134,7 @@ CodexアプリまたはCLIを更新した後は、設定が維持されている
 
 ## 実行環境
 
+- `manage-git-write-acl.ps1`：Windows、PowerShell 7、`git`、ローカルのNTFS上にあるリポジトリ
 - `manage-codex-disk-pressure.mjs`：Windows、Node.js 18.15以降
 - `manage-skill-validator-utf8-patch.mjs`：Node.js 18以降。`apply`による実検証には、PyYAMLを読み込める`python`コマンド
 - `manage-sqlite-trace-log-suppression.mjs`：組み込みの`node:sqlite`を利用できるNode.js 22.5以降

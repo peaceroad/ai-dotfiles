@@ -9,5 +9,6 @@ paths:
   - .agents/scripts/manage-skill-links.mjs
   - .agents/scripts/codex/README.md
   - .agents/scripts/codex/manage-codex-disk-pressure.mjs
+  - .agents/scripts/codex/manage-git-write-acl.ps1
   - .agents/scripts/codex/manage-skill-validator-utf8-patch.mjs
   - .agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs
