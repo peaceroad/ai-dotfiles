@@ -209,7 +209,7 @@ agent dev marketplace configure team
 
 運用形態は、`configure`の「Change Marketplace management mode」から後で切り替えられます。対話では、1台のPCが全体を管理する`authoritative`、複数の担当者が選択したプラグインまたはSkillだけを更新する`contributor`、共有先を書き換えない`consumer`を選びます。
 
-`authoritative`から`contributor`または`consumer`へ切り替える前には、部分指定のない全体`check`と同じ検査を実行します。登録された全ソース、配布用コピー、カタログ、schema、state、管理情報のいずれかにずれがあれば切り替えを拒否するため、全体`sync`を済ませてから再実行します。`contributor`では全体`check/sync`が無効になり、`consumer`では開発用の`check/sync`自体が無効になります。既存の割り当ては保持されるので、不要なら続けて削除します。
+`configure`で`authoritative`から`contributor`または`consumer`へ切り替える前には、全体`check`と同じ検査を実行します。他の担当者の更新で差分が生じている場合は、`agent dev marketplace check --interactive`から共有側の内容を確認して切り替えます。この経路では、差分を消すための全体同期を要求しません。`contributor`では対象指定なしの`check/sync`がローカルに割り当てた項目を順に部分処理し、割り当てていない共有項目を保持します。`consumer`では開発用の`check/sync`自体が無効です。
 
 `contributor`または`consumer`から`authoritative`へ切り替える場合、CLIは共有Marketplaceに存在するすべてのプラグイン名とSkill名が、ローカルの割り当てから解決できるか検査します。一つでもソースが手元になければ切り替えを拒否します。全件がそろった場合だけ、ローカルの割り当てを完全な正本にすることを確認して切り替えます。`consumer`から`contributor`への変更も、共有先へ部分更新できる権限拡大として明示的に確認します。
 
@@ -255,7 +255,31 @@ agent dev marketplace check team
 agent dev marketplace sync team
 ```
 
-Marketplaceが一つだけなら名前を省略できます。複数ある場合は、誤操作を防ぐためMarketplace名を指定します。通常の`check`と`sync`は、カタログとstateを含むMarketplace全体を処理します。
+Marketplaceが一つだけなら名前を省略できます。複数ある場合はMarketplace名を指定します。`authoritative`の対象指定なしの`check/sync`はMarketplace全体を処理します。`contributor`ではローカルに割り当てたプラグインとSkillを順に部分処理するため、毎回`--plugin`や`--skill`を指定する必要はありません。割り当てていない項目は保持されます。途中で失敗すると残りを停止し、完了済みの処理は巻き戻しません。
+
+状態表示は次の読み取り専用コマンドで行います。
+
+```powershell
+agent dev skill status
+agent dev plugin status my-plugin
+agent dev marketplace status team
+```
+
+全体同期では、共有設定、配布state、カタログの内容を前回受け入れた版と比較します。変更がなければ通常どおり同期し、変更がある場合や既存Marketplaceの版をまだ受け入れていない場合は停止します。`status`と`check`は受け入れ記録を更新しません。記録は`development.json`と同じディレクトリの`marketplace-observations/`に保存され、全体同期の成功後または次の対話操作で更新されます。
+
+```powershell
+agent dev marketplace check team --interactive
+```
+
+共有項目を表示した後、共有の割り当てをローカル設定へ取り込むか、担当するローカル項目を選んで`contributor`へ切り替えるかを選びます。取り込みには全項目のソースをローカル対象として登録しておく必要があります。ソース本文やGit checkoutは更新されないため、取り込み後の全体同期前にはソースの更新状況を確認してください。確認中に共有側またはローカル設定が変わった場合は保存せず停止します。
+
+通常の`check`は入力待ちや設定変更を行わず、対象・確認範囲・共有リビジョン・内部ツールの診断・結果・次の操作を標準出力の一つのレポートにまとめます。レポート全体を貼り付けて相談できます。個人のホームディレクトリと共有ルートは表示用の記号へ置き換え、対象名・相対パス・エラーコードを残します。
+
+結果は`IN SYNC`（表示された範囲が一致）、`NOT VERIFIED`（差分または検証エラーあり）、`UNABLE TO CHECK`（読み取りや検査を実行できない）、`NOTHING TO CHECK`（担当項目なし）です。差分や確認不能では非ゼロで終了します。アクセス拒否を「ファイルがない」「一致している」と扱いません。`contributor`または項目指定時は未確認の共有項目があることを明示します。
+
+`--interactive`を付けると、診断レポートの後に設定調整へ進みます。共有設定を読めない場合は対話へ進みません。設定調整はMarketplace単位なので、`--plugin`や`--skill`との併用はできません。旧`reconcile`は`check --interactive`の互換用別名として利用できます。
+
+モードはPCごとのローカル設定で、自動的には切り替わりません。担当者を共有する仕組みもないため、複数人が同じ項目をローカルに割り当てた場合は双方が更新できます。`contributor`への切替では、自分が担当する項目だけを選びます。CLIが所有する対話・エラー文は英語です。外部コマンドやOSの診断は原文のまま表示します。
 
 一つのプラグインだけを確認または同期するときは、`development.json`のローカルなプラグイン対象名を`--plugin`へ指定します。
 

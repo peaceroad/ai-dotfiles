@@ -66,6 +66,61 @@ test("rejects provenance URLs that could expose credentials", () => {
   }
 });
 
+test("Marketplace status inspects consumer and legacy metadata without changing mode or output", async () => {
+  const { createHash } = await import("node:crypto");
+  const root = join(tmpdir(), `agent-status-${process.pid}-${Date.now()}`);
+  const configPath = join(root, "development.json");
+  const marketplace = join(root, "marketplace");
+  const directory = join(marketplace, ".agents", "plugin-marketplace-development");
+  mkdirSync(directory, { recursive: true });
+  const config = { schemaVersion: 2, plugins: {}, marketplaces: { shared: {
+    root: marketplace, name: "shared", displayName: "Shared", mode: "consumer", plugins: [],
+  } } };
+  const canonical = (value) => Array.isArray(value) ? `[${value.map(canonical).join(",")}]`
+    : value && typeof value === "object" ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value);
+  const reference = { schemaVersion: 2, managedBy: "ai-dotfiles/agent-dev", name: "shared", displayName: "Shared", plugins: [{ name: "other", category: "Tools" }] };
+  reference.configurationDigest = `sha256:${createHash("sha256").update(canonical(reference)).digest("hex")}`;
+  writeJson(configPath, config);
+  const referencePath = join(directory, "config.json");
+  writeJson(referencePath, reference);
+  const before = readFileSync(referencePath);
+  const env = { AGENT_DEV_CONFIG: configPath };
+  try {
+    let result = run(CLI, ["dev", "mp", "status"], env);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stdout, /Local mode: consumer/);
+    assert.match(result.stdout, /Layout: legacy/);
+    assert.match(result.stdout, /Shared-only plugins: other/);
+    assert.match(result.stdout, /Package contents: not checked/);
+    assert.deepEqual(readFileSync(referencePath), before);
+    assert.deepEqual(JSON.parse(readFileSync(configPath)), config);
+    const { renameSync } = await import("node:fs");
+    const current = join(marketplace, ".agents", "marketplace-development");
+    renameSync(directory, current);
+    result = run(CLI, ["dev", "marketplace", "status"], env);
+    assert.equal(result.status, 0, result.stderr);
+    mkdirSync(join(current, "agent-dev-sync.lock"));
+    result = run(CLI, ["dev", "mp", "status"], env);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /Sync lock: present/);
+    assert.doesNotMatch(result.stdout, /Reference: valid/);
+    rmSync(join(current, "agent-dev-sync.lock"), { recursive: true });
+    reference.plugins = [];
+    delete reference.configurationDigest;
+    reference.configurationDigest = `sha256:${createHash("sha256").update(canonical(reference)).digest("hex")}`;
+    writeJson(join(current, "config.json"), reference);
+    result = run(CLI, ["dev", "mp", "status"], env);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Shared definition vs local assignments: matching/);
+    reference.displayName = "Changed outside manager";
+    writeJson(join(current, "config.json"), reference);
+    result = run(CLI, ["dev", "mp", "status"], env);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /changed outside agent dev/);
+    assert.equal(run(CLI, ["dev", "mp", "status", "--plugin", "other"], env).status, 2);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("Marketplace commands reject the retired management directory", () => {
   const root = join(tmpdir(), `agent-dev-legacy-marketplace-${process.pid}-${Date.now()}`);
   const home = join(root, "home");
@@ -93,7 +148,9 @@ test("Marketplace commands reject the retired management directory", () => {
       AGENT_DEV_CONFIG: configPath,
     });
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /Rename that directory to \.agents\/marketplace-development/u);
+    assert.match(result.stdout, /Rename that directory to \.agents\/marketplace-development/u);
+    assert.match(result.stdout, /Result: UNABLE TO CHECK/);
+    assert.equal(result.stderr, "");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -176,6 +233,12 @@ test("dispatches each development boundary and blocks duplicate skill discovery"
     assert.match(calls[4], /^marketplace:\["check",.*,"--config",.*,"--plugin","sample-plugin","--merge"\]$/u);
     assert.match(calls[5], /^plugin:\["install","--config",/u);
 
+    assert.equal(run(CLI, ["dev", "skill", "status"], env).status, 0);
+    assert.equal(run(CLI, ["dev", "plugin", "status"], env).status, 0);
+    const statusCalls = readFileSync(log, "utf8").trim().split("\n").slice(6);
+    assert.match(statusCalls[0], /^skill:\["status"\]$/u);
+    assert.match(statusCalls[1], /^plugin:\["status","--config",/u);
+
     const mirror = readFileSync(join(root, "shared", ".agents", "marketplace-development", "config.json"), "utf8");
     assert.doesNotMatch(mirror, /repos/u);
     assert.deepEqual(JSON.parse(mirror).plugins, [{ name: "sample-plugin", category: "Tools" }]);
@@ -224,6 +287,12 @@ test("direct plugin targets validate through the common manager and require expl
     const calls = readFileSync(log, "utf8").trim().split("\n");
     assert.match(calls[0], /^direct-plugin:\["validate",/u);
     assert.match(calls[1], /^direct-plugin:\["install",.*,"--keep-version"\]$/u);
+    delete config.plugins.direct.versionPolicy;
+    writeJson(configPath, config);
+    assert.equal(run(CLI, ["dev", "plugin", "status"], env).status, 0);
+    assert.match(readFileSync(log, "utf8").trim().split("\n").at(-1), /^direct-plugin:\["status",/u);
+    config.plugins.direct.versionPolicy = "keep";
+    writeJson(configPath, config);
 
     mkdirSync(join(home, ".agents", "skills", "direct-skill"), { recursive: true });
     const conflict = run(CLI, ["dev", "plugin", "sync"], env);
@@ -535,7 +604,7 @@ test("requires an explicit target when multiple Marketplaces are configured", ()
       AGENT_DEV_CONFIG: configPath,
     });
     assert.equal(result.status, 2);
-    assert.match(result.stderr, /Choose a marketplace: first, second/u);
+    assert.match(result.stdout, /Choose a marketplace: first, second/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -728,7 +797,7 @@ test("materializes private target references without publishing repository paths
     mkdirSync(lockPath);
     const locked = run(CLI, ["dev", "marketplace", "check"], env);
     assert.equal(locked.status, 1);
-    assert.match(locked.stderr, /being synchronized/u);
+    assert.match(locked.stdout, /being synchronized/u);
     rmSync(lockPath, { recursive: true, force: true });
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -809,9 +878,9 @@ test("scoped Marketplace sync merges one contributor plugin into existing output
         },
       },
     });
-    const unsafeFull = run(CLI, ["dev", "marketplace", "sync"], env);
-    assert.equal(unsafeFull.status, 2);
-    assert.match(unsafeFull.stderr, /contributor-managed.*--plugin/u);
+    const assignedSync = run(CLI, ["dev", "marketplace", "sync"], env);
+    assert.equal(assignedSync.status, 0, assignedSync.stderr);
+    assert.match(assignedSync.stdout, /Contributor sync: 1 local assignments/u);
     const contributed = run(CLI, ["dev", "marketplace", "sync", "--plugin", "second"], env);
     assert.equal(contributed.status, 0, contributed.stderr);
     assert.match(contributed.stdout, /Other plugin copies were not checked/u);
@@ -879,6 +948,8 @@ test("scoped Marketplace sync merges one contributor plugin into existing output
     assert.match(incompleteHandoff.stdout, /complete Marketplace is not synchronized/u);
     assert.equal(JSON.parse(readFileSync(configPath, "utf8")).marketplaces.shared.mode, "authoritative");
 
+    const reconciled = run(CLI, ["dev", "marketplace", "reconcile"], env, "1\ny\n");
+    assert.equal(reconciled.status, 0, reconciled.stderr);
     assert.equal(run(CLI, ["dev", "marketplace", "sync"], env).status, 0);
     const handedOff = run(CLI, ["dev", "marketplace", "configure"], env, [
       "o",
@@ -892,6 +963,98 @@ test("scoped Marketplace sync merges one contributor plugin into existing output
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("full sync requires acceptance after another contributor updates shared output", async () => {
+  const root = join(tmpdir(), `agent-shared-revision-${process.pid}-${Date.now()}`);
+  const first = join(root, "first");
+  const second = join(root, "second");
+  const sharedRoot = join(root, "shared");
+  const configA = join(root, "a", "development.json");
+  const configB = join(root, "b", "development.json");
+  for (const directory of [first, second, dirname(configA), dirname(configB)]) mkdirSync(directory, { recursive: true });
+  for (const [directory, name] of [[first, "first"], [second, "second"]]) {
+    writeJson(join(directory, "plugin.json"), { $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", name, version: "1.0.0", description: "Test plugin." });
+  }
+  const marketplace = { root: sharedRoot, name: "shared", displayName: "Shared", mode: "authoritative", plugins: [{ target: "first", category: "Tools" }] };
+  const config = { schemaVersion: 2, plugins: { first: { repository: first, pluginRoot: "." }, second: { repository: second, pluginRoot: "." } }, marketplaces: { shared: marketplace } };
+  writeJson(configA, config);
+  writeJson(configB, { ...config, marketplaces: { shared: { ...marketplace, mode: "contributor", plugins: [{ target: "second", category: "Tools" }] } } });
+  const runA = (action, input) => run(CLI, ["dev", "mp", ...(action === "reconcile" ? ["check", "--interactive"] : [action])], { AGENT_DEV_CONFIG: configA, AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER }, input);
+  const runB = () => run(CLI, ["dev", "mp", "sync", "--plugin", "second"], { AGENT_DEV_CONFIG: configB, AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER });
+  const statePath = join(sharedRoot, ".agents", "marketplace-development", "state.json");
+  try {
+    assert.equal(runA("sync").status, 0);
+    const matching = runA("check");
+    assert.equal(matching.status, 0);
+    assert.match(matching.stdout, /Result: IN SYNC \(entire Marketplace\)/);
+    assert.equal(matching.stderr, "");
+    assert.equal(runB().status, 0);
+    const state = readFileSync(statePath);
+    assert.match(runA("status").stdout, /changed since acceptance/);
+    const drift = runA("check");
+    assert.equal(drift.status, 1);
+    assert.match(drift.stdout, /Result: NOT VERIFIED/);
+    assert.equal(drift.stderr, "");
+    let result = runA("sync");
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /changed since the last accepted revision/);
+    assert.deepEqual(readFileSync(statePath), state);
+    const localBefore = readFileSync(configA);
+    writeJson(configA, { ...config, plugins: { first: config.plugins.first } });
+    result = runA("reconcile", "1\n");
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Local sources are missing for: plugin second/);
+    writeFileSync(configA, localBefore);
+    assert.equal(runA("reconcile", "1\nn\n").status, 0);
+    assert.deepEqual(readFileSync(configA), localBefore);
+    assert.equal(runA("sync").status, 1);
+    result = runA("reconcile", "1\ny\n");
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(configA)).marketplaces.shared.plugins.map(item => item.target), ["first", "second"]);
+    assert.deepEqual(readFileSync(statePath), state);
+    assert.equal(runA("sync").status, 0);
+    // Package-only updates must also invalidate acceptance when the catalog is unchanged.
+    writeFileSync(join(second, "README.md"), "A contributor update.\n");
+    assert.equal(runB().status, 0);
+    assert.equal(runA("sync").status, 1);
+    // A writer racing the confirmation must not be silently acknowledged.
+    const beforeReview = readFileSync(configA);
+    const { spawn } = await import("node:child_process");
+    const race = await new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [CLI, "dev", "mp", "check", "--interactive"], {
+        env: { ...process.env, AGENT_DEV_CONFIG: configA }, stdio: ["pipe", "pipe", "pipe"],
+      });
+      const timeout = setTimeout(() => { child.kill(); reject(new Error("Reconciliation prompt timed out")); }, 10000);
+      let output = "";
+      let changed = false;
+      child.stdout.on("data", chunk => {
+        output += chunk;
+        if (!changed && output.includes("Save these shared assignments")) {
+          changed = true;
+          writeFileSync(statePath, readFileSync(statePath, "utf8") + "\n");
+          child.stdin.end("y\n");
+        }
+      });
+      let errors = "";
+      child.stderr.on("data", chunk => { errors += chunk; });
+      child.on("error", error => { clearTimeout(timeout); reject(error); });
+      child.on("close", code => { clearTimeout(timeout); resolve({ code, errors }); });
+      child.stdin.write("1\n");
+    });
+    assert.equal(race.code, 1);
+    assert.match(race.errors, /changed during review/);
+    assert.deepEqual(readFileSync(configA), beforeReview);
+    const changedState = readFileSync(statePath);
+    result = runA("reconcile", "2\n1\ny\n");
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(readFileSync(configA)).marketplaces.shared.mode, "contributor");
+    assert.deepEqual(readFileSync(statePath), changedState);
+    assert.equal(runA("sync").status, 0);
+    const contributorState = JSON.parse(readFileSync(statePath));
+    assert.deepEqual(contributorState.plugins.second, JSON.parse(changedState).plugins.second);
+    assert.deepEqual(JSON.parse(readFileSync(configA)).marketplaces.shared.plugins.map(item => item.target), ["first"]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("help does not require local configuration", () => {

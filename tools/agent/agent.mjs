@@ -77,13 +77,17 @@ const HELP = `Manage local Agent Skill, Agent Plugin, and Marketplace developmen
 
 Usage:
   agent dev
+  agent dev skill status
   agent dev skill check
   agent dev skill sync
+  agent dev plugin status [<name>]
   agent dev plugin check [<name>]
   agent dev plugin sync [<name>]
   agent dev marketplace configure [<name>]
   agent dev marketplace setup [<name>]
+  agent dev marketplace status [<name>]
   agent dev marketplace check [<name>] [--plugin <target> | --skill <target>]
+  agent dev marketplace check [<name>] --interactive
   agent dev marketplace sync [<name>] [--plugin <target> | --skill <target>]
   agent marketplace list [<marketplace>]
   agent marketplace skill list [<marketplace>]
@@ -95,6 +99,7 @@ Alias:
   mp     Short for marketplace in both "agent mp ..." and "agent dev mp ...".
 
 Behavior:
+  status Show Skill links, Plugin snapshots, or Marketplace metadata without writing.
   check  Validate or detect drift without changing managed state.
   sync   Reconcile the selected derived state from its source of truth.
   list   List standalone Skills in a configured Marketplace.
@@ -102,6 +107,17 @@ Behavior:
          Manage verified standalone Skill copies under ~/.agents/skills.
   configure, setup
          Interactively edit local development configuration without syncing.
+  check --interactive
+         Report consistency, then review shared assignments or maintenance scope.
+         The legacy reconcile command remains available as an alias.
+
+Full Marketplace sync stops if shared metadata changed since the last accepted
+revision. Run check --interactive to accept an existing Marketplace for the first time.
+Status and check never acknowledge changes. Revision records are stored beside
+development.json in marketplace-observations/ and do not identify the writer.
+In contributor mode, check/sync without a selector processes each local assignment
+as a scoped operation, preserving unassigned shared entries. It is not a single
+transaction: a failure stops the remaining operations without undoing completed ones.
 
 Plugin sync installs from a repository-owned local Marketplace. Marketplace sync
 assembles a separate shared distribution. Neither command makes an installed or
@@ -662,7 +678,7 @@ function sanitizeOutput(value, replacements) {
   return result;
 }
 
-function runNode(script, args, replacements) {
+function runNode(script, args, replacements, reportToStdout = false) {
   if (!existsSync(script) || !statSync(script).isFile()) fail(`Required manager is missing: ${displayPath(script)}`);
   const result = spawnSync(process.execPath, [script, ...args], {
     encoding: "utf8",
@@ -672,7 +688,7 @@ function runNode(script, args, replacements) {
   });
   if (result.error) fail(sanitizeOutput(result.error.message, replacements));
   if (result.stdout) process.stdout.write(sanitizeOutput(result.stdout, replacements));
-  if (result.stderr) process.stderr.write(sanitizeOutput(result.stderr, replacements));
+  if (result.stderr) (reportToStdout ? process.stdout : process.stderr).write(sanitizeOutput(result.stderr, replacements));
   return result.status ?? 1;
 }
 
@@ -742,6 +758,7 @@ function handlePlugin(action, requestedName, config) {
   const context = repositoryManaged
     ? pluginContext(name, entry, { includePluginRoot: action === "sync" })
     : pluginSourceContext(name, entry);
+  const command = { status: "status", check: "validate", sync: "install" }[action];
   if (action === "sync") {
     if (!repositoryManaged && entry.versionPolicy === undefined) {
       fail(
@@ -762,7 +779,7 @@ function handlePlugin(action, requestedName, config) {
     if (action === "check") {
       console.log(`Direct plugin check: ${name} (portable package only; no repository-specific checks)`);
     }
-    const args = [action === "check" ? "validate" : "install", context.pluginRoot];
+    const args = [command, context.pluginRoot];
     if (action === "sync") args.push(entry.versionPolicy === "bump" ? "--bump-version" : "--keep-version");
     return runNode(
       LOCAL_PLUGIN_MANAGER,
@@ -772,7 +789,7 @@ function handlePlugin(action, requestedName, config) {
   }
   return runNode(
     context.runner,
-    [action === "check" ? "validate" : "install", "--config", context.config],
+    [command, "--config", context.config],
     [[context.repository, `<plugin:${name}>`], [HOME_PATH, "~"]],
   );
 }
@@ -986,8 +1003,12 @@ function assertMarketplaceUnlocked(root, name) {
   }
 }
 
-function releaseMarketplaceLock(lockPath) {
-  rmSync(lockPath, { recursive: true, force: true });
+function releaseMarketplaceLock(lockPath, operationError) {
+  try { rmSync(lockPath, { recursive: true, force: true }); }
+  catch (error) {
+    if (!operationError) throw error;
+    operationError.message += `\nAdditionally, the Marketplace sync lock could not be removed: ${error.message}`;
+  }
 }
 
 function assertMarketplaceLayoutCurrent(root, name) {
@@ -998,7 +1019,119 @@ function assertMarketplaceLayoutCurrent(root, name) {
   );
 }
 
-function handleMarketplace(action, requestedName, requestedPlugin, requestedSkill, config) {
+function marketplaceRevision(root) {
+  const files = [MARKETPLACE_CONFIG_RELATIVE_PATH,
+    join(".agents", "marketplace-development", "state.json"),
+    join(".agents", "plugins", "marketplace.json"), MARKETPLACE_SKILL_CATALOG_RELATIVE_PATH];
+  return jsonDigest(files.map((file) => {
+    try { return [file, createHash("sha256").update(readFileSync(join(root, file))).digest("hex")]; }
+    catch (error) { if (error.code === "ENOENT") return [file, null]; throw error; }
+  }));
+}
+
+function observationPath(root) {
+  const key = createHash("sha256").update(pathKey(root)).digest("hex");
+  return join(dirname(CONFIG_PATH), "marketplace-observations", `${key}.json`);
+}
+
+function acceptedRevision(root) {
+  const file = observationPath(root);
+  let value;
+  try { value = JSON.parse(readFileSync(file, "utf8")); }
+  catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  if (!isObject(value) || value.schemaVersion !== 1 || !/^sha256:[a-f0-9]{64}$/u.test(value.revision)) {
+    fail("Invalid Marketplace revision record; run marketplace check --interactive to review it again.");
+  }
+  return value.revision;
+}
+
+function acceptRevision(root, revision = marketplaceRevision(root)) {
+  writeAtomic(observationPath(root), jsonText({ schemaVersion: 1, revision }));
+}
+
+function marketplaceStatus(requestedName, config) {
+  const [name, entry] = selectTarget(config.marketplaces, requestedName, "marketplace");
+  const root = expandPath(entry.root, `marketplaces.${name}.root`);
+  console.log(`Marketplace: ${name} (${entry.name})`);
+  console.log(`Local mode: ${entry.mode} (local policy; no shared administrator registry)`);
+  console.log(`Local assignments: ${entry.plugins.length} plugins, ${entry.skills.length} Skills`);
+  console.log("Mode changes: explicit through configure; never automatic");
+  const inspect = (target) => {
+    try { return lstatSync(target); }
+    catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  };
+  try {
+    if (!inspect(root)) {
+      console.log("Access: root missing");
+      return 1;
+    }
+    const legacy = join(root, LEGACY_MARKETPLACE_DEVELOPMENT_RELATIVE_PATH);
+    const current = join(root, dirname(MARKETPLACE_CONFIG_RELATIVE_PATH));
+    const hasLegacy = Boolean(inspect(legacy));
+    const hasCurrent = Boolean(inspect(current));
+    console.log(`Layout: ${hasLegacy && hasCurrent ? "conflicting old and current directories" : hasLegacy ? "legacy (.agents/plugin-marketplace-development)" : hasCurrent ? "current" : "management directory missing"}`);
+    const directory = hasLegacy && !hasCurrent ? legacy : current;
+    const locked = Boolean(inspect(join(directory, "agent-dev-sync.lock")));
+    console.log(`Sync lock: ${locked ? "present (active or stale; owner not established)" : "absent"}`);
+    if (hasLegacy && hasCurrent) {
+      console.log("Next: reconcile both management directories before syncing.");
+      return 1;
+    }
+    if (locked) {
+      console.log("Next: wait for the writer to finish; reference consistency was not checked.");
+      return 1;
+    }
+    const referencePath = join(directory, "config.json");
+    if (!inspect(referencePath)) {
+      console.log("Reference: missing");
+      return 1;
+    }
+    const reference = readJson(referencePath, "Marketplace reference");
+    if (reference.managedBy !== MANAGED_MARKETPLACE_CONFIG) {
+      validateStandaloneDefinition(reference, "Marketplace reference");
+      console.log(`Reference: standalone schema v${reference.schemaVersion}; not managed by agent dev`);
+      console.log("Next: review/import its source definition through configure.");
+      return 1;
+    }
+    validateManagedMarketplaceReference(reference, "Marketplace reference");
+    console.log(`Reference: valid schema v${reference.schemaVersion} and configuration digest`);
+    console.log(`Shared entries: ${reference.plugins.length} plugins, ${(reference.skills ?? []).length} Skills`);
+    const accepted = hasLegacy ? null : acceptedRevision(root);
+    const needsAcceptance = !hasLegacy && (accepted === null || accepted !== marketplaceRevision(root));
+    if (!hasLegacy) console.log(`Shared revision: ${accepted === null ? "not yet accepted" : needsAcceptance ? "changed since acceptance; full sync blocked" : "unchanged since acceptance"}`);
+    const local = marketplaceMaterialization(name, entry, config).mirror;
+    const compare = (label, shared, assigned) => {
+      const localNames = new Set(assigned.map((item) => item.name));
+      const sharedNames = new Set(shared.map((item) => item.name));
+      console.log(`Shared-only ${label}: ${shared.filter((item) => !localNames.has(item.name)).map((item) => item.name).join(", ") || "(none)"}`);
+      console.log(`Local-only ${label}: ${assigned.filter((item) => !sharedNames.has(item.name)).map((item) => item.name).join(", ") || "(none)"}`);
+    };
+    compare("plugins", reference.plugins, local.plugins);
+    compare("Skills", reference.skills ?? [], local.skills);
+    const comparable = (value) => ({
+      name: value.name,
+      displayName: value.displayName,
+      plugins: [...value.plugins].sort((a, b) => a.name.localeCompare(b.name, "en")),
+      skills: [...(value.skills ?? [])].sort((a, b) => a.name.localeCompare(b.name, "en")),
+    });
+    const differs = canonicalJson(comparable(reference)) !== canonicalJson(comparable(local));
+    console.log(`Shared definition vs local assignments: ${differs ? "different" : "matching"}`);
+    console.log("Update author/history: not recorded; differences do not identify another writer.");
+    console.log("Package contents: not checked (status inspects metadata only)");
+    if (hasLegacy) console.log("Next: rename the whole legacy management directory to .agents/marketplace-development, preserving state.");
+    else if (needsAcceptance && entry.mode === "authoritative") console.log(`Next: agent dev marketplace check ${name} --interactive`);
+    else if (differs && entry.mode === "authoritative") console.log("Next: review shared differences before full sync; authoritative sync applies local assignments to the entire catalog.");
+    else if (entry.mode === "consumer") console.log("Next: browse/install, or explicitly configure contributor mode to publish selected content.");
+    else console.log(`Next: agent dev marketplace check ${name}`);
+    return hasLegacy ? 1 : 0;
+  } catch (error) {
+    console.log(`Inspection failed: ${sanitizeOutput(error.message, [[root, `<marketplace:${name}>`], [HOME_PATH, "~"]])}`);
+    console.log("Unavailable information is unknown, not evidence that files are missing.");
+    return 1;
+  }
+}
+
+function handleMarketplace(action, requestedName, requestedPlugin, requestedSkill, config, reportToStdout = false) {
   const [name, entry] = selectTarget(config.marketplaces, requestedName, "marketplace");
   if (requestedPlugin !== undefined && requestedSkill !== undefined) {
     fail("Specify either --plugin or --skill, not both.", 2);
@@ -1011,7 +1144,26 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
     );
   }
   if (entry.mode === "contributor" && requestedPlugin === undefined && requestedSkill === undefined) {
-    fail(`Marketplace ${name} is contributor-managed. Specify --plugin or --skill for check or sync.`, 2);
+    const targets = [
+      ...entry.plugins.map(item => ({ plugin: item.target })),
+      ...entry.skills.map(item => ({ skill: item.target })),
+    ];
+    console.log(`Contributor ${action}: ${targets.length} local assignments; unassigned shared entries are preserved.`);
+    if (targets.length) marketplaceMaterialization(name, entry, config);
+    for (const [index, target] of targets.entries()) {
+      console.log(`[${index + 1}/${targets.length}] ${target.plugin ? "Plugin" : "Skill"}: ${target.plugin ?? target.skill}`);
+      let status;
+      try { status = handleMarketplace(action, name, target.plugin, target.skill, config, reportToStdout); }
+      catch (error) {
+        error.message += `\nStopped contributor ${action}; ${index} earlier operations completed and were not rolled back.`;
+        throw error;
+      }
+      if (status !== 0) {
+        (reportToStdout ? console.log : console.error)(`Stopped contributor ${action}; ${index} earlier operations completed and were not rolled back.`);
+        return status;
+      }
+    }
+    return 0;
   }
   if (requestedPlugin !== undefined && !entry.plugins.some((plugin) => plugin.target === requestedPlugin)) {
     const available = entry.plugins.map((plugin) => plugin.target).sort((left, right) => left.localeCompare(right, "en"));
@@ -1034,6 +1186,8 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
   let operationError;
   try {
     const scoped = requestedPlugin !== undefined || requestedSkill !== undefined;
+    const advanceScopedRevision = action === "sync" && scoped && entry.mode === "authoritative"
+      && acceptedRevision(root) === marketplaceRevision(root);
     const currentMirror = scoped ? readManagedMarketplaceMirror(root, name) : null;
     const materialized = marketplaceMaterialization(name, entry, config, {
       root,
@@ -1050,6 +1204,12 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
     }
     if (action === "sync" && mirrorState.status === "missing" && hasMarketplaceArtifacts(root)) {
       fail(`Refusing to adopt existing Marketplace artifacts without an agent dev configuration: ${name}.`);
+    }
+    if (action === "sync" && !scoped && ["current", "outdated"].includes(mirrorState.status)) {
+      const accepted = acceptedRevision(root);
+      if (accepted === null || accepted !== marketplaceRevision(root)) {
+        fail(`Shared Marketplace ${name} ${accepted === null ? "has no accepted revision" : "changed since the last accepted revision"}. Full sync stopped. Run agent dev marketplace check ${name} --interactive to import shared assignments or switch to contributor.`);
+      }
     }
     const temporaryRoot = mkdtempSync(join(tmpdir(), "agent-dev-marketplace-"));
     const temporaryConfig = join(temporaryRoot, "config.json");
@@ -1071,6 +1231,7 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
           [root, `<marketplace:${name}>`],
           [HOME_PATH, "~"],
         ],
+        reportToStdout,
       );
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
@@ -1079,7 +1240,7 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
     if (action === "check") {
       if (mirrorState.status !== "current") {
         const detail = mirrorState.status === "missing" ? "Missing" : "Changed";
-        console.error(`${detail}: ${MARKETPLACE_CONFIG_RELATIVE_PATH.replaceAll("\\", "/")}`);
+        (reportToStdout ? console.log : console.error)(`${detail}: ${MARKETPLACE_CONFIG_RELATIVE_PATH.replaceAll("\\", "/")}`);
         return 1;
       }
       return status;
@@ -1090,19 +1251,13 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
       const change = mirrorState.status === "missing" ? "Created" : "Updated";
       console.log(`${change}: ${MARKETPLACE_CONFIG_RELATIVE_PATH.replaceAll("\\", "/")}`);
     }
+    if (!scoped || advanceScopedRevision) acceptRevision(root);
     return 0;
   } catch (error) {
     operationError = error;
     throw error;
   } finally {
-    if (lockPath) {
-      try {
-        releaseMarketplaceLock(lockPath);
-      } catch (error) {
-        if (!operationError) throw error;
-        operationError.message += `\nAdditionally, the Marketplace sync lock could not be removed: ${error.message}`;
-      }
-    }
+    if (lockPath) releaseMarketplaceLock(lockPath, operationError);
   }
 }
 
@@ -1601,11 +1756,11 @@ async function changeMarketplaceMode(input, config, preferredName) {
       return;
     }
     if (checkStatus !== 0) {
-      console.log(`Cannot switch to ${mode} because the complete Marketplace is not synchronized. Run a full sync, then try again.`);
+      console.log(`Cannot switch to ${mode} because the complete Marketplace is not synchronized. Run agent dev marketplace check ${name} --interactive to review shared changes first.`);
       return;
     }
     const prompt = mode === "contributor"
-      ? "Require --plugin or --skill and stop treating local assignments as the complete Marketplace?"
+      ? "Sync only local assignments and stop treating them as the complete Marketplace?"
       : "Disable Marketplace development operations on this machine and keep only browsing and installation?";
     if (!await confirm(input, prompt)) {
       console.log("Kept authoritative mode.");
@@ -2113,6 +2268,152 @@ async function removeConfiguration(input, config, preferredMarketplace) {
   }
 }
 
+async function checkMarketplace({ target, pluginTarget, skillTarget, interactive }) {
+  console.log("--- Marketplace check report ---");
+  let name = target;
+  let root;
+  let reviewAvailable = false;
+  let status = 1;
+  let step = "read local configuration";
+  try {
+    const config = readConfiguration();
+    const selected = selectTarget(config.marketplaces, target, "marketplace");
+    name = selected[0];
+    const entry = selected[1];
+    root = expandPath(entry.root, `marketplaces.${name}.root`);
+    console.log(`Marketplace: ${name} (${entry.name})`);
+    console.log(`Mode: ${entry.mode}`);
+    const scope = pluginTarget ? `plugin ${pluginTarget}` : skillTarget ? `Skill ${skillTarget}`
+      : entry.mode === "authoritative" ? "entire Marketplace" : "local assignments only";
+    console.log(`Scope: ${scope}`);
+    console.log(`Local assignments: ${entry.plugins.length} plugins, ${entry.skills.length} Skills`);
+    step = "read shared Marketplace metadata";
+    statSync(root); // Unlike existsSync, preserve access errors instead of reporting missing files.
+    assertMarketplaceUnlocked(root, name);
+    const shared = readManagedMarketplaceMirror(root, name);
+    reviewAvailable = true;
+    console.log(`Shared entries: ${shared.plugins.length} plugins, ${(shared.skills ?? []).length} Skills`);
+    const accepted = acceptedRevision(root);
+    console.log(`Shared revision: ${accepted === null ? "not yet accepted" : accepted === marketplaceRevision(root) ? "unchanged since acceptance" : "changed since acceptance"}`);
+    step = "compare sources, distributed copies, catalogs, and state";
+    if (entry.mode === "contributor" && !pluginTarget && !skillTarget && !entry.plugins.length && !entry.skills.length) {
+      console.log("Result: NOTHING TO CHECK (no local assignments)");
+      status = 0;
+    } else {
+      console.log("Details:");
+      status = handleMarketplace("check", name, pluginTarget, skillTarget, config, true);
+      console.log(status === 0 ? `Result: IN SYNC (${scope})` : "Result: NOT VERIFIED (differences or validation errors; see details)");
+    }
+    if (entry.mode !== "authoritative" || pluginTarget || skillTarget) {
+      console.log("Unselected package contents were not checked; this does not certify the entire Marketplace.");
+    }
+  } catch (error) {
+    const replacements = [[HOME_PATH, "~"], ...(root ? [[root, `<marketplace:${name}>`]] : [])];
+    status = error.exitCode ?? 1;
+    console.log("Result: UNABLE TO CHECK");
+    console.log(`Failed step: ${step}`);
+    if (error.code) console.log(`Error code: ${error.code}`);
+    console.log(`Details: ${sanitizeOutput(error.message, replacements)}`);
+    console.log("Unavailable information is unknown, not evidence of missing or matching contents.");
+  }
+  console.log("No managed files or settings were changed; shared changes were not accepted.");
+  if (reviewAvailable) console.log(`Next: use agent dev marketplace check ${name} --interactive to review shared assignments or maintenance scope. Content differences require reviewing local source repositories.`);
+  else console.log("Next: resolve the reported access, layout, or configuration issue and rerun this check.");
+  console.log("Copy this complete report when asking for help.");
+  console.log("--- End Marketplace check report ---");
+  if (interactive && reviewAvailable) return reconcileMarketplace(name);
+  return status;
+}
+
+async function reconcileMarketplace(requestedName) {
+  const original = readFileSync(CONFIG_PATH, "utf8");
+  const config = JSON.parse(original);
+  validateConfiguration(config);
+  const [name, entry] = selectTarget(config.marketplaces, requestedName, "marketplace");
+  const root = expandPath(entry.root, `marketplaces.${name}.root`);
+  assertMarketplaceUnlocked(root, name);
+  const revision = marketplaceRevision(root);
+  const shared = readManagedMarketplaceMirror(root, name);
+  console.log(`Marketplace: ${name}; local mode: ${entry.mode}`);
+  console.log(`Shared identity: ${shared.name} (${shared.displayName})`);
+  console.log(`Shared plugins: ${shared.plugins.map(item => `${item.name} [${item.category}]`).join(", ") || "(none)"}`);
+  console.log(`Shared Skills: ${(shared.skills ?? []).map(item => item.name).join(", ") || "(none)"}`);
+  console.log(`Local plugin targets: ${entry.plugins.map(item => item.target).join(", ") || "(none)"}`);
+  console.log(`Local Skill targets: ${entry.skills.map(item => item.target).join(", ") || "(none)"}`);
+  console.log("1. Import shared assignments (replace local assignments; keep local source targets)\n2. Switch to contributor and select local assignments to maintain\nq. Cancel");
+  const input = createPromptReader();
+  try {
+    const choice = (await input.question("Selection: ")).trim().toLowerCase();
+    if (choice === "q") { console.log("No changes made."); return 0; }
+    if (!["1", "2"].includes(choice)) fail("Choose 1, 2, or q. No changes made.", 2);
+    if (choice === "1") {
+      const targets = (entries, sourceContext, selected, sharedItems) => {
+        const result = new Map();
+        const needed = new Set(sharedItems.map(item => item.name));
+        // Prefer existing assignments when multiple local aliases resolve to one package.
+        const ordered = [...selected.map(item => item.target), ...Object.keys(entries)];
+        for (const target of new Set(ordered)) {
+          if (needed.size === 0) break;
+          try {
+            const context = sourceContext(target, entries[target]);
+            const packageName = context.name ?? readJson(join(context.pluginRoot, "plugin.json"), `Plugin ${target}`).name;
+            if (needed.delete(packageName)) result.set(packageName, target);
+          } catch { /* Unavailable local sources cannot satisfy an imported assignment. */ }
+        }
+        return result;
+      };
+      const plugins = targets(config.plugins, pluginSourceContext, entry.plugins, shared.plugins);
+      const skills = targets(config.skills, skillSourceContext, entry.skills, shared.skills ?? []);
+      const missing = [...shared.plugins.filter(item => !plugins.has(item.name)).map(item => `plugin ${item.name}`),
+        ...(shared.skills ?? []).filter(item => !skills.has(item.name)).map(item => `Skill ${item.name}`)];
+      if (missing.length) fail(`Local sources are missing for: ${missing.join(", ")}. Configure those source targets first, or choose contributor. No changes made.`);
+      entry.plugins = shared.plugins.map(item => ({ target: plugins.get(item.name), category: item.category }));
+      entry.skills = (shared.skills ?? []).map(item => ({ target: skills.get(item.name) }));
+      for (const item of shared.skills ?? []) {
+        if ((config.skills[skills.get(item.name)].sourceUrl ?? null) !== (item.sourceUrl ?? null)) {
+          fail(`Skill ${item.name} has different local provenance. Review its sourceUrl through configure before importing. No changes made.`);
+        }
+      }
+      console.log("Import accepts catalog assignments only; local source contents are not updated.");
+      console.log("A later full sync publishes local source contents. Update/review sources before syncing.");
+    } else {
+      const assignments = [...entry.plugins.map(item => ({ kind: "Plugin", item })), ...entry.skills.map(item => ({ kind: "Skill", item }))];
+      assignments.forEach(({ kind, item }, index) => console.log(`${index + 1}. ${kind}: ${item.target}`));
+      const selection = (await input.question("Targets to maintain (comma-separated numbers, all, or none): ")).trim().toLowerCase();
+      const numbers = selection === "all" ? assignments.map((_, index) => index + 1)
+        : selection === "none" ? [] : selection.split(",").map(value => Number(value.trim()));
+      if (numbers.some(value => !Number.isInteger(value) || value < 1 || value > assignments.length)) {
+        fail("Choose listed target numbers, all, or none. No changes made.", 2);
+      }
+      const selected = new Set(numbers.map(value => assignments[value - 1].item));
+      entry.plugins = entry.plugins.filter(item => selected.has(item));
+      entry.skills = entry.skills.filter(item => selected.has(item));
+      entry.mode = "contributor";
+      console.log(`Selected ${entry.plugins.length} plugins and ${entry.skills.length} Skills; other shared entries will be preserved.`);
+    }
+    entry.name = shared.name;
+    entry.displayName = shared.displayName;
+    validateConfiguration(config);
+    if (!await confirm(input, choice === "1" ? "Save these shared assignments and accept this revision?" : "Save contributor mode and accept this revision?")) {
+      console.log("No changes made."); return 0;
+    }
+    // Do not hold a NAS writer lock while waiting for human input.
+    const lock = acquireMarketplaceLock(root, name);
+    let operationError;
+    try {
+      if (marketplaceRevision(root) !== revision) fail("Shared Marketplace changed during review. Run check --interactive again. No changes made.");
+      if (readFileSync(CONFIG_PATH, "utf8") !== original) fail("Local configuration changed during review. Run check --interactive again. No changes made.");
+      writeAtomic(CONFIG_PATH, jsonText(config));
+      acceptRevision(root, revision);
+    } catch (error) {
+      operationError = error;
+      throw error;
+    } finally { releaseMarketplaceLock(lock, operationError); }
+    console.log(`Reconciled Marketplace ${name}; mode: ${entry.mode}. No packages were synchronized.`);
+    return 0;
+  } finally { input.close(); }
+}
+
 async function handleConfigure(requestedName) {
   const existed = existsSync(CONFIG_PATH);
   const original = readConfigurationForConfigure();
@@ -2247,16 +2548,16 @@ function parseInvocation(argv) {
   const domain = argv[1] === "mp" ? "marketplace" : argv[1];
   const action = argv[2];
   if (!["skill", "plugin", "marketplace"].includes(domain)) fail(`Unknown development target: ${domain ?? "(missing)"}.`, 2);
-  const marketplaceConfiguration = domain === "marketplace" && ["configure", "setup"].includes(action);
-  if (!["check", "sync"].includes(action) && !marketplaceConfiguration) {
-    fail(`Choose check or sync for ${domain}${domain === "marketplace" ? ", or configure" : ""}.`, 2);
+  const marketplaceConfiguration = domain === "marketplace" && ["configure", "setup", "reconcile"].includes(action);
+  if (!["status", "check", "sync"].includes(action) && !marketplaceConfiguration) {
+    fail(`Choose status, check, or sync for ${domain}${domain === "marketplace" ? ", or configure" : ""}.`, 2);
   }
   const rest = argv.slice(3);
   if (domain === "skill") {
     if (rest.length > 0) fail("skill does not accept a target name.", 2);
     return { domain, action };
   }
-  if (domain === "plugin" || marketplaceConfiguration) {
+  if (domain === "plugin" || marketplaceConfiguration || action === "status") {
     if (rest.length > 1) fail(`Unexpected argument: ${rest[1]}.`, 2);
     if (rest[0]?.startsWith("--")) fail(`Unknown option: ${rest[0]}.`, 2);
     return { domain, action: action === "setup" ? "configure" : action, target: rest[0] };
@@ -2265,9 +2566,13 @@ function parseInvocation(argv) {
   let target;
   let pluginTarget;
   let skillTarget;
+  let interactive = false;
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index];
-    if (argument === "--plugin") {
+    if (argument === "--interactive") {
+      if (action !== "check" || interactive) fail("--interactive is supported once, with marketplace check only.", 2);
+      interactive = true;
+    } else if (argument === "--plugin") {
       if (pluginTarget !== undefined) fail("--plugin may be specified only once.", 2);
       pluginTarget = rest[index + 1];
       if (!pluginTarget || pluginTarget.startsWith("--")) fail("--plugin requires a local plugin target name.", 2);
@@ -2282,7 +2587,8 @@ function parseInvocation(argv) {
     else fail(`Unexpected argument: ${argument}.`, 2);
   }
   if (pluginTarget !== undefined && skillTarget !== undefined) fail("Specify either --plugin or --skill, not both.", 2);
-  return { domain, action, target, pluginTarget, skillTarget };
+  if (interactive && (pluginTarget !== undefined || skillTarget !== undefined)) fail("Interactive review applies to Marketplace assignments; omit --plugin and --skill.", 2);
+  return { domain, action, target, pluginTarget, skillTarget, interactive };
 }
 
 async function main() {
@@ -2302,9 +2608,16 @@ async function main() {
     else if (invocation.domain === "marketplace" && invocation.action === "configure") {
       process.exitCode = await handleConfigure(invocation.target);
     }
+    else if (invocation.domain === "marketplace" && invocation.action === "reconcile") {
+      process.exitCode = await checkMarketplace({ ...invocation, interactive: true });
+    }
+    else if (invocation.domain === "marketplace" && invocation.action === "check") {
+      process.exitCode = await checkMarketplace(invocation);
+    }
     else {
       const config = readConfiguration();
       if (invocation.summary) printTargets(config);
+      else if (invocation.domain === "marketplace" && invocation.action === "status") process.exitCode = marketplaceStatus(invocation.target, config);
       else if (invocation.domain === "plugin") process.exitCode = handlePlugin(invocation.action, invocation.target, config);
       else process.exitCode = handleMarketplace(
         invocation.action,
