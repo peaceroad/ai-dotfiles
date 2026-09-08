@@ -391,7 +391,7 @@ Portable core componentはAgent SkillsとMCPサーバーの二つです。Hooks�
 
 ### `agent-plugin-tools`と開発用スキル
 
-`agent-plugin-tools`は、portable packageの作成・検証・移行、ローカル導入、共有Marketplaceの組み立てを扱うプラグインです。2026年9月6日の改訂版はプラグイン`0.4.0`、含まれる`plugin-creator-agent-plugins`スキルは`0.6.0`です。この環境では`~/.agents/skills/plugin-creator-agent-plugins/`からソースリポジトリへリンクし、ソースを正本として編集します。
+`agent-plugin-tools`は、portable packageの作成・検証・移行、ローカル導入、共有Marketplaceの組み立てを扱うプラグインです。ソースの版は[plugin.json](../../plugins/agent-plugin-tools/plugin.json)と、含まれる[plugin-creator-agent-pluginsのSKILL.md](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)で確認できます。この環境では`~/.agents/skills/plugin-creator-agent-plugins/`からソースリポジトリへリンクし、ソースを正本として編集します。
 
 具体的な依頼例、ヘルパーの使い方、7つの参照の分担は[プラグインのREADME](../../plugins/agent-plugin-tools/README.md)にまとめています。組み込み`plugin-creator`を書き換えるpatchではなく、portable形式の作業に使う独立スキルです。内包するOpenAI／Codex向け指示の対象モデルが未指定ならAstraを設計の既定とし、既存の対象やクライアント設定は保持します。
 

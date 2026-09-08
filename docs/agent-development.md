@@ -234,7 +234,7 @@ agent dev marketplace configure team
 
 `development.json`はschema v2だけを受け付けます。試行段階のschema v1を自動変換する互換コードは持ちません。旧ファイルが残っている場合は別名で退避し、`configure`でv2を作り直してください。既存Marketplaceの構成を引き継ぐ場合は、退避したローカル設定を参照しながら「Connect existing Marketplace」を使います。
 
-`agent.cmd`は同じディレクトリの`agent.mjs`をNode.jsで実行するだけで、開発処理を重複実装しません。端末固有の設定とインストール済みコピーをリポジトリの正本に戻さないことで、公開可能なコードとローカル環境の境界を保ちます。
+`agent.cmd`は、自身の配置先を基準に`../ai-dotfiles/runtime/agent.mjs`をNode.jsで実行するだけで、開発処理を重複実装しません。端末固有の設定とインストール済みコピーをリポジトリの正本に戻さないことで、公開可能なコードとローカル環境の境界を保ちます。
 
 ## 使い方
 

@@ -10,7 +10,7 @@
 
 その後のGemini向け3参照の更新は、[Gemini参照の更新レビュー](gemini-reference-review.md)に記録しています。Nano Banana専用ガイドを含む公式資料を照合したもので、Astra向け指示の変更やGeminiでの動作試行は含みません。
 
-2026年9月6日の`skill-creator`・`agent-workflow-design`との分担の照合は、[3スキルの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md#今回の確認結果と残る限界)にまとめています。参照・承認・検証の静的確認であり、3スキルを併用した実行試験や、以下の試行への追加ではありません。
+`skill-creator`・`agent-workflow-design`との分担は、[3スキルの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
 ## 指示設計能力として確認した範囲
 
