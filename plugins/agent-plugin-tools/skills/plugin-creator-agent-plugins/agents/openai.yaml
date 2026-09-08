@@ -1,4 +1,4 @@
 interface:
-  display_name: "Portable Agent Plugin Tools"
+  display_name: "Plugin Creator for Agent Plugins"
   short_description: "Develop portable Agent Plugins and assemble Marketplaces"
   default_prompt: "Use $plugin-creator-agent-plugins to handle this portable plugin or filesystem Marketplace task, using the workflow and validation appropriate to the requested outcome."
