@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { installAgent } from './install-agent.mjs';
+import { CODEX_TOOLS } from '../tools/agent/codex/codex.mjs';
 
 function fixture(t) {
   const root = fs.mkdtempSync(join(fs.realpathSync(tmpdir()), 'agent-install-'));
@@ -69,6 +70,46 @@ test('shared installation preserves configuration, is idempotent, and preflights
   const result = spawnSync(process.execPath, [implementation, '--help'], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   verifyInstalledDefaults(options);
+});
+
+test('Codex payload is self-contained and collisions are checked before updates', t => {
+  const options = { ...fixture(t), platform: 'win32' };
+  installAgent(options);
+  const runtime = join(options.agentsRoot, 'ai-dotfiles', 'runtime');
+  assert.deepEqual(fs.readdirSync(join(runtime, 'codex')).sort(), ['codex.mjs', ...CODEX_TOOLS.map(tool => tool.file)].sort());
+  const env = { ...process.env, AGENT_DEV_CONFIG: join(options.agentsRoot, 'missing.json') };
+  for (const entry of ['agent.mjs', 'codex/codex.mjs']) {
+    const result = spawnSync(process.execPath, [join(runtime, entry), ...(entry === 'agent.mjs' ? ['codex'] : []), '--help'], { encoding: 'utf8', env });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Codex diagnostics/);
+  }
+  for (const tool of CODEX_TOOLS.filter(tool => tool.file.endsWith('.mjs'))) {
+    const result = spawnSync(process.execPath, [join(runtime, 'codex', tool.file), 'help'], { encoding: 'utf8', env });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+  const command = join(options.agentsRoot, 'scripts', 'agent.cmd');
+  fs.writeFileSync(command, 'rem @ai-dotfiles agent-dev-runtime managed\nstale');
+  const helper = join(runtime, 'codex', CODEX_TOOLS[0].file);
+  fs.writeFileSync(helper, 'unmanaged helper');
+  assert.throws(() => installAgent(options), /unmanaged/);
+  assert.match(fs.readFileSync(command, 'utf8'), /stale/);
+  assert.equal(fs.readFileSync(helper, 'utf8'), 'unmanaged helper');
+});
+
+test('ownership stays within the first eight lines and late collisions prevent all writes', t => {
+  const options = { ...fixture(t), platform: 'win32' };
+  const command = join(options.agentsRoot, 'scripts', 'agent.cmd');
+  fs.mkdirSync(join(options.agentsRoot, 'scripts'), { recursive: true });
+  const ninthLineMarker = '\r\n'.repeat(8) + 'rem @ai-dotfiles agent-dev-runtime managed\r\n';
+  fs.writeFileSync(command, ninthLineMarker);
+  assert.throws(() => installAgent(options), /unmanaged/);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'ai-dotfiles')), false);
+  assert.equal(fs.readFileSync(command, 'utf8'), ninthLineMarker);
+  fs.writeFileSync(command, '\r\n'.repeat(7) + 'rem @ai-dotfiles agent-dev-runtime managed\r\n');
+  const installed = [];
+  installAgent({ ...options, log: line => installed.push(line) });
+  assert.match(installed.at(-2), /\/runtime\/agent\.mjs$/);
+  assert.match(installed.at(-1), /\/scripts\/agent\.cmd$/);
 });
 
 test('Unix command collisions reject even force before writing runtime', t => {

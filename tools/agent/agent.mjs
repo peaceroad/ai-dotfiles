@@ -74,9 +74,11 @@ const MARKETPLACE_SKILL_LOCK_PATH = join(DATA_ROOT, "state", "skill-installation
 const MARKETPLACE_SKILL_STATE_MARKER = "@ai-dotfiles agent-marketplace-skill-state v1";
 const MARKETPLACE_SKILL_CATALOG_MARKER = "@plugin-creator-agent-plugins managed-skill-catalog v1";
 
-const HELP = `Manage local Agent Skill, Agent Plugin, and Marketplace development
+const HELP = `Manage local Agent Skill, Agent Plugin, and Marketplace development and Codex diagnostics
 
 Usage:
+  agent codex [<tool> [<action> [arguments...]]]
+  agent codex --help
   agent dev
   agent dev skill status
   agent dev skill check
@@ -2640,6 +2642,11 @@ function parseInvocation(argv) {
 }
 
 async function main() {
+  if (process.argv[2] === "codex") {
+    const { runCodex } = await import("./codex/codex.mjs");
+    process.exitCode = await runCodex(process.argv.slice(3));
+    return;
+  }
   const invocation = parseInvocation(process.argv.slice(2));
   if (invocation.help) console.log(HELP);
   else if (invocation.consumerMarketplace) {

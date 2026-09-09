@@ -1,6 +1,6 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([string]$ScriptPath = (Join-Path $PSScriptRoot '../home/.agents/scripts/codex/manage-git-write-acl.ps1'))
+param([string]$ScriptPath = (Join-Path $PSScriptRoot '../tools/agent/codex/manage-git-write-acl.ps1'))
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

@@ -1,3 +1,5 @@
+// @ai-dotfiles agent-dev-runtime managed
+
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -50,7 +52,7 @@ function printHelp() {
   console.log(`Manage retained log levels for the Codex SQLite diagnostic log.
 
 Usage:
-  node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" <command> [level]
+  node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-sqlite-trace-log-suppression.mjs" <command> [level]
 
 Commands:
   status

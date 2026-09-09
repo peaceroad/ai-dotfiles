@@ -2,6 +2,8 @@
 
 `agent dev`は、複数のリポジトリで開発するAgent Skill、Agent Plugin、共有Marketplaceについて、既存の管理処理を短い共通コマンドから呼び分けるローカルCLIです。モデルが判断するAgent Skillではなく、明示したJSONを決定的に処理する開発用の入口です。
 
+Codexの状態確認と既知問題の回避は、同じインストーラーに含まれる[`agent codex`](./agent-codex.md)から実行できます。スキル／プラグイン開発用の設定とは独立した機能です。
+
 ## 管理境界
 
 三つの同期先を分けます。
@@ -26,6 +28,7 @@ ai-dotfiles/
 │   ├── agent.cmd
 │   ├── agent.mjs
 │   ├── agent.test.mjs
+│   ├── codex/                  ← Codex診断の入口と単体スクリプト
 │   └── development.schema.json
 └── scripts/
     ├── install-agent.mjs
@@ -44,6 +47,7 @@ ai-dotfiles/
 │   └── runtime/
 │       ├── agent.mjs
 │       ├── manage-skill-links.mjs
+│       ├── codex/
 │       └── plugin-tools/
 └── scripts/
     └── agent.cmd  ← Windowsの起動入口
@@ -63,7 +67,7 @@ PowerShellプロファイルの影響を除外したい場合や、PowerShell以
 
 ファイルの配置・更新・保護はNode.js製の`install-agent.mjs`が共通で担当します。Windowsの`install-agent.ps1`は共通処理を呼び出し、ユーザーPATH登録と`-WhatIf`／確認を扱います。`-Confirm`はランタイム一式に対して確認します。
 
-Linux／macOSではNode.jsを用意し、リポジトリのルートから実行します。テストと同梱ツールも動かす環境にはNode.js 24以降を使ってください。PowerShellやPythonは不要です。
+Linux／macOSではNode.jsを用意し、リポジトリのルートから実行します。テストと同梱ツールも動かす環境にはNode.js 24以降を使ってください。導入と`agent dev`にはPowerShellやPythonは不要です。`agent codex`の各診断ツールには、別途OSや実行環境の要件があります。
 
 ```sh
 node scripts/install-agent.mjs --dry-run

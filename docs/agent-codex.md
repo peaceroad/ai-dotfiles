@@ -1,19 +1,61 @@
-# Codex関連スクリプト
+# `agent codex`と単体スクリプトで状態を確認する
 
 2026年8〜9月時点のWindows版Codex環境で確認した問題を対象に、状態確認や既知の問題を安全条件付きで回避・修復するための管理スクリプトです。いずれも、最初に`status`で現在の状態を確認できます。変更を伴う操作では、対象の状態を検証し、対話確認を求めます。
 
-各スクリプトの完全なコマンド一覧と安全条件は、`help`で確認してください。
+## 共通コマンドと単体実行
+
+[`agent`のインストーラー](./agent-development.md#配置とインストール)で、共通コマンドと各スクリプトを一緒に導入します。正本は`tools/agent/codex/`、導入先は`~/.agents/ai-dotfiles/runtime/codex/`です。旧`~/.agents/scripts/codex/`からの自動移行や、そこへの互換コピーは行いません。
+
+```powershell
+agent codex
+agent codex --help
+```
+
+対話端末で`agent codex`だけを実行すると、用途の説明付きメニューが開きます。ツールを選ぶと、必要条件と操作一覧を表示します。操作は番号・短縮キー・名前で選べ、`h`で詳細ヘルプ、`b`で戻る、`q`で終了できます。入力・出力をリダイレクトした場合は、メニューの代わりにヘルプだけを表示します。
+
+メニューと通常ヘルプには、Windowsでは4項目すべて、macOS／Linuxでは`log-policy`だけを表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
+
+- `git-acl`と`disk-pressure`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
+- `skill-validator-utf8`は、Pythonの既定文字コードがUTF-8である環境では通常不要なため、macOS／Linuxの通常表示から外しています。必要な場合は、`agent codex skill-validator-utf8`で専用メニューを開くか、操作を直接指定できます。単体スクリプトもOSで制限しません。
+- `log-policy`はOS固有APIに依存しませんが、macOS／Linuxでは実機未検証です。その旨を表示し、既存のDB・スキーマ・変更確認の検査は維持します。
+
+メニューを使わず、操作を直接指定することもできます。次はWindowsでの状態確認例です。
+
+```powershell
+agent codex git-acl status 'C:/work/my-project'
+agent codex disk-pressure status
+agent codex skill-validator-utf8 status
+agent codex log-policy status
+```
+
+`agent codex log-policy`のようにツール名まで指定すると、そのツールのメニューから始められます。Git権限のメニューでは対象リポジトリのパスを求め、Enterだけなら操作を取り消します。ログの`suppress`は子スクリプト自身が保持レベルの選択と変更確認を行います。メニューの選択だけで、スクリプト側の安全確認を省略することはありません。表示・エラーは英語です。
+
+これはai-dotfilesが提供する補助コマンドであり、Codex公式CLIのサブコマンドではありません。`development.json`は不要です。`agent`の入口はNode.js 24以降を必要とします。Windows専用ツールはWindows以外では操作を開始せず、各ツールの追加要件は後述します。
+
+各ファイルは`agent`に依存せず、Node.js／PowerShellから直接実行できます。リポジトリのルートから使う場合は次のとおりです。
+
+```powershell
+node tools/agent/codex/codex.mjs
+node tools/agent/codex/manage-codex-disk-pressure.mjs help
+node tools/agent/codex/manage-skill-validator-utf8-patch.mjs help
+node tools/agent/codex/manage-sqlite-trace-log-suppression.mjs help
+pwsh -NoProfile -File tools/agent/codex/manage-git-write-acl.ps1 help
+```
+
+単体スクリプトには同じディレクトリのほかのファイルへの依存はありません。単体実行の必要バージョンは「実行環境」を参照してください。インストール済みコピーの完全なコマンド一覧と安全条件も、`help`で確認できます。
 
 ```samp
-node "$HOME/.agents/scripts/codex/<スクリプト名>.mjs" help
-& "$HOME/.agents/scripts/codex/manage-git-write-acl.ps1" help
+node "$HOME/.agents/ai-dotfiles/runtime/codex/<スクリプト名>.mjs" help
+& "$HOME/.agents/ai-dotfiles/runtime/codex/manage-git-write-acl.ps1" help
 ```
 
 ## スクリプト一覧
 
 ### `manage-git-write-acl.ps1`
 
-[スクリプトを表示](./manage-git-write-acl.ps1) · [対象条件と復旧手順](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-windows-git-write-acl-recovery.md)
+共通コマンド：`agent codex git-acl`
+
+[スクリプトを表示](../tools/agent/codex/manage-git-write-acl.ps1) · [対象条件と復旧手順](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-windows-git-write-acl-recovery.md)
 
 **実験的な参考実装です。** 一般化した本スクリプトで、実際のACL変更と配下全体の検証に成功し、修復後のGit参照更新と空コミットの作成・取り消しも確認しています。過去の修復後にはCodexの再起動後に拒否が再付与されたため、再発防止と修復記録からの復元は未検証です。
 
@@ -33,7 +75,9 @@ Gitが認識する作業ルートと管理ディレクトリが指定先と一�
 
 ### `manage-codex-disk-pressure.mjs`
 
-[スクリプトを表示](./manage-codex-disk-pressure.mjs)
+共通コマンド：`agent codex disk-pressure`
+
+[スクリプトを表示](../tools/agent/codex/manage-codex-disk-pressure.mjs)
 
 - 用途：ディスク容量不足によって破損したCodexサンドボックスの`deny_read_acl_state.json`を確認・修復します。
 - `status`：空き容量、既知のCodexデータベースのサイズ、`setup_error.json`のメタデータ、`deny_read_acl_state.json`のJSON妥当性を変更せずに確認します。
@@ -45,13 +89,19 @@ Gitが認識する作業ルートと管理ディレクトリが指定先と一�
 
 ### `manage-skill-validator-utf8-patch.mjs`
 
-[スクリプトを表示](./manage-skill-validator-utf8-patch.mjs)
+共通コマンド：`agent codex skill-validator-utf8`（全OSで直接指定可能）
 
-- 用途：Codexの`skill-creator`に含まれるスキル検証処理へ、Windowsで日本語を含む`SKILL.md`をUTF-8として読めるようにする修正を適用・復元します。
+[スクリプトを表示](../tools/agent/codex/manage-skill-validator-utf8-patch.mjs)
+
+- 用途：Codexの`skill-creator`に含まれるスキル検証処理へ、`SKILL.md`を環境の既定文字コードではなくUTF-8として読む修正を適用・復元します。
 - `status`：対象の`quick_validate.py`が、確認済みの未修正版、管理対象の修正版、UTF-8対応の記述を含む未知の版、内容の確認が必要な未知の版のどれに当たるかを確認します。
 - `apply`：ファイル全体のSHA-256が確認済みの未修正版のいずれかと一致する場合だけ、`read_text(encoding="utf-8")`を使う修正を適用します。
 - `restore`：ファイル全体がこのスクリプトの生成した修正版と一致する場合だけ、元の記述へ戻します。
 - 安全対策：未知の版は変更しません。書き込み前後の完全一致検証、日本語を含む一時スキルでの検証、失敗時のロールバックを行います。
+
+問題になるのは、検証処理の`skill_md.read_text()`が、UTF-8のファイルをcp932など別の文字コードとして読む場合です。日本語のスキル自体が不正なのではなく、読み取り時にエラーや文字化けが起きる問題です。Pythonの既定文字コードがUTF-8なら通常この修正は不要で、OS名だけでは必要性を判断できません。文字コード省略時の扱いは[Pythonのテキストエンコーディングの説明](https://docs.python.org/3/library/io.html#text-encoding)を参照してください。
+
+`status`は検証スクリプトの内容を判定するもので、実行時のPython環境を診断するものではありません。確認済みの未修正版であっても、自分の環境でUTF-8の読み取りに問題がなければ、予防的に`apply`する必要はありません。
 
 この管理スクリプト自体はNode.jsで動作します。`apply`では、修正対象の`~/.codex/skills/.system/skill-creator/scripts/quick_validate.py`を実行して、日本語を含む一時スキルを実際に検証します。`quick_validate.py`が`import yaml`を行うため、この実検証にはPythonとPyYAMLが必要です。管理スクリプトはPythonパッケージを自動インストールしません。
 
@@ -80,7 +130,9 @@ python -m pip install PyYAML
 
 ### `manage-sqlite-trace-log-suppression.mjs`
 
-[スクリプトを表示](./manage-sqlite-trace-log-suppression.mjs)
+共通コマンド：`agent codex log-policy`
+
+[スクリプトを表示](../tools/agent/codex/manage-sqlite-trace-log-suppression.mjs)
 
 - 用途：CodexのSQLite診断ログ`logs_2.sqlite`へ今後保持する最小ログレベルを設定し、不要な低レベルログの蓄積を抑えます。
 - `status`：データベース構造、管理対象トリガー、ファイルサイズ、記録されているログレベル、最近のTRACEログを変更せずに確認します。
@@ -106,19 +158,19 @@ python -m pip install PyYAML
 まず、読み取り専用の`status`を実行します。Gitの権限を調べる場合は、対象リポジトリを指定してください。
 
 ```samp
-& "$HOME/.agents/scripts/codex/manage-git-write-acl.ps1" status 'C:/work/my-project'
-node "$HOME/.agents/scripts/codex/manage-codex-disk-pressure.mjs" status
-node "$HOME/.agents/scripts/codex/manage-skill-validator-utf8-patch.mjs" status
-node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" status
+& "$HOME/.agents/ai-dotfiles/runtime/codex/manage-git-write-acl.ps1" status 'C:/work/my-project'
+node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-codex-disk-pressure.mjs" status
+node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-skill-validator-utf8-patch.mjs" status
+node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-sqlite-trace-log-suppression.mjs" status
 ```
 
 変更を行う場合は、各スクリプトの`help`を読み、CodexとChatGPTを完全に終了してから対象コマンドを実行してください。必要条件を満たさない場合や、対象が既知の状態と一致しない場合、スクリプトは変更を中止します。
 
 ## CodexアプリまたはCLI更新後の確認
 
-CodexアプリまたはCLIを更新した後は、設定が維持されている場合もあれば、対象ファイルやデータベースの状態が変わっている場合もあります。再適用を決める前に、上記のNode.jsスクリプト3本の`status`で、現在の状態とSQLiteの管理トリガーを確認します。GitのACLスクリプトは、書き込みエラーが起きた場合に対象リポジトリを指定して使います。
+CodexアプリまたはCLIを更新した後は、設定が維持されている場合もあれば、対象ファイルやデータベースの状態が変わっている場合もあります。利用しているパッチやログ保持設定について、再適用を決める前に対応する`status`で確認します。`git-acl`はGitの書き込みエラーが起きた場合に、`disk-pressure`はWindowsのディスク容量不足やACL状態ファイルの破損が疑われる場合に使います。
 
-- `skill-creator`の`status`が「exact local UTF-8 patch」なら、修正はそのまま有効です。「reviewed unpatched version」の場合は安全条件を確認して`apply`を検討します。「unknown version with an explicit UTF-8 fix」または「unknown version requiring review」の場合は手動パッチを適用せず、内容の確認を優先します。
+- `agent codex skill-validator-utf8 status`が「exact local UTF-8 patch」なら、修正はそのまま有効です。「reviewed unpatched version」の場合は、自分のPython環境でUTF-8の読み取りに問題があるときだけ、安全条件を確認して`apply`を検討します。「unknown version with an explicit UTF-8 fix」または「unknown version requiring review」の場合は手動パッチを適用せず、内容の確認を優先します。
 - SQLiteの`status`が管理対象ポリシーを`active`と報告するなら、ログ保持設定はすでに有効です。設定を同じレベルへ戻すためだけに`suppress`を再実行する必要はありません。
 
 更新版Codexのログ挙動を再確認したい場合は、SQLiteの抑制がTRACEの発生を隠すため、次の手順で通常ログを観測します。

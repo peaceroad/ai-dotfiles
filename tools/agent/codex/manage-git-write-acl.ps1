@@ -1,3 +1,5 @@
+# @ai-dotfiles agent-dev-runtime managed
+
 #requires -Version 7.0
 [CmdletBinding()]
 param(

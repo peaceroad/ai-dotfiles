@@ -1,3 +1,5 @@
+// @ai-dotfiles agent-dev-runtime managed
+
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -33,7 +35,7 @@ function printHelp() {
   console.log(`Inspect and recover from full-disk corruption of Codex's deny_read_acl_state.json on Windows.
 
 Usage:
-  node "$HOME/.agents/scripts/codex/manage-codex-disk-pressure.mjs" <command>
+  node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-codex-disk-pressure.mjs" <command>
 
 Commands:
   status
@@ -70,7 +72,7 @@ Disk-full failure handled:
     EOF while parsing a value at line 1 column 0
 
 Related command:
-  node "$HOME/.agents/scripts/codex/manage-sqlite-trace-log-suppression.mjs" status
+  node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-sqlite-trace-log-suppression.mjs" status
 
 Requirements:
   Windows and Node.js 18.15 or newer.

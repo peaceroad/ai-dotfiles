@@ -1,3 +1,5 @@
+// @ai-dotfiles agent-dev-runtime managed
+
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -62,10 +64,10 @@ const explicitUtf8Pattern =
   /^[ \t]+content\s*=\s*skill_md\.read_text\(\s*encoding\s*=\s*(["'])utf-8\1\s*\)\s*(?:#.*)?$/m;
 
 function printHelp() {
-  console.log(`Manage the Windows UTF-8 patch for Codex skill validation.
+  console.log(`Manage the UTF-8 patch for Codex skill validation.
 
 Usage:
-  node "$HOME/.agents/scripts/codex/manage-skill-validator-utf8-patch.mjs" <command>
+  node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-skill-validator-utf8-patch.mjs" <command>
 
 Commands:
   status
@@ -91,6 +93,13 @@ Commands:
 
 Target:
   ${validatorDisplayPath}
+
+When needed:
+  The issue depends on Python's default text encoding, not the OS alone.
+  UTF-8 skill files can fail to read with a non-UTF-8 default (e.g. cp932).
+  Usually unnecessary when Python already reads UTF-8 by default.
+  The agent codex menu lists this tool on Windows only; explicit commands
+  and this standalone script remain available on macOS/Linux too.
 
 Validation dependency:
   "apply" runs the target quick_validate.py with the "python" command.
@@ -241,7 +250,7 @@ async function printStatus() {
   console.log(`State:     ${state.description}`);
 
   if (state.kind === "known-unpatched") {
-    console.log("Action:    run apply to add the reviewed UTF-8 fix");
+    console.log("Action:    consider apply only if UTF-8 skill reading fails in this Python environment");
   } else if (state.kind === "known-patched") {
     console.log("Action:    none; the local patch is active");
   } else if (state.kind === "upstream-fixed") {

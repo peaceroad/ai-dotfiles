@@ -5,13 +5,14 @@ import { dirname, join, resolve, relative, isAbsolute, delimiter } from 'node:pa
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { CODEX_TOOLS } from '../tools/agent/codex/codex.mjs';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const marker = '@ai-dotfiles agent-dev-runtime managed';
 const coreMarkers = [marker, '@ai-dotfiles agent-command v1'];
 const assemblerMarker = '@plugin-creator-agent-plugins managed-marketplace-assembler v1';
 const stat = path => { try { return fs.lstatSync(path); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } };
-const hasMarker = (content, markers) => content.toString('utf8').split(/\r?\n/).slice(0, 8).some(line => markers.some(value => line.includes(value)));
+const hasMarker = (content, markers) => content.toString('utf8').split(/\r?\n/, 8).some(line => markers.some(value => line.includes(value)));
 const same = (a, b) => process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b);
 export function displayPath(path) {
   const suffix = relative(homedir(), resolve(path));
@@ -56,7 +57,9 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
   const plugin = 'plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins';
   const payload = [];
   const add = (source, target, markers = coreMarkers) => payload.push({ source: join(repository, source), target: join(agentsRoot, target), markers });
-  add('tools/agent/agent.mjs', 'ai-dotfiles/runtime/agent.mjs');
+  for (const name of [...CODEX_TOOLS.map(tool => tool.file), 'codex.mjs']) {
+    add(`tools/agent/codex/${name}`, `ai-dotfiles/runtime/codex/${name}`);
+  }
   add('tools/agent/development.schema.json', 'ai-dotfiles/development.schema.json');
   add('home/.agents/ai-dotfiles/runtime/manage-skill-links.mjs', 'ai-dotfiles/runtime/manage-skill-links.mjs');
   for (const [name, owner] of [
@@ -66,6 +69,7 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
     ['assets/marketplace-distribution/marketplace-development.schema.json', '@plugin-creator-agent-plugins managed-marketplace-schema v2'],
   ]) add(`${plugin}/${name}`, `ai-dotfiles/runtime/plugin-tools/${name}`, [owner, marker]);
   // Switch the public entry point only after its complete runtime is installed.
+  add('tools/agent/agent.mjs', 'ai-dotfiles/runtime/agent.mjs');
   if (platform === 'win32') add('tools/agent/agent.cmd', 'scripts/agent.cmd');
   for (const item of payload) {
     assertParents(item.target, checkedParents);
@@ -74,12 +78,9 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
     const info = stat(item.target);
     if (info && !info.isFile()) throw new Error(`Installation target must be a regular file: ${displayPath(item.target)}`);
     item.existed = !!info;
-    item.installed = info ? fs.readFileSync(item.target) : null;
-    item.current = !!item.installed && item.content.equals(item.installed);
-    item.managed = !!item.installed && hasMarker(item.installed, item.markers);
-  }
-  for (const item of payload) {
-    if (item.existed && !item.current && !force && !item.managed) {
+    const installed = info ? fs.readFileSync(item.target) : null;
+    item.current = !!installed && item.content.equals(installed);
+    if (installed && !item.current && !force && !hasMarker(installed, item.markers)) {
       throw new Error(`Refusing to replace an unmanaged file: ${displayPath(item.target)}. Review it before using --force.`);
     }
   }
