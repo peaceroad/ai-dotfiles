@@ -6,4 +6,3 @@ paths:
   - .codex/browser/config.toml
   - .agents/ai-dotfiles/skill-links.json
   - .agents/scripts/check-lf.mjs
-  - .agents/ai-dotfiles/runtime/manage-skill-links.mjs

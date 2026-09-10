@@ -83,6 +83,7 @@ Usage:
   agent dev skill status
   agent dev skill check
   agent dev skill sync
+  agent dev skill link [<action> [arguments...]]
   agent dev plugin status [<name>]
   agent dev plugin check [<name>]
   agent dev plugin sync [<name>]
@@ -100,6 +101,7 @@ Usage:
 
 Alias:
   mp     Short for marketplace in both "agent mp ..." and "agent dev mp ...".
+  links  Alias for link in "agent dev skill link ...".
 
 Behavior:
   status Show Skill links, Plugin snapshots, or Marketplace metadata without writing.
@@ -757,6 +759,14 @@ function activeUserSkillEntries(pluginRoot) {
 
 function handleSkill(action) {
   return runNode(SKILL_MANAGER, [action], [[HOME_PATH, "~"]]);
+}
+
+function handleSkillLinks(args) {
+  if (!existsSync(SKILL_MANAGER)) fail("Skill link manager is missing. Reinstall agent.");
+  // The manager owns its menu and confirmations; do not buffer its output.
+  const result = spawnSync(process.execPath, [SKILL_MANAGER, ...args], { stdio: "inherit", shell: false });
+  if (result.error) fail(`Could not start the skill link manager (${result.error.code ?? "spawn failure"}).`);
+  return result.signal === "SIGINT" ? 130 : result.status ?? 1;
 }
 
 function handlePlugin(action, requestedName, config) {
@@ -2597,6 +2607,7 @@ function parseInvocation(argv) {
   if (argv.length === 1) return { summary: true };
   const domain = argv[1] === "mp" ? "marketplace" : argv[1];
   const action = argv[2];
+  if (domain === "skill" && ["link", "links"].includes(action)) return { domain, action: "link", linkArguments: argv.slice(3) };
   if (!["skill", "plugin", "marketplace"].includes(domain)) fail(`Unknown development target: ${domain ?? "(missing)"}.`, 2);
   const marketplaceConfiguration = domain === "marketplace" && ["configure", "setup", "reconcile"].includes(action);
   if (!["status", "check", "sync"].includes(action) && !marketplaceConfiguration) {
@@ -2659,7 +2670,9 @@ async function main() {
     );
   }
   else {
-    if (invocation.domain === "skill") process.exitCode = handleSkill(invocation.action);
+    if (invocation.domain === "skill") process.exitCode = invocation.action === "link"
+      ? handleSkillLinks(invocation.linkArguments)
+      : handleSkill(invocation.action);
     else if (invocation.domain === "marketplace" && invocation.action === "configure") {
       process.exitCode = await handleConfigure(invocation.target);
     }

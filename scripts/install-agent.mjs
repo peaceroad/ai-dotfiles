@@ -61,7 +61,7 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
     add(`tools/agent/codex/${name}`, `ai-dotfiles/runtime/codex/${name}`);
   }
   add('tools/agent/development.schema.json', 'ai-dotfiles/development.schema.json');
-  add('home/.agents/ai-dotfiles/runtime/manage-skill-links.mjs', 'ai-dotfiles/runtime/manage-skill-links.mjs');
+  add('tools/agent/manage-skill-links.mjs', 'ai-dotfiles/runtime/manage-skill-links.mjs');
   for (const [name, owner] of [
     ['scripts/manage-local-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-local-runner v1'],
     ['scripts/assemble-agent-marketplace.mjs', assemblerMarker],

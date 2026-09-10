@@ -105,7 +105,7 @@ try {
   )
   $files = @(
     $coreFiles
-    @{ Source = (Join-Path $projectRoot 'home\.agents\ai-dotfiles\runtime\manage-skill-links.mjs'); Destination = (Join-Path $agentsRoot 'ai-dotfiles\runtime\manage-skill-links.mjs') }
+    @{ Source = (Join-Path $projectRoot 'tools\agent\manage-skill-links.mjs'); Destination = (Join-Path $agentsRoot 'ai-dotfiles\runtime\manage-skill-links.mjs') }
     $pluginRuntimeFiles
   )
   foreach ($file in $pluginRuntimeFiles) {
