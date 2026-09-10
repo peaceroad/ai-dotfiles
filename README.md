@@ -11,7 +11,7 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 
 ## 目的から探す
 
-- **設定や`AGENTS.md`を参考にする**：[公開用の設定サンプル](home/)から必要なファイルを確認します。
+- **設定や`AGENTS.md`を参考にする**：[公開用のAGENTS.md](home/.codex/AGENTS.md)や[設定サンプル一覧](home/)から必要なファイルを確認します。
 - **自分の設定を公開用に書き出す**：[Export guide](docs/export.md)で、対象の指定、機密情報の検査、書き出し手順を確認します。
 - **スキル・プラグインを開発する、NASへ同期する**：[`agent`コマンドのガイド](docs/agent-development.md)へ進みます。[インストール](docs/agent-development.md#配置とインストール)、[状態確認・検査・同期](docs/agent-development.md#使い方)をまとめています。
 - **Marketplaceの単体Skillを利用する**：[別マシンで単体Skillを利用する](docs/agent-development.md#別マシンで単体skillを利用する)で、一覧表示・導入・更新・削除を確認します。
@@ -22,8 +22,8 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 再利用するスキルは、Agent Plugins v1形式の三つのプラグインとして管理しています。用途と使い方は、各プラグインのREADMEを参照してください。
 
 - [agent-design-tools](plugins/agent-design-tools/README.md)：プロンプトなどのモデル向け指示を設計する`prompt-design`と、反復・長時間の作業の進め方を設計する`agent-workflow-design`。
-- [agent-plugin-tools](plugins/agent-plugin-tools/README.md)：ポータブルなプラグインの作成・検証・移行やMarketplaceの構築を支援する`plugin-creator-agent-plugins`。
-- [ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)：`agent`コマンドによる管理操作を案内する`ai-dotfiles-cli`と、書き出した会話を検索・参照する`codex-history`。CLI本体は別途導入します。
+- [agent-plugin-tools](plugins/agent-plugin-tools/README.md)：ポータブルなプラグインの作成・検証・移行とMarketplaceの構築を支援する汎用スキル`plugin-creator-agent-plugins`と同梱ツール。`agent` CLIなしでも利用できます。
+- [ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)：`agent`コマンドによる開発対象・Marketplace・Codexの管理操作を案内する`ai-dotfiles-cli`と、書き出した会話を検索・参照する`codex-history`。CLI本体は別途導入します。
 
 組み込みの`skill-creator`も含めた選び方は、[3スキルの役割と使い分け](docs/notes/skill-creator-prompt-design-agent-workflow-design.md)にまとめています。
 
