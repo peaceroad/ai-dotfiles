@@ -2,7 +2,7 @@
 name: plugin-creator-agent-plugins
 description: "Use when creating, revising, validating, or migrating portable Agent Plugins v1 packages, setting up their local development or Codex installation, or assembling filesystem Marketplaces of plugins and standalone Skills. Use skill-creator for standalone Skill authoring and the built-in plugin-creator for a Codex-specific .codex-plugin/plugin.json source."
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Plugin Creator for Agent Plugins v1
@@ -29,7 +29,7 @@ Skill conventions and examples do not override the user's explicit choices or th
 
 Load references for the affected decisions, not every stage a plugin might eventually reach.
 
-For requested link management, plugin installation, or Marketplace operations, identify the existing manager from the project instructions, selected configuration, or available tools. If the environment provides the ai-dotfiles `agent` command, the request names it, or relevant configuration identifies it as the manager (for example, `managedBy: "ai-dotfiles/agent-dev"`), read [ai-dotfiles CLI integration](references/ai-dotfiles-cli.md) before choosing commands. Availability alone does not establish ownership, and absence does not establish an unmanaged target. Otherwise use the repository or standalone paths below; this plugin does not require `agent`.
+Before changing existing source links, developer installations, or Marketplace configuration/output, read [management boundaries](references/management-boundaries.md) and identify the existing owner. Use an available `ai-dotfiles-cli` skill for requested operations on ai-dotfiles-managed targets; otherwise inspect the manager's own help. Neither that skill nor the `agent` CLI is required for this plugin's standalone workflows. Source authoring and validation do not require loading another operations skill.
 
 | Requested outcome | Reference and tool |
 | --- | --- |

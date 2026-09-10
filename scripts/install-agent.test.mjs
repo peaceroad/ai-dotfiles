@@ -76,7 +76,7 @@ test('Codex payload is self-contained and collisions are checked before updates'
   const options = { ...fixture(t), platform: 'win32' };
   installAgent(options);
   const runtime = join(options.agentsRoot, 'ai-dotfiles', 'runtime');
-  assert.match(fs.readFileSync(join(options.agentsRoot, 'skills', 'codex-history', 'SKILL.md'), 'utf8'), /name: codex-history/);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'skills')), false);
   assert.equal(fs.existsSync(join(options.agentsRoot, 'ai-dotfiles', 'codex-session-export.json')), false);
   assert.deepEqual(fs.readdirSync(join(runtime, 'codex')).sort(), [...new Set(['codex.mjs', ...CODEX_TOOLS.flatMap(tool => [tool.file, ...(tool.supportFiles ?? [])])])].sort());
   const env = { ...process.env, AGENT_DEV_CONFIG: join(options.agentsRoot, 'missing.json') };
@@ -96,6 +96,22 @@ test('Codex payload is self-contained and collisions are checked before updates'
   assert.throws(() => installAgent(options), /unmanaged/);
   assert.match(fs.readFileSync(command, 'utf8'), /stale/);
   assert.equal(fs.readFileSync(helper, 'utf8'), 'unmanaged helper');
+});
+
+test('runtime updates preserve separately managed skills, including legacy installer copies', t => {
+  const options = { ...fixture(t), platform: 'win32' };
+  const skills = join(options.agentsRoot, 'skills');
+  const legacy = join(skills, 'codex-history', 'SKILL.md');
+  const custom = join(skills, 'ai-dotfiles-cli', 'SKILL.md');
+  fs.mkdirSync(join(skills, 'codex-history'), { recursive: true });
+  fs.mkdirSync(join(skills, 'ai-dotfiles-cli'));
+  fs.writeFileSync(legacy, '<!-- @ai-dotfiles agent-dev-runtime managed -->\nLegacy user-edited copy.\n');
+  fs.writeFileSync(custom, 'Independently managed skill.\n');
+  const before = [legacy, custom].map(path => fs.readFileSync(path));
+  installAgent(options);
+  installAgent({ ...options, force: true });
+  assert.deepEqual([legacy, custom].map(path => fs.readFileSync(path)), before);
+  assert.deepEqual(fs.readdirSync(skills).sort(), ['ai-dotfiles-cli', 'codex-history']);
 });
 
 test('ownership stays within the first eight lines and late collisions prevent all writes', t => {

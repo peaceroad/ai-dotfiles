@@ -50,13 +50,15 @@ ai-dotfiles/
 │       ├── manage-skill-links.mjs
 │       ├── codex/
 │       └── plugin-tools/
-├── skills/
-│   └── codex-history/SKILL.md  ← 書き出した会話の参照用
 └── scripts/
     └── agent.cmd  ← Windowsの起動入口
 ```
 
-PowerShellから次を実行すると、`agent.cmd`、`agent.mjs`、schema、固定されたランタイム一式と`codex-history`スキルを`~/.agents/`へ導入します。履歴保存先の設定やエクスポートは作成しません。`~/.agents/scripts`がユーザーまたはマシンの永続的な`Path`にない場合だけ、インストール後にユーザー`Path`へ追加するかを`[y/N]`で確認します。PowerShellプロファイルは変更しません。
+AI向けの操作案内は、別途[`ai-dotfiles-cli`プラグイン](../plugins/ai-dotfiles-cli/README.md)から導入できます。`ai-dotfiles-cli`と`codex-history`の正本は同プラグイン内にあり、スキルディレクトリ単位で導入することもできます。CLIはどちらのスキルもなくても動作します。
+
+旧インストーラーが配置した`~/.agents/skills/codex-history/`は自動更新・削除しません。プラグイン版へ切り替える場合は、既存コピーやリンクの管理元と変更内容を確認し、復旧できるよう保全したうえで、同名スキルの発見経路を一つにします。CLIの再インストールだけでは旧スキルは更新されません。
+
+PowerShellから次を実行すると、`agent.cmd`、`agent.mjs`、schema、固定されたランタイム一式を`~/.agents/`へ導入します。スキル、履歴保存先の設定、エクスポートは作成しません。`~/.agents/scripts`がユーザーまたはマシンの永続的な`Path`にない場合だけ、インストール後にユーザー`Path`へ追加するかを`[y/N]`で確認します。PowerShellプロファイルは変更しません。
 
 ```powershell
 .\scripts\install-agent.ps1
@@ -336,7 +338,7 @@ agent dev marketplace sync team --skill my-skill
 
 `marketplace sync`は、`development.json`の参照から実行時だけ組み立て定義を生成します。共有先の`.agents/marketplace-development/config.json`には、プラグイン名とカテゴリー、Skill名と任意の来歴URLを含む参照情報を生成しますが、開発マシンの絶対パスは書きません。このファイルには管理markerとdigestがあり、手編集を検出した場合は上書きせず停止します。構成変更は`configure`または`development.json`へ行います。
 
-`check`は常に読み取り専用です。`sync`だけが、リンク作成、プラグインのインストールまたは更新、共有Marketplaceの生成物更新を行います。`agent`や`agent dev`、`marketplace configure`だけでは同期を開始しません。初回の`marketplace sync`は不足している管理ディレクトリや生成物を作成しますが、対象を自動探索せず、信頼するリポジトリと配布先は設定ファイルへ明示します。
+通常の`check`は読み取り専用です。`marketplace check --interactive`では、検査後の確認を経てローカル設定と受け入れ記録を変更できますが、同期は行いません。`sync`は、リンク作成、プラグインのインストールまたは更新、共有Marketplaceの生成物更新を行います。`agent`や`agent dev`、`marketplace configure`だけでは同期を開始しません。初回の`marketplace sync`は不足している管理ディレクトリや生成物を作成しますが、対象を自動探索せず、信頼するリポジトリと配布先は設定ファイルへ明示します。
 
 既存の組み立てスクリプト用`config.json`が、`development.json`から解決したMarketplace名、表示名、プラグイン／Skillソース、カテゴリー、来歴URLと完全に一致する場合、最初の`sync`でソースパスを含まない管理形式へ移行できます。一致しない管理外設定や、手編集された管理形式は自動的に引き継いだり置換したりしません。
 

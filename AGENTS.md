@@ -15,6 +15,12 @@
 
 - Add an external dependency only when a clear requirement cannot be met with standard modules alone.
 
+## CLI and plugin ownership
+
+- Keep CLI runtime sources in `tools/agent/` and generic plugin helpers in `plugins/agent-plugin-tools/`. The installer copies a version-matched runtime from those sources; runtime execution must not depend on an installed plugin cache or skill discovery path.
+- Keep ai-dotfiles-specific operating instructions and `codex-history` in `plugins/ai-dotfiles-cli/`. Keep `agent-plugin-tools` independently usable without that plugin or the CLI, including the minimal guidance needed to respect an existing manager. Do not duplicate CLI procedures in generic authoring references.
+- Keep CLI installation separate from skill installation. `scripts/install-agent.mjs` installs runtime files and schemas, not skills or user settings. Preserve existing standalone skills and local edits; any switch between standalone and plugin discovery is an explicit operation, not installer cleanup.
+
 ## Documentation layout and language
 
 - Put plugin usage and setup guidance in `plugins/<plugin>/README.md`. Keep individual skill roots free of `README.md`; keep each skill's entry-point instructions and reference-loading conditions in `SKILL.md`. Purpose-specific README files within assets or templates may remain with those resources.

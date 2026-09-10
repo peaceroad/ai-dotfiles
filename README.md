@@ -19,10 +19,11 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 
 ## このリポジトリのスキル・プラグイン
 
-再利用するスキルは、Agent Plugins v1形式の二つのプラグインとして管理しています。用途と使い方は、各プラグインのREADMEを参照してください。
+再利用するスキルは、Agent Plugins v1形式の三つのプラグインとして管理しています。用途と使い方は、各プラグインのREADMEを参照してください。
 
 - [agent-design-tools](plugins/agent-design-tools/README.md)：プロンプトなどのモデル向け指示を設計する`prompt-design`と、反復・長時間の作業の進め方を設計する`agent-workflow-design`。
 - [agent-plugin-tools](plugins/agent-plugin-tools/README.md)：ポータブルなプラグインの作成・検証・移行やMarketplaceの構築を支援する`plugin-creator-agent-plugins`。
+- [ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)：`agent`コマンドによる管理操作を案内する`ai-dotfiles-cli`と、書き出した会話を検索・参照する`codex-history`。CLI本体は別途導入します。
 
 組み込みの`skill-creator`も含めた選び方は、[3スキルの役割と使い分け](docs/notes/skill-creator-prompt-design-agent-workflow-design.md)にまとめています。
 
@@ -42,8 +43,8 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 
 リポジトリの検証にはNode.js 24以降を使います。Windowsで`npm run check`を実行する場合は、インストーラーのテスト用にPowerShell 7（`pwsh`）も必要です。次のコマンドはリポジトリのルートで実行します。
 
-- `npm run check`：エクスポート計画のドライラン、`agent` CLI・スキルリンク・プラグイン管理ツールのテスト、マニフェストと二つのプラグインの検証。
-- `npm run check:plugins`：二つのプラグインのポータブルな構造だけを検証。
+- `npm run check`：エクスポート計画のドライラン、`agent` CLI・スキルリンク・プラグイン管理ツールのテスト、三つのプラグインの構造と関連する配布テスト。
+- `npm run check:plugins`：三つのプラグインのポータブルな構造を検証し、CLI関連の二つのパッケージについて同梱リファレンスのリンクと、汎用ツールの独立した起動を検査。
 
 設定の書き出しは検証とは別の操作です。[Export guide](docs/export.md#使い方)の順序に従い、ホーム側の正本と書き出し予定を確認してから実行してください。
 

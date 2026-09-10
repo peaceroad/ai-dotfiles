@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ai-dotfiles-cli",
+  "version": "0.1.0",
+  "description": "Use the ai-dotfiles agent CLI for managed development and Codex maintenance, and search locally exported conversations.",
+  "homepage": "https://github.com/peaceroad/ai-dotfiles",
+  "repository": "https://github.com/peaceroad/ai-dotfiles",
+  "keywords": ["ai-dotfiles", "cli", "marketplace", "codex-history"]
+}

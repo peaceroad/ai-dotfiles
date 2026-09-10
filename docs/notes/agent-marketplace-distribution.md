@@ -196,7 +196,7 @@ Marketplaceが一つなら自動選択し、複数なら最初に今回の作業
 
 この操作はGit版の取得までを行う`clone`ではありません。NASは共有パスを直接参照し、Git Marketplaceは通常のGit手順でcloneしてから、そのcheckoutへ接続します。新しいMarketplaceをローカル設定から全体管理する場合は`authoritative`モードになります。設定の保存だけでは共有先を変更せず、同期準備ができた後に明示的な`check`または`sync`を実行します。
 
-途中から複数人運用へ移す場合は、`configure`の「Change Marketplace management mode」で、1台のPCが全体を管理する`authoritative`から、各担当者が選択したプラグインまたはSkillだけを更新する`contributor`へ切り替えます。利用だけのPCは`consumer`にします。`authoritative`から権限を狭める前には部分指定のない全体`check`と同じ検査を実行します。登録された全ソース、配布用コピー、カタログ、schema、state、管理情報のいずれかにずれがあれば拒否するため、全体`sync`を済ませたうえで切り替えます。その後、既存のローカル割り当てから、このPCが今後更新しない対象を削除します。
+途中から複数人運用へ移す場合は、`configure`の「Change Marketplace management mode」で、1台のPCが全体を管理する`authoritative`から、各担当者が選択したプラグインまたはSkillだけを更新する`contributor`へ切り替えます。利用だけのPCは`consumer`にします。この経路では、`authoritative`から権限を狭める前に全体`check`と同じ検査を実行し、差分があれば切り替えを拒否します。他の担当者の更新などで差分がある場合は、`agent dev marketplace check <marketplace-name> --interactive`から共有側を確認し、担当項目を選んで`contributor`へ切り替えられます。差分を消すための全体同期は必要ありません。`configure`で切り替えた場合は、既存のローカル割り当てから、このPCが今後更新しない対象を削除します。
 
 逆に`contributor`または`consumer`から`authoritative`へ戻す場合は、共有側にある全プラグインとSkillのソースがローカルの割り当てから解決できることをCLIが確認します。全件が手元にない状態では、全体正本への切り替えを拒否します。`consumer`から`contributor`へ切り替える場合も、共有先への部分更新を許可することを対話で確認します。
 
@@ -234,7 +234,11 @@ agent dev marketplace check <marketplace-name> --skill <skill-target>
 
 Marketplaceが一つなら、ここでもMarketplace名を省略できます。部分操作は共有側の管理情報を読み、他のエントリーを保持したまま、指定した対象だけを追加または更新します。各開発者は自分の担当分だけをローカル設定へ登録でき、他人のソースリポジトリを用意する必要はありません。ほかの配布物は確認しないため、全体の状態を証明する操作ではありません。
 
-NASを複数人で更新するときは、各人が`--plugin`または`--skill`を付けた部分同期を使い、Marketplace全体の`sync`は全ソースを管理する担当者だけが実行します。同じMarketplaceへの同期はロックディレクトリで直列化され、別の同期中は停止します。異常終了後に`.agents/marketplace-development/agent-dev-sync.lock`が残った場合は、実行中の同期がないことを確認してから、そのディレクトリだけを削除します。低水準の組み立てスクリプトを直接使う場合、この外側のロックは適用されません。
+NASを複数人で更新するとき、`contributor`では対象指定なしの`check/sync`でローカルの担当項目を順に部分処理できます。毎回`--plugin`や`--skill`を指定する必要はなく、割り当てていない共有項目は保持します。一項目だけ扱う場合は部分指定を使います。`authoritative`の対象指定なしの`sync`はMarketplace全体を処理するため、全ソースを管理する担当者だけが実行します。contributorの処理が途中で失敗すると、残りは停止しますが、完了済みの項目は巻き戻しません。
+
+全体同期では、共有設定、配布state、カタログが前回受け入れた版から変わっていれば停止します。`check <marketplace-name> --interactive`で共有の割り当てを取り込むか、`contributor`へ切り替えるかを確認します。モードは自動では変わりません。初回は共有側とローカルの割り当てが一致すれば別途確認せず同期し、成功後にリビジョンを記録します。割り当ての取り込みはソース本文やGit checkoutの更新ではありません。通常の`status`と`check`は読み取り専用ですが、`check --interactive`は確認後にローカル設定と受け入れ記録を変更します。
+
+同じMarketplaceへの同期はロックディレクトリで直列化され、別の同期中は停止します。異常終了後に`.agents/marketplace-development/agent-dev-sync.lock`が残った場合は、実行中の同期がないことを確認してから、そのディレクトリだけを削除します。低水準の組み立てスクリプトを直接使う場合、この外側のロックは適用されません。
 
 ソースパスを含まない共有側の管理参照は、配布用コピーとカタログの同期に成功した後で更新します。組み立てに失敗した場合は管理参照を先行更新せず、失敗前の内容を維持します。
 

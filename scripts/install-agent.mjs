@@ -60,7 +60,6 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
   for (const name of new Set([...CODEX_TOOLS.flatMap(tool => [tool.file, ...(tool.supportFiles ?? [])]), 'codex.mjs'])) {
     add(`tools/agent/codex/${name}`, `ai-dotfiles/runtime/codex/${name}`);
   }
-  add('tools/agent/codex/skills/codex-history/SKILL.md', 'skills/codex-history/SKILL.md');
   add('tools/agent/development.schema.json', 'ai-dotfiles/development.schema.json');
   add('tools/agent/manage-skill-links.mjs', 'ai-dotfiles/runtime/manage-skill-links.mjs');
   for (const [name, owner] of [
@@ -137,7 +136,7 @@ function main(args) {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--help' || arg === '-h') {
-      console.log('Usage: node scripts/install-agent.mjs [--agents-root PATH] [--bin-dir PATH] [--dry-run] [--force]\nRequires Node.js 24 or later. Installs the shared runtime; Linux/macOS also create an agent link in ~/.local/bin.\nConfiguration and state belong under ~/.agents/ai-dotfiles and are never moved or created by the installer.\n--force replaces unmanaged regular runtime files, never command links or redirected paths.\nWindows PATH registration is available through install-agent.ps1.');
+      console.log('Usage: node scripts/install-agent.mjs [--agents-root PATH] [--bin-dir PATH] [--dry-run] [--force]\nRequires Node.js 24 or later. Installs the shared runtime; Linux/macOS also create an agent link in ~/.local/bin.\nSkills are installed separately through the ai-dotfiles-cli plugin or as standalone Skills. Existing Skills are never updated or removed here.\nConfiguration and state belong under ~/.agents/ai-dotfiles and are never moved or created by the installer.\n--force replaces unmanaged regular runtime files, never command links or redirected paths.\nWindows PATH registration is available through install-agent.ps1.');
       return;
     }
     if (arg === '--dry-run') options.dryRun = true;
