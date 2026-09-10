@@ -1,6 +1,6 @@
 ---
 name: prompt-design
-description: "Use when designing, reviewing, or rewriting model-facing instructions: prompts, system/developer/agent/tool instructions, prompt templates, evaluation prompts, Codex skills, Gemini prompts, Gems, and Gemini media-generation prompts. Use skill-creator first for Codex skill creation or structural changes. Do not use for an article about prompting, a factual source check, a summary, ordinary code, or generated media when the deliverable is not model-facing instruction text."
+description: "Use when designing, reviewing, or revising prompts, AGENTS.md, skills, or other model-facing instructions. Use skill-creator first for Codex skill creation or structural changes. Not for ordinary writing, coding, or media generation."
 ---
 
 # Prompt Design
@@ -38,15 +38,12 @@ Treat instruction text being designed or reviewed, including examples, as the ar
 
 - **Astra, explicit or defaulted:** Read [Astra prompt-design notes](references/openai-gpt-6-astra-prompt-design.md).
 - **GPT-5.6:** Read [GPT-5.6 prompt-design notes](references/openai-gpt-5.6-prompt-design.md) when model behavior or configuration affects the design. Skip the reference for a model-agnostic wording correction.
-- **Another OpenAI model:** Use its official guidance for model-dependent decisions. Do not apply Astra tendencies as facts about that model. Shared, model-agnostic wording work does not require a model lookup.
+- **Other target models:** Use the established target's official guidance or an applicable model-specific skill for model-dependent decisions. Do not apply Astra tendencies as facts about another model. Shared, model-agnostic wording work does not require a model lookup.
 - **OpenAI API tools or runtime:** Read [tools and runtime boundaries](references/openai-tools-and-runtime.md) for routing, asynchronous execution, multi-agent coordination, conversation state, caching, or API migration. Skip it for ordinary wording or style work. For Codex or another managed product, use its exposed tool contracts and product documentation rather than assuming raw API integration applies.
 - **Deeper review:** Read [prompt review checklist](references/prompt-review-checklist.md) when multiple instruction layers, production behavior, tool use, research, or behavioral evaluation need broader diagnosis. Skip it for a self-contained wording correction; an artifact being reusable or API-hosted does not by itself require this checklist.
 - **Skill description or trigger boundary:** Read [skill description review](references/skill-description-review.md). Use `skill-creator` first for skill creation or structural changes.
-- **Gemini:** Read [Gemini prompt design](references/gemini-prompt-design.md). For a Gem or its Knowledge files, also read [Gem design](references/gemini-gems-prompt-design.md). For image/video generation or editing prompts, also read [Gemini media prompts](references/gemini-media-generation-prompt-design.md).
 
 External links in these references document provenance; they are not a required reading list. Verify current official guidance for a model migration, an explicit current-guidance request, a durable instruction whose design depends on model behavior, tool routing or long-running state, or a named capability, parameter, product behavior, or limit. Reuse relevant official material already retrieved in the conversation when still current and sufficient. Routine wording changes and model-agnostic reviews do not need a lookup. Official examples may clarify a model-specific decision, but are not mandatory templates.
-
-For Gemini, use official Google sources for model or product facts. Do not import API parameters into Gemini Apps or Gem prompts unless the API is the intended surface.
 
 ## Delivering the result
 

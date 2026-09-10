@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Prompt Reference"
+  short_description: "Gemini-specific guidance for prompt design"
+  default_prompt: "Use $prompt-gemini-reference with $prompt-design to review these Gemini instructions for their intended surface."

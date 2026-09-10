@@ -24,11 +24,13 @@
 
 ### prompt-design：モデルが何を判断し、どう出力するかを整える
 
-プロンプト、system／developer／agent／tool向け指示、評価用プロンプト、`AGENTS.md`、Codexスキルの本文や`description`など、モデルが読む指示文を設計・レビュー・改訂します。Gemini、Gem、画像・動画生成向けのプロンプトも、対応する参照で扱います。
+プロンプト、system／developer／agent／tool向け指示、評価用プロンプト、`AGENTS.md`、Codexスキルの本文や`description`など、モデルが読む指示文を設計・レビュー・改訂します。共通の設計方針は他モデルにも使い、モデル固有の判断は公式資料や適切な補助スキルで補います。
 
 期待する結果、必要な文脈と根拠、制約、出力契約を保ち、重複、矛盾、曖昧さ、過剰な手順指定を減らします。必須条件、好み、目安を区別し、短くする場合も必要な意味や説明を残します。通常の記事の執筆、資料の要約、事実確認、画像生成そのものは、このスキルの成果物ではありません。
 
 ツールの選択条件や戻り値を説明するだけなら、このスキルとツール契約の確認で足りる場合があります。ジョブの寿命、並行実行、再試行、永続化、外部操作の回復まで設計するなら、`agent-workflow-design`を組み合わせます。
+
+Gemini固有の補足は、同じプラグイン内の[`prompt-gemini-reference`](../../plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)へ分離しています。Geminiのテキスト向け指示、Gems、画像・動画向けプロンプトを設計する場合に、まず`prompt-design`の共通方針を使い、必要な専用参照だけを読みます。依存は補助側から共通側への一方向であり、別のGemini向けスキルを選んでも`prompt-design`は利用できます。画像生成ツールの提供や、GPT-6向け参照の一律読み込みは行いません。個別導入では両スキルが必要です。
 
 ### agent-workflow-design：許可された仕事が進む仕組みを整える
 
@@ -77,7 +79,7 @@ Codexリポジトリの[更新履歴](https://github.com/openai/codex/commits/ma
 | OpenAI APIのツール経路、状態、機能の組み合わせ | `prompt-design`の[tools and runtime boundaries](../../plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md)と公式資料。Codexなどの管理された製品では、公開されているツール契約を使う |
 | 進行・待機・再開・評価・権限の設計 | `agent-workflow-design`の[共通参照への入口](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md#reference-routing) |
 | GPT-5.6を維持・適用・比較する際の補足 | `agent-workflow-design`の[GPT-5.6用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/openai-gpt-5.6-workflow-design.md)。モデルやランタイムの差が関係するときだけ読み、Astraだけを対象にする仕事には読み込まない |
-| Gemini、Gem、画像・動画生成向けの指示 | `prompt-design`の対応参照。別モデルの事例をAstraの挙動の証拠や必須構成にはしない |
+| Gemini、Gem、画像・動画生成向けの指示 | `prompt-design`の共通方針と`prompt-gemini-reference`の専用参照。別モデルの事例を対象モデルの挙動の証拠や必須構成にはしない |
 
 GPT-5.6用のワークフロー参照は、Gitの旧設定を参考にした補足です。旧版の完了証拠、未解決事項、制御の担当などは現行の共通参照に引き継がれているため、旧版一式を別の必須手順として保持していません。追加の判断と検証範囲は[ワークフロー側の記録](../agent-workflow-design/README.md#モデル別参照の追記)にあります。
 

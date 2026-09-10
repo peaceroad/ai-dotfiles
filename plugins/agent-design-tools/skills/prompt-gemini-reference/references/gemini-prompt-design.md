@@ -1,6 +1,6 @@
 # Gemini prompt design
 
-Use for model-facing text intended for Gemini Apps, Gems, or a Gemini API application. The common design method remains in `SKILL.md`. Also read [Gem design](gemini-gems-prompt-design.md) for persistent Gem instructions and Knowledge, or [media prompts](gemini-media-generation-prompt-design.md) for image/video generation and editing.
+Use for model-facing text intended for Gemini Apps, Gems, or a Gemini API application. Apply the shared method from `prompt-design` through this skill's [entry point](../SKILL.md). Also read [Gem design](gemini-gems-prompt-design.md) for persistent Gem instructions and Knowledge, or [media prompts](gemini-media-generation-prompt-design.md) for image/video generation and editing.
 
 Official guidance checked: 2026-09-06. Preserve the established target model and product surface. Gemini Apps, classic Gems, Gems from Labs, and API applications do not expose identical tools, state, or controls. Verify only the capabilities that affect the task; this reference does not prescribe API parameters or migrate models.
 

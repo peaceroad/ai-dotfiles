@@ -4,6 +4,8 @@
 
 現行の3参照を、今後の指示設計に使う版として採用します。全指示の静的レビューで、適用条件、要件の保持、モデルに残す裁量、完了条件を確認しました。Geminiでの指示実行、Gemの保存・共有、画像・動画の生成は未実施であり、実行時の品質は未検証です。
 
+**配置の変更：** 2026年9月11日に3参照を`prompt-gemini-reference`へ移しました。以下の更新・評価は9月6日時点の記録で、参照リンクは移設先を指しています。[分離の判断と検証範囲](#2026年9月11日補助スキルへの分離)は末尾に追記しています。
+
 ## 最近の更新とNano Banana専用ガイド
 
 「ここ1〜2か月」は、おおむね2026年7月6日から9月6日として調べました。公開日のある発表、ページ全体の最終更新表示、日付のない現行説明を区別しています。
@@ -24,9 +26,9 @@ Nano Bananaには、従来のAPIページだけでなく、プロンプトを主
 
 | 参照 | 変更の中心 |
 | --- | --- |
-| [Gemini共通](../../plugins/agent-design-tools/skills/prompt-design/references/gemini-prompt-design.md) | 対象製品、指示と入力の役割、長い文脈と問いの配置、根拠と推測を整理。必要な説明まで短くしない。内部の推論を逐一表示させる代わりに、利用者に必要な根拠や成果物を指定する |
-| [Gems](../../plugins/agent-design-tools/skills/prompt-design/references/gemini-gems-prompt-design.md) | 通常のGemsとLabsのミニアプリを区別。InstructionsとKnowledgeの分担、Driveの更新、Notebookの扱い、共有時の閲覧範囲、引用設定、プレビューと保存を整理する |
-| [画像・動画](../../plugins/agent-design-tools/skills/prompt-design/references/gemini-media-generation-prompt-design.md) | 新規生成と既存画像の編集を分け、参照画像の役割、変更点と保持条件、文字、多言語化、連続画像の一貫性を明確にする。動画では生成・編集・延長を区別し、ショット、時間、音声の条件を必要に応じて指定する |
+| [Gemini共通](../../plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-prompt-design.md) | 対象製品、指示と入力の役割、長い文脈と問いの配置、根拠と推測を整理。必要な説明まで短くしない。内部の推論を逐一表示させる代わりに、利用者に必要な根拠や成果物を指定する |
+| [Gems](../../plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-gems-prompt-design.md) | 通常のGemsとLabsのミニアプリを区別。InstructionsとKnowledgeの分担、Driveの更新、Notebookの扱い、共有時の閲覧範囲、引用設定、プレビューと保存を整理する |
+| [画像・動画](../../plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-media-generation-prompt-design.md) | 新規生成と既存画像の編集を分け、参照画像の役割、変更点と保持条件、文字、多言語化、連続画像の一貫性を明確にする。動画では生成・編集・延長を区別し、ショット、時間、音声の条件を必要に応じて指定する |
 
 Nano Banana専用資料からは、人物・物体に一貫した名前を付けること、多言語化で文字とデザインの変更範囲を分けること、複数画像と一覧画像を区別することを補いました。現在の事実に依存する図では、利用できる検索・提供資料で確かめた内容を、どの視覚要素へ対応させるかを指定します。架空の描写や画像の見栄えを根拠の代わりにはしません。
 
@@ -69,3 +71,16 @@ Googleの[Imagenプロンプトガイド](https://ai.google.dev/gemini-api/docs/
 初回更新では`quick_validate.py`、`npm run check:plugins`、差分の空白検査が成功しました。JSON 14件、当時の指示10ファイルのハッシュ、manifest間の参照、ローカルリンク65件を照合しています。変更していない7ファイルの一致と、Gitの基点からGeminiの旧3参照を復元できることも確認しました。
 
 再監査後もスキル・プラグインの検証が成功しました。JSON 15件、現行指示10ファイルのハッシュ、manifest間の参照、ローカルリンク68件を照合し、記録した差分から直前の3参照を復元できることを確認しています。保存後の3参照と本ノートを通読し、条件・例外の保持、重複、読み順を確認しました。
+
+## 2026年9月11日：補助スキルへの分離
+
+`prompt-design`の設計方針はGeminiでも使いたい一方、Gemini固有の補足には別のスキルを選びたい、という利用に合わせて分離しました。読み込み量だけでなく、共通方針とモデル固有の補足を選び分けられることを重視した変更です。9月6日の「同じスキルに残す」判断を見直しています。
+
+- 共通の設計方法、対象が不明なOpenAI／Codex向け作業でのGPT-6 Astra既定、修正報告の方針は`prompt-design`に残しました。本文とdescriptionからGemini専用の案内を外し、他モデルには一般的な参照条件を使います。
+- 同じ`agent-design-tools`プラグインに[`prompt-gemini-reference`](../../plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)を追加しました。補助側が先に`prompt-design`を読み、Geminiの共通参照と、必要な場合だけGems・画像動画の参照を読みます。Geminiが対象ならAstra参照を一律には読みません。
+- 依存は補助側から共通側への一方向です。プラグイン導入では両スキルが同梱され、個別導入では両ディレクトリを用意します。共通側だけの利用に、この補助スキルは必要ありません。
+- 画像・動画向け資料は、Gemini用の指示設計という共通用途に含めました。生成ツールを追加したわけではなく、プロンプトだけの依頼で画像を作らないこと、Gemini指定を別の提供元へ黙って置き換えないことを入口に明記しました。
+
+移設した3参照のうち、Gemini共通参照の冒頭だけを新しい入口へ接続し直しました。Gems・画像動画の本文、製品情報、公式出典と確認日は維持しています。旧manifestや試行のパス・ハッシュは当時の証拠として変更していません。パッケージの版は`0.3.0`とし、配布検査へ`agent-design-tools`の同梱リンク確認を加えました。
+
+境界は、対象不明の指示作成、Geminiの文章向け指示、Gemsの指示、Gemini用の画像プロンプトだけの依頼、Gemini指定のない画像生成、生成実行も含む依頼について、入口と読み込み条件を机上確認しました。スキル検証と`npm run check:plugins`、リンク・差分・移設内容の保持も確認しました。新しいタスクでの自動選択やGeminiでの実行、`imagegen`との品質比較は行っていません。利用者のスキルリンク、インストール済みプラグイン、共有Marketplaceは自動更新していません。

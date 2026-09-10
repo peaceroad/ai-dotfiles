@@ -4,6 +4,8 @@
 
 GPT-5.6参照を監査して復元し、Geminiの3参照は`prompt-design`内に維持しました。共通の指示設計を`SKILL.md`に置き、設計対象に応じてモデル・製品の参照を選ぶ構成です。指示を書くモデルがAstraであっても、設計対象がGPT-5.6やGeminiなら、その対象を優先します。
 
+**後日の変更：** この文書は9月6日時点の判断記録です。9月11日、Gemini固有の補足を選び分けられるよう、`prompt-gemini-reference`へ分離しました。共通の設計方針は`prompt-design`に残しています。[分離後の構成と検証範囲](gemini-reference-review.md#2026年9月11日補助スキルへの分離)を参照してください。
+
 ## GPT-5.6参照を残す理由と監査結果
 
 既存のGPT-5.6向け指示を改訂する用途には、専用の入口を残す価値があります。現在も[GPT-5.6公式ガイド](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)があり、出力の簡潔さや移行時の調整を扱っています。たとえばAPIで`none`を使えるため、Astra移行時の`low`への変更を既存のGPT-5.6環境へ当てはめるべきではありません。

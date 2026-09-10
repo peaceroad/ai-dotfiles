@@ -13,6 +13,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 - **[agent-design-tools](plugins/agent-design-tools/README.md)**：指示と作業の進め方を設計するプラグイン。
   - [prompt-design](plugins/agent-design-tools/skills/prompt-design/SKILL.md)：新しいプロンプトや`AGENTS.md`を書くとき、既存の指示が曖昧・矛盾していて期待する回答や動作にならないときに使います。AIへ伝える目的、条件、出力の要件を整理し、利用するモデルに合わせて指示を見直します。複数の局所修正を比較しやすい場合は「修正前／修正後／理由」で報告する調整を加えています。固定の出力形式ではなく、全面的な書き直しやファイル編集では変更規模と依頼に合わせます。
   - [agent-workflow-design](plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)：定期的な確認や長時間の開発など、繰り返し・継続して行う作業の進め方を設計するときに使います。複数のツールやエージェントの役割分担、待機・中断・再開の条件、実行記録を踏まえた改善を検討します。通常の作業を実行するだけなら不要です。後の保守に改善候補や判断理由を残す必要がある場合は、`~/.agents/notes/`の利用も検討できるようにしています。既存の保存先を優先し、採用が認められた範囲で使う任意のローカル規約であり、常時ログを記録する仕組みではありません。
+  - [prompt-gemini-reference](plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)：Gemini向けのプロンプト、Gemsの指示、画像・動画生成向けの指示文を設計するときに使います。まず`prompt-design`の共通方針を使い、必要なGemini向け資料だけを読みます。画像・動画を生成するツールではありません。個別に導入する場合も`prompt-design`を併せて用意します。
 - **[agent-plugin-tools](plugins/agent-plugin-tools/README.md)**：ポータブルなプラグインを作るための汎用スキルとツール。
   - [plugin-creator-agent-plugins](plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)：スキルやMCPサーバーをポータブルなプラグインにまとめるとき、既存パッケージを検証・移行するとき、配布用のMarketplaceを作るときに使います。パッケージ構成の確認からローカルでの導入確認まで、依頼した範囲を同梱ツールで支援します。`agent` CLIなしでも利用できます。
 - **[ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)**：このリポジトリのCLI操作をAIへ案内するプラグイン。
@@ -25,7 +26,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 
 CLIはプラグインなしでも動作します。`ai-dotfiles-cli`プラグインにCLI本体は含まれず、それぞれを別々に導入・更新します。
 
-`prompt-design`と`agent-workflow-design`は、現在、OpenAI／Codex向けで対象モデルが未指定の場合、GPT-6 Astraのモデルガイドを設計の基準にしています。別の対象モデルが指定されている場合や既存の利用環境から分かる場合は、そのモデルに合わせます。Gemini向けのプロンプトでは専用のリファレンスを読み分けます。これは設計時の参照先の選択であり、実行中のモデルを切り替えるものではありません。
+`prompt-design`と`agent-workflow-design`は、現在、OpenAI／Codex向けで対象モデルが未指定の場合、GPT-6 Astraのモデルガイドを設計の基準にしています。別の対象モデルが指定されている場合や既存の利用環境から分かる場合は、そのモデルに合わせます。Gemini固有の補足は`prompt-gemini-reference`に分けており、別のGemini向けスキルを選ぶこともできます。これは設計時の参照先の選択であり、実行中のモデルを切り替えるものではありません。
 
 ## Codex環境
 
@@ -129,7 +130,7 @@ Codexの保守には操作ごとのOS・バージョン制限があります。`
 検証にはNode.js 24以降を使い、Windowsではインストーラーのテスト用にPowerShell 7（`pwsh`）も必要です。次のコマンドはリポジトリのルートで実行します。
 
 - `npm run check`：エクスポート計画のドライラン、CLI・スキルリンク・プラグイン管理ツールのテスト、プラグインの構造・配布テストを実行します。
-- `npm run check:plugins`：3つのプラグインの構造と、CLI関連パッケージの同梱リンク・汎用ツールの単体起動を検証します。
+- `npm run check:plugins`：3つのプラグインの構造と同梱リンク、汎用ツールの単体起動を検証します。
 
 `npm run check`では設定ファイルを書き出しません。実際に書き出す`npm run build`は、[エクスポート手順](docs/export.md#使い方)に従い、コピー元と書き出し予定を確認してから実行してください。
 
