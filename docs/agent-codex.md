@@ -1,6 +1,6 @@
 # `agent codex`と単体スクリプトで状態を確認する
 
-2026年8〜9月時点のWindows版Codex環境で確認した問題を対象に、状態確認や既知の問題を安全条件付きで回避・修復するための管理スクリプトです。いずれも、最初に`status`で現在の状態を確認できます。変更を伴う操作では、対象の状態を検証し、対話確認を求めます。
+Codexの状態確認、既知の問題の回避・修復、保存済みセッションの整理に使う管理スクリプトです。最初に`status`、セッションの整理では`list`と`plan`で状態を確認します。変更を伴う操作では、対象の状態を検証し、対話確認を求めます。実機確認は2026年8〜9月のWindows環境で行っています。
 
 ## 共通コマンドと単体実行
 
@@ -13,11 +13,12 @@ agent codex --help
 
 対話端末で`agent codex`だけを実行すると、用途の説明付きメニューが開きます。ツールを選ぶと、必要条件と操作一覧を表示します。操作は番号・短縮キー・名前で選べ、`h`で詳細ヘルプ、`b`で戻る、`q`で終了できます。入力・出力をリダイレクトした場合は、メニューの代わりにヘルプだけを表示します。
 
-メニューと通常ヘルプには、Windowsでは4項目すべて、macOS／Linuxでは`log-policy`だけを表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
+メニューと通常ヘルプには、Windowsでは5項目すべて、macOS／Linuxでは`log-policy`と`session`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
 
 - `git-acl`と`disk-pressure`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
 - `skill-validator-utf8`は、Pythonの既定文字コードがUTF-8である環境では通常不要なため、macOS／Linuxの通常表示から外しています。必要な場合は、`agent codex skill-validator-utf8`で専用メニューを開くか、操作を直接指定できます。単体スクリプトもOSで制限しません。
 - `log-policy`はOS固有APIに依存しませんが、macOS／Linuxでは実機未検証です。その旨を表示し、既存のDB・スキーマ・変更確認の検査は維持します。
+- `session`の`list`・`plan`・`export`は全OSで利用できますが、macOS／Linuxでは実機未検証です。`archive`と`delete`はWindowsに限定しています。
 
 メニューを使わず、操作を直接指定することもできます。次はWindowsでの状態確認例です。
 
@@ -26,6 +27,7 @@ agent codex git-acl status 'C:/work/my-project'
 agent codex disk-pressure status
 agent codex skill-validator-utf8 status
 agent codex log-policy status
+agent codex session list
 ```
 
 `agent codex log-policy`のようにツール名まで指定すると、そのツールのメニューから始められます。Git権限のメニューでは対象リポジトリのパスを求め、Enterだけなら操作を取り消します。ログの`suppress`は子スクリプト自身が保持レベルの選択と変更確認を行います。メニューの選択だけで、スクリプト側の安全確認を省略することはありません。表示・エラーは英語です。
@@ -39,6 +41,7 @@ node tools/agent/codex/codex.mjs
 node tools/agent/codex/manage-codex-disk-pressure.mjs help
 node tools/agent/codex/manage-skill-validator-utf8-patch.mjs help
 node tools/agent/codex/manage-sqlite-trace-log-suppression.mjs help
+node tools/agent/codex/manage-codex-sessions.mjs help
 pwsh -NoProfile -File tools/agent/codex/manage-git-write-acl.ps1 help
 ```
 
@@ -50,6 +53,67 @@ node "$HOME/.agents/ai-dotfiles/runtime/codex/<スクリプト名>.mjs" help
 ```
 
 ## スクリプト一覧
+
+### `manage-codex-sessions.mjs`
+
+共通コマンド：`agent codex session`
+
+[スクリプトを表示](../tools/agent/codex/manage-codex-sessions.mjs) · [期間指定・保護処理・エクスポートの設計ノート](notes/codex-session-management.md)
+
+**実験的な機能です。アーカイブ・削除は架空のデータと公式コマンドの代替処理で検証し、エクスポートも試験用データで検証しています。実際の利用者の履歴に対する変更操作は未検証です。** Node.js 24以降と、対応する`state_5.sqlite`の保存形式が必要です。`CODEX_HOME`が指定されていればその場所、未指定なら`~/.codex`を参照します。SQLiteの保存先を個別に変更した構成には対応しません。
+
+まず、保存済みセッションを容量の大きい順に確認します。次は、`agent`のインストール後に端末から実行する例です。
+
+```powershell
+agent codex session list
+agent codex session list --before 2026-07-01 --limit 0
+agent codex session list --before 4w --limit 0
+agent codex session plan delete --before 4w
+agent codex session plan archive --before 2026-07-01
+agent codex session plan export --before 2026-07-01
+```
+
+`list`はUUID・更新日・計測できた履歴ファイルのサイズ・タイトル・保護理由を表示します。通常は最大20件、`--limit 0`なら条件に一致する全件です。`--before`は指定日のUTC午前0時より前に更新されたセッションを抽出します。更新日は最後に閲覧した日ではありません。サイズ不明の件数は`size unknown`として区別し、合計へ含めません。共有データベース・添付ファイル・索引にない履歴も集計対象外なので、表示値はCodex全体の使用量や削除後に空く容量ではありません。タイトルには個人情報が含まれる可能性があるため、出力を共有する前に確認してください。
+
+`--before 4w`は、コマンドを起動した時刻の28日前よりも前に更新されたセッションを選びます。`--before 4weeks`、`--before 4 weeks`、`--before "4 weeks"`も同じ意味です。週数は正の整数だけを受け付け、誤字や単位の省略はエラーにします。既存の`--older-than-weeks 4`も互換用に残しています。処理中に基準時刻は動かしません。年月日・週数・UUIDは同時指定せず、いずれか1つで選びます。`plan`の操作名を省略すると削除計画になります。
+
+期間指定では、該当セッションとその子孫をグループにまとめ、重複する子孫を除きます。子孫に基準日時以降のセッションが含まれるグループは、親も含めて除外し、`Skipped family`で理由を表示します。アーカイブ・削除では保護対象を含むグループも除外します。除外されなかったグループだけが一括処理の対象です。アーカイブ済みのセッションは、期間指定によるアーカイブの起点から除きます。
+
+`plan <UUID>`のように個別指定することもできます。メニューから操作を選び、対象を省略した場合は、UUID・`2026-07-01`のような年月日・`4w`のような週数を入力します。Enterだけなら取り消します。`list`と`plan`は索引とファイル属性を読み取るだけで、新しいCodexサーバーを起動せず、履歴本文も読みません。計画ファイルや独自の管理データは作成しません。
+
+アーカイブ・削除を実行する前に、表示された親子セッションがすべて対象でよいことを確認してください。**削除後の復元機能はありません。アーカイブは同じCodexホーム内へ履歴を移す操作なので、履歴ファイル分の容量は減りません。** どちらもWindows、PowerShell 7、Codex CLI 0.153.4が必要です。Codex／ChatGPTのアプリ、CLI、IDE連携、自動実行などを終了し、処理が完了するまで再起動しないでください。共有ストレージへの別PCからの書き込みや、検査と同時に開始する処理には対応しません。
+
+履歴のアーカイブとは別に、アプリには関連する管理対象worktreeを自動整理する仕組みがあります。必要な作業内容は、アーカイブ前に通常の作業場所などへ保全してください。このスクリプトはworktreeを直接削除しませんが、アプリ側の整理や復元を代行・保証するものではありません。[公式のworktree整理仕様](https://learn.chatgpt.com/docs/environments/git-worktrees#worktree-cleanup)
+
+```powershell
+agent codex session archive --before 4w
+agent codex session delete --before 2026-07-01
+```
+
+変更計画では、ピン留め・サイドバーのセクション所属・未完了の目標・自動実行や受信箱との関連・アプリの実行待ち情報を確認します。UUIDの個別指定で保護理由があれば、その操作を停止します。保存形式や権限の問題で保護情報を確認できない場合は、一括処理全体を止めます。リンクされた履歴ファイルや通常の保存範囲外のファイルも変更対象外です。
+
+確認画面に表示された文字列を正確に入力した後、クライアントの終了状態と、対象の親子関係・更新日時・ファイル属性・保護理由を再検査します。個別指定では`DELETE <UUID>`など、一括処理では操作名・件数・計画の短い識別子を入力します。変更がなければ、重複を除いた各グループの起点に対して、公式の`codex archive`または`codex delete`を1回ずつ呼び出します。この補助コマンドでは確認を省く`--force`や`--yes`を受け付けません。削除時だけ、表示・確認・再検査した対象に限って公式CLIの`--force`を使います。
+
+各グループについて、削除後は索引と履歴ファイルから対象が消えたこと、アーカイブ後は子孫も含めてアーカイブ先へ移ったことを確認します。残りのグループも処理直前に再検査します。途中失敗や確認不能の場合は、確認済みの起点UUIDと、一部が既に変更されている可能性を報告して停止します。一括処理全体を巻き戻す機能や自動再試行はありません。再実行の前に`list`で残っている対象を確認してください。作業ディレクトリや成果物の削除、データベースの直接編集・圧縮は行いません。
+
+保存用エクスポートは、アーカイブ・削除とは別の操作です。次は、既に存在する外付けドライブ上の`E:/CodexExports`へ、指定日より前の履歴を書き出す例です。保存先は自分の環境に合わせて置き換え、十分な空き容量を用意してください。
+
+```powershell
+agent codex session export --before 2026-07-01 --output 'E:/CodexExports'
+```
+
+確認後、保存先に`codex-sessions-<UTC日時>-<識別子>/`を新規作成します。元の履歴はアーカイブも削除もしません。毎回別のフォルダーを作り、既存のエクスポートを上書きしません。Codexホーム内とGitリポジトリ内への出力は拒否します。開始前に計測済みの生ログ容量と64MiBの余裕があるか確認しますが、関連履歴データの分はさらに必要なので、この検査だけでは最後まで容量が足りることを保証しません。
+
+- `manifest.json`：タイトル・UUID・更新時刻・親子関係・保存ファイル名・SHA-256を記録します。`complete: true`のmanifestがある場合だけ完了済みです。
+- `<更新日>_<UUID>.jsonl`：元の履歴ファイルを保存します。
+- `<UUID>.history.jsonl`：対応する履歴DBがある場合、選択したセッションの保存済みターン・項目・リアルタイム項目・生ログとの対応位置を、元のテーブル名付きで保存します。無関係なセッションのDB行は含めません。
+- `README.txt`：保存内容と制限を記載します。
+
+コピーと履歴データのハッシュを検証し、最後に元セッションの状態を再検査します。履歴DBは読み取り専用のトランザクションで参照し、処理中の別接続からのコミットやDBの新規出現も検知します。途中失敗や検知した変更があれば、完了manifestを作らず、不完全な出力フォルダーの場所を報告します。調査のため途中ファイルを残し、自動削除・自動再試行はしません。複数DBと履歴ファイルを一括で固定する仕組みではないため、エクスポート時もCodexなどの書き込み元を終了し、処理中は再起動しないことを推奨します。並行更新下での完全な整合性は保証しません。
+
+エクスポートは元データを変更しないため、ピン留めなどの保護対象も含めて保存できます。ただし、読み取れないファイルや対象期間外の子孫があるグループは除外します。ページ分割された履歴に必要なDBがない場合や、保存形式が未対応の場合は停止します。**履歴には個人情報や機密情報が含まれ得ます。** 出力は公開用ではなく、ローカルでの閲覧・保全用です。添付ファイル・作業ディレクトリ・参照先ファイルの収集やCodexへの再取り込みは行わないため、セッションを元どおり再開できるバックアップではありません。
+
+親子を含む削除範囲は[公式のセッション削除仕様](https://learn.chatgpt.com/docs/app-server#delete-a-thread)に基づきます。読み取り側はCodexの内部保存形式に依存するため、将来の更新で利用できなくなる可能性があります。公式CLIのバージョンが異なる場合は削除を停止し、対応確認を促します。
 
 ### `manage-git-write-acl.ps1`
 
@@ -155,13 +219,14 @@ python -m pip install PyYAML
 
 ## 基本的な使い方
 
-まず、読み取り専用の`status`を実行します。Gitの権限を調べる場合は、対象リポジトリを指定してください。
+まず、読み取り専用の`status`、セッションの整理では`list`を実行します。Gitの権限を調べる場合は、対象リポジトリを指定してください。
 
 ```samp
 & "$HOME/.agents/ai-dotfiles/runtime/codex/manage-git-write-acl.ps1" status 'C:/work/my-project'
 node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-codex-disk-pressure.mjs" status
 node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-skill-validator-utf8-patch.mjs" status
 node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-sqlite-trace-log-suppression.mjs" status
+node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-codex-sessions.mjs" list
 ```
 
 変更を行う場合は、各スクリプトの`help`を読み、CodexとChatGPTを完全に終了してから対象コマンドを実行してください。必要条件を満たさない場合や、対象が既知の状態と一致しない場合、スクリプトは変更を中止します。
@@ -190,3 +255,4 @@ CodexアプリまたはCLIを更新した後は、設定が維持されている
 - `manage-codex-disk-pressure.mjs`：Windows、Node.js 18.15以降
 - `manage-skill-validator-utf8-patch.mjs`：Node.js 18以降。`apply`による実検証には、PyYAMLを読み込める`python`コマンド
 - `manage-sqlite-trace-log-suppression.mjs`：組み込みの`node:sqlite`を利用できるNode.js 22.5以降
+- `manage-codex-sessions.mjs`：Node.js 24以降。`archive`と`delete`にはWindows、PowerShell 7、Codex CLI 0.153.4も必要

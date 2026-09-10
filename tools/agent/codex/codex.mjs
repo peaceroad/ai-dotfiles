@@ -36,6 +36,13 @@ export const CODEX_TOOLS = [
     file: "manage-sqlite-trace-log-suppression.mjs",
     actions: [["status", "s", "Show status (read-only)"], ["suppress", "p", "Choose a log retention level"], ["restore", "r", "Restore all future log levels"]],
   },
+  {
+    name: "session", key: "e", title: "Session management",
+    description: "Inspect, archive, delete, or export sessions selected by UUID, date, or weeks of age.",
+    requirements: "Node.js 24. Archive/delete require Windows, PowerShell 7, and Codex CLI 0.153.4. Export is not an importable backup. macOS/Linux are not yet validated.",
+    file: "manage-codex-sessions.mjs",
+    actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview a deletion plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion"], ["export", "e", "Export private session history"]],
+  },
 ];
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -53,6 +60,7 @@ function printHelp(log, platform, tool) {
     log(`\n${entry.name}: ${entry.description}\n  ${entry.requirements}`);
     for (const [action, , description] of entry.actions) {
       const argumentsHint = entry.repository ? " <repository> [-CodexHome <directory>]"
+        : entry.name === "session" ? (action === "list" ? " [--before DATE|Nw] [--limit N]" : " [UUID | --before DATE|Nw]")
         : action === "suppress" ? " [trace|debug|info|warn|error|none]" : "";
       log(`  agent codex ${entry.name} ${action}${argumentsHint} - ${description}`);
     }

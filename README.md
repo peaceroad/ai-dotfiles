@@ -15,7 +15,7 @@ A personal dotfiles repository for managing shareable Codex and AI agent configu
 - **自分の設定を公開用に書き出す**：[Export guide](docs/export.md)で、対象の指定、機密情報の検査、書き出し手順を確認します。
 - **スキル・プラグインを開発する、NASへ同期する**：[`agent`コマンドのガイド](docs/agent-development.md)へ進みます。[インストール](docs/agent-development.md#配置とインストール)、[状態確認・検査・同期](docs/agent-development.md#使い方)をまとめています。
 - **Marketplaceの単体Skillを利用する**：[別マシンで単体Skillを利用する](docs/agent-development.md#別マシンで単体skillを利用する)で、一覧表示・導入・更新・削除を確認します。
-- **Windows版Codexの既知の問題を調べる**：[`agent codex`と単体スクリプトのガイド](docs/agent-codex.md)で、状態確認と修復の対象条件を確認します。汎用の修復ツールではないため、適用前に各スクリプトの安全条件を読んでください。
+- **Codexの状態を調べる・保存済みセッションを整理する**：[`agent codex`と単体スクリプトのガイド](docs/agent-codex.md)で、状態確認・修復・期間指定によるセッションのアーカイブ／削除／エクスポートを確認します。変更操作にはOSやバージョンの制限があるため、各スクリプトの安全条件を読んでください。
 
 ## このリポジトリのスキル・プラグイン
 
