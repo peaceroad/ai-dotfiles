@@ -64,6 +64,8 @@ Repository-wide development, release, and evaluation scripts may remain outside 
 
 When repeatable local plugin management needs repository-specific tests or version policy, keep that development contract outside portable `plugin.json`. Use [repository-management.md](repository-management.md) for the optional per-plugin `.agents/plugin-development/<plugin-name>.json` scaffold; do not require it for a simple package.
 
+When local discovery through source links is part of the request, use [Codex integration](codex-integration.md#choose-the-source-and-execution-path).
+
 ## MCP servers
 
 Add a root `mcp.json` only when the plugin provides MCP servers:

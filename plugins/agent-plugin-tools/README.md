@@ -19,15 +19,19 @@ For contained OpenAI or Codex instructions with no established target model, the
 
 ## Local development
 
-Node.js runs the bundled helpers. Resolve their paths from this plugin's skill directory, and prefer an existing repository command when it also runs the required project checks.
+This plugin bundles the Node.js helpers and templates for portable validation, developer-source installation, repository scaffolding, and standalone Marketplace assembly. No ai-dotfiles checkout is required; Codex installation also needs a working Codex CLI. Prefer an existing command in the plugin's development repository when it also runs the required project checks.
 
-For source validation, run from the repository root:
+For source validation, run from this plugin's `skills/plugin-creator-agent-plugins/` directory, including when using an installed copy, or resolve the script's absolute path there:
 
 ```powershell
-node plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs 'C:\path\to\plugin-root'
+node scripts/validate-agent-plugin.mjs 'C:\path\to\plugin-root'
 ```
 
 For repeated skill authoring, user-scoped links can point to the source. Plugin installation is useful when checking the manifest, MCP servers, client extensions, or distribution path. Avoid testing with same-named source links and installed copies simultaneously; see [Codex integration](skills/plugin-creator-agent-plugins/references/codex-integration.md).
+
+If you use ai-dotfiles, the skill's [optional CLI integration](skills/plugin-creator-agent-plugins/references/ai-dotfiles-cli.md) covers source links, developer plugin targets, shared Marketplace management, and standalone Skill installation. `agent dev skill link` opens the source-link menu; plugin `sync` installs locally, whereas Marketplace `sync` assembles shared copies. Check `agent --help` and `agent dev skill link help` for the installed command's behavior. User guides cover [development and Marketplace setup](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-development.md) and [skill links](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/skill-links.md).
+
+The `agent` CLI, its source-link manager, shared-Marketplace orchestration, and standalone-Skill installer are supplied separately by ai-dotfiles, not bundled with this plugin. The bundled helpers do not replace all of those features. Whether a shared configuration is managed is determined from its contents and the established workflow, not from whether `agent` is installed on the current PC; see [configuration ownership](skills/plugin-creator-agent-plugins/references/ai-dotfiles-cli.md#establish-the-tool-and-configuration-owner).
 
 A developer-source install or repository scaffold requires a matching local entry in `<marketplace-root>/.agents/plugins/marketplace.json`. Neither helper creates that entry. The [catalog setup example](skills/plugin-creator-agent-plugins/references/codex-integration.md#provide-the-developer-source-catalog-entry) shows the minimum JSON and the root-relative source path. Shared assembly creates a generated distribution copy and is a different workflow.
 

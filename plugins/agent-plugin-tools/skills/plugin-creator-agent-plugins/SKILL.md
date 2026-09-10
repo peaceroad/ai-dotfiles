@@ -29,6 +29,8 @@ Skill conventions and examples do not override the user's explicit choices or th
 
 Load references for the affected decisions, not every stage a plugin might eventually reach.
 
+For requested link management, plugin installation, or Marketplace operations, identify the existing manager from the project instructions, selected configuration, or available tools. If the environment provides the ai-dotfiles `agent` command, the request names it, or relevant configuration identifies it as the manager (for example, `managedBy: "ai-dotfiles/agent-dev"`), read [ai-dotfiles CLI integration](references/ai-dotfiles-cli.md) before choosing commands. Availability alone does not establish ownership, and absence does not establish an unmanaged target. Otherwise use the repository or standalone paths below; this plugin does not require `agent`.
+
 | Requested outcome | Reference and tool |
 | --- | --- |
 | Author or revise the package, contained skills, or MCP configuration | [Authoring](references/authoring.md); use `skill-creator` for skill creation or structural changes. |
@@ -40,7 +42,7 @@ Load references for the affected decisions, not every stage a plugin might event
 | Integrate a private assembly configuration or multiple contributors | [Marketplace orchestration](references/marketplace-orchestration.md), alongside the distribution contract. |
 | Inspect built-in `plugin-creator` instruction coverage | `node scripts/check-builtin-plugin-creator.mjs`; this read-only probe does not establish runtime support. |
 
-Prefer an existing repository command after inspecting its behavior and side effects. Resolve bundled script paths from this skill directory. Preserve the source and version relationship across the requested stages.
+Prefer the existing management entrypoint after inspecting its behavior and side effects; do not bypass its configuration, checks, or ownership guards by invoking a lower-level helper. Resolve bundled scripts and templates from this skill directory, including an installed copy; no ai-dotfiles checkout is needed. Preserve the source and version relationship across the requested stages.
 
 ## Completion
 

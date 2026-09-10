@@ -4,6 +4,8 @@ Use for requested local installation, refresh, or integration testing after a po
 
 ## Choose the source and execution path
 
+If ai-dotfiles manages the selected links or developer target, use [its CLI integration](ai-dotfiles-cli.md) to select the management entrypoint. The source and installation boundaries below still apply; installing a plugin from an assembled Marketplace uses Codex directly.
+
 | Input and purpose | Path |
 | --- | --- |
 | Iterative work on source skills | Existing user-scoped source links and repository validation. Use a new task to exercise revised instructions when needed. |
@@ -12,7 +14,9 @@ Use for requested local installation, refresh, or integration testing after a po
 
 Direct-link testing does not establish plugin installation, MCP integration, client extensions, cache refresh, or Marketplace resolution. Use installation when those properties belong to the requested outcome. Source-only work does not require switching discovery paths.
 
-Before an installation test, inspect only the same-named direct links relevant to the plugin. Installing alongside them can expose different effective skill versions; do not rely on duplicate-name precedence. Use an isolated client environment when practical. Otherwise make the selected links inactive within the authorized scope, retain their targets for restoration, and keep one discovery path active during the test. Do not remove unrelated links or installed skills. Registration alone does not activate another copy.
+For requested source-link setup or changes, prefer the existing local link manager after inspecting its help and effects. A manager may own both a declaration and the actual link; editing just one can leave drift or let a later sync recreate a removed link. Keep the selected source and its files intact.
+
+Before an installation test, inspect only the same-named direct links relevant to the plugin. Installing alongside them can expose different effective skill versions; do not rely on duplicate-name precedence. Use an isolated client environment when practical. Otherwise make the selected links inactive within the authorized scope, retain their targets and any manager declarations needed for restoration, and keep one discovery path active during the test. An unregister/remove command is not necessarily a temporary disable operation; confirm what it removes before using it. Do not remove unrelated links or installed skills. Registration alone does not activate another copy.
 
 ## Establish the installation inputs
 
@@ -81,7 +85,7 @@ The manager finds a local Marketplace entry by walking source ancestors, then ch
 
 The CLI's explicit-choice requirement does not by itself require a user question. Use an established policy; if none exists and the request does not call for a version change, use `--keep-version`. Adopt bump only for an authorized local-development policy supported by cache-freshness evidence. Do not add suffixes as a precaution or change portable version rules to match a client convention.
 
-A higher-level index may impose a stricter contract requiring an explicit stored `bump` or `keep` policy before install. Preserve that contract instead of inferring permission from an imported source reference or a suffix. Developer-manager inputs must still resolve to the source package's own Marketplace entry.
+A higher-level index may impose a stricter contract, such as the [ai-dotfiles direct-target policy](ai-dotfiles-cli.md#developer-plugin-targets). Preserve it instead of inferring permission from an imported source reference or a suffix. Developer-manager inputs must still resolve to the source package's own Marketplace entry.
 
 ### What the command establishes
 
