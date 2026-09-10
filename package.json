@@ -13,7 +13,7 @@
     "skill-links:status": "node tools/agent/manage-skill-links.mjs status",
     "skill-links:check": "node tools/agent/manage-skill-links.mjs check",
     "skill-links:sync": "node tools/agent/manage-skill-links.mjs sync",
-    "check:agent-dev:common": "node --test tools/agent/agent.test.mjs scripts/install-agent.test.mjs tools/agent/codex/codex.test.mjs tools/agent/codex/manage-codex-sessions.test.mjs"
+    "check:agent-dev:common": "node --test tools/agent/agent.test.mjs scripts/install-agent.test.mjs tools/agent/codex/codex.test.mjs tools/agent/codex/manage-codex-sessions.test.mjs tools/agent/codex/session-export.test.mjs"
   },
   "engines": {
     "node": ">=24"

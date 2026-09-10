@@ -40,6 +40,7 @@ ai-dotfiles/
 │   ├── development.json
 │   ├── development.schema.json
 │   ├── skill-links.json
+│   ├── codex-session-export.json ← 現在・過去の履歴保存先（ローカル専用）
 │   ├── state/
 │   │   ├── marketplaces/
 │   │   │   └── <marketplace-name>--<root-id>.json
@@ -49,11 +50,13 @@ ai-dotfiles/
 │       ├── manage-skill-links.mjs
 │       ├── codex/
 │       └── plugin-tools/
+├── skills/
+│   └── codex-history/SKILL.md  ← 書き出した会話の参照用
 └── scripts/
     └── agent.cmd  ← Windowsの起動入口
 ```
 
-PowerShellから次を実行すると、`agent.cmd`、`agent.mjs`、schemaと固定されたランタイム一式を`~/.agents/`へ導入します。`~/.agents/scripts`がユーザーまたはマシンの永続的な`Path`にない場合だけ、インストール後にユーザー`Path`へ追加するかを`[y/N]`で確認します。PowerShellプロファイルは変更しません。
+PowerShellから次を実行すると、`agent.cmd`、`agent.mjs`、schema、固定されたランタイム一式と`codex-history`スキルを`~/.agents/`へ導入します。履歴保存先の設定やエクスポートは作成しません。`~/.agents/scripts`がユーザーまたはマシンの永続的な`Path`にない場合だけ、インストール後にユーザー`Path`へ追加するかを`[y/N]`で確認します。PowerShellプロファイルは変更しません。
 
 ```powershell
 .\scripts\install-agent.ps1

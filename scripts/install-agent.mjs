@@ -57,9 +57,10 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
   const plugin = 'plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins';
   const payload = [];
   const add = (source, target, markers = coreMarkers) => payload.push({ source: join(repository, source), target: join(agentsRoot, target), markers });
-  for (const name of [...CODEX_TOOLS.map(tool => tool.file), 'codex.mjs']) {
+  for (const name of new Set([...CODEX_TOOLS.flatMap(tool => [tool.file, ...(tool.supportFiles ?? [])]), 'codex.mjs'])) {
     add(`tools/agent/codex/${name}`, `ai-dotfiles/runtime/codex/${name}`);
   }
+  add('tools/agent/codex/skills/codex-history/SKILL.md', 'skills/codex-history/SKILL.md');
   add('tools/agent/development.schema.json', 'ai-dotfiles/development.schema.json');
   add('tools/agent/manage-skill-links.mjs', 'ai-dotfiles/runtime/manage-skill-links.mjs');
   for (const [name, owner] of [

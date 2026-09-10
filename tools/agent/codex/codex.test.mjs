@@ -68,7 +68,7 @@ test('menu supports descriptions, back, cancellation, and explicit operations', 
 test('menu maps each displayed action without implicit changes', async () => {
   for (const tool of CODEX_TOOLS) {
     for (const [index, [action]] of tool.actions.entries()) {
-      const answers = [String(index + 1), ...(tool.repository ? ['fixture'] : []), 'q'];
+      const answers = [String(index + 1), ...(tool.repository || (tool.name === 'history' && ['search', 'read'].includes(action)) ? ['fixture'] : []), 'q'];
       let count = 0;
       assert.equal(await runCodex([tool.name], {
         interactive: true, platform: 'win32', log() {}, ask: async () => answers.shift(),

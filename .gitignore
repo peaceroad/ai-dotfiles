@@ -18,6 +18,7 @@ node_modules/
 home/.agents/development.json
 .agents/ai-dotfiles/
 home/.agents/ai-dotfiles/development.json
+home/.agents/ai-dotfiles/codex-session-export.json
 home/.agents/ai-dotfiles/state/
 
 # Locally installed copies; tools/agent is the repository source

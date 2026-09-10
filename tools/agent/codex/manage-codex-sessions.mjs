@@ -1,55 +1,61 @@
 #!/usr/bin/env node
 // @ai-dotfiles agent-dev-runtime managed
 
-import { createHash } from 'node:crypto';
-import { createReadStream, createWriteStream, lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, statfsSync, writeFileSync } from 'node:fs';
-import { Readable, Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { createReadStream, lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs';
+import { Readable } from 'node:stream';
 import { homedir } from 'node:os';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { FORMAT, MAX_MANIFEST_BYTES, UUID, exists, fingerprint as hash, snapshotDigest, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory } from './session-export-storage.mjs';
+import { collectDependencies, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
+import { writeBatch, readBatch, listBatches, sourceIdentity, openHistoryReader } from './session-export-batches.mjs';
 
-const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const reviewedVersion = 'codex-cli 0.153.4';
-const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const bytes = value => `${(value / 1024 ** 2).toFixed(2)} MiB`;
 class SessionError extends Error {}
 const fail = message => { throw new SessionError(message); };
-const exists = path => { try { lstatSync(path); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const errorTag = error => [
   /^[A-Z_]+$/.test(error?.code ?? '') ? error.code : null,
   Number.isInteger(error?.errcode) ? `SQLite ${error.errcode}` : null,
 ].filter(Boolean).join(', ') || 'unknown error';
 
-export function displayText(value) {
-  return String(value).replaceAll(homedir(), '~').replaceAll(homedir().replaceAll('\\', '/'), '~')
-    .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, ' ');
-}
+export { displayText };
 
 function help(log) {
   log(`Inspect, archive, delete, or export local Codex sessions, including spawned descendants.
 Experimental: archive/delete/export are fixture-tested, not validated against real user history.
-Usage: agent codex session <list|plan|archive|delete|export> [arguments]
+Usage: agent codex session <list|plan|archive|delete|export|config> [arguments]
 Standalone: node <runtime>/codex/manage-codex-sessions.mjs <command> [arguments]
 
   list [--before DATE|Nw] [--limit N]
   plan [archive|delete|export] <selection>    Read-only preview (default: delete).
   archive <selection>                      Archive using the official CLI.
   delete <selection>                       Permanently delete using the official CLI.
-  export <selection> --output <directory>   Create a new verified local export bundle.
+  export <selection> [--output <directory>] Save one reference folder per session snapshot.
+  delete --exported [batch-id] [--in <directory>]  Review/delete exactly one export batch.
+  config [--output <directory>] [--dry-run | --confirm <token>]  Inspect/change destinations.
   help                                    Show this help.
 
 Selection: one UUID, --before YYYY-MM-DD, or --before 4w (positive integer weeks).
 Also accepts --before 4weeks, --before 4 weeks, and --before "4 weeks".
 Compatibility alias: --older-than-weeks N.
 Dates use UTC midnight; weeks mean N * 7 days before the invocation time, fixed for the run.
-Omitting a selection in a terminal prompts for a UUID, date, or Nw; Enter cancels.
+Omitting a selection in a terminal prompts for a UUID, date, or Nw; delete also accepts exported.
+Enter cancels. --exported without an ID opens a batch picker; it cannot accompany a UUID/date.
+Use agent codex history batches [--in <directory>] [--json] to find saved batch IDs.
+Export defaults to keeping originals, then offers a separate deletion review in a terminal.
+--after keep suppresses this prompt; --after review-delete opens the review explicitly.
+With --confirm or redirected input, review-delete only prints the deletion plan, never deletes.
+For non-interactive operations, review plan <operation> first, then pass --confirm <token>.
+The token binds the selected state and destination; changes require reviewing a new plan.
+Export and deletion require separate confirmations. No blanket approval option is provided.
 Bulk archive/delete skip protected families or those containing newer descendants.
 Bulk archive skips already archived roots. Export includes protected sessions but requires safe files.
 Archiving retains rollout bytes; the app may separately clean up associated managed worktrees.
-list and plan are read-only. No history bodies are read, and no server is started.
+list and plan are read-only; no server is started. Only plan delete --exported reads history
+bodies and verifies saved files against live sources; ordinary plans inspect metadata only.
 Sizes cover indexed rollout files only, not shared databases, attachments, or guaranteed savings.
 Updated time is not last-viewed time. Use --limit 0 to list all matching sessions.
 Titles can contain private information; review output before sharing it.
@@ -60,35 +66,67 @@ Archive/delete require Windows, PowerShell 7, and ${reviewedVersion}.
 Fully close all Codex/ChatGPT clients, IDE integrations, and background writers first.
 Keep them closed until completion. Concurrent writers and remote users are unsupported.
 Pinned/sectioned sessions, unfinished goals, automation references, and unknown state block deletion.
-Export contains private raw rollouts, indexed history JSONL, and a manifest; no attachments or restore.
+Export preserves JSONL, a readable conversation, inherited prefixes, and supported embedded media.
+File mentions are not followed. --attachments-from <directory> explicitly permits structured local media references within that directory (current bytes, not historical originals).
+Coverage warnings remain visible; export completion does not imply full history or attachment recovery.
+No project copy, network downloads, import, or restore. Use agent codex history to read saved exports.
+Default-destination setting: ~/.agents/ai-dotfiles/codex-session-export.json (AGENT_CODEX_EXPORT_CONFIG overrides its path).
+config remembers previous destinations but never moves files. Interactive config can select one.
+--in selects an old or relocated export directory; --output overrides this export only.
+Export receipts live in batches/ and use relative snapshot paths; keep them with the snapshots.
+Batch deletion excludes changed/protected families, missing snapshots, and content/attachment warnings.
+Both saved and live bytes are rechecked. Receipts do not authorize deletion or guarantee restoration.
 The output parent must exist, outside CODEX_HOME and outside Git repositories. Originals stay intact.
-No --force/--yes bypass, automatic retry, raw file deletion, or database repair.
-Exit codes: 0 completed/cancelled, 1 blocked/failed, 2 invalid arguments.`);
+No --force/--yes bypass, automatic retry, direct source-file deletion, or database repair.
+Exit codes: 0 completed/cancelled, 1 blocked/failed, 2 invalid arguments,
+3 export coverage warnings or exported deletion with excluded families (already absent is not a warning).`);
 }
 
 export function parseSessionArgs(args, now = Date.now()) {
   const [action = 'help', ...rest] = args;
   if (['help', '--help', '-h'].includes(action) && !rest.length) return { action: 'help' };
+  if (action === 'config') {
+    const options = { action }, seen = new Set();
+    for (let i = 0; i < rest.length; i++) {
+      const key = rest[i];
+      if (seen.has(key)) fail('Repeated configuration option.'); seen.add(key);
+      if (key === '--dry-run') options.dryRun = true;
+      else if (key === '--output' && rest[i + 1]?.trim() && !rest[i + 1].startsWith('--')) options.output = resolve(rest[++i]);
+      else if (key === '--confirm' && /^[0-9a-f]{64}$/.test(rest[i + 1] ?? '')) options.confirm = rest[++i];
+      else fail('Use config [--output <directory>] [--dry-run | --confirm <token>].');
+    }
+    if ((!options.output && (options.dryRun || options.confirm)) || (options.dryRun && options.confirm)) fail('Configuration confirmation requires an output directory and cannot accompany --dry-run.');
+    return options;
+  }
   if (!['list', 'plan', 'archive', 'delete', 'export'].includes(action)) fail('Unknown command. Run agent codex session help.');
   const operation = action === 'plan' ? (['archive', 'delete', 'export'].includes(rest[0]) ? rest.shift() : 'delete') : action;
   const options = { action, operation, limit: 20, before: Infinity };
   if (UUID.test(rest[0] ?? '') && action !== 'list') options.id = rest.shift().toLowerCase();
   const seen = new Set();
-  for (let i = 0; i < rest.length; i += 2) {
+  for (let i = 0; i < rest.length; i++) {
     const key = rest[i];
-    let value = rest[i + 1];
-    if (key === '--before' && /^[1-9]\d*$/.test(value ?? '') && /^weeks?$/i.test(rest[i + 2] ?? '')) {
-      value += rest[i + 2];
-      i++;
-    }
     if (seen.has(key)) fail('Repeated option. Run agent codex session help.');
     seen.add(key);
+    if (key === '--exported' && operation === 'delete') {
+      options.batch = rest[i + 1] && !rest[i + 1].startsWith('--') ? rest[++i] : true;
+      if (options.batch !== true && !/^[a-zA-Z0-9_-]+$/.test(options.batch)) fail('Invalid export batch ID.');
+      continue;
+    }
+    let value = rest[++i];
+    if (!value || value.startsWith('--')) fail('An option requires a value.');
+    if (key === '--before' && /^[1-9]\d*$/.test(value) && /^weeks?$/i.test(rest[i + 1] ?? '')) value += rest[++i];
     if (key === '--limit' && action === 'list' && /^\d+$/.test(value ?? '') && Number.isSafeInteger(Number(value))) options.limit = Number(value);
     else if (key === '--before' || key === '--older-than-weeks') options.before = parseCutoff(key === '--older-than-weeks' ? `${value}w` : value, now);
     else if (key === '--output' && operation === 'export' && value?.trim()) options.output = resolve(value);
+    else if (key === '--attachments-from' && operation === 'export' && value?.trim()) options.attachmentRoot = resolve(value);
+    else if (key === '--in' && operation === 'delete') options.directory = resolve(value);
+    else if (key === '--after' && action === 'export' && ['keep', 'review-delete'].includes(value)) options.after = value;
+    else if (key === '--confirm' && ['export', 'delete', 'archive'].includes(action) && /^[0-9a-f]{64}$/.test(value)) options.confirm = value;
     else fail('Invalid option. Run agent codex session help.');
   }
   if ((seen.has('--before') && seen.has('--older-than-weeks')) || (options.id && Number.isFinite(options.before))) fail('Use exactly one selection: UUID, date, or weeks.');
+  if ((options.batch && (options.id || Number.isFinite(options.before))) || (options.directory && !options.batch)) fail('Use --exported [batch-id] [--in <directory>] without a UUID or period.');
+  if (options.confirm && options.batch === true) fail('An explicit batch ID is required with --confirm.');
   return options;
 }
 
@@ -138,10 +176,18 @@ export async function inspectSessions(home) {
   // A single transaction provides a consistent view of rows and cascade edges.
   const db = new DatabaseSync(join(home, 'state_5.sqlite'), { readOnly: true });
   let rows, edges;
+  const projects = new Map();
   try {
     db.exec('BEGIN');
+    const columns = new Set(db.prepare('PRAGMA table_info(threads)').all().map(row => row.name));
     rows = db.prepare(`SELECT id, rollout_path, name, title, updated_at, updated_at_ms,
-      recency_at_ms, archived, is_pinned, thread_section_id, history_mode FROM threads ORDER BY id`).all();
+      recency_at_ms, archived, is_pinned, thread_section_id, history_mode,
+      ${columns.has('cwd') ? 'cwd' : 'NULL AS cwd'}, ${columns.has('project_id') ? 'project_id' : 'NULL AS project_id'} FROM threads ORDER BY id`).all();
+    const tables = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name));
+    if (tables.has('projects') && tables.has('project_roots')) {
+      for (const project of db.prepare('SELECT id, name FROM projects').all()) projects.set(project.id, { ...project, roots: [] });
+      for (const root of db.prepare('SELECT project_id, path FROM project_roots ORDER BY position').all()) projects.get(root.project_id)?.roots.push(root.path);
+    }
     edges = db.prepare('SELECT parent_thread_id AS parent, child_thread_id AS child FROM thread_spawn_edges ORDER BY parent_thread_id, child_thread_id').all();
     db.exec('COMMIT');
   } finally { db.close(); }
@@ -222,7 +268,8 @@ export async function inspectSessions(home) {
     } catch (error) { reasons.push(`rollout-unavailable-or-unsafe${/^[A-Z_]+$/.test(error.code ?? '') ? `(${error.code})` : ''}`); }
     return { id: row.id, title: row.name || row.title || '(untitled)', updated,
       recency: row.recency_at_ms, archived: Boolean(row.archived), historyMode: row.history_mode, size, modified,
-      path: row.rollout_path, reasons: reasons.sort() };
+      path: row.rollout_path, project: row.project_id ? projects.get(row.project_id) ?? { id: row.project_id, name: null, roots: [] } : null,
+      cwd: row.cwd, reasons: reasons.sort() };
   });
   return { home, sessions, edges, issues: [...new Set([...issues, ...protectionIssues])].sort(), exportIssues: [...new Set(issues)].sort() };
 }
@@ -319,25 +366,8 @@ function printPlan(plan, log) {
   for (const skipped of plan.skipped ?? []) log(`Skipped family ${skipped.root}: ${skipped.problems.join('; ')}`);
 }
 
-async function digestFile(path) {
-  const digest = createHash('sha256');
-  for await (const chunk of createReadStream(path)) digest.update(chunk);
-  return digest.digest('hex');
-}
-
-async function writeVerifiedFile(source, path) {
-  const digest = createHash('sha256');
-  let size = 0;
-  await pipeline(source, new Transform({ transform(chunk, encoding, callback) {
-    digest.update(chunk); size += chunk.length; callback(null, chunk);
-  } }), createWriteStream(path, { flags: 'wx', mode: 0o600 }));
-  const sha256 = digest.digest('hex');
-  if (await digestFile(path) !== sha256) fail('Export copy verification failed.');
-  return { file: basename(path), bytes: size, sha256 };
-}
-
-export async function exportSessions(snapshot, plan, output, { inspect = inspectSessions, log = console.log } = {}) {
-  if (plan.operation !== 'export' || plan.problems.length) fail('Export requires an unblocked export plan.');
+export async function exportSessions(snapshot, plan, output, { inspect = inspectSessions, log = console.log, attachmentRoots = [], selection = null } = {}) {
+  if (plan.operation !== 'export' || plan.problems.length || !plan.sessions.length) fail('Export requires a nonempty, unblocked export plan.');
   if (!output) fail('Export requires --output pointing to an existing directory.');
   const destination = realpathSync(output);
   if (!lstatSync(destination).isDirectory()) fail('Export output must be an existing directory.');
@@ -349,68 +379,147 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
   }
   const space = statfsSync(destination, { bigint: true });
   if (space.bavail * space.bsize < BigInt(plan.size) + 64n * 1024n ** 2n) fail('Insufficient export space for measured rollouts and 64 MiB headroom. Indexed history needs additional space.');
-  const names = readdirSync(snapshot.home);
-  if (names.some(name => /^thread_history_\d+\.sqlite$/.test(name) && name !== 'thread_history_1.sqlite')) fail('Unknown indexed history database version.');
-  const historyPath = join(snapshot.home, 'thread_history_1.sqlite');
-  const historyTables = ['thread_turns', 'thread_items', 'thread_realtime_items', 'thread_history_projection_state'];
-  let db, folder, historyVersion;
+  let reader;
+  const staged = [], folders = [], skipped = [], entries = [];
+  const getIndex = createRolloutIndex(snapshot.home);
+  const edgesBySession = new Map(plan.sessions.map(row => [row.id, []]));
+  for (const edge of snapshot.edges) {
+    edgesBySession.get(edge.parent)?.push(edge);
+    if (edge.child !== edge.parent) edgesBySession.get(edge.child)?.push(edge);
+  }
+  const existing = new Map();
+  for (const bundle of listBundles(destination)) {
+    const key = `${bundle.manifest.session.id}:${bundle.manifest.contentDigest}`;
+    if (!existing.has(key)) existing.set(key, bundle);
+  }
   try {
-    if (exists(historyPath)) {
-      const { DatabaseSync } = await import('node:sqlite');
-      db = new DatabaseSync(historyPath, { readOnly: true });
-      historyVersion = db.prepare('PRAGMA data_version').get().data_version;
-      db.exec('BEGIN');
-      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name);
-      if (tables.some(name => name.startsWith('thread_') && !historyTables.includes(name)) || historyTables.some(name => !tables.includes(name))) fail('Unsupported indexed history schema.');
-    }
-    if (plan.sessions.some(row => !['legacy', 'paginated'].includes(row.historyMode) || (row.historyMode === 'paginated' && !db))) fail('Indexed history is required for paginated sessions; export stopped.');
-    // Prepare once and iterate indexed thread ranges, not the entire database or history in memory.
-    const queries = db ? historyTables.map(table => [table, db.prepare(`SELECT * FROM ${table} WHERE thread_id = ? ORDER BY ${table === 'thread_history_projection_state' ? 'thread_id' : 'rollout_ordinal'}`)]) : [];
-    folder = mkdtempSync(join(destination, `codex-sessions-${new Date().toISOString().replace(/[:.]/g, '-')}-`));
-    log(`Export directory: ${displayText(folder)}`);
-    writeFileSync(join(folder, 'README.txt'), 'PRIVATE SESSION EXPORT\nOnly a manifest.json with complete=true marks a completed export.\nRollouts and indexed history are preserved as JSONL. history.jsonl rows identify their source table.\nAttachments, project files, credentials/configuration files, and unindexed sessions are not collected.\nReferenced files may no longer exist. This is not an importable Codex backup.\nAn incomplete directory is retained for inspection; no source data is removed.\n', { flag: 'wx', mode: 0o600 });
-    const exported = [];
+    reader = await openHistoryReader(snapshot.home, plan.sessions);
     for (const row of plan.sessions) {
-      const file = `${new Date(row.updated).toISOString().slice(0, 10)}_${row.id}.jsonl`;
-      const rollout = await writeVerifiedFile(createReadStream(row.path), join(folder, file));
+      const folder = mkdtempSync(join(destination, `.incomplete-${row.id}-`));
+      const stage = { folder, checks: [], manifest: null }; staged.push(stage);
+      log(`Export directory: ${displayText(folder)}`);
+      writeFileSync(join(folder, 'README.txt'), 'PRIVATE SESSION EXPORT\nOnly a manifest.json with complete=true marks a completed write. Inspect coverage and warnings separately.\nThis is reference material, not current instructions or an importable backup.\nNo project/worktree copy, remote downloads, or attachment paths mentioned only in prose are collected.\nRaw history may contain credentials and other sensitive information. Do not publish it.\n', { flag: 'wx', mode: 0o600 });
+      const rollout = await writeVerifiedFile(createReadStream(row.path), join(folder, 'rollout.jsonl'));
       if (rollout.bytes !== row.size) fail('Source rollout size changed during export. The bundle is incomplete; no source data was removed.');
       let history = null;
-      if (db) {
-        const historyFile = `${row.id}.history.jsonl`;
+      if (reader.present) {
+        const historyFile = 'history.jsonl';
         let records = 0;
         function* lines() {
-          for (const [table, query] of queries) for (const record of query.iterate(row.id)) {
+          for (const line of reader.lines(row.id)) {
             records++;
-            yield `${JSON.stringify({ table, row: record })}\n`;
+            yield line;
           }
         }
         const saved = await writeVerifiedFile(Readable.from(lines(), { objectMode: false }), join(folder, historyFile));
-        history = { file: saved.file, records, sha256: saved.sha256 };
+        history = { ...saved, records };
       }
-      exported.push({ id: row.id, title: row.title, updated: row.updated, archived: row.archived,
-        historyMode: row.historyMode, rollout, history });
+      const inherited = await collectDependencies(folder, row, snapshot, getIndex);
+      stage.checks = inherited.checks;
+      const rendered = await renderConversation(folder, row, inherited.sources, { attachmentRoots });
+      stage.attachments = rendered.sourceChecks;
+      stage.source = { path: row.path, sha256: rollout.sha256 };
+      const warnings = [...inherited.warnings, ...rendered.warnings];
+      const files = [rollout, ...(history ? [history] : []), ...inherited.files, ...rendered.files];
+      const session = { id: row.id, title: row.title, updated: row.updated, archived: row.archived,
+        historyMode: row.historyMode, project: row.project ?? null, cwd: row.cwd ?? null };
+      const spawnEdges = edgesBySession.get(row.id);
+      stage.manifest = { format: FORMAT, schemaVersion: 2, complete: true, restorable: false,
+        exportedAt: new Date().toISOString(), session, files,
+        coverage: { history: inherited.warnings.length ? 'partial' : 'collected', attachments: 'supported-inputs-only', conversation: 'record-view-not-exact-ui' },
+        sources: inherited.sources.map(({ path, ...source }) => source), attachments: rendered.attachments, warnings,
+        spawnEdges };
+      stage.manifest.contentDigest = snapshotDigest(stage.manifest);
       log(`Exported: ${row.id}`);
     }
     const fresh = await inspect(snapshot.home);
-    if (db) {
-      // Check outside the read transaction: WAL readers otherwise retain the old snapshot.
-      db.exec('COMMIT');
-      if (db.prepare('PRAGMA data_version').get().data_version !== historyVersion) fail('Indexed history changed during export. The bundle is incomplete; no source data was removed.');
-    } else if (exists(historyPath)) fail('Indexed history appeared during export. The bundle is incomplete; no source data was removed.');
+    reader.check();
     const index = indexSnapshot(fresh);
     for (const group of plan.groups) {
       if (makePlan(fresh, group.root, 'export', index).fingerprint !== group.fingerprint) fail('Source sessions changed during export. The bundle is incomplete; no source data was removed.');
     }
-    const ids = new Set(plan.sessions.map(row => row.id));
-    writeFileSync(join(folder, 'manifest.json'), `${JSON.stringify({ schemaVersion: 1, complete: true,
-      exportedAt: new Date().toISOString(), restorable: false, sessions: exported,
-      spawnEdges: snapshot.edges.filter(edge => ids.has(edge.parent) || ids.has(edge.child)) }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-    log(`Export complete: ${exported.length} session(s). Originals were not changed. Keep this bundle private.`);
-    return folder;
+    for (const stage of staged) {
+      if (await digestFile(stage.source.path) !== stage.source.sha256) fail('Source rollout content changed during export.');
+      await checkDependencySources(stage.checks, snapshot.home);
+      await checkAttachmentSources(stage.attachments);
+    }
+    for (const stage of staged) {
+      const duplicate = existing.get(`${stage.manifest.session.id}:${stage.manifest.contentDigest}`);
+      if (duplicate) {
+        await verifyBundle(duplicate);
+        // Only the exact private staging directory created by this invocation is removed.
+        if (relative(destination, stage.folder).includes(sep) || !basename(stage.folder).startsWith('.incomplete-')) fail('Invalid staging directory.');
+        rmSync(stage.folder, { recursive: true }); stage.removed = true;
+        entries.push({ id: stage.manifest.session.id, key: duplicate.key, digest: stage.manifest.contentDigest });
+        skipped.push(duplicate.folder); log(`Unchanged: ${stage.manifest.session.id}`); continue;
+      }
+      const manifestText = `${JSON.stringify(stage.manifest, null, 2)}\n`;
+      if (Buffer.byteLength(manifestText) > MAX_MANIFEST_BYTES) fail('Export manifest exceeds the supported size.');
+      writeFileSync(join(stage.folder, 'manifest.json'), manifestText, { flag: 'wx', mode: 0o600 });
+      const final = join(destination, `${stage.manifest.exportedAt.replace(/[:.]/g, '-')}_${stage.manifest.session.id}_${basename(stage.folder).slice(-6)}`);
+      renameSync(stage.folder, final); stage.published = true; folders.push(final);
+      entries.push({ id: stage.manifest.session.id, key: basename(final), digest: stage.manifest.contentDigest });
+      log(`Saved: ${displayText(final)}`);
+    }
+    const partial = staged.some(stage => stage.manifest.warnings.length);
+    const batch = writeBatch(destination, snapshot, plan, entries, selection);
+    log(`Export batch: ${batch.id}`);
+    log(`Export complete: ${folders.length} saved; ${skipped.length} unchanged. Coverage warnings: ${partial ? 'yes; inspect each manifest' : 'none detected (supported input formats only)'}. Originals were not changed.`);
+    return { folders, skipped, partial, batch };
   } catch (error) {
-    if (folder) log(`Incomplete export retained: ${displayText(folder)}. No completed manifest was written.`);
+    for (const stage of staged.filter(stage => !stage.published && !stage.removed)) log(`Incomplete export retained: ${displayText(stage.folder)}. Not published for search.`);
+    if (folders.length) log(`Already published: ${folders.length} session export(s). No automatic rollback.`);
     throw error;
-  } finally { if (db) db.close(); }
+  } finally { reader?.close(); }
+}
+
+// Tokens bind the selected data and destination, not a moving relative cutoff.
+export function confirmationToken(plan, options) {
+  return hash({ operation: plan.operation, groups: plan.groups.map(group => group.fingerprint), skipped: plan.skipped, problems: plan.problems,
+    batch: plan.batchDigest ?? null, directory: options.directory ?? null,
+    output: plan.operation === 'export' ? options.output ?? null : null,
+    attachmentRoot: options.attachmentRoot ?? null });
+}
+
+export async function planExportedDeletion(snapshot, directory, batchId, onlyRoot) {
+  const batch = readBatch(directory, batchId);
+  if (batch.source !== sourceIdentity(snapshot.home)) fail('Export batch belongs to a different Codex home.');
+  const entries = new Map(batch.entries.map(entry => [entry.id, entry]));
+  const index = indexSnapshot(snapshot), groups = [], skipped = [];
+  for (const saved of batch.groups) {
+    if (onlyRoot && saved.root !== onlyRoot) continue;
+    const present = saved.ids.filter(id => index.byId.has(id));
+    if (!present.length) { skipped.push({ root: saved.root, alreadyAbsent: true, problems: ['Already absent from the local index.'] }); continue; }
+    try {
+      const exported = makePlan(snapshot, saved.root, 'export', index);
+      if (exported.fingerprint !== saved.fingerprint) fail('Source session metadata or descendant membership changed after export.');
+      const group = makePlan(snapshot, saved.root, 'delete', index);
+      if (group.problems.length) fail(group.problems.join(' '));
+      const reader = await openHistoryReader(snapshot.home, group.sessions);
+      try {
+        for (const row of group.sessions) {
+          const entry = entries.get(row.id), bundle = entry && readBundle(directory, entry.key);
+          if (!bundle || bundle.manifest.session.id !== row.id || bundle.manifest.contentDigest !== entry.digest) fail('Required exported snapshot is missing or changed.');
+          await verifyBundle(bundle);
+          const warnings = bundle.manifest.warnings;
+          if (!Array.isArray(warnings) || warnings.some(w => w.kind !== 'rendering' || w.reason !== 'multiple-record-representations')) fail('Export has missing content or attachment warnings; excluded from batch deletion.');
+          const rollout = bundle.manifest.files.find(file => file.file === 'rollout.jsonl');
+          const history = bundle.manifest.files.find(file => file.file === 'history.jsonl');
+          if (await digestFile(row.path) !== rollout.sha256) fail('Source rollout content changed after export.');
+          if (reader.present !== !!history || (history && await digestChunks(reader.lines(row.id)) !== history.sha256)) fail('Indexed history changed after export.');
+        }
+        reader.check();
+      } finally { reader.close(); }
+      groups.push(group);
+    } catch (error) {
+      skipped.push({ root: saved.root, problems: [error instanceof SessionError || error instanceof ExportError ? error.message : 'Export verification failed; inspect saved files and source state.'] });
+    }
+  }
+  const sessions = groups.flatMap(group => group.sessions), problems = [...snapshot.issues];
+  if (new Set(sessions.map(row => row.id)).size !== sessions.length) problems.push('Overlapping descendant groups.');
+  return { operation: 'delete', groups, sessions, problems, skipped, batchDigest: batch.digest,
+    size: groups.reduce((sum, group) => sum + group.size, 0),
+    fingerprint: hash({ batch: batch.digest, groups: groups.map(group => group.fingerprint), skipped, problems }) };
 }
 
 // Only the reviewed Windows process check and CLI invocation are enabled for archive/delete.
@@ -449,16 +558,70 @@ export async function runSessions(args, {
   try { options = parseSessionArgs(args, now); } catch (error) { log(`Error: ${error.message}`); return 2; }
   if (options.action === 'help') { help(log); return 0; }
   try {
+    if (options.action === 'config') {
+      const settings = readExportSettings(), known = [settings.directory, ...settings.previousDirectories].filter(Boolean);
+      log(`Default export directory: ${displayText(settings.directory ?? '(not configured)')}`);
+      known.forEach((path, i) => log(`  ${i + 1}. ${displayText(path)}${i === 0 ? ' (current)' : ' (previous)'}`));
+      if (!options.output) {
+        if (!interactive) return 0;
+        const value = (await ask('New directory path or listed number (Enter keeps current): '))?.trim();
+        if (!value) return 0;
+        if (/^\d+$/.test(value) && !known[Number(value) - 1]) fail('Unknown directory selection.');
+        options.output = resolve(/^\d+$/.test(value) ? known[Number(value) - 1] : value);
+      }
+      options.output = realpathSync(options.output);
+      if (!lstatSync(options.output).isDirectory()) fail('Export destination must be an existing directory.');
+      const token = hash({ operation: 'export-directory', settings, output: options.output });
+      log(`Proposed default: ${displayText(options.output)}. Existing files will not be moved or deleted; previous directories remain listed.`);
+      log(`Confirmation token: ${token}`);
+      if (options.dryRun) return 0;
+      if (options.confirm) { if (options.confirm !== token) fail('Confirmation token does not match the current configuration plan.'); }
+      else {
+        if (!interactive) fail('Review config --output <directory> --dry-run, then pass its --confirm token.');
+        if (await ask('Type SET EXPORT DIRECTORY to save this local setting: ') !== 'SET EXPORT DIRECTORY') { log('Cancelled; configuration unchanged.'); return 0; }
+      }
+      const changed = writeExportDirectory(options.output, undefined, hash(settings));
+      log(changed ? 'Default export directory saved.' : 'Default export directory unchanged.'); return 0;
+    }
     const mutation = ['archive', 'delete'].includes(options.action);
     if (mutation && platform !== 'win32') fail('Archive/delete are currently supported only on Windows; list, plan, and export remain available.');
-    if (options.action !== 'list' && !options.id && !Number.isFinite(options.before)) {
+    if (options.batch) {
+      if (!options.directory && interactive && !options.confirm) {
+        const settings = readExportSettings(), known = [settings.directory, ...settings.previousDirectories].filter(Boolean);
+        if (known.length > 1) {
+          known.forEach((path, i) => log(`  ${i + 1}. ${displayText(path)}`));
+          const value = (await ask('Export directory number (Enter uses current, q cancels): '))?.trim();
+          if (value == null || value === 'q') return 0;
+          if (value && (!/^[1-9]\d*$/.test(value) || !known[Number(value) - 1])) fail('Unknown export directory selection.');
+          options.directory = known[value ? Number(value) - 1 : 0];
+        }
+      }
+      options.directory = options.directory ?? readExportDirectory();
+      if (!options.directory) fail('Export directory is not configured; use --in <directory>.');
+      options.directory = realpathSync(options.directory);
+      if (options.batch === true) {
+        if (!interactive) fail('An explicit batch ID is required; use agent codex history batches --in <directory>.');
+        const batches = listBatches(options.directory);
+        batches.forEach((batch, i) => log(`${i + 1}. ${batch.id}  ${batch.entries.length} sessions  ${displayText(JSON.stringify(batch.selection))}`));
+        const choice = (await ask('Export batch number (Enter cancels): '))?.trim();
+        if (!choice) return 0;
+        if (!/^[1-9]\d*$/.test(choice) || !batches[Number(choice) - 1]) fail('Unknown export batch selection.');
+        options.batch = batches[Number(choice) - 1].id;
+      }
+      log(`Export batch: ${options.batch}; directory: ${displayText(options.directory)}`);
+    }
+    if (options.action !== 'list' && !options.batch && !options.id && !Number.isFinite(options.before)) {
+      if (options.confirm) fail('An explicit selection is required with --confirm.');
       if (!interactive) { log('Error: A UUID or date/week selection is required. Run agent codex session help.'); return 2; }
-      const selection = (await ask('Selection: UUID, YYYY-MM-DD, or Nw (Enter cancels): '))?.trim();
+      const selection = (await ask(`Selection: UUID, YYYY-MM-DD, or Nw${options.operation === 'delete' ? ', or exported to choose an export batch' : ''} (Enter cancels): `))?.trim();
       if (!selection) { log('Cancelled; nothing changed.'); return 0; }
+      if (selection === 'exported' && options.operation === 'delete') return runSessions(
+        [...(options.action === 'plan' ? ['plan'] : []), 'delete', '--exported'], { home, platform, interactive, log, ask, inspect, closed, cli });
       const selectedArgs = UUID.test(selection) ? [selection] : ['--before', selection];
       try {
         options = parseSessionArgs([options.action, ...(options.action === 'plan' ? [options.operation] : []), ...selectedArgs,
-          ...(options.output ? ['--output', options.output] : [])], now);
+          ...(options.output ? ['--output', options.output] : []), ...(options.attachmentRoot ? ['--attachments-from', options.attachmentRoot] : []),
+          ...(options.after ? ['--after', options.after] : [])], now);
       } catch (error) { log(`Error: ${error.message}`); return 2; }
     }
     const snapshot = await inspect(home);
@@ -472,36 +635,68 @@ export async function runSessions(args, {
       return 0;
     }
     if (Number.isFinite(options.before)) log(`Selection: updated before ${new Date(options.before).toISOString()} (exclusive).`);
-    const plan = selectPlan(snapshot, options);
+    const buildPlan = state => options.batch ? planExportedDeletion(state, options.directory, options.batch) : selectPlan(state, options);
+    const plan = await buildPlan(snapshot);
     printPlan(plan, log);
     if (plan.problems.length) return 1;
-    if (options.action === 'plan') { log('Read-only preview. The operation will rebuild and recheck this plan.'); return 0; }
-    if (!plan.sessions.length) { log('No eligible sessions; nothing changed.'); return 0; }
-    if (!interactive) fail('This operation requires an interactive terminal; no force bypass is available.');
+    if (options.operation === 'export' && !options.output) options.output = readExportDirectory() ?? undefined;
+    if (options.confirm && options.confirm !== confirmationToken(plan, options)) fail('Confirmation token does not match the current operation plan.');
+    const excluded = options.batch && plan.skipped.some(group => !group.alreadyAbsent);
+    if (options.action === 'plan') {
+      if (options.operation !== 'export' || options.output) log(`Confirmation token: ${confirmationToken(plan, options)}`);
+      else log('Specify --output or configure an export directory to obtain a confirmation token.');
+      log('Read-only preview. The operation will rebuild and recheck this plan.'); return 0;
+    }
+    if (!plan.sessions.length) { log('No eligible sessions; nothing changed.'); return excluded ? 3 : 0; }
+    if (!interactive && !options.confirm) fail('This operation requires an interactive terminal or the --confirm token from a reviewed plan; no force bypass is available.');
     if (mutation) {
       closed();
       const version = cli(['--version'], snapshot.home);
       if (version.status !== 0 || version.stdout?.trim() !== reviewedVersion) fail(`Archive/delete require the reviewed ${reviewedVersion}. Nothing changed.`);
     } else if (!options.output) {
-      const output = (await ask('Existing export parent directory (Enter cancels): '))?.trim();
+      if (!interactive) fail('Export requires --output or a configured default directory.');
+      const configured = readExportDirectory();
+      const output = configured ?? (await ask('Existing export parent directory (Enter cancels): '))?.trim();
       if (!output) { log('Cancelled; nothing changed.'); return 0; }
       options.output = resolve(output);
+      if (!configured && await ask('Type SAVE DEFAULT to remember this directory, or Enter for this export only: ') === 'SAVE DEFAULT') writeExportDirectory(options.output);
+    }
+    if (options.action === 'export') {
+      log(`Export parent: ${displayText(options.output)}`);
+      if (options.attachmentRoot) log(`Approved structured local attachment root: ${displayText(options.attachmentRoot)}. Current file bytes may differ from the original attachment.`);
     }
     log(options.action === 'export' ? 'Export includes private history. Originals stay intact; no import/restore is provided.'
       : 'Keep all clients and background writers closed until completion. Delete is permanent. Archive retains rollout bytes; the app may clean up associated managed worktrees. Preserve worktree changes first.');
     const confirmation = `${options.action.toUpperCase()} ${options.id ?? `${plan.sessions.length} ${plan.fingerprint.slice(0, 8)}`}`;
-    if (await ask(`Type ${confirmation} to ${options.action} all ${plan.sessions.length} listed session(s): `) !== confirmation) {
+    const token = confirmationToken(plan, options);
+    log(`Confirmation token: ${token}`);
+    if (!options.confirm && await ask(`Type ${confirmation} to ${options.action} all ${plan.sessions.length} listed session(s): `) !== confirmation) {
       log('Cancelled; nothing changed.'); return 0;
     }
     if (mutation) closed();
     let current = await inspect(home);
-    const fresh = selectPlan(current, options);
+    const fresh = await buildPlan(current);
     if (fresh.fingerprint !== plan.fingerprint || fresh.problems.length) fail('The operation plan changed. Nothing changed by this operation; review a new plan.');
     if (options.action === 'export') {
-      await exportSessions(current, plan, options.output, { inspect, log });
-      return 0;
+      const result = await exportSessions(current, plan, options.output, { inspect, log,
+        selection: options.id ? { id: options.id } : { before: new Date(options.before).toISOString() },
+        attachmentRoots: options.attachmentRoot ? [realpathSync(options.attachmentRoot)] : [] });
+      log(`Review deletion with: agent codex session plan delete --exported ${result.batch.id} --in "${displayText(options.output)}"`);
+      let review = options.after === 'review-delete';
+      if (!options.after && interactive && !options.confirm) review = ['2', 'review-delete'].includes((await ask('Next: 1 keep originals (default), 2 review deletion of this export: '))?.trim());
+      if (review) {
+        const confirmInteractively = interactive && !options.confirm;
+        const next = await runSessions([...(confirmInteractively ? [] : ['plan']), 'delete', '--exported', result.batch.id, '--in', options.output],
+          { home, platform, interactive: confirmInteractively, log, ask, inspect, closed, cli });
+        return next || (result.partial ? 3 : 0);
+      }
+      return result.partial ? 3 : 0;
     }
     for (const group of plan.groups) {
+      if (options.batch) {
+        const exported = await planExportedDeletion(current, options.directory, options.batch, group.root);
+        if (exported.batchDigest !== plan.batchDigest || exported.problems.length || exported.groups.length !== 1 || exported.groups[0].fingerprint !== group.fingerprint) fail('Exported deletion guard changed; stopped before the next official operation.');
+      }
       const check = makePlan(current, group.root, options.action);
       if (check.fingerprint !== group.fingerprint || check.problems.length) fail('A remaining family changed. Stopped; inspect a new plan.');
       closed();
@@ -520,10 +715,10 @@ export async function runSessions(args, {
       log(`Verified ${options.action}: ${group.root}`);
     }
     log(`${options.action === 'delete' ? 'Deleted' : 'Archived'} and verified: ${plan.sessions.length} indexed session(s). No project file or shared database was manually removed.`);
-    return 0;
+    return excluded ? 3 : 0;
   } catch (error) {
     // OS/SQLite/child stderr can contain private paths, settings, and history content.
-    log(`Error: ${error instanceof SessionError ? displayText(error.message) : `Session operation failed (${errorTag(error)}). Check permissions, free space, and the supported storage layout; no automatic retry was attempted.`}`);
+    log(`Error: ${error instanceof SessionError || error instanceof ExportError ? displayText(error.message) : `Session operation failed (${errorTag(error)}). Check permissions, free space, and the supported storage layout; no automatic retry was attempted.`}`);
     if (operationStarted) log(`The official operation was started; completion may be partial. Verified roots: ${completed.join(', ') || 'none'}. Inspect remaining sessions before retrying.`);
     return 1;
   }

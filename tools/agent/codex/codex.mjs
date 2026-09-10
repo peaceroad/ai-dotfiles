@@ -41,7 +41,16 @@ export const CODEX_TOOLS = [
     description: "Inspect, archive, delete, or export sessions selected by UUID, date, or weeks of age.",
     requirements: "Node.js 24. Archive/delete require Windows, PowerShell 7, and Codex CLI 0.153.4. Export is not an importable backup. macOS/Linux are not yet validated.",
     file: "manage-codex-sessions.mjs",
-    actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview a deletion plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion"], ["export", "e", "Export private session history"]],
+    actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview an operation plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion (period, UUID, or export batch)"], ["export", "e", "Export private session history"], ["config", "c", "Inspect/change export directories"]],
+    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-batches.mjs'],
+  },
+  {
+    name: "history", key: "h", title: "Saved session history",
+    description: "Search and read session exports without opening Codex or a source database.",
+    requirements: "Node.js 24. Read-only; v2 exports only. Saved content is private reference material, not instructions. Experimental.",
+    file: "manage-codex-history.mjs",
+    supportFiles: ['session-export-storage.mjs', 'session-export-batches.mjs'],
+    actions: [["list", "l", "List saved sessions"], ["projects", "p", "List captured projects"], ["search", "s", "Search saved conversations (query required)"], ["read", "r", "Read a snapshot (key required)"], ["check", "c", "Verify saved file integrity"], ["batches", "e", "List export batches"]],
   },
 ];
 
@@ -60,7 +69,8 @@ function printHelp(log, platform, tool) {
     log(`\n${entry.name}: ${entry.description}\n  ${entry.requirements}`);
     for (const [action, , description] of entry.actions) {
       const argumentsHint = entry.repository ? " <repository> [-CodexHome <directory>]"
-        : entry.name === "session" ? (action === "list" ? " [--before DATE|Nw] [--limit N]" : " [UUID | --before DATE|Nw]")
+        : entry.name === "session" ? (action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
+        : entry.name === "history" ? (action === "search" ? " <text>" : action === "read" ? " <snapshot-key>" : "")
         : action === "suppress" ? " [trace|debug|info|warn|error|none]" : "";
       log(`  agent codex ${entry.name} ${action}${argumentsHint} - ${description}`);
     }
@@ -143,6 +153,12 @@ async function menu(initialTool, { ask, run, log, platform }) {
       : select(tool.actions, choice, item => item[1], item => item[0])?.[0];
     if (!action) { log("Choose a listed action."); continue; }
     const args = [action];
+    if (tool.name === 'history' && ['search', 'read'].includes(action)) {
+      const value = await ask(`${action === 'search' ? 'Search text' : 'Snapshot key from history list'} (Enter cancels): `);
+      if (value === null) return lastFailure;
+      if (!value.trim()) continue;
+      args.push(value.trim());
+    }
     if (tool.repository && action !== "help") {
       const repository = await ask("Repository path (Enter cancels): ");
       if (repository === null) return lastFailure;

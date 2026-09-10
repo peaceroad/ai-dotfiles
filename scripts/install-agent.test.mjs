@@ -76,7 +76,9 @@ test('Codex payload is self-contained and collisions are checked before updates'
   const options = { ...fixture(t), platform: 'win32' };
   installAgent(options);
   const runtime = join(options.agentsRoot, 'ai-dotfiles', 'runtime');
-  assert.deepEqual(fs.readdirSync(join(runtime, 'codex')).sort(), ['codex.mjs', ...CODEX_TOOLS.map(tool => tool.file)].sort());
+  assert.match(fs.readFileSync(join(options.agentsRoot, 'skills', 'codex-history', 'SKILL.md'), 'utf8'), /name: codex-history/);
+  assert.equal(fs.existsSync(join(options.agentsRoot, 'ai-dotfiles', 'codex-session-export.json')), false);
+  assert.deepEqual(fs.readdirSync(join(runtime, 'codex')).sort(), [...new Set(['codex.mjs', ...CODEX_TOOLS.flatMap(tool => [tool.file, ...(tool.supportFiles ?? [])])])].sort());
   const env = { ...process.env, AGENT_DEV_CONFIG: join(options.agentsRoot, 'missing.json') };
   for (const entry of ['agent.mjs', 'codex/codex.mjs']) {
     const result = spawnSync(process.execPath, [join(runtime, entry), ...(entry === 'agent.mjs' ? ['codex'] : []), '--help'], { encoding: 'utf8', env });

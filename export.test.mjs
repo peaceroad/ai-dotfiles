@@ -13,6 +13,7 @@ test('export rejects private agent data, nested paths, and broad parent selectio
   for (const path of [
     '.agents', '.agents/ai-dotfiles', '.agents/ai-dotfiles/development.json',
     '.agents/ai-dotfiles/state/marketplaces/team.json', '.agents/development.json', '.agents/skill-links.json',
+    '.agents/ai-dotfiles/codex-session-export.json',
   ]) {
     writeFileSync(join(root, 'export.yaml'), `paths:\n  - ${path}\n`);
     const result = spawnSync(process.execPath, [exporter, '--write'], { encoding: 'utf8' });

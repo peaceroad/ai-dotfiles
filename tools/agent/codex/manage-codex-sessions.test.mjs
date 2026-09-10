@@ -6,7 +6,9 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { inspectSessions, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, displayText } from './manage-codex-sessions.mjs';
+import { inspectSessions, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
+import { listBundles } from './session-export-storage.mjs';
+import { listBatches, readBatch } from './session-export-batches.mjs';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -350,28 +352,31 @@ test('export preserves raw and indexed history with verified hashes, without unr
   const options = parseSessionArgs(['export', parent, '--output', output]);
   const plan = selectPlan(snapshot, options);
   assert.deepEqual(plan.problems, []);
-  const folder = await exportSessions(snapshot, plan, output, { log() {} });
-  const manifest = JSON.parse(readFileSync(join(folder, 'manifest.json')));
-  assert.equal(manifest.complete, true); assert.equal(manifest.restorable, false);
-  assert.deepEqual(manifest.sessions.map(row => row.id), [parent, child]);
-  for (const row of manifest.sessions) {
-    for (const file of [row.rollout, row.history]) {
+  const result = await exportSessions(snapshot, plan, output, { log() {} });
+  assert.equal(result.folders.length, 2);
+  const bundles = listBundles(output);
+  assert.deepEqual(bundles.map(bundle => bundle.manifest.session.id).sort(), [parent, child]);
+  for (const { folder, manifest } of bundles) {
+    assert.equal(manifest.complete, true); assert.equal(manifest.restorable, false);
+    assert.deepEqual(manifest.spawnEdges, snapshot.edges.filter(edge => edge.parent === manifest.session.id || edge.child === manifest.session.id).map(edge => ({ ...edge })));
+    for (const file of manifest.files) {
       const content = readFileSync(join(folder, file.file));
       assert.equal(createHash('sha256').update(content).digest('hex'), file.sha256);
       assert.doesNotMatch(content.toString(), /UNSELECTED PRIVATE CONTENT/);
     }
-    assert.ok(row.history.records > 0);
+    assert.ok(manifest.files.find(file => file.file === 'history.jsonl').records > 0);
   }
   assert.deepEqual(await inspectSessions(f.home), snapshot);
 });
 
 test('export works from the command on non-Windows, asks once, and never invokes the official CLI', async t => {
   const f = fixture(t), output = exportParent(t);
-  assert.equal(await runSessions(['export', '--older-than-weeks', '4', '--output', output], {
+  assert.equal(await runSessions(['export', '--older-than-weeks', '4', '--output', output, '--after', 'keep'], {
     home: f.home, platform: 'linux', interactive: true, log() {}, ask: confirmPrompt,
     closed: () => assert.fail(), cli: () => assert.fail(),
-  }), 0);
-  assert.equal(readdirSync(output).length, 1);
+  }), 3); // Fixture contains no recognized conversation messages: explicitly partial.
+  assert.equal(listBundles(output).length, 3);
+  assert.equal(listBatches(output).length, 1);
 });
 
 test('streamed export preserves large UTF-8 rollouts, many history rows, and empty history files', async t => {
@@ -391,18 +396,21 @@ test('streamed export preserves large UTF-8 rollouts, many history rows, and emp
     db.exec('COMMIT');
   } finally { db.close(); }
   const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
-  const folder = await exportSessions(snapshot, plan, output, { log() {} });
-  const manifest = JSON.parse(readFileSync(join(folder, 'manifest.json')));
-  const exported = manifest.sessions.find(row => row.id === parent);
-  assert.equal(exported.rollout.bytes, Buffer.byteLength(raw));
-  assert.equal(readFileSync(join(folder, exported.rollout.file), 'utf8'), raw);
-  const rows = readFileSync(join(folder, exported.history.file), 'utf8').trimEnd().split('\n').map(JSON.parse);
-  assert.equal(rows.length, exported.history.records);
+  await exportSessions(snapshot, plan, output, { log() {} });
+  const bundles = listBundles(output);
+  const { folder, manifest } = bundles.find(bundle => bundle.manifest.session.id === parent);
+  const rollout = manifest.files.find(file => file.file === 'rollout.jsonl');
+  const history = manifest.files.find(file => file.file === 'history.jsonl');
+  assert.equal(rollout.bytes, Buffer.byteLength(raw));
+  assert.equal(readFileSync(join(folder, rollout.file), 'utf8'), raw);
+  const rows = readFileSync(join(folder, history.file), 'utf8').trimEnd().split('\n').map(JSON.parse);
+  assert.equal(rows.length, history.records);
   assert.equal(rows.length, 1003);
   assert.deepEqual(rows.filter(row => row.table === 'thread_items').slice(1).map(row => row.row.item_json), Array(1000).fill(payload));
-  const empty = manifest.sessions.find(row => row.id === child).history;
+  const childBundle = bundles.find(bundle => bundle.manifest.session.id === child);
+  const empty = childBundle.manifest.files.find(file => file.file === 'history.jsonl');
   assert.equal(empty.records, 0);
-  assert.equal(readFileSync(join(folder, empty.file)).length, 0);
+  assert.equal(readFileSync(join(childBundle.folder, empty.file)).length, 0);
   assert.equal(empty.sha256, createHash('sha256').digest('hex'));
   assert.deepEqual(await inspectSessions(f.home), snapshot);
 });
@@ -456,7 +464,7 @@ test('export detects history-only WAL commits and a newly created history databa
         if (line !== `Exported: ${parent}`) return;
         if (writer) writer.prepare('UPDATE thread_items SET item_json = ? WHERE thread_id = ?').run('"changed"', parent);
         else { const created = new DatabaseSync(join(f.home, 'thread_history_1.sqlite')); created.close(); }
-      } }), /Indexed history (changed|appeared) during export/);
+      } }), /Indexed history (changed|appeared) during operation/);
     } finally { writer?.close(); }
     const [folder] = readdirSync(output);
     assert.ok(folder);
@@ -493,4 +501,150 @@ test('empty bulk selections create no export directory and never prompt or invok
     }), 0);
   }
   assert.deepEqual(readdirSync(output), []);
+});
+
+function renderableFixture(t) {
+  const f = fixture(t);
+  for (const id of [parent, child, other]) writeFileSync(join(f.home, 'sessions', `${id}.jsonl`),
+    `${JSON.stringify({ type: 'session_meta', payload: { id, history_mode: 'legacy' } })}\n${JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Fixture conversation' }] } })}\n`);
+  return f;
+}
+async function saveBatch(f, output, selection = [parent]) {
+  const snapshot = await inspectSessions(f.home);
+  return exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', ...selection])), output, { log() {} });
+}
+async function previewToken(f, args) {
+  const output = [];
+  assert.equal(await runSessions(['plan', ...args], { home: f.home, interactive: false, log: line => output.push(line), cli: () => assert.fail(), ask: () => assert.fail() }), 0);
+  const token = output.find(line => line.startsWith('Confirmation token: '))?.slice('Confirmation token: '.length);
+  assert.match(token, /^[0-9a-f]{64}$/); return token;
+}
+
+test('export tokens support non-interactive period selection and bind the destination', async t => {
+  const f = renderableFixture(t), output = exportParent(t), different = exportParent(t);
+  const token = await previewToken(f, ['export', '--before', '4w', '--output', output]);
+  const options = { home: f.home, interactive: false, log() {}, cli: () => assert.fail(), ask: () => assert.fail() };
+  assert.equal(await runSessions(['export', '--before', '4w', '--output', different, '--confirm', token], options), 1);
+  assert.deepEqual(readdirSync(different), []);
+  assert.equal(await runSessions(['export', '--before', '4w', '--output', output, '--confirm', token, '--after', 'review-delete'], options), 0);
+  assert.equal(listBatches(output)[0].entries.length, 3);
+  assert.ok(listBatches(output)[0].selection.before.endsWith('Z'));
+  assert.equal((await inspectSessions(f.home)).sessions.length, 3);
+});
+
+test('a portable export receipt deletes exactly its original family, never newly eligible sessions', async t => {
+  const f = renderableFixture(t), output = exportParent(t), { batch } = await saveBatch(f, output);
+  const moved = join(exportParent(t), 'relocated'); renameSync(output, moved);
+  assert.equal(readBatch(moved, batch.id).digest, batch.digest);
+  const selection = ['delete', '--exported', batch.id, '--in', moved];
+  const token = await previewToken(f, selection), base = deletionOptions(f), calls = [];
+  assert.equal(await runSessions([...selection, '--confirm', token], { ...base, interactive: false, ask: () => assert.fail(), cli: args => {
+    if (args[0] === '--version') return base.cli(args);
+    assert.deepEqual(args, ['delete', parent, '--force']); calls.push(args[1]);
+    for (const id of [parent, child]) { f.update('DELETE FROM threads WHERE id = ?', id); rmSync(join(f.home, 'sessions', `${id}.jsonl`)); }
+    f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id = ?', parent);
+    return { status: 0 };
+  } }), 0);
+  assert.deepEqual(calls, [parent]);
+  assert.deepEqual((await inspectSessions(f.home)).sessions.map(row => row.id), [other]);
+  const after = await planExportedDeletion(await inspectSessions(f.home), moved, batch.id);
+  assert.equal(after.sessions.length, 0); assert.match(after.skipped[0].problems[0], /Already absent/);
+});
+
+test('exported deletion blocks changed content, new descendants, protections, missing files and warnings', async t => {
+  for (const change of ['bytes', 'descendant', 'pin', 'missing', 'warning']) {
+    const f = renderableFixture(t), output = exportParent(t);
+    if (change === 'warning') writeFileSync(join(f.home, 'sessions', `${child}.jsonl`), '{"fixture":true}\n');
+    const { batch } = await saveBatch(f, output), snapshot = await inspectSessions(f.home);
+    if (change === 'bytes') writeFileSync(join(f.home, 'sessions', `${child}.jsonl`), 'changed bytes\n');
+    if (change === 'descendant') f.update('INSERT INTO thread_spawn_edges VALUES (?, ?)', child, other);
+    if (change === 'pin') f.update('UPDATE threads SET is_pinned = 1 WHERE id = ?', child);
+    if (change === 'missing') rmSync(join(output, batch.entries[0].key, 'conversation.md'));
+    const plan = await planExportedDeletion(change === 'bytes' ? snapshot : await inspectSessions(f.home), output, batch.id);
+    assert.equal(plan.sessions.length, 0, change); assert.equal(plan.skipped.length, 1, change);
+    if (change === 'bytes') assert.match(plan.skipped[0].problems[0], /content changed/);
+  }
+});
+
+test('history-only changes invalidate exported deletion and stale confirmation never runs the CLI delete', async t => {
+  const f = renderableFixture(t), output = exportParent(t); historyFixture(f);
+  const { batch } = await saveBatch(f, output);
+  const args = ['delete', '--exported', batch.id, '--in', output], token = await previewToken(f, args);
+  const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+  db.prepare('UPDATE thread_items SET item_json = ? WHERE thread_id = ?').run('changed', child); db.close();
+  const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.equal(plan.groups.length, 0); assert.match(plan.skipped[0].problems[0], /Indexed history changed/);
+  const base = deletionOptions(f);
+  assert.equal(await runSessions([...args, '--confirm', token], { ...base, interactive: false }), 1);
+  assert.equal(await runSessions(args, { ...base, ask: () => assert.fail() }), 3);
+  assert.equal((await inspectSessions(f.home)).sessions.length, 3);
+});
+
+test('exported deletion rechecks saved files immediately after confirmation', async t => {
+  const f = renderableFixture(t), output = exportParent(t), { batch } = await saveBatch(f, output);
+  const base = deletionOptions(f);
+  assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], { ...base, ask: async prompt => {
+    rmSync(join(output, batch.entries[0].key, 'rollout.jsonl'));
+    return confirmPrompt(prompt);
+  } }), 1);
+  assert.equal((await inspectSessions(f.home)).sessions.length, 3);
+});
+
+test('receipts cannot cross Codex homes or escape their export folder', async t => {
+  const f = renderableFixture(t), different = renderableFixture(t), output = exportParent(t), { batch } = await saveBatch(f, output);
+  await assert.rejects(planExportedDeletion(await inspectSessions(different.home), output, batch.id), /different Codex home/);
+  assert.throws(() => readBatch(output, '../other'), /not a path/);
+  const path = join(output, 'batches', `${batch.id}.json`);
+  const receipt = JSON.parse(readFileSync(path, 'utf8')); receipt.entries[0].key = 'changed'; writeFileSync(path, JSON.stringify(receipt));
+  assert.throws(() => readBatch(output, batch.id), /Invalid or incomplete/);
+});
+
+test('interactive export defaults to keeping originals and can hand off to a cancellable deletion review', async t => {
+  for (const review of [false, true]) {
+    const f = renderableFixture(t), output = exportParent(t), base = deletionOptions(f), prompts = [];
+    assert.equal(await runSessions(['export', parent, '--output', output], { ...base, ask: async prompt => {
+      prompts.push(prompt);
+      if (prompt.startsWith('Type EXPORT')) return confirmPrompt(prompt);
+      if (prompt.startsWith('Next:')) return review ? '2' : '';
+      if (review && prompt.startsWith('Type DELETE')) return '';
+      assert.fail('Unexpected prompt');
+    } }), 0);
+    assert.equal(prompts.some(prompt => prompt.startsWith('Type DELETE')), review);
+    assert.equal((await inspectSessions(f.home)).sessions.length, 3);
+  }
+});
+
+test('batch and confirmation arguments never silently combine with another selector', () => {
+  for (const args of [ ['delete', parent, '--exported', 'batch'], ['delete', '--before', '4w', '--exported', 'batch'],
+    ['delete', '--in', 'fixture'], ['delete', '--exported', '--confirm', 'a'.repeat(64)],
+    ['export', parent, '--after', 'delete'], ['plan', 'delete', '--confirm', 'a'.repeat(64)], ['config', '--output', '--confirm'] ]) assert.throws(() => parseSessionArgs(args));
+});
+
+test('export batch selection is interactive, cancellable, and does not inspect unrelated saved bodies', async t => {
+  const f = renderableFixture(t), output = exportParent(t), { batch } = await saveBatch(f, output);
+  const unrelated = join(output, 'unrelated'); mkdirSync(unrelated); writeFileSync(join(unrelated, 'manifest.json'), 'not json');
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  const base = deletionOptions(f), prompts = [];
+  assert.equal(await runSessions(['delete', '--exported', '--in', output], { ...base, ask: async prompt => {
+    prompts.push(prompt); return prompt.startsWith('Export batch number') ? '1' : '';
+  } }), 0);
+  assert.ok(prompts.some(prompt => prompt.startsWith('Type DELETE')));
+  assert.equal(await runSessions(['delete', '--exported', '--in', output], { ...base, interactive: false, ask: () => assert.fail() }), 1);
+});
+
+test('batch deletion stops when a remaining family history changes after the first verified deletion', async t => {
+  const f = renderableFixture(t), output = exportParent(t); historyFixture(f);
+  const { batch } = await saveBatch(f, output, ['--before', '4w']), base = deletionOptions(f), calls = [];
+  const args = ['delete', '--exported', batch.id, '--in', output], token = await previewToken(f, args);
+  assert.equal(await runSessions([...args, '--confirm', token], { ...base, interactive: false, ask: () => assert.fail(), cli: args => {
+    if (args[0] === '--version') return base.cli(args);
+    assert.deepEqual(args, ['delete', parent, '--force']); calls.push(args[1]);
+    for (const id of [parent, child]) { f.update('DELETE FROM threads WHERE id = ?', id); rmSync(join(f.home, 'sessions', `${id}.jsonl`)); }
+    f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id = ?', parent);
+    const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+    db.prepare('UPDATE thread_items SET item_json = ? WHERE thread_id = ?').run('changed remaining history', other); db.close();
+    return { status: 0 };
+  } }), 1);
+  assert.deepEqual(calls, [parent]);
+  assert.deepEqual((await inspectSessions(f.home)).sessions.map(row => row.id), [other]);
 });

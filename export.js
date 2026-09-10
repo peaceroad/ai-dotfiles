@@ -27,6 +27,7 @@ const CODEX_CONFIG_PATH = ".codex/config.toml";
 const SKILL_LINKS_PATH = ".agents/ai-dotfiles/skill-links.json";
 const LOCAL_ONLY_EXPORT_PATHS = [
   ".agents/development.json", ".agents/ai-dotfiles/development.json", ".agents/ai-dotfiles/state",
+  ".agents/ai-dotfiles/codex-session-export.json",
   ".agents/skill-links.json",
 ];
 const CODEX_COMPUTER_USE_NOTIFY_PATTERN =
@@ -1017,7 +1018,7 @@ async function main() {
     const key = pathComparisonKey(relativePath);
     if (LOCAL_ONLY_EXPORT_PATHS.some(local => key === local || key.startsWith(`${local}/`) || local.startsWith(`${key}/`))) {
       throw new Error(
-        `${relativePath} contains machine-specific development targets and must not be exported`,
+        `${relativePath} contains machine-specific agent settings or state and must not be exported`,
       );
     }
   }
