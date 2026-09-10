@@ -46,6 +46,20 @@ test('unknown commands and excess help arguments do not launch anything', async 
   }
 });
 
+test('typo guidance lists local choices and respects platform visibility', async () => {
+  for (const platform of ['win32', 'darwin', 'linux']) {
+    const output = [];
+    const options = { platform, log: line => output.push(line), run: () => assert.fail('Must not run') };
+    assert.equal(await runCodex(['sesion'], options), 2);
+    assert.match(output.join('\n'), /Available:.*session.*history/);
+    assert.equal(output.join('\n').includes('git-acl'), platform === 'win32');
+    output.length = 0;
+    assert.equal(await runCodex(['session', 'exprot'], options), 2);
+    assert.match(output.join('\n'), /Available:.*export/);
+    assert.match(output.join('\n'), /agent codex session help/);
+  }
+});
+
 test('menu supports descriptions, back, cancellation, and explicit operations', async () => {
   const answers = ['invalid', ' G ', '', 'repair', '', ' STATUS ', 'space and 日本語', 'b', 'l', 'suppress', 'help', ' Q '];
   const output = [];

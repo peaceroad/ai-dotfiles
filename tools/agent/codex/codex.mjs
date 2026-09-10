@@ -59,7 +59,7 @@ const isHelp = value => ["help", "--help", "-h"].includes(value);
 const isAvailable = (tool, platform) => !tool.windowsOnly || platform === "win32";
 // Default discovery is narrower than explicit access for environment-dependent fixes.
 const isVisible = (tool, platform) => isAvailable(tool, platform) && (!tool.windowsMenuOnly || platform === "win32");
-const banner = "Codex diagnostics and workarounds\nProvided by ai-dotfiles; not an official Codex command.";
+const banner = "Codex diagnostics, session management, and saved history\nProvided by ai-dotfiles; not an official Codex command.";
 
 function printHelp(log, platform, tool) {
   log(banner);
@@ -77,7 +77,7 @@ function printHelp(log, platform, tool) {
     log(`  agent codex ${entry.name} help - Full script help${isAvailable(entry, platform) ? "" : " on Windows"}`);
   }
   log("\nWith no action, an interactive terminal opens a menu; redirected input/output shows help only.");
-  log("Fully close Codex/ChatGPT before changes. Each script retains its own safety checks and confirmation.");
+  log("Client shutdown requirements depend on the operation; inspect the tool's help. Safety checks and confirmations remain in each script.");
   log("No development.json is required. Individual .mjs and .ps1 scripts remain directly executable.");
 }
 
@@ -143,7 +143,7 @@ async function menu(initialTool, { ask, run, log, platform }) {
       continue;
     }
     log(`\n${tool.title}\n${tool.description}\n${tool.requirements}`);
-    log("Changes require Codex/ChatGPT to be closed and confirmation in the individual script.");
+    log("Each operation retains its own shutdown requirements and confirmation. Choose help for details.");
     tool.actions.forEach(([action, key, label], index) => log(`  ${index + 1}/${key}. ${label} (${action})`));
     log("  h. Show full script help\n  b. Back\n  q. Quit");
     const choice = (await ask("Selection: "))?.trim().toLowerCase();
@@ -181,13 +181,16 @@ export async function runCodex(args, {
 } = {}) {
   if (isHelp(args[0]) && args.length === 1) { printHelp(log, platform); return 0; }
   const tool = CODEX_TOOLS.find(entry => entry.name === args[0]);
-  if (args.length && !tool) { log("Unknown Codex tool. Run agent codex --help."); return 2; }
+  if (args.length && !tool) {
+    log(`Unknown Codex tool. Available: ${CODEX_TOOLS.filter(entry => isVisible(entry, platform)).map(entry => entry.name).join(", ")}. Run agent codex --help.`);
+    return 2;
+  }
   const forwarded = args.slice(1);
   if (isHelp(forwarded[0])) {
     if (forwarded.length !== 1) { log("Help does not accept extra arguments."); return 2; }
     forwarded[0] = "help";
   } else if (forwarded.length && !tool.actions.some(([action]) => action === forwarded[0])) {
-    log(`Unknown action for ${tool.name}. Run agent codex ${tool.name} help.`);
+    log(`Unknown action for ${tool.name}. Available: ${tool.actions.map(([action]) => action).join(", ")}. Run agent codex ${tool.name} help.`);
     return 2;
   }
   // Enforce the same policy for a tool menu and an explicit action, before prompting.

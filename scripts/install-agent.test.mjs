@@ -205,7 +205,7 @@ test('macOS zsh finds and launches agent through PATH', { skip: process.platform
     env: { ...process.env, PATH: `${options.binDir}:${process.env.PATH ?? ''}` },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Agent Skill/);
+  assert.match(result.stdout, /Usage: agent <command>/);
 });
 
 

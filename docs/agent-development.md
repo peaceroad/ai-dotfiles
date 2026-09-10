@@ -249,10 +249,12 @@ agent dev marketplace configure team
 
 ローカル開発元へのスキルリンクは、`agent dev skill link`の専用メニューで登録・変更・解除できます。初回登録で`skill-links.json`を作成し、リンク作成は`sync`で行います。これはMarketplaceからのSkill導入や、Marketplaceへ配布するSkill対象の登録とは別の操作です。手順と安全条件は[スキルリンクのガイド](./skill-links.md#コマンドから登録変更解除する)を参照してください。
 
-設定した対象名とヘルプを表示します。この操作は状態を変更しません。
+`agent`、`agent dev`、`agent dev skill`、`agent dev plugin`、`agent dev marketplace`は、それぞれの階層のヘルプを表示します。`help`、`--help`、`-h`でも表示でき、設定ファイルは不要です。誤入力時にはその階層の候補を案内しますが、自動補正して実行することはありません。`agent codex`と`agent dev skill link`は端末では対話メニューを開き、ヘルプを明示した場合はメニューへ入りません。
+
+設定済みの対象名は次のコマンドで確認します。この操作は状態を変更しません。
 
 ```powershell
-agent dev
+agent dev status
 ```
 
 スキルリンクを検査または同期します。

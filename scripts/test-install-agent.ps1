@@ -151,7 +151,7 @@ try {
 
   & $installer -AgentsRoot $agentsRoot -SkipPathRegistration -Force
   $launcherHelp = & $agentCommand --help | Out-String
-  Assert-AgentTest ($LASTEXITCODE -eq 0 -and $launcherHelp.Contains('Agent Skill')) 'Windows launcher failed to start its runtime.'
+  Assert-AgentTest ($LASTEXITCODE -eq 0 -and $launcherHelp.Contains('Usage: agent <command>')) 'Windows launcher failed to start its runtime.'
   $codexHelp = & $agentCommand codex --help | Out-String
   Assert-AgentTest ($LASTEXITCODE -eq 0 -and $codexHelp.Contains('Codex diagnostics')) 'Windows launcher failed to dispatch Codex tools.'
   $gitAclHelp = & $agentCommand codex git-acl --help | Out-String

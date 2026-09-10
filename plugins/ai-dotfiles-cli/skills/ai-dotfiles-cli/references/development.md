@@ -2,7 +2,7 @@
 
 Use for source links and developer plugin targets, not shared distribution or consumer copies. Read the installed command help for exact arguments.
 
-`agent dev` lists configured targets without changing them. Select the local target key and verify its source and intended destination. That key can differ from the package name or Codex Marketplace identifier. The development index defaults to `~/.agents/ai-dotfiles/development.json`; link declarations are separately owned by `~/.agents/ai-dotfiles/skill-links.json`.
+`agent dev` shows help; `agent dev status` lists configured targets without changing them. Select the local target key and verify its source and intended destination. That key can differ from the package name or Codex Marketplace identifier. The development index defaults to `~/.agents/ai-dotfiles/development.json`; link declarations are separately owned by `~/.agents/ai-dotfiles/skill-links.json`.
 
 ## Skill source links
 

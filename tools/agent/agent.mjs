@@ -74,85 +74,141 @@ const MARKETPLACE_SKILL_LOCK_PATH = join(DATA_ROOT, "state", "skill-installation
 const MARKETPLACE_SKILL_STATE_MARKER = "@ai-dotfiles agent-marketplace-skill-state v1";
 const MARKETPLACE_SKILL_CATALOG_MARKER = "@plugin-creator-agent-plugins managed-skill-catalog v1";
 
-const HELP = `Manage local Agent Skill, Agent Plugin, and Marketplace development and Codex diagnostics
+const HELP = {
+  "": `ai-dotfiles agent CLI
+
+Usage: agent <command> [arguments...]
+  dev          Develop Skills/plugins and publish shared Marketplaces.
+  marketplace  Browse and manage published standalone Skill copies.
+  codex        Codex diagnostics, session management, and saved-history access.
+
+Examples:
+  agent dev --help
+  agent marketplace --help
+  agent codex                 Open the tool menu in an interactive terminal.
+
+Alias: mp is short for marketplace (also under agent dev).
+Use help, --help, or -h after a command group. Help never starts an operation.`,
+  dev: `Manage development sources and their derived copies
+
+Usage: agent dev <command> [arguments...]
+  status       List targets in development.json (not installed Skills or links).
+  skill        Inspect or manage local development Skill links.
+  plugin       Validate or install developer plugins in local Codex.
+  marketplace  Configure, check, or publish a shared Marketplace (alias: mp).
+
+Examples:
+  agent dev status
+  agent dev skill --help
+  agent dev plugin --help
+  agent dev marketplace --help
+
+Settings: ~/.agents/ai-dotfiles/development.json (override: AGENT_DEV_CONFIG).
+Skill links use a separate manifest. Help needs no configuration.
+The CLI installer does not create or migrate user settings or install Skills.`,
+  "dev skill": `Manage local development Skill links, not Marketplace-installed copies
+
+Usage: agent dev skill <command>
+  status  Inspect declared links (read-only).
+  check   Inspect links and fail on drift (read-only).
+  sync    Create missing declared links; never replace existing paths.
+  link    Open the link-management menu in an interactive terminal (alias: links).
+
+Examples:
+  agent dev skill check
+  agent dev skill link add my-skill <source-directory> --yes
+  agent dev skill link sync
+  agent dev skill link --help
+
+Settings: ~/.agents/ai-dotfiles/skill-links.json (override: AGENT_DEV_SKILL_LINKS).
+No development.json is required. For published copies: agent marketplace skill --help.`,
+  "dev plugin": `Validate and install developer plugins in local Codex
+
+Usage: agent dev plugin <status|check|sync> [<name>]
+  status  Inspect the local plugin snapshot (read-only).
+  check   Validate the source through its configured manager (read-only).
+  sync    Install or refresh the source plugin in Codex; may update its version.
+
+Example: agent dev plugin check my-plugin
+Use the local target name from agent dev status; omit it only with one target.
+Repository-managed targets retain repository checks and version policy.
+Direct targets require an explicit bump/keep policy and a developer-source catalog.
+Sync refuses active same-named user-scoped Skills. Source files remain the source
+of truth. This does not publish a shared Marketplace; use agent dev marketplace.`,
+  "dev marketplace": `Configure, inspect, and publish shared Marketplaces
+
+Usage: agent dev marketplace <command> [<name>] [options]
+  configure, setup  Edit local settings interactively; do not sync or install.
+  status            Inspect metadata without writing or accepting revisions.
+  check             Report consistency without changing managed state.
+  sync              Publish copies from the configured local sources.
+
+Options for check/sync:
+  --plugin <target> | --skill <target>  Process one local assignment only.
+  --interactive                       Check only: review assignments/mode, then
+                                      explicitly save local settings and acceptance.
+                                      Cannot accompany --plugin or --skill.
+
+Examples:
+  agent dev marketplace configure
+  agent dev marketplace check team
+  agent dev marketplace sync team --plugin my-plugin
+  agent dev marketplace check team --interactive
+
+Omit the name only with one configured Marketplace; configure can select a target.
+Authoritative check/sync without a selector covers the complete assignment set.
+Contributor check/sync without a selector processes local assignments one by one,
+preserving unassigned entries. Failure stops the remainder without rolling back
+completed operations. Scoped success does not verify other shared copies.
+Consumer mode refuses development check/sync; use agent marketplace to browse.
+
+Full sync stops if shared metadata changed since acceptance. On first sync,
+matching assignments need no separate acceptance; the revision is saved after
+success. Use check --interactive to review changes without forcing a full sync.
+Plain status/check never accept changes. Importing assignments does not update
+source repositories. Modes do not switch automatically or identify the writer.
+Revision records: state/marketplaces/ beside development.json.
+The legacy reconcile command aliases check --interactive.
+
+Sync preserves overwrite and concurrency guards; it does not commit, push, or
+install plugins for consumers. Configure changes local settings only.
+For consumer operations: agent marketplace --help.`,
+  marketplace: `Use published standalone Skills from a configured Marketplace
+
+Usage: agent marketplace <command> [arguments...]
+  list [<marketplace>]  List published standalone Skills (read-only).
+  skill                List, install, update, or remove local Skill copies.
+
+Examples:
+  agent marketplace list
+  agent marketplace skill --help
+
+Alias: agent mp. Connections are configured with agent dev marketplace configure.
+This does not install plugins in Codex; use the client's plugin tools.
+For source development and shared publication: agent dev marketplace --help.`,
+  "marketplace skill": `Manage local copies of published standalone Skills
 
 Usage:
-  agent codex [<tool> [<action> [arguments...]]]
-  agent codex --help
-  agent dev
-  agent dev skill status
-  agent dev skill check
-  agent dev skill sync
-  agent dev skill link [<action> [arguments...]]
-  agent dev plugin status [<name>]
-  agent dev plugin check [<name>]
-  agent dev plugin sync [<name>]
-  agent dev marketplace configure [<name>]
-  agent dev marketplace setup [<name>]
-  agent dev marketplace status [<name>]
-  agent dev marketplace check [<name>] [--plugin <target> | --skill <target>]
-  agent dev marketplace check [<name>] --interactive
-  agent dev marketplace sync [<name>] [--plugin <target> | --skill <target>]
-  agent marketplace list [<marketplace>]
   agent marketplace skill list [<marketplace>]
   agent marketplace skill install <skill> [<marketplace>]
   agent marketplace skill update <skill> [<marketplace>]
   agent marketplace skill remove <skill>
 
-Alias:
-  mp     Short for marketplace in both "agent mp ..." and "agent dev mp ...".
-  links  Alias for link in "agent dev skill link ...".
+List reads the catalog. Install/update verify the selected copy and catalog digest.
+Update defaults to the recorded Marketplace; remove needs no Marketplace argument.
+Unmanaged or locally edited destinations are never overwritten or removed.
+Copies: ~/.agents/skills. State: ~/.agents/ai-dotfiles/state/skill-installations.json.
+These commands do not edit development sources or create source links.
+For source links: agent dev skill link --help.`,
+};
 
-Behavior:
-  status Show Skill links, Plugin snapshots, or Marketplace metadata without writing.
-  check  Validate or detect drift without changing managed state.
-  sync   Reconcile the selected derived state from its source of truth.
-  list   List standalone Skills in a configured Marketplace.
-  install, update, remove
-         Manage verified standalone Skill copies under ~/.agents/skills.
-  configure, setup
-         Interactively edit local development configuration without syncing.
-  check --interactive
-         Report consistency, then review shared assignments or maintenance scope.
-         The legacy reconcile command remains available as an alias.
-
-Full Marketplace sync stops if shared metadata changed since the last accepted
-revision. On first use, matching shared and local assignments allow a full sync;
-the revision is recorded only after success. Review differing assignments with
-check --interactive; keeping authoritative mode does not require switching roles.
-Status and check never acknowledge changes. Revision records are stored in
-state/marketplaces/ beside development.json and do not identify the writer.
-In contributor mode, check/sync without a selector processes each local assignment
-as a scoped operation, preserving unassigned shared entries. It is not a single
-transaction: a failure stops the remaining operations without undoing completed ones.
-
-Plugin sync installs from a repository-owned local Marketplace. Marketplace sync
-assembles a separate shared distribution. Neither command makes an installed or
-distributed copy the editable source. Plugin sync refuses to run while a
-same-named user-scoped skill entry is active.
-
-Configuration:
-  ~/.agents/ai-dotfiles/development.json
-  ~/.agents/ai-dotfiles/skill-links.json (user-scoped development links)
-  ~/.agents/ai-dotfiles/state/skill-installations.json (managed Skill installation state)
-The installer does not create or migrate user configuration or state.
-
-Marketplace configure uses a nine-item action menu with number and letter
-shortcuts. It can add, edit, or remove Marketplace targets, local plugin and
-Skill targets, and Marketplace assignments. Submenus accept b to go back, and
-input forms accept :back to discard only that operation. When only one
-Marketplace exists, selection is automatic. With multiple Marketplaces,
-configure selects one working target for the session.
-
-Marketplace --plugin or --skill reads the existing managed Marketplace,
-preserves other entries, and checks or syncs one local target. It does not
-claim that other distributed copies are current.
-
-Consumer Marketplace connections allow Skill listing and installation but
-reject development checks and synchronization until their mode is changed.
-
-Running without a mutating subcommand displays help or configured target names
-and does not change links, plugin installations, or Marketplace distributions.`;
+const isHelp = value => ["help", "--help", "-h"].includes(value);
+function helpScope(argv) {
+  const command = argv[0] === "mp" ? "marketplace" : argv[0];
+  const domain = command === "dev" && argv[1] === "mp" ? "marketplace" : argv[1];
+  const nested = `${command} ${domain}`;
+  return Object.hasOwn(HELP, nested) ? nested : Object.hasOwn(HELP, command) ? command : "";
+}
 
 function fail(message, exitCode = 1) {
   const error = new Error(message);
@@ -2569,26 +2625,43 @@ Enter :back in an input form to discard that operation.`);
 }
 
 function printTargets(config) {
-  console.log(`Skills:       ${Object.keys(config.skills).sort().join(", ") || "(none)"}`);
-  console.log(`Plugins:      ${Object.keys(config.plugins).sort().join(", ") || "(none)"}`);
-  console.log(`Marketplaces: ${Object.keys(config.marketplaces).sort().join(", ") || "(none)"}`);
-  console.log("");
-  console.log(HELP);
+  console.log("Configured development targets (not installed components or Skill links):");
+  console.log(`Distribution Skills: ${Object.keys(config.skills).sort().join(", ") || "(none)"}`);
+  console.log(`Plugins:             ${Object.keys(config.plugins).sort().join(", ") || "(none)"}`);
+  console.log(`Marketplaces:        ${Object.keys(config.marketplaces).sort().join(", ") || "(none)"}`);
+  console.log("For source links: agent dev skill status. For usage: agent dev --help.");
 }
 
 function parseInvocation(argv) {
-  if (argv.length === 0 || ["-h", "--help", "help"].includes(argv[0])) return { help: true };
-  const command = argv[0] === "mp" ? "marketplace" : argv[0];
+  if (argv.length === 0 || (argv.length === 1 && isHelp(argv[0]))) return { help: "" };
+  argv = [...argv];
+  if (argv[0] === "mp") argv[0] = "marketplace";
+  if (argv[0] === "dev" && argv[1] === "mp") argv[1] = "marketplace";
+  const scope = helpScope(argv);
+  const helpActions = {
+    dev: ["status"],
+    "dev skill": ["status", "check", "sync"],
+    "dev plugin": ["status", "check", "sync"],
+    "dev marketplace": ["status", "check", "sync", "configure", "setup", "reconcile"],
+    marketplace: ["list"],
+    "marketplace skill": ["list", "install", "update", "remove"],
+  };
+  if (scope) {
+    const depth = scope.split(" ").length;
+    if (argv.join(" ") === scope || (isHelp(argv.at(-1)) && (argv.length === depth + 1
+        || (argv.length === depth + 2 && helpActions[scope].includes(argv[depth]))))) return { help: scope };
+  }
+  const command = argv[0];
   if (command === "marketplace") {
     const rest = argv.slice(1);
     if (rest[0] === "list") {
       if (rest.length > 2) fail(`Unexpected argument: ${rest[2]}.`, 2);
       return { consumerMarketplace: true, action: "list", target: rest[1] };
     }
-    if (rest[0] !== "skill") fail('Choose "skill" or "list" for marketplace.', 2);
+    if (rest[0] !== "skill") fail('Unknown Marketplace command. Available: list, skill.', 2);
     const action = rest[1];
     if (!["list", "install", "update", "remove"].includes(action)) {
-      fail("Choose list, install, update, or remove for marketplace skill.", 2);
+      fail("Unknown Marketplace Skill command. Available: list, install, update, remove.", 2);
     }
     if (action === "list") {
       if (rest.length > 3) fail(`Unexpected argument: ${rest[3]}.`, 2);
@@ -2603,15 +2676,18 @@ function parseInvocation(argv) {
     if (rest.length > 4) fail(`Unexpected argument: ${rest[4]}.`, 2);
     return { consumerMarketplace: true, action, skillName, target: rest[3] };
   }
-  if (command !== "dev") fail(`Unknown command: ${argv[0]}.`, 2);
-  if (argv.length === 1) return { summary: true };
-  const domain = argv[1] === "mp" ? "marketplace" : argv[1];
+  if (command !== "dev") fail(`Unknown command: ${argv[0]}. Available: dev, marketplace (mp), codex.`, 2);
+  if (argv[1] === "status") {
+    if (argv.length !== 2) fail("dev status does not accept arguments.", 2);
+    return { summary: true };
+  }
+  const domain = argv[1];
   const action = argv[2];
   if (domain === "skill" && ["link", "links"].includes(action)) return { domain, action: "link", linkArguments: argv.slice(3) };
-  if (!["skill", "plugin", "marketplace"].includes(domain)) fail(`Unknown development target: ${domain ?? "(missing)"}.`, 2);
+  if (!["skill", "plugin", "marketplace"].includes(domain)) fail(`Unknown development command: ${domain}. Available: status, skill, plugin, marketplace (mp).`, 2);
   const marketplaceConfiguration = domain === "marketplace" && ["configure", "setup", "reconcile"].includes(action);
   if (!["status", "check", "sync"].includes(action) && !marketplaceConfiguration) {
-    fail(`Choose status, check, or sync for ${domain}${domain === "marketplace" ? ", or configure" : ""}.`, 2);
+    fail(`Unknown ${domain} command: ${action}. Available: status, check, sync${domain === "marketplace" ? ", configure (setup)" : domain === "skill" ? ", link (links)" : ""}.`, 2);
   }
   const rest = argv.slice(3);
   if (domain === "skill") {
@@ -2659,7 +2735,7 @@ async function main() {
     return;
   }
   const invocation = parseInvocation(process.argv.slice(2));
-  if (invocation.help) console.log(HELP);
+  if (invocation.help !== undefined) console.log(HELP[invocation.help]);
   else if (invocation.consumerMarketplace) {
     const config = invocation.action === "remove" ? null : readConfiguration();
     process.exitCode = handleConsumerMarketplaceSkill(
@@ -2702,6 +2778,9 @@ try {
   await main();
 } catch (error) {
   console.error(`agent: ${sanitizeOutput(error.message, [[HOME_PATH, "~"]])}`);
-  if (error.exitCode === 2) console.error("\nRun agent --help for usage.");
+  if (error.exitCode === 2) {
+    const scope = helpScope(process.argv.slice(2));
+    console.error(`\nRun agent${scope ? ` ${scope}` : ""} --help for usage.`);
+  }
   process.exitCode = error.exitCode ?? 1;
 }

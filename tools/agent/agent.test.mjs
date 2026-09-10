@@ -47,7 +47,7 @@ test("default storage uses ai-dotfiles and read-only commands never migrate lega
   writeJson(legacy, { schemaVersion: 2, plugins: {}, marketplaces: {} });
   try {
     const env = { AGENT_DEV_HOME: home, AGENT_DEV_CONFIG: "" };
-    for (const args of [["dev"], ["dev", "marketplace", "status"], ["dev", "marketplace", "check"]]) {
+    for (const args of [["dev", "status"], ["dev", "marketplace", "status"], ["dev", "marketplace", "check"]]) {
       const result = run(CLI, args, env);
       assert.notEqual(result.status, 0);
       assert.match(result.stderr + result.stdout, /ENOENT/);
@@ -56,7 +56,7 @@ test("default storage uses ai-dotfiles and read-only commands never migrate lega
     }
     mkdirSync(dirname(current));
     renameSync(legacy, current);
-    assert.equal(run(CLI, ["dev"], env).status, 0);
+    assert.equal(run(CLI, ["dev", "status"], env).status, 0);
     assert.equal(existsSync(join(dirname(current), "state")), false);
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
@@ -78,7 +78,7 @@ test("rejects provenance URLs that could expose credentials", () => {
     marketplaces: {},
   });
   try {
-    const result = run(CLI, ["dev"], {
+    const result = run(CLI, ["dev", "status"], {
       AGENT_DEV_HOME: home,
       AGENT_DEV_CONFIG: configPath,
     });
@@ -1202,8 +1202,61 @@ test("help does not require local configuration", () => {
     AGENT_DEV_CONFIG: join(tmpdir(), "missing-agent-development.json"),
   });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /mp\s+Short for marketplace/u);
-  assert.match(result.stdout, /agent dev plugin sync/u);
+  assert.match(result.stdout, /mp is short for marketplace/u);
+  assert.match(result.stdout, /agent dev --help/u);
+});
+
+test("group and action help bypass invalid configuration and never invoke managers", async t => {
+  const { mkdtempSync, existsSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "agent-help-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const config = join(root, "invalid.json"), runner = join(root, "runner.mjs"), log = join(root, "calls.log");
+  writeFileSync(config, "invalid configuration");
+  makeRunner(runner, "unexpected");
+  const env = { AGENT_DEV_CONFIG: config, AGENT_DEV_HOME: root, AGENT_DEV_SKILL_MANAGER: runner,
+    AGENT_DEV_LOCAL_PLUGIN_MANAGER: runner, AGENT_DEV_MARKETPLACE_MANAGER: runner, AGENT_DEV_LOG: log };
+  for (const group of [[], ["dev"], ["dev", "skill"], ["dev", "plugin"], ["dev", "marketplace"],
+    ["dev", "mp"], ["marketplace"], ["mp"], ["marketplace", "skill"], ["mp", "skill"]]) {
+    const bare = run(CLI, group, env);
+    assert.equal(bare.status, 0, bare.stderr);
+    assert.match(bare.stdout, /Usage:/);
+    for (const flag of ["help", "--help", "-h"]) {
+      const result = run(CLI, [...group, flag], env);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout, bare.stdout);
+    }
+  }
+  for (const args of [["dev", "status"], ["dev", "skill", "sync"], ["dev", "plugin", "sync"],
+    ["dev", "marketplace", "configure"], ["dev", "marketplace", "check"], ["dev", "mp", "sync"],
+    ["marketplace", "list"], ["marketplace", "skill", "install"], ["mp", "skill", "remove"]]) {
+    for (const flag of ["help", "--help", "-h"]) {
+      const result = run(CLI, [...args, flag], env);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Usage:/);
+    }
+  }
+  assert.equal(existsSync(log), false);
+  assert.equal(readFileSync(config, "utf8"), "invalid configuration");
+  assert.equal(existsSync(join(root, ".agents")), false);
+});
+
+test("unknown commands offer local choices without correcting or running them", () => {
+  for (const [args, choices, hint] of [
+    [["dve"], /Available: dev, marketplace.*codex/, /Run agent --help/],
+    [["dev", "markteplace"], /Available: status, skill, plugin, marketplace/, /Run agent dev --help/],
+    [["dev", "plugin", "sncy"], /Available: status, check, sync/, /Run agent dev plugin --help/],
+    [["marketplace", "skil"], /Available: list, skill/, /Run agent marketplace --help/],
+    [["marketplace", "skill", "instal"], /Available: list, install, update, remove/, /Run agent marketplace skill --help/],
+  ]) {
+    const result = run(CLI, args, { AGENT_DEV_CONFIG: join(tmpdir(), "missing-help-config.json") });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, choices);
+    assert.match(result.stderr, hint);
+    assert.equal(result.stdout, "");
+  }
+  for (const args of [["help", "extra"], ["dev", "typo", "--help"], ["dev", "status", "extra"], ["dev", "skill", "--help", "extra"]]) {
+    assert.equal(run(CLI, args, {}).status, 2);
+  }
 });
 
 test("skill commands do not require plugin and Marketplace configuration", () => {
