@@ -1,6 +1,6 @@
 # Gemini Gem instructions and Knowledge
 
-Use for classic Gemini Apps Gems with persistent Instructions and Knowledge. Read [Gemini prompt design](gemini-prompt-design.md) for instruction wording and [media prompts](gemini-media-generation-prompt-design.md) when relevant. This is an authoring reference; producing instruction text does not itself create, save, or share a Gem.
+Use for classic Gemini Apps Gems with persistent Instructions and Knowledge. Read [Gemini prompt design](gemini-prompt-design.md) for instruction wording; select any media-input or generation supplement through the [entry point](../SKILL.md). This is an authoring reference; producing instruction text does not itself create, save, or share a Gem.
 
 Official guidance checked: 2026-09-06. Gems from Google Labs are Opal-powered mini-app workflows, a different authoring surface. If that is the target, design its inputs, steps, outputs, and handoffs using its current guidance instead of assuming the classic Instructions/Knowledge setup applies. Infer the intended surface from context; clarify only if the distinction changes the work and remains unresolved.
 
@@ -26,7 +26,7 @@ File names and consultation instructions guide source use; they do not prove tha
 
 ## Source access, updates, and sharing
 
-Use the current product documentation when these conditions affect the design:
+When setup or sharing depends on these conditions, apply the entry point's verification rules to the relevant product facts:
 
 - **Drive files:** The help documentation requires Keep Activity and the Google Workspace connection for adding them. Drive-backed sources use the current file version. For repeatable evaluations, identify the source revision or use a fixed copy.
 - **Notebook sources:** The Gem help documentation still uses the name NotebookLM, now renamed Gemini Notebook. Confirm the attachment option in the intended surface. The current sharing help excludes notebook sources from shared Gems; do not promise that a personal notebook-backed Gem can be shared unchanged.

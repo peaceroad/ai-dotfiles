@@ -5,7 +5,9 @@ description: "Use with prompt-design to design, review, or adapt Gemini instruct
 
 # Gemini Prompt Reference
 
-Supplement `prompt-design` with guidance for the established Gemini target. Keep the shared design method and reporting rules in that skill; use this one for Gemini-specific decisions.
+Use `prompt-design` for the shared method and reporting rules, and the relevant guidance here to produce the requested Gemini prompt or review.
+
+The maintained baseline is Gemini 3 and later, including native image models in that family, not earlier generations. When no exact model is established, use that prompting baseline without inventing a model ID or changing the deployment. Omni, Veo, and Imagen have separate model lineages and controls.
 
 ## Start with the shared design method
 
@@ -17,9 +19,16 @@ Preserve Gemini as the design target when applying the shared method. Do not loa
 
 - **All Gemini instruction design:** Read [Gemini prompt design](references/gemini-prompt-design.md).
 - **Gem Instructions or Knowledge:** Also read [Gem design](references/gemini-gems-prompt-design.md).
-- **Image/video generation or editing prompts:** Also read [media prompt design](references/gemini-media-generation-prompt-design.md). Text-only work does not need it. A Gem that designs media prompts may need both supplements.
+- **Prompts for understanding supplied images, video, audio, or documents:** Also read [media input design](references/gemini-media-input-prompt-design.md). This covers extracting, comparing, and interpreting evidence, not generating media.
+- **Image/video generation or editing prompts:** Also read [media generation design](references/gemini-media-generation-prompt-design.md). Merely attaching a generation reference does not require the input-analysis supplement; use both when the task also needs substantial analysis. A Gem that designs media prompts may also need Gem design.
 
-Use official Google sources for model or product facts. External links document provenance, not an unconditional reading list. Verify current guidance when a migration, an explicit current-information request, or a model capability, product behavior, parameter, or limit affects the design. Reuse sufficient current evidence. A wording-only change does not require a new lookup. Do not put API settings into Gemini Apps or Gem prompts as if they configured those products.
+## Use bundled guidance; verify consequential gaps
+
+Ordinary text prompts, Gem instructions, and media briefs can be completed with the shared method and bundled references when those cover the design decisions. Do not turn a design request into a documentation survey or return source links in place of the requested prompt.
+
+Use official Google sources for an explicit current-guidance request, a model migration, or a consequential model/product fact that the available evidence does not establish reliably. Check the relevant fact, not every linked page; reuse sufficient current evidence. This includes uncertain or changed input modes, controls, limits, and product behavior. Routine wording, composition, and preservation decisions do not need a lookup merely because the target is Gemini.
+
+If a necessary fact cannot be verified, finish the independent design work and identify the specific dependency without promising unsupported behavior. Clarify the model or surface only when that unresolved choice changes the result. Keep API settings and setup notes separate from prompt text; writing them into a Gem does not configure the product.
 
 ## Keep design and execution distinct
 

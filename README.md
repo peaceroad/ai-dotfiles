@@ -13,7 +13,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 - **[agent-design-tools](plugins/agent-design-tools/README.md)**：指示と作業の進め方を設計するプラグイン。
   - [prompt-design](plugins/agent-design-tools/skills/prompt-design/SKILL.md)：新しいプロンプトや`AGENTS.md`を書くとき、既存の指示が曖昧・矛盾していて期待する回答や動作にならないときに使います。AIへ伝える目的、条件、出力の要件を整理し、利用するモデルに合わせて指示を見直します。複数の局所修正を比較しやすい場合は「修正前／修正後／理由」で報告する調整を加えています。固定の出力形式ではなく、全面的な書き直しやファイル編集では変更規模と依頼に合わせます。
   - [agent-workflow-design](plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)：定期的な確認や長時間の開発など、繰り返し・継続して行う作業の進め方を設計するときに使います。複数のツールやエージェントの役割分担、待機・中断・再開の条件、実行記録を踏まえた改善を検討します。通常の作業を実行するだけなら不要です。後の保守に改善候補や判断理由を残す必要がある場合は、`~/.agents/notes/`の利用も検討できるようにしています。既存の保存先を優先し、採用が認められた範囲で使う任意のローカル規約であり、常時ログを記録する仕組みではありません。
-  - [prompt-gemini-reference](plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)：Gemini向けのプロンプト、Gemsの指示、画像・動画生成向けの指示文を設計するときに使います。まず`prompt-design`の共通方針を使い、必要なGemini向け資料だけを読みます。画像・動画を生成するツールではありません。個別に導入する場合も`prompt-design`を併せて用意します。
+  - [prompt-gemini-reference](plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)：Gemini向けのプロンプトやGemsの指示、添付メディアの読み取り・分析、画像・動画の生成・編集に使う指示文を設計するときに使います。Gemini 3以降を基準に、`prompt-design`の共通方針と、用途に必要な資料だけを読みます。Veoなど別系統のメディアモデルは、それぞれの現行ガイドで扱います。画像・動画を生成するツールではありません。個別に導入する場合も`prompt-design`を併せて用意します。
 - **[agent-plugin-tools](plugins/agent-plugin-tools/README.md)**：ポータブルなプラグインを作るための汎用スキルとツール。
   - [plugin-creator-agent-plugins](plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)：スキルやMCPサーバーをポータブルなプラグインにまとめるとき、既存パッケージを検証・移行するとき、配布用のMarketplaceを作るときに使います。パッケージ構成の確認からローカルでの導入確認まで、依頼した範囲を同梱ツールで支援します。`agent` CLIなしでも利用できます。
 - **[ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)**：このリポジトリのCLI操作をAIへ案内するプラグイン。

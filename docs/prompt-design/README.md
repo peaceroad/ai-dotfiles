@@ -12,6 +12,8 @@
 
 2026年9月11日には、Gemini向けの補足を`prompt-gemini-reference`へ分離しました。[分離の判断と検証範囲](gemini-reference-review.md#2026年9月11日補助スキルへの分離)を参照してください。以下の試行とmanifestは評価当時の配置・指示の記録であり、分離後の自動選択を検証したものではありません。
 
+同日の追加更新で、補助スキルの対象をGemini 3以降と明記し、メディア入力の理解と生成・編集の参照を分けました。[対象世代とメディア参照の整理](gemini-reference-review.md#2026年9月11日対象世代とメディア参照の整理)に根拠と確認範囲を記録しています。
+
 `skill-creator`・`agent-workflow-design`との分担は、[3スキルの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
 ## 指示設計能力として確認した範囲

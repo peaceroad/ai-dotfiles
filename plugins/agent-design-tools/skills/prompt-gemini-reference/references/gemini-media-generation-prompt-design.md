@@ -1,8 +1,6 @@
 # Gemini image and video prompt design
 
-Use for the instruction-design part of Gemini image/video generation and editing tasks. Read [Gemini prompt design](gemini-prompt-design.md) as the foundation. If execution is also requested, continue with the target surface's generation workflow within the existing authorization. Writing a prompt alone does not require generating a sample.
-
-Official guidance checked: 2026-09-06. Match the actual surface and supported generation mode. Gemini native image generation, Imagen, Omni, and Veo do not share all capabilities. Check relevant input roles, repeated-edit support, audio, duration, format, and output controls before promising them. Prefer current native Gemini image guidance for Gemini Apps; use Imagen's visual vocabulary as supplementary advice, not proof of current Gemini API availability.
+Use for the instruction-design part of Gemini image/video generation and editing tasks. Read [Gemini prompt design](gemini-prompt-design.md) as the foundation. Build the prompt from the user's brief, reference roles, and intended changes using the guidance below. Apply the [entry point](../SKILL.md) for capability checks and any separately requested execution.
 
 ## Establish intent and input roles
 
@@ -37,11 +35,13 @@ During iteration, identify the image version being edited and carry forward the 
 
 For variants or a visual sequence, distinguish separate images from a single sheet and specify what stays consistent between them. Treat the requested count as an output requirement to check, not a guaranteed property of the surface.
 
-Express an exclusion as a desired scene state when that helps, while retaining explicit absence requirements. An Imagen or Veo negative-prompt field is not a universal Gemini control, and OpenAI image-tool controls do not configure Gemini. Treat real alpha transparency, exact pixels, and file format as output requirements: use supported controls or an appropriate processing step when execution is in scope. A checkerboard appearance or "4K" in prose does not satisfy those requirements.
+Express an exclusion as a desired scene state when that helps, while retaining explicit absence requirements. An Imagen or Veo negative-prompt field is not a universal Gemini control, and OpenAI image-tool controls do not configure Gemini. Treat aspect ratio, real alpha transparency, exact pixels, and file format as output requirements: use supported controls or an appropriate processing step when execution is in scope. A checkerboard appearance or "4K" in prose does not satisfy those requirements.
 
 ## Video: choose the temporal task
 
 Describe the subject's action and progression, then add camera motion, shot order, timing, lighting, and audio only where needed. Distinguish camera movement from subject movement. Fit the requested events to the available duration rather than compressing an entire narrative into an unreadable clip.
+
+If the model or a required mode is unresolved, use the video overview to locate a suitable workflow and the model's detailed guide to verify support. An overview comparison is not an exclusive capability list; later model documentation may add editing, extension, or frame controls. Preserve an established model or surface unless a change is requested.
 
 | Task | Prompt emphasis |
 | --- | --- |
@@ -59,14 +59,19 @@ When using Omni extension, timing starts at the new segment, and transition fram
 
 Separate speech, music, effects, and ambience. Identify speakers and exact words where required; distinguish a caption from spoken dialogue. State silence, no dialogue, or no added music when those are requirements. Audio generation, audio reference input, and editing an existing voice are separate capabilities.
 
-Review at the stage the task reaches. For prompt text alone, check intent, input roles, compatible constraints, and supported capabilities. When generated output is available, inspect the artifact against the requested result: relevant identity and preservation conditions, lettering and numbers, composition, factual content, image count, and file properties. For video, include relevant motion, cuts, continuity, timing, and audio. Correct observed defects and stop when the requested result and relevant checks are satisfied. Distinguish prompt review from verified output quality.
+For prompt creation, deliver usable prompt text with any necessary attachment-role mapping or setup notes kept distinct.
+
+Review at the stage the task reaches. For prompt text alone, check intent, input roles, compatible constraints, and any consequential capability assumptions. When generated output is available, inspect the artifact against the requested result: relevant identity and preservation conditions, lettering and numbers, composition, factual content, image count, and file properties. For video, include relevant motion, cuts, continuity, timing, and audio. Correct observed defects and stop when the requested result and relevant checks are satisfied. Distinguish prompt review from verified output quality.
 
 ## Official sources
 
+Native image prompting and video overview/Omni guidance rechecked: 2026-09-11; other sources last checked: 2026-09-06. Use the entry point's verification conditions for changing input modes, repeated-edit support, audio, duration, or output controls. Prefer native Gemini image guidance for Gemini Apps. Imagen sources supply supplementary vocabulary or apply to an explicitly selected Imagen workflow; they do not establish Gemini API availability.
+
 - [Gemini Apps image generation and editing](https://support.google.com/gemini/answer/14286560)
-- [Native Gemini image prompt guide](https://ai.google.dev/gemini-api/docs/image-generation#prompting-guide-and-strategies)
+- [Native Gemini image prompt guide](https://ai.google.dev/gemini-api/docs/image-generation#prompting-guide-and-strategies), using the applicable Gemini 3-and-later sections
 - [DeepMind Gemini Image / Nano Banana prompt guide](https://deepmind.google/models/gemini-image/prompt-guide/)
 - [Google Cloud Nano Banana prompting guide](https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-nano-banana)
+- [Video generation overview](https://ai.google.dev/gemini-api/docs/video), for workflow selection rather than input-video analysis
 - [Gemini Omni prompt guide](https://ai.google.dev/gemini-api/docs/omni#gemini-omni-flash-prompt-guide)
 - [Veo prompt guide](https://ai.google.dev/gemini-api/docs/veo#veo-prompt-guide)
 - [Imagen prompt vocabulary](https://ai.google.dev/gemini-api/docs/imagen#imagen-prompt-guide)

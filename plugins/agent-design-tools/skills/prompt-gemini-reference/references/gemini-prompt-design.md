@@ -1,8 +1,6 @@
 # Gemini prompt design
 
-Use for model-facing text intended for Gemini Apps, Gems, or a Gemini API application. Apply the shared method from `prompt-design` through this skill's [entry point](../SKILL.md). Also read [Gem design](gemini-gems-prompt-design.md) for persistent Gem instructions and Knowledge, or [media prompts](gemini-media-generation-prompt-design.md) for image/video generation and editing.
-
-Official guidance checked: 2026-09-06. Preserve the established target model and product surface. Gemini Apps, classic Gems, Gems from Labs, and API applications do not expose identical tools, state, or controls. Verify only the capabilities that affect the task; this reference does not prescribe API parameters or migrate models.
+Use for model-facing text intended for Gemini Apps, Gems, or a Gemini API application. Apply the shared method, maintained model scope, and reference selection in the [entry point](../SKILL.md).
 
 ## State the result and needed detail
 
@@ -35,12 +33,17 @@ Thinking-capable models already reason internally. Request the evidence, calcula
 
 When testing revised instructions, include cases beyond the examples and target the changed behavior: for instance, required explanation under a brevity preference or missing evidence under a context-only rule. Successful sample answers alone do not establish reliability across tasks.
 
-For model-dependent decisions, consult the selected model's current guide as well as general prompting advice. Older examples can retain outdated sampling controls, fixed dates, or broad behavioral templates. API configuration belongs in the integration; writing a setting into a Gem prompt does not configure the product.
+When model-specific verification is needed under the entry point's rules, prioritize the selected model's current guide over generic prompting or file examples. Use the Gemini 3-and-later sections of mixed-generation guides, not earlier-generation workarounds. Gemini Apps, classic Gems, Gems from Labs, and API applications do not expose identical tools, state, or controls; neither a newer page title nor a similar model name establishes support.
+
+Do not use lowering temperature as a general remedy for hallucinations or media-reading errors. The checked Gemini 3.x guidance favors default sampling settings. Diagnose the evidence, task, or input-quality problem first. If tuning sampling, reasoning, or media-resolution controls is part of the task, verify the exact model's supported settings and keep them in the API integration, not in a Gem prompt.
 
 ## Official sources
 
-- [Prompt design strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies)
-- [Latest model guidance](https://ai.google.dev/gemini-api/docs/latest-model)
+Prompting and model guidance checked: 2026-09-11. These sources support the bundled guidance; use the entry point's conditions for new lookups.
+
+- [Gemini 3 prompting strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies#gemini-3)
+- [Gemini 3.5 Flash prompting guidance](https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.5#prompting-best-practices) and its model-specific API guidance when that version is the target
+- [Latest model guidance](https://ai.google.dev/gemini-api/docs/latest-model), to locate current changes, not to silently select that model
 - [Gemini API release notes](https://ai.google.dev/gemini-api/docs/changelog)
 - [Gemini Apps release notes](https://gemini.google/release-notes/)
 - [Tips for creating custom Gems](https://support.google.com/gemini/answer/15235603)
