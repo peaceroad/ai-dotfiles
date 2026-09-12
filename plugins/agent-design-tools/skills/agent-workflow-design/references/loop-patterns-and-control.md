@@ -74,7 +74,7 @@ If a check is unavailable, choose the response from its role. A quality aid may 
 
 ## Source notes
 
-Reviewed 2026-09-06; apply the model and runtime distinctions in `SKILL.md`.
+Apply the model and runtime distinctions in `SKILL.md`.
 
 - [OpenAI: Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling) and [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering): pending results, application-owned job execution, and the distinction between updated instructions and cancellation.
 - [OpenAI: Codex as a platform](https://developers.openai.com/blog/codex-as-a-platform): reuse a harness and decide what the surrounding application owns.

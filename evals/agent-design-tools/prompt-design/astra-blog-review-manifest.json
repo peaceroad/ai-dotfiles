@@ -1,6 +1,7 @@
 {
   "reviewDate": "2026-09-12",
   "baselineCommit": "e6208ac37305f214e0fdd17aac1bc85778e1620b",
+  "candidateCommit": "b37d23c8af864f695e10370bb1cacd212158a4dc",
   "evaluationType": "candidate-only qualitative forward checks",
   "cases": [
     "B01",
@@ -18,11 +19,10 @@
       "prior evaluations",
       "change rationale"
     ],
-    "externalGuidance": "The primary review reused current official pages retrieved in this conversation. Subagent instruction dependencies outside the repository are not reproduced by the candidate patch."
+    "externalGuidance": "The primary review reused current official pages retrieved in this conversation. Subagent instruction dependencies outside the repository are not reproduced by the candidate commit."
   },
   "reproduction": {
-    "instructions": "Start from baselineCommit and apply instructionPatch to recover the repository skill candidate. The cases can be reused, but a future runtime is not an exact replay of this session.",
-    "instructionPatch": "evals/agent-design-tools/prompt-design/astra-blog-review-instructions.patch"
+    "instructions": "Read each evaluated file from candidateCommit and verify candidateSha256 to recover the repository skill candidate. These hashes describe that evaluated commit, not the current working tree. The cases can be reused, but a future runtime is not an exact replay of this session."
   },
   "files": [
     {
@@ -141,11 +141,6 @@
       "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-12-astra-blog-review.json",
       "sha256": "38c7860d06f721ced59acd6b8e445dba82b1eccc2dd86d22948ea1cab9ba0f40",
       "bytes": 9414
-    },
-    {
-      "path": "evals/agent-design-tools/prompt-design/astra-blog-review-instructions.patch",
-      "sha256": "943dc19c26a00d87830d387a3210de99d480369490eeae4c73ffc34cabbc1d3d",
-      "bytes": 8261
     }
   ],
   "checks": [
@@ -168,6 +163,6 @@
     "No independently measured effort, token, latency, or cost data",
     "No production execution, actual evaluator calibration, or long-running state test",
     "File loading and catalog coverage are reported by the executing agents",
-    "Historical evaluation manifests and outputs remain unchanged"
+    "Evaluation-time file hashes and outputs remain unchanged; reproduction metadata points to the committed candidate"
   ]
 }

@@ -21,7 +21,7 @@
 
 応答原文は同ディレクトリの`evidence/`に保存しています。確認した内容と限界は、[全体評価](../docs/prompt-design/README.md)、[根拠保持の追加評価](../docs/prompt-design/source-preservation-review.md)、[モデル別参照のレビュー](../docs/prompt-design/model-reference-review.md)を参照してください。
 
-2026年9月12日のAstra公式ブログに基づく2スキルの再確認は、[ケースと判定条件](agent-design-tools/prompt-design/astra-blog-review-cases.json)、[応答と読込申告](agent-design-tools/prompt-design/evidence/2026-09-12-astra-blog-review.json)、[manifest](agent-design-tools/prompt-design/astra-blog-review-manifest.json)、[候補の復元用差分](agent-design-tools/prompt-design/astra-blog-review-instructions.patch)に保存しています。別文脈の候補版2件を確認したもので、新旧比較、通常環境での自動選択率、採点器の実測ではありません。応答の読込報告は構造化し、ローカル絶対パスを残さない形で記録しました。[変更理由と限界](../docs/prompt-design/astra-blog-review.md)も参照してください。
+2026年9月12日のAstra公式ブログに基づく2スキルの再確認は、[ケースと判定条件](agent-design-tools/prompt-design/astra-blog-review-cases.json)、[応答と読込申告](agent-design-tools/prompt-design/evidence/2026-09-12-astra-blog-review.json)、[manifest](agent-design-tools/prompt-design/astra-blog-review-manifest.json)に保存しています。評価対象はmanifestのコミットとファイルハッシュで特定できます。別文脈の候補版2件を確認したもので、新旧比較、通常環境での自動選択率、採点器の実測ではありません。応答の読込報告は構造化し、ローカル絶対パスを残さない形で記録しました。[変更理由と限界](../docs/prompt-design/astra-blog-review.md)も参照してください。
 
 ## agent-design-tools / agent-workflow-design
 
