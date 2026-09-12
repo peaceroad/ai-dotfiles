@@ -70,4 +70,4 @@ Astra参照と状態・証拠の参照の確認日を更新しました。[プ�
 
 評価対象の15ファイルは[コミットb37d23c](https://github.com/peaceroad/ai-dotfiles/commit/b37d23c8af864f695e10370bb1cacd212158a4dc)から同じハッシュで取得できるため、未コミット候補を復元するために保存したパッチは削除しました。manifestの復元案内をこのコミットの参照に切り替え、評価時のファイルハッシュ、ケース、応答、判定は保持しています。
 
-`state-evidence-and-recovery.md`と`loop-patterns-and-control.md`では、実行判断に使わない汎用的な`Reviewed`の日付を外しました。出典リンク、対象モデル・ランタイムを区別する指示、評価や制御の規則は維持しています。外部仕様の確認時点を示す`Official guidance checked`などの日付と、評価記録の日付は残しています。この整理後の参照と評価時の版は区別し、今回の2件を整理後の再試験とは扱いません。
+`state-evidence-and-recovery.md`と`loop-patterns-and-control.md`では、`Source notes`を出典リンクと用途の短い注記に整理しました。汎用的な`Reviewed`の日付と共通方針を繰り返す指示文を外し、外部資料を確認する条件や対象モデル・ランタイムの判断は`SKILL.md`に集約しています。評価や制御の規則、外部仕様の確認時点を示す`Official guidance checked`などの日付、評価記録の日付は維持しています。この整理後の参照と評価時の版は区別し、今回の2件を整理後の再試験とは扱いません。
