@@ -2,7 +2,7 @@
 
 Use for the Astra target selected in `SKILL.md`. These are conditional adjustments, not a template or a reason to add every rule below.
 
-Official guidance checked: 2026-09-05. The Astra model guide identifies clarification that can interrupt expected progress, sensitivity to instruction files, detailed formatting, less delegation than some workflows want, and thorough testing that can exceed small changes' needs. Treat these as reported tendencies to investigate, not guaranteed failures in an application.
+Official guidance checked: 2026-09-12. The Astra model guide identifies clarification that can interrupt expected progress, sensitivity to instruction files, detailed formatting, less delegation than some workflows want, and thorough testing that can exceed small changes' needs. Treat these as reported tendencies to investigate, not guaranteed failures in an application.
 
 ## Initiative and confirmation
 

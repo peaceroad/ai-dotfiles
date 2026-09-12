@@ -69,7 +69,8 @@ Use for broader diagnosis of instruction layers, production behavior, tools, res
 - For visual correctness, is the affected artifact rendered and inspected for layout, clipping, content, states, and consistency?
 - Can old and revised instructions be compared on representative cases with model, effective effort, context, tools, and permissions held steady?
 - Are normal cases, recurring failures, and boundary near misses represented, with some fresh cases outside the tuning set?
-- For instruction-generating skills, are both generated instructions and their downstream behavior evaluated where warranted?
+- When skill selection or reference loading can affect the result, does the evaluation observe which guidance actually reaches the model? Distinguish explicit skill invocation from automatic selection in the target runtime.
+- For instruction-generating skills, can the user assess proposed changes and use the generated instructions, and is their downstream behavior evaluated where warranted?
 - Are correctness, scope, evidence, and necessary approvals assessed alongside tokens, calls, latency, or cost?
 - Are structural validation, manual inspection, and behavioral results reported separately rather than all called “tested”?
 

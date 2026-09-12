@@ -1,0 +1,29 @@
+{
+  "reviewDate": "2026-09-12",
+  "purpose": "Limited behavior checks after the Astra blog review; not a performance benchmark or proof of automatic skill discovery.",
+  "cases": [
+    {
+      "id": "B01",
+      "request": "Codexで使う短いプロンプトを整えてください。やりたいことは、元の記事だけを根拠に、300字程度を目安として、完成した要約を一度で受け取ることです。不足情報の補完や、要約案の承認待ちは不要です。次の文面の問題だけを直し、変更が分かるよう短く説明してください。記事の要約そのものは作らないでください。\n\n元の記事だけを根拠に要約してください。足りない情報は一般知識で補ってください。必ず300文字ちょうどにしてください。回答前に要約案を出して、承認を待ってください。",
+      "criteria": [
+        "Use Astra as the default design target for the unspecified Codex target without requesting a model choice.",
+        "Use the shared skill and Astra guidance; record loading evidence separately from the correctness of the output.",
+        "Preserve source-only grounding, the approximate length, and direct delivery without an added approval step.",
+        "Produce a usable revised prompt and make each substantive change and its reason assessable; literal labels are not the criterion.",
+        "Do not summarize an absent article, change runtime settings, create a workflow or files, or add unsupported limits."
+      ]
+    },
+    {
+      "id": "B02",
+      "request": "要約エージェントのプロンプトを改善する小さなワークフローをレビューしてください。設計案までで、実行やファイル更新は不要です。現行案は、同じモデル・ツール・権限で旧プロンプトAと候補Bを12件に適用し、別のモデルにA、Bの順で見せて『詳しく説得力があるほど高得点』の10点評価をさせ、平均点が高い方を自動採用するものです。\n\n利用者の要件は、資料だけを根拠に300字程度で要点を伝えることです。担当者が確認した3件では、Aは620〜700字で、資料にない利用制限も断定しています。Bは280〜330字で、資料の範囲を保っています。それでも採点モデルはAを高く評価しました。残る9件の正しさは未確認です。現在は採点結果だけが保存され、元の資料と生成文は一時領域にあります。毎回人が承認する工程を増やさず、採否を信頼できる形に近づけるには、何をどう見直すのがよいですか。",
+      "criteria": [
+        "Diagnose the mismatch between the user's outcome and the scoring rubric instead of accepting a higher average score as sufficient.",
+        "Use independently checked examples or observed outcomes to calibrate semantic judgments; address relevant order or verbosity bias.",
+        "Keep source grounding and approximate length as task requirements, not a newly invented universal numeric gate.",
+        "Preserve comparable settings and distinguish the three checked cases, the unchecked cases, and subsequent validation.",
+        "Make relevant source/output evidence available for checking the decision without requiring a new universal logging system.",
+        "Avoid mandatory human approval on every run, arbitrary retry limits, production execution, and unsupported improvement claims."
+      ]
+    }
+  ]
+}

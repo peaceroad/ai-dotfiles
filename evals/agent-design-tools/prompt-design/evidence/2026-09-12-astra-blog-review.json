@@ -1,0 +1,49 @@
+{
+  "reviewDate": "2026-09-12",
+  "method": "Two independent subagent contexts with no inherited conversation, one request each. Candidate-only qualitative checks, assessed by the primary agent against criteria saved before dispatch.",
+  "storage": "Task-answer text is retained below. The separate loading reports are represented as declared fields with repository-relative paths or a portable home-relative path; absolute local file-link destinations are not retained. These reports are not raw tool traces.",
+  "cases": [
+    {
+      "id": "B01",
+      "answer": "> 元の記事だけを根拠に、300字程度を目安として要約してください。記事にない情報は補わず、要約案の提示や承認待ちを挟まずに、完成した要約を一度で返してください。\n\n「一般知識で補う」という指示を修正し、根拠を元の記事に限定しました。「300文字ちょうど」はおおよその目安に戻し、事前承認の指示は完成した要約を一度で返す指示に置き換えました。",
+      "declaredReads": [
+        "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+        "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+        "~/.codex/skills/.system/openai-docs/SKILL.md"
+      ],
+      "declaredCatalogObservation": "このタスクに提示されたスキル一覧を参照しました。一覧の網羅性や、Codex内部での自動選択・読み込み状況は確認していません。",
+      "assessment": {
+        "conclusion": "The response satisfies the task criteria in this limited check.",
+        "observations": [
+          "The revised prompt preserves source-only grounding, approximate length, and direct final delivery.",
+          "The finished prompt and three change reasons are usable without additional approval, a model-selection question, or invented limits.",
+          "The agent reports reading the shared skill and Astra reference. Loading is self-reported, not independently traced.",
+          "The response does not exercise literal before/after/reason labels; the skill's reporting format is optional."
+        ]
+      }
+    },
+    {
+      "id": "B02",
+      "answer": "**平均点だけによる自動採用をやめ、要件を満たした候補だけを比較し、証拠が足りなければ採用を保留する設計**に変えるのがよいです。毎回の人手承認を増やすより、評価器の校正と採用条件を整えることが先です。\n\n提示された情報から、確認済みの3件ではAが長さと根拠の要件を外れ、採点基準がその逸脱を高く評価していると分かります。Bはこの3件では要件に沿っていますが、残る9件を含めた優位性は未確認です。また、固定された提示順は偏りの懸念になりますが、今回の逆転の原因だとまでは断定できません。\n\n1. **採点基準を、利用者の要件に合わせる。**  \n   「詳しく説得力があるほど高得点」を、資料への忠実さ、重要な要点の保持、300字程度での分かりやすさに置き換えます。資料にない利用制限などの重要な断定は、他項目の得点で相殺できない不合格条件にします。文字数は機械的に数えられますが、「300字程度」を厳密な300字制限へ強めず、数え方と許容範囲を運用目的に合わせて定めます。短くても重要な要点が欠けていれば合格にはしません。\n\n   生成側の指示も、必要なら「資料だけを根拠に、重要な要点を日本語で300字程度にまとめる。資料の条件と確実性を保ち、記載のない制限を補わない」を中心に整理します。ただし、A・Bのプロンプト本文は提示されていないため、生成側のどの指示が失敗を招いたかは未確認です。\n\n2. **別モデルによる採点を、根拠付きの判定にする。**  \n   評価器には元資料、生成文、固定した判定基準を渡し、「合格・不合格・判定不能」と、問題の記述および対応する資料箇所を返させます。根拠がない断定では、その記述を特定させます。候補名や担当者の推奨は伏せ、まず各出力を基準に照らして判定します。比較評価を残すなら、提示順を無作為化・均衡化し、一部を逆順でも評価して判定の安定性を確認します。\n\n   既存の確認済み3件を使い、Aの違反を検出できるか校正します。それだけに合わせ込まないよう、正しい要約や境界事例も独立に確認した例として加えます。見るべきなのは平均点だけでなく、**誤った要約を合格にする割合や、担当者の確認との食い違い**です。別モデルであること自体は、採点の信頼性を保証しません。\n\n3. **評価器の修正と、Bの採用判定を分ける。**  \n   修正した評価基準を先に校正・固定してから、12件を再評価します。残る9件は資料と照合するまで未確認として扱い、評価器が判断できない項目を合格に数えません。既存の資料と生成文が回収できれば、それらを使って採点をやり直せます。\n\n   同じモデル・ツール・権限という条件は維持し、資料、実効設定、予算、プロンプト版も揃えます。調整に使った事例とは別に、代表的な新しい事例を一部残して比較します。12件での改善はその範囲の証拠であり、一般的な正しさの証明にはなりません。\n\n4. **点数と一緒に、判断を再検査できる証拠を残す。**  \n   一時領域から消える前に、元資料の固定版または確実に取得できる版参照、A・Bの生成文、プロンプトとモデルの版・実行条件、評価基準と評価器の版、項目別判定と根拠、採否を保存する設計にします。保存先と保持期間は、この比較・再検査に必要な範囲で定めれば十分です。\n\n   生成文の保存は「当時の採点が妥当だったか」の再検査に、資料と実行条件の保存は再実行に必要です。点数だけでは、評価器を直した後に過去の判断を見直せません。\n\n5. **採用条件を候補の外に置き、通常の判定は自動化する。**  \n   評価基準、評価器、未使用の検証事例、元資料・過去出力・評価記録を、候補プロンプトやその改善処理が書き換えて自分を合格にできないようにします。最終的な採用条件はワークフロー側で固定します。\n\n   例えば、重大な根拠違反を検出した候補は不採用、判定不能や提示順での不安定な判定は保留とし、要件を満たし、新しい事例でも必要な品質が確認できた候補を自動採用します。人の確認は、導入時・評価基準の変更時の校正や、食い違いが集中する例に絞れます。採用後も同じ出力検査と復旧手段を用意します。ただし、Aには既知の違反があるため、Aへ戻せるだけで良好な出力が保証されるわけではありません。\n\n根拠や要点の判定にはモデル判断が残るため、文字数検査と同じ機械的な保証にはなりません。その限界を、校正、根拠の保存、保留条件、採用後の検出で補う設計です。",
+      "declaredReads": [
+        "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+        "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+        "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+        "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+        "plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md"
+      ],
+      "declaredCatalogObservation": "このセッションでは両スキルが利用可能な一覧に提示され、必要な参照まで読み込めました。対象の要約・採点エージェントに、実際にどのスキルや指示が渡っていたかは確認していません。",
+      "assessment": {
+        "conclusion": "The response satisfies the task criteria in this limited design check.",
+        "observations": [
+          "The diagnosis distinguishes the rubric mismatch from unproven order bias and separates the three checked cases from nine unchecked cases.",
+          "It proposes calibration against checked examples, evidence-backed judgments, representative fresh cases, and fixed comparison conditions.",
+          "It preserves the approximate length without inventing a numeric acceptance range, and proposes evidence retention scoped to the comparison.",
+          "It does not require human approval on every run, invent a repair-count limit, execute the workflow, or claim general superiority.",
+          "It is a workflow proposal; the suggested evaluator and adoption mechanism were not executed or calibrated in this trial."
+        ]
+      }
+    }
+  ]
+}

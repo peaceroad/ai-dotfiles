@@ -2,6 +2,8 @@
 
 この文書は初回改訂の判断と評価記録です。その後の使いやすさ・冗長さ・適用条件の見直しは[再監査](second-review.md)、既定モデルとGPT-5.6参照の追加は[モデル別参照の追記](#モデル別参照の追記)を参照してください。
 
+2026年9月12日の[Astra公式ブログとの照合](../prompt-design/astra-blog-review.md)では、基本構成を維持し、モデル採点を改善の採否に使う場合の校正を評価参照へ補いました。今回の限定確認と、以下の初回比較・机上継続の結果は分けて記録しています。
+
 関連する設計スキルとの分担は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
 2026年9月6日の[公開前確認](publication-review.md)では、応答ファイルの参照パスを匿名化し、加工前後の対応を記録しました。以下の評価時点の版・判定は保持しています。

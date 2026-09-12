@@ -1,0 +1,173 @@
+{
+  "reviewDate": "2026-09-12",
+  "baselineCommit": "e6208ac37305f214e0fdd17aac1bc85778e1620b",
+  "evaluationType": "candidate-only qualitative forward checks",
+  "cases": [
+    "B01",
+    "B02"
+  ],
+  "context": {
+    "conversationHistory": "none; a separate subagent for each case",
+    "targetModel": "GPT-6 Astra inherited from the parent session",
+    "effectiveReasoningEffort": "not independently measured",
+    "toolAndPermissionContext": "inherited runtime; read-only task scope",
+    "skillSelection": "No skill was named in the test request. Available skills were selected by each subagent; catalog observations and file loading are self-reported, not an automatic-discovery benchmark.",
+    "excludedInputs": [
+      "criteria",
+      "other case outputs",
+      "prior evaluations",
+      "change rationale"
+    ],
+    "externalGuidance": "The primary review reused current official pages retrieved in this conversation. Subagent instruction dependencies outside the repository are not reproduced by the candidate patch."
+  },
+  "reproduction": {
+    "instructions": "Start from baselineCommit and apply instructionPatch to recover the repository skill candidate. The cases can be reused, but a future runtime is not an exact replay of this session.",
+    "instructionPatch": "evals/agent-design-tools/prompt-design/astra-blog-review-instructions.patch"
+  },
+  "files": [
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md",
+      "baselineSha256": "2cad98b7714f3fdf0f431bf350c1390d90cc736b66ea065cb987fd17988332e4",
+      "candidateSha256": "2cad98b7714f3fdf0f431bf350c1390d90cc736b66ea065cb987fd17988332e4",
+      "bytes": 6601,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/agents/openai.yaml",
+      "baselineSha256": "45faf0de46ca5bee282ecfe4a80ef41515501e252995097cf3e70bfc4bc16a15",
+      "candidateSha256": "45faf0de46ca5bee282ecfe4a80ef41515501e252995097cf3e70bfc4bc16a15",
+      "bytes": 298,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md",
+      "baselineSha256": "16c2e6d8d2ea7496bfb06c3005caeee3d3a113a1fe2247d8b604378143437c52",
+      "candidateSha256": "16c2e6d8d2ea7496bfb06c3005caeee3d3a113a1fe2247d8b604378143437c52",
+      "bytes": 3286,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md",
+      "baselineSha256": "9ea42695d52612a4a37b1e2331591b02f570401c589fdfb31a831107dda93b50",
+      "candidateSha256": "9ea42695d52612a4a37b1e2331591b02f570401c589fdfb31a831107dda93b50",
+      "bytes": 6950,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md",
+      "baselineSha256": "e46a9a68dbd2cfb12966e4b8e4a2b611f7011b29c7fd027d96826ebdbc5721c0",
+      "candidateSha256": "e46a9a68dbd2cfb12966e4b8e4a2b611f7011b29c7fd027d96826ebdbc5721c0",
+      "bytes": 8719,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md",
+      "baselineSha256": "a7b920428f0b87da0b8130963a82c9a1389763fd8b594facca7fe585fef580b7",
+      "candidateSha256": "a7b920428f0b87da0b8130963a82c9a1389763fd8b594facca7fe585fef580b7",
+      "bytes": 4247,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/openai-gpt-5.6-workflow-design.md",
+      "baselineSha256": "72b64d244e61582c29df576c855270a0d05db43139dab07106a0a0f78dd933c5",
+      "candidateSha256": "72b64d244e61582c29df576c855270a0d05db43139dab07106a0a0f78dd933c5",
+      "bytes": 2731,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md",
+      "baselineSha256": "acea8b7e84be37b4599fbd30cbee09e28f54ca18a937207d548205641700e9d9",
+      "candidateSha256": "dcef6447bf7dbef61885622e7de4ddfbfa5b2733b4ec395b4bc1b2ddef9152a3",
+      "bytes": 10569,
+      "changed": true
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+      "baselineSha256": "0bcd464a9e9b486d9a596490bb9f8d5d08a3dc57bfe8a9bc24409032cd2ced7c",
+      "candidateSha256": "0bcd464a9e9b486d9a596490bb9f8d5d08a3dc57bfe8a9bc24409032cd2ced7c",
+      "bytes": 9411,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/agents/openai.yaml",
+      "baselineSha256": "39085d464c1557237e7676481358f45ebb8ec603f4d3ee9d926e78827d9907e1",
+      "candidateSha256": "39085d464c1557237e7676481358f45ebb8ec603f4d3ee9d926e78827d9907e1",
+      "bytes": 257,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-5.6-prompt-design.md",
+      "baselineSha256": "3050dc9052daa2de0c78b56a86731b872d54ebf8993684a98741daaaebc95d68",
+      "candidateSha256": "3050dc9052daa2de0c78b56a86731b872d54ebf8993684a98741daaaebc95d68",
+      "bytes": 3276,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+      "baselineSha256": "c527bf9cf6f4f0610f7a9c229a804842178c202654f75927c1fa8e7036800bac",
+      "candidateSha256": "9b30b7d98d4cd41c05d8760be51829527b0b452baae6a0244725b759b4f3c7ab",
+      "bytes": 9006,
+      "changed": true
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md",
+      "baselineSha256": "ed409f24a90c4e713294cf62e9a2c6372e212e677ec5ec2e2ede5d7ad3355283",
+      "candidateSha256": "ed409f24a90c4e713294cf62e9a2c6372e212e677ec5ec2e2ede5d7ad3355283",
+      "bytes": 9193,
+      "changed": false
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md",
+      "baselineSha256": "6db437db7212037b237b0ead862a74065df6a9c78cfc40180515c619ddc94fa7",
+      "candidateSha256": "98dcc1ccb1a99f8c5a37984ea3a47300094653d06d07c23379c2aa8436deb24c",
+      "bytes": 7453,
+      "changed": true
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md",
+      "baselineSha256": "098320d26a8956bdab57356e3f33d0ef33e3170fd0f9be400981f565870e548f",
+      "candidateSha256": "4989fe5435b2349eabdcf6349f2b1d09fc0b7cc90dfaad2226f7532fdd4f492f",
+      "bytes": 4291,
+      "changed": true
+    }
+  ],
+  "records": [
+    {
+      "path": "evals/agent-design-tools/prompt-design/astra-blog-review-cases.json",
+      "sha256": "5129faddc0e53ed8a74e2fab35518386d880658977b913b61894ba9aa45c4cec",
+      "bytes": 3545
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/evidence/2026-09-12-astra-blog-review.json",
+      "sha256": "38c7860d06f721ced59acd6b8e445dba82b1eccc2dd86d22948ea1cab9ba0f40",
+      "bytes": 9414
+    },
+    {
+      "path": "evals/agent-design-tools/prompt-design/astra-blog-review-instructions.patch",
+      "sha256": "943dc19c26a00d87830d387a3210de99d480369490eeae4c73ffc34cabbc1d3d",
+      "bytes": 8261
+    }
+  ],
+  "checks": [
+    {
+      "command": "python -X utf8 <skill-creator>/scripts/quick_validate.py plugins/agent-design-tools/skills/prompt-design",
+      "result": "passed; UTF-8 mode resolves the initial Windows cp932 read failure"
+    },
+    {
+      "command": "python <skill-creator>/scripts/quick_validate.py plugins/agent-design-tools/skills/agent-workflow-design",
+      "result": "passed"
+    },
+    {
+      "command": "npm run check:plugins",
+      "result": "passed; three package validations and five tests"
+    }
+  ],
+  "adoption": "Adopt the conditional evaluation and catalog-review guidance; preserve both SKILL.md entrypoints, Astra loading requirements, descriptions, and reporting policy.",
+  "limitations": [
+    "No baseline-versus-candidate behavior comparison or repeated sampling",
+    "No independently measured effort, token, latency, or cost data",
+    "No production execution, actual evaluator calibration, or long-running state test",
+    "File loading and catalog coverage are reported by the executing agents",
+    "Historical evaluation manifests and outputs remain unchanged"
+  ]
+}

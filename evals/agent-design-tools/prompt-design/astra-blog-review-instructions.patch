@@ -1,0 +1,70 @@
+diff --git a/plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md b/plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md
+index 143f23a..7c5cbae 100644
+--- a/plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md
++++ b/plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md
+@@ -34,6 +34,8 @@ Subjective criteria are not inherently unreliable. Choose evaluator independence
+ 
+ An inner self-check can guide repair without establishing an independent final verdict. When independent review matters, give the reviewer the artifact, source evidence, and criteria, with separate context where feasible. Avoid supplying the implementer's preferred verdict or proposed fix. Preserve material disagreements instead of averaging away a failed invariant.
+ 
++When model-based scores guide candidate selection or repeated improvement, calibrate the rubric with independently checked examples or observable outcomes. Where subjective preferences matter, compare a sample with the task owner's judgments. Check material order or verbosity bias in comparisons; a separate reviewer alone does not establish reliable grading.
++
+ For a failed check, carry the affected outcome or artifact, evidence, failed criterion, and what the next decision must resolve. When a check is unavailable, distinguish a useful substitute from the property left unverified.
+ 
+ ## Untrusted inputs and data flow
+@@ -70,9 +72,10 @@ Where audit is required, retain what establishes authorization, decisions, effec
+ 
+ ## Source notes
+ 
+-Reviewed 2026-09-06; apply the model and runtime distinctions in `SKILL.md`.
++Reviewed 2026-09-12; apply the model and runtime distinctions in `SKILL.md`.
+ 
+ - [OpenAI: Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling) and [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering): distinguish application-owned operations, result delivery, and changed instructions.
+ - [OpenAI Cookbook: Macro Evals for Agentic Systems](https://developers.openai.com/cookbook/examples/partners/macro_evals_for_agentic_systems/macro_evals_for_agentic_systems): evaluate the workflow evidence behind a final answer and inspect recurring patterns when sufficient traces exist.
++- [OpenAI: Evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices): calibrate model judgments against human feedback and check comparison biases.
+ - [OpenAI: Automating repetitive work with Codex](https://developers.openai.com/blog/automating-repetitive-work-at-openai-with-codex): an example of retaining useful context and decisions in existing work artifacts.
+ - [Anthropic: Running auto mode in production](https://claude.com/blog/auto-mode-in-production): examples of automatic judgments within configured restrictions and selected human review.
+diff --git a/plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md b/plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md
+index 7bfd10b..af1a59f 100644
+--- a/plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md
++++ b/plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md
+@@ -2,7 +2,7 @@
+ 
+ Use for the Astra target selected in `SKILL.md`. These are conditional adjustments, not a template or a reason to add every rule below.
+ 
+-Official guidance checked: 2026-09-05. The Astra model guide identifies clarification that can interrupt expected progress, sensitivity to instruction files, detailed formatting, less delegation than some workflows want, and thorough testing that can exceed small changes' needs. Treat these as reported tendencies to investigate, not guaranteed failures in an application.
++Official guidance checked: 2026-09-12. The Astra model guide identifies clarification that can interrupt expected progress, sensitivity to instruction files, detailed formatting, less delegation than some workflows want, and thorough testing that can exceed small changes' needs. Treat these as reported tendencies to investigate, not guaranteed failures in an application.
+ 
+ ## Initiative and confirmation
+ 
+diff --git a/plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md b/plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md
+index 4f2e00e..01243d7 100644
+--- a/plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md
++++ b/plugins/agent-design-tools/skills/prompt-design/references/prompt-review-checklist.md
+@@ -69,7 +69,8 @@ Use for broader diagnosis of instruction layers, production behavior, tools, res
+ - For visual correctness, is the affected artifact rendered and inspected for layout, clipping, content, states, and consistency?
+ - Can old and revised instructions be compared on representative cases with model, effective effort, context, tools, and permissions held steady?
+ - Are normal cases, recurring failures, and boundary near misses represented, with some fresh cases outside the tuning set?
+-- For instruction-generating skills, are both generated instructions and their downstream behavior evaluated where warranted?
++- When skill selection or reference loading can affect the result, does the evaluation observe which guidance actually reaches the model? Distinguish explicit skill invocation from automatic selection in the target runtime.
++- For instruction-generating skills, can the user assess proposed changes and use the generated instructions, and is their downstream behavior evaluated where warranted?
+ - Are correctness, scope, evidence, and necessary approvals assessed alongside tokens, calls, latency, or cost?
+ - Are structural validation, manual inspection, and behavioral results reported separately rather than all called “tested”?
+ 
+diff --git a/plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md b/plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md
+index e26f06d..44fbe9a 100644
+--- a/plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md
++++ b/plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md
+@@ -14,6 +14,7 @@ Use this reference when reviewing or improving the `description` field of a Code
+ ## Review checklist
+ 
+ - Does it avoid relying on body text for critical trigger conditions?
++- In the target runtime's available catalog, are the relevant name, description, and trigger boundaries visible and distinguishable from nearby skills? Check truncation or omitted entries when catalog evidence is available; source-file length alone does not establish visibility.
+ - Is it specific enough to prevent false positives, but broad enough to trigger on realistic user wording, including cases where the user does not name the domain exactly?
+ - Are neighboring skills or fallback skills named only when that boundary matters?
+ - Does it avoid long lists of internal checklist items that do not affect triggering?
+@@ -41,4 +42,4 @@ Prefer a compact structure:
+ 
+ Do not optimize only for shortest length. A slightly longer description is acceptable when it prevents wrong triggering or missed triggering.
+ 
+-For important skills, sanity-check the description with realistic should-trigger and should-not-trigger prompts. Include near misses, casual wording, typos, and prompts where the relevant task is embedded in a larger request. If a description is tuned against examples, keep some fresh examples aside to avoid overfitting.
++For important skills, sanity-check the description with realistic should-trigger and should-not-trigger prompts. Include near misses, casual wording, typos, and prompts where the relevant task is embedded in a larger request. If a description is tuned against examples, keep some fresh examples aside to avoid overfitting. Report whether the trial exercised actual catalog selection or only a supplied description; do not turn unavailable catalog evidence into a confirmed discovery defect.

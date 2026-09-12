@@ -34,6 +34,8 @@ Subjective criteria are not inherently unreliable. Choose evaluator independence
 
 An inner self-check can guide repair without establishing an independent final verdict. When independent review matters, give the reviewer the artifact, source evidence, and criteria, with separate context where feasible. Avoid supplying the implementer's preferred verdict or proposed fix. Preserve material disagreements instead of averaging away a failed invariant.
 
+When model-based scores guide candidate selection or repeated improvement, calibrate the rubric with independently checked examples or observable outcomes. Where subjective preferences matter, compare a sample with the task owner's judgments. Check material order or verbosity bias in comparisons; a separate reviewer alone does not establish reliable grading.
+
 For a failed check, carry the affected outcome or artifact, evidence, failed criterion, and what the next decision must resolve. When a check is unavailable, distinguish a useful substitute from the property left unverified.
 
 ## Untrusted inputs and data flow
@@ -70,9 +72,10 @@ Where audit is required, retain what establishes authorization, decisions, effec
 
 ## Source notes
 
-Reviewed 2026-09-06; apply the model and runtime distinctions in `SKILL.md`.
+Reviewed 2026-09-12; apply the model and runtime distinctions in `SKILL.md`.
 
 - [OpenAI: Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling) and [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering): distinguish application-owned operations, result delivery, and changed instructions.
 - [OpenAI Cookbook: Macro Evals for Agentic Systems](https://developers.openai.com/cookbook/examples/partners/macro_evals_for_agentic_systems/macro_evals_for_agentic_systems): evaluate the workflow evidence behind a final answer and inspect recurring patterns when sufficient traces exist.
+- [OpenAI: Evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices): calibrate model judgments against human feedback and check comparison biases.
 - [OpenAI: Automating repetitive work with Codex](https://developers.openai.com/blog/automating-repetitive-work-at-openai-with-codex): an example of retaining useful context and decisions in existing work artifacts.
 - [Anthropic: Running auto mode in production](https://claude.com/blog/auto-mode-in-production): examples of automatic judgments within configured restrictions and selected human review.

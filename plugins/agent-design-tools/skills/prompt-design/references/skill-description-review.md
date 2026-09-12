@@ -14,6 +14,7 @@ Use this reference when reviewing or improving the `description` field of a Code
 ## Review checklist
 
 - Does it avoid relying on body text for critical trigger conditions?
+- In the target runtime's available catalog, are the relevant name, description, and trigger boundaries visible and distinguishable from nearby skills? Check truncation or omitted entries when catalog evidence is available; source-file length alone does not establish visibility.
 - Is it specific enough to prevent false positives, but broad enough to trigger on realistic user wording, including cases where the user does not name the domain exactly?
 - Are neighboring skills or fallback skills named only when that boundary matters?
 - Does it avoid long lists of internal checklist items that do not affect triggering?
@@ -41,4 +42,4 @@ Prefer a compact structure:
 
 Do not optimize only for shortest length. A slightly longer description is acceptable when it prevents wrong triggering or missed triggering.
 
-For important skills, sanity-check the description with realistic should-trigger and should-not-trigger prompts. Include near misses, casual wording, typos, and prompts where the relevant task is embedded in a larger request. If a description is tuned against examples, keep some fresh examples aside to avoid overfitting.
+For important skills, sanity-check the description with realistic should-trigger and should-not-trigger prompts. Include near misses, casual wording, typos, and prompts where the relevant task is embedded in a larger request. If a description is tuned against examples, keep some fresh examples aside to avoid overfitting. Report whether the trial exercised actual catalog selection or only a supplied description; do not turn unavailable catalog evidence into a confirmed discovery defect.

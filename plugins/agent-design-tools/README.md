@@ -32,7 +32,7 @@ You do not need to name the model in every request. The skills use evidence abou
 
 ## Reference selection
 
-`prompt-design` selects Astra or GPT-5.6 references according to the design target, with official guidance or an applicable specialized skill for other targets. Migration or comparison work may need guidance for more than one model. A model-independent wording correction for GPT-5.6 can skip its dedicated reference. OpenAI API tools and state management have a separate reference when relevant to the request.
+For an explicit or defaulted Astra target, `prompt-design` reads both `SKILL.md` and the Astra reference, including for small revisions. The shared skill body owns the design method and reporting guidance, including a compact before/after/reason format when individual changes are easier to assess. Other targets use their applicable guidance; a model-independent wording correction for GPT-5.6 can skip its dedicated reference. Migration or comparison work may need guidance for more than one model. OpenAI API tools and state management have a separate reference when relevant to the request.
 
 `prompt-gemini-reference` uses the shared `prompt-design` method and bundled Gemini guidance to deliver the requested prompt or review. It adds Gem, media-input understanding, or image/video generation references only when needed. Ordinary design work can proceed from those references; official sources resolve explicit current-guidance requests, migrations, and consequential facts that available evidence does not establish reliably. Unresolved capabilities do not block independent wording or composition work, but remain identified rather than promised.
 
@@ -44,8 +44,9 @@ Input-media prompts address evidence in supplied images, clips, audio, or docume
 
 ## Sources for agent and harness improvement
 
-These sources informed [Agent and harness improvement](skills/agent-workflow-design/references/agent-improvement-and-rsi.md). They are background reading, not additional execution requirements. Other-model examples offer design options, not evidence of the target model's behavior.
+These sources informed the prompt and workflow guidance, including [Agent and harness improvement](skills/agent-workflow-design/references/agent-improvement-and-rsi.md). They are background reading, not additional execution requirements. Other-model examples offer design options, not evidence of the target model's behavior.
 
+- [OpenAI: Rethinking skills and prompts for GPT-6 Astra](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra): precise discovery descriptions, useful reference loading, outcome-oriented instructions, and reassessment of older scaffolding while preserving task requirements.
 - [OpenAI: Research acceleration: The view inside OpenAI](https://openai.com/index/research-acceleration-view-inside-openai/): research assistance and progress toward RSI, with activity metrics, human steering, and shifting bottlenecks limiting conclusions about overall acceleration.
 - [OpenAI Cookbook: Agent Improvement Loop with Traces, Evals, and Codex](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop): connects execution evidence, evaluation, and a reviewed configuration change.
 - [OpenAI Cookbook: Iterating Development Workflows with Codex](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex): artifact ownership, observed progress, and evidence-backed retrospective decisions.
@@ -58,6 +59,7 @@ The following repository documents are in Japanese:
 
 - [Skill roles and responsibilities](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/skill-creator-prompt-design-agent-workflow-design.md)
 - [Prompt-design evaluation](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/prompt-design/README.md) and [model-reference review](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/prompt-design/model-reference-review.md)
+- [Astra blog review and evaluation updates](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/prompt-design/astra-blog-review.md)
 - [Gemini reference separation](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/prompt-design/gemini-reference-review.md#2026年9月11日補助スキルへの分離)
 - [Workflow-design evaluation](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-workflow-design/README.md) and [follow-up review](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-workflow-design/second-review.md)
 
