@@ -72,8 +72,6 @@ Where audit is required, retain what establishes authorization, decisions, effec
 
 ## Source notes
 
-Apply the model and runtime distinctions in `SKILL.md`.
-
 - [OpenAI: Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling) and [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering): distinguish application-owned operations, result delivery, and changed instructions.
 - [OpenAI Cookbook: Macro Evals for Agentic Systems](https://developers.openai.com/cookbook/examples/partners/macro_evals_for_agentic_systems/macro_evals_for_agentic_systems): evaluate the workflow evidence behind a final answer and inspect recurring patterns when sufficient traces exist.
 - [OpenAI: Evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices): calibrate model judgments against human feedback and check comparison biases.
