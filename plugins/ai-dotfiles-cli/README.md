@@ -40,6 +40,56 @@ Before switching to this plugin, inspect the same-named standalone skills, their
 
 The CLI remains usable without either skill. If only this plugin is installed, CLI operations require a compatible runtime; supplied saved files can still be read as unverified reference material when tooling is unavailable. No software is installed implicitly to answer a history question.
 
+## Permission and approval diagnostics
+
+Use `agent codex permission status` to compare config files, Desktop saved choices,
+and a task's recorded permissions. In a terminal, running it without options opens
+a picker for up to 12 recent sessions, showing project, title, and update time.
+Select a number, choose `m` to enter the task ID and project manually, or press
+Enter/`q` to cancel. This also works from the `agent codex` interactive menu.
+
+Candidates are ordered by session-record file update time, not last-viewed time.
+Titles come from `session_index.jsonl`; project paths come from each record's first
+`session_meta` entry. It scans `sessions/`, excluding `archived_sessions/`.
+Listing reads metadata only,
+does not open SQLite, and falls back to manual entry if discovery fails. Titles
+may be missing or stale when the title index is unavailable or outdated.
+
+Explicit options and redirected input/output never open a picker. Without
+`--thread`, that mode uses `CODEX_THREAD_ID`; outside a Codex task, pass the ID.
+Use `--turn UUID` to inspect an exact turn and
+`--project DIRECTORY` when its project differs from the current directory.
+
+```sh
+agent codex permission status --thread UUID --project DIRECTORY
+agent codex permission status --thread UUID --turn UUID --json
+```
+
+`permissions` remains an alias for `permission`, including in the interactive menu.
+The diagnostic requires Python 3.11+ (`python` on PATH) in addition to Node.js 24.
+It uses the standard TOML parser without third-party dependencies. Before installing
+an updated runtime, run `node tools/agent/agent.mjs codex permission status` from
+the checkout. `--codex-home DIRECTORY` overrides `CODEX_HOME` or `~/.codex`.
+`--profile NAME` is an inspection assumption, not proof of the app's active profile.
+
+The command is read-only. It does not start an app-server, request elevated access,
+change app modes, or repair saved state. JSON includes full recorded filesystem
+entries with home paths shortened to `~`, but excludes conversation bodies and
+unrelated task entries. Treat directory names and task IDs as potentially private.
+Config layers are reported independently; the tool does not reproduce Codex's
+configuration resolver. Management file locations are candidates, not an exhaustive
+search. Missing or malformed records are reported as unavailable evidence.
+
+Exit code 3 means differences or incomplete evidence; it does not mean corruption.
+The current diagnostic always reports gaps for live app feature flags, runtime
+management/model requirements, launch overrides, and model-facing instructions.
+Exit code 1 means inspection/runtime failure and 2 means invalid arguments.
+There is no automatic repair. Do not replace the global state file or rewrite
+heartbeat permission snapshots based solely on a difference report. The
+[Desktop permission troubleshooting note](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-desktop-permission-diagnostics.md)
+describes a locally observed menu-based correction, its verification steps, and
+the distinction between configuration layers, app selections, and recorded permissions.
+
 ## Operational limits and updates
 
 Installed command help is the authority for syntax and supported features. Check the actual entrypoint: another executable named `agent` is not the ai-dotfiles CLI. Update this plugin and the CLI separately when needed; do not bypass a version, ownership, integrity, or permission refusal to match an example.

@@ -8,6 +8,20 @@ Begin with the relevant read-only `status`, not every tool. `git-acl` needs a se
 
 Use supported repair/apply/restore operations only for an authorized change and a recognized state. Preserve version/hash/schema guards. When clients must be closed or the tool requires an external terminal, hand off the exact command and conditions. Do not shut down the host running the task, loosen permissions, or patch source databases to bypass a refusal. No status result alone authorizes a workaround.
 
+## Permission and approval settings
+
+Use `agent codex permission status --thread <UUID> --project <directory> --json`; add `--turn <UUID>` for an exact turn, otherwise it reads the latest recorded turn. Confirm the task, turn, and timestamp before interpreting the result. Requirements and human-facing selection options are in the command help.
+
+Keep config layers, current app saved values, recorded permissions, and model-facing instructions distinct. The diagnostic does not reproduce Codex's resolver or collect every override. Compare approval policy/reviewer separately from access scope; current saved values are not historical snapshots. Exit code 3 includes incomplete evidence and alone proves neither corruption nor failed correction.
+
+For a runtime-confirmed profile name, read `active_permission_profile.id` from the matching JSONL `turn_context` if the helper omits it; report unavailable evidence rather than substituting an app-saved name. Limit additional reads to relevant permission evidence. Workspace-root changes and approval-policy changes are separate findings.
+
+For an authorized correction of the observed mismatch—configured `never` plus a named profile, but recorded `on-request / auto_review`—give this menu procedure: once the task is idle, select **Custom (config.toml)** in the composer, then reselect the configured named profile before sending another message. Custom may temporarily resolve to read-only. Menu changes can affect host defaults as well as the task.
+
+Verify policy, reviewer, profile, and access scope in a turn started after the change; the displayed profile name can remain unchanged. If the option is unavailable, errors, or leaves the mismatch, stop that correction path and report the evidence. Do not substitute full access or direct global-state/heartbeat-snapshot edits. This locally observed workaround is not universal; a diagnosis request does not authorize it.
+
+The [plugin README](../../../README.md#permission-and-approval-diagnostics) links the troubleshooting note for UI details, observed versions, and new-task/restart checks. Read those details when applicability or persistence needs investigation, not for every status request.
+
 ## Session selection and export
 
 `session list` and ordinary `session plan` inspect metadata. A selection can be a UUID, `--before YYYY-MM-DD`, or `--before 4w`; dates use UTC midnight and weeks use the invocation time. Updated time is not last-viewed time. Plans account for descendants and protected groups; do not turn a filtered list into a handwritten recursive delete.

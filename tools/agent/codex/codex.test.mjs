@@ -40,6 +40,31 @@ test('all registered actions preserve arguments and child exit status', async ()
   }
 });
 
+test('permission is canonical; permissions aliases commands, help, and the menu', async () => {
+  const tool = CODEX_TOOLS.find(entry => entry.name === 'permission');
+  for (const name of ['permission', 'permissions']) {
+    for (const args of [['status', '--thread', 'fixture'], ['--help']]) {
+      assert.equal(await runCodex([name, ...args], {
+        run(selected, forwarded) {
+          assert.equal(selected, tool);
+          assert.deepEqual(forwarded, args[0] === '--help' ? ['help'] : args);
+          return 3;
+        },
+      }), 3);
+    }
+    const answers = [name, 'status', 'q'];
+    assert.equal(await runCodex([], {
+      interactive: true, log() {}, ask: async () => answers.shift(),
+      run(selected, args) { assert.equal(selected, tool); assert.deepEqual(args, ['status']); return 0; },
+    }), 0);
+    const output = [];
+    await runCodex([name], { interactive: false, log: s => output.push(s) });
+    assert.match(output.join('\n'), /agent codex permission status/);
+    assert.match(output.join('\n'), /Aliases: permissions/);
+    assert.doesNotMatch(output.join('\n'), /agent codex permissions status/);
+  }
+});
+
 test('unknown commands and excess help arguments do not launch anything', async () => {
   for (const args of [['unknown'], ['log-policy', '--force'], ['git-acl', 'help', 'extra'], ['help', 'extra']]) {
     assert.equal(await runCodex(args, { log() {}, run: () => assert.fail('Must not run') }), 2);
@@ -187,7 +212,7 @@ test('normal help and root menu list only tools for the current OS', async () =>
 test('filtered menu numbers and keys cannot select hidden tools', async () => {
   for (const platform of ['darwin', 'linux']) {
     for (const selection of ['1', 'l', 'log-policy']) {
-      const answers = ['g', '4', 'skill-validator-utf8', selection, 'status', 'b', 'q'];
+      const answers = ['g', '99', 'skill-validator-utf8', selection, 'status', 'b', 'q'];
       let calls = 0;
       assert.equal(await runCodex([], {
         platform, interactive: true, log() {},

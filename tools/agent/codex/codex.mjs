@@ -52,10 +52,19 @@ export const CODEX_TOOLS = [
     supportFiles: ['session-export-storage.mjs', 'session-export-batches.mjs'],
     actions: [["list", "l", "List saved sessions"], ["projects", "p", "List captured projects"], ["search", "s", "Search saved conversations (query required)"], ["read", "r", "Read a snapshot (key required)"], ["check", "c", "Verify saved file integrity"], ["batches", "e", "List export batches"]],
   },
+  {
+    name: "permission", aliases: ["permissions"], key: "p", title: "Permission and approval settings",
+    description: "Compare config files, Desktop saved choices, and an exact task's recorded permissions. Read-only.",
+    requirements: "Node.js 24 and Python 3.11+. Reports missing evidence; does not repair or change app modes.",
+    file: "manage-codex-permissions.mjs",
+    supportFiles: ['inspect-codex-permissions.py'],
+    actions: [["status", "s", "Inspect permission and approval settings"]],
+  },
 ];
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const isHelp = value => ["help", "--help", "-h"].includes(value);
+const matchesTool = (tool, name) => tool.name === name || tool.aliases?.includes(name);
 const isAvailable = (tool, platform) => !tool.windowsOnly || platform === "win32";
 // Default discovery is narrower than explicit access for environment-dependent fixes.
 const isVisible = (tool, platform) => isAvailable(tool, platform) && (!tool.windowsMenuOnly || platform === "win32");
@@ -67,8 +76,10 @@ function printHelp(log, platform, tool) {
   log("Standalone: node <runtime>/codex/codex.mjs [<tool> [<action> [arguments...]]]");
   for (const entry of tool ? [tool] : CODEX_TOOLS.filter(entry => isVisible(entry, platform))) {
     log(`\n${entry.name}: ${entry.description}\n  ${entry.requirements}`);
+    if (entry.aliases?.length) log(`  Aliases: ${entry.aliases.join(", ")}`);
     for (const [action, , description] of entry.actions) {
-      const argumentsHint = entry.repository ? " <repository> [-CodexHome <directory>]"
+      const argumentsHint = entry.name === "permission" ? " [--thread UUID] [--turn UUID] [--project DIRECTORY] [--json]"
+        : entry.repository ? " <repository> [-CodexHome <directory>]"
         : entry.name === "session" ? (action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
         : entry.name === "history" ? (action === "search" ? " <text>" : action === "read" ? " <snapshot-key>" : "")
         : action === "suppress" ? " [trace|debug|info|warn|error|none]" : "";
@@ -138,7 +149,8 @@ async function menu(initialTool, { ask, run, log, platform }) {
       log("  q. Quit");
       const choice = (await ask("Selection: "))?.trim().toLowerCase();
       if (choice == null || choice === "q") return lastFailure;
-      tool = select(visibleTools, choice, item => item.key, item => item.name);
+      tool = select(visibleTools, choice, item => item.key, item => item.name)
+        ?? visibleTools.find(entry => matchesTool(entry, choice));
       if (!tool) log("Choose a listed tool.");
       continue;
     }
@@ -180,7 +192,7 @@ export async function runCodex(args, {
   run = (tool, forwarded) => runTool(tool, forwarded, { platform, log }),
 } = {}) {
   if (isHelp(args[0]) && args.length === 1) { printHelp(log, platform); return 0; }
-  const tool = CODEX_TOOLS.find(entry => entry.name === args[0]);
+  const tool = CODEX_TOOLS.find(entry => matchesTool(entry, args[0]));
   if (args.length && !tool) {
     log(`Unknown Codex tool. Available: ${CODEX_TOOLS.filter(entry => isVisible(entry, platform)).map(entry => entry.name).join(", ")}. Run agent codex --help.`);
     return 2;

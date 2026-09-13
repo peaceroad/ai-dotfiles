@@ -13,7 +13,7 @@ agent codex --help
 
 対話端末で`agent codex`だけを実行すると、用途の説明付きメニューが開きます。ツールを選ぶと、必要条件と操作一覧を表示します。操作は番号・短縮キー・名前で選べ、`h`で詳細ヘルプ、`b`で戻る、`q`で終了できます。入力・出力をリダイレクトした場合は、メニューの代わりにヘルプだけを表示します。
 
-メニューと通常ヘルプには、Windowsでは6項目すべて、macOS／Linuxでは`log-policy`・`session`・`history`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
+メニューと通常ヘルプには、Windowsでは7項目すべて、macOS／Linuxでは`log-policy`・`session`・`history`・`permission`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
 
 - `git-acl`と`disk-pressure`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
 - `skill-validator-utf8`は、Pythonの既定文字コードがUTF-8である環境では通常不要なため、macOS／Linuxの通常表示から外しています。必要な場合は、`agent codex skill-validator-utf8`で専用メニューを開くか、操作を直接指定できます。単体スクリプトもOSで制限しません。
@@ -54,6 +54,16 @@ node "$HOME/.agents/ai-dotfiles/runtime/codex/<スクリプト名>.mjs" help
 ```
 
 ## スクリプト一覧
+
+### `manage-codex-permissions.mjs`
+
+共通コマンド：`agent codex permission`（`permissions`も互換エイリアス）
+
+[スクリプトを表示](../tools/agent/codex/manage-codex-permissions.mjs) · [承認設定の確認と対処ノート](notes/codex-desktop-permission-diagnostics.md)
+
+`status`は、設定ファイル・アプリ保存値・指定タスクの実行記録を読み取り専用で比較します。対話端末で`agent codex permission status`を実行すると、最近のタスクを最大12件、プロジェクト名とタイトル付きで選べます。Node.js 24以降とPython 3.11以降が必要です。単体で持ち出す場合は、隣接する`inspect-codex-permissions.py`も一緒に置いてください。
+
+設定変更や自動修復は行いません。現在の診断レポートは、実行中のアプリの条件などに未取得項目が残るため終了コード`3`を返します。不一致や終了コードだけで保存状態の破損と判断せず、記録の時点と取得元を確認します。詳しい使い方と制限は対処ノートにまとめています。
 
 ### `manage-codex-sessions.mjs`
 
