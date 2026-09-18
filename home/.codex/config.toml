@@ -47,6 +47,17 @@ approval_policy = "never"
 default_permissions = "workspace-with-agents"
 
 [features]
+# タスク（セッション）をまたいで知識を保存・再利用するメモリ機能を無効/有効にする。
+# 公開実装では安定機能（Stable）に分類され、既定で無効。
+# https://learn.chatgpt.com/docs/customization/memories
+memories = false
+
+# 作業中の画面情報（表示された文書やWebページなど）をもとに、
+# 後の作業で参照するメモリを作るChronicle機能を無効/有効にする。
+# 公開実装では開発中（UnderDevelopment）に分類され、既定で無効。
+# https://github.com/openai/codex/blob/main/codex-rs/features/src/lib.rs
+chronicle = false
+
 # 機能フラグの設定場所として残す。fast_modeやmulti_agentなど、既定で有効な機能は追加指定しない。
 # js_replは削除済みの機能フラグなので記載しない。
 # 許可ドメインの強制にはnetwork_proxyが必要（管理者設定で有効になる場合を除く）。
