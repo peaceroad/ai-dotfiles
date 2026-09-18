@@ -191,7 +191,7 @@ test('normal help and root menu list only tools for the current OS', async () =>
       assert.equal(await runCodex(args, { platform, interactive: false, log: line => output.push(line) }), 0);
       const text = output.join('\n');
       assert.match(text, /agent codex log-policy status/);
-      for (const name of ['git-acl', 'disk-pressure', 'skill-validator-utf8']) {
+      for (const name of ['git-acl', 'disk-pressure', 'marketplace-staging', 'skill-validator-utf8']) {
         assert.equal(text.includes(`agent codex ${name} status`), platform === 'win32');
       }
       if (platform !== 'win32') assert.match(text, /Not yet validated on macOS\/Linux/);
@@ -205,7 +205,8 @@ test('normal help and root menu list only tools for the current OS', async () =>
     assert.equal(text.includes('Git write permissions'), platform === 'win32');
     assert.equal(text.includes('Disk-pressure recovery'), platform === 'win32');
     assert.equal(text.includes('Skill validator UTF-8 patch'), platform === 'win32');
-    assert.match(text, platform === 'win32' ? /4\/l\. Diagnostic log policy/ : /1\/l\. Diagnostic log policy/);
+    assert.equal(text.includes('Marketplace temporary files'), platform === 'win32');
+    assert.match(text, platform === 'win32' ? /5\/l\. Diagnostic log policy/ : /1\/l\. Diagnostic log policy/);
   }
 });
 

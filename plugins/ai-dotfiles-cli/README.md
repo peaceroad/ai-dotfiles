@@ -40,6 +40,19 @@ Before switching to this plugin, inspect the same-named standalone skills, their
 
 The CLI remains usable without either skill. If only this plugin is installed, CLI operations require a compatible runtime; supplied saved files can still be read as unverified reference material when tooling is unavailable. No software is installed implicitly to answer a history question.
 
+## Marketplace temporary files
+
+On Windows, `agent codex marketplace-staging status` inspects leftover
+`openai-bundled.staging-<UUID>` directories. After closing Codex/ChatGPT Desktop,
+CLI and IDE clients, run `agent codex marketplace-staging clean` from an external
+interactive terminal to review and permanently delete eligible directories.
+The tool requires at least 24 hours since the newest creation/modification in
+each tree, rejects links and locks, and rechecks metadata after confirmation.
+It preserves the canonical marketplace, installed plugins, user Skills and
+sessions. Cleanup does not fix the upstream updater or prevent recurrence.
+See the [cleanup note](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-marketplace-staging-cleanup.md)
+for scope, observed evidence and limitations.
+
 ## Permission and approval diagnostics
 
 Use `agent codex permission status` to compare config files, Desktop saved choices,

@@ -13,9 +13,9 @@ agent codex --help
 
 対話端末で`agent codex`だけを実行すると、用途の説明付きメニューが開きます。ツールを選ぶと、必要条件と操作一覧を表示します。操作は番号・短縮キー・名前で選べ、`h`で詳細ヘルプ、`b`で戻る、`q`で終了できます。入力・出力をリダイレクトした場合は、メニューの代わりにヘルプだけを表示します。
 
-メニューと通常ヘルプには、Windowsでは7項目すべて、macOS／Linuxでは`log-policy`・`session`・`history`・`permission`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
+メニューと通常ヘルプには、Windowsでは8項目すべて、macOS／Linuxでは`log-policy`・`session`・`history`・`permission`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
 
-- `git-acl`と`disk-pressure`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
+- `git-acl`、`disk-pressure`、`marketplace-staging`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
 - `skill-validator-utf8`は、Pythonの既定文字コードがUTF-8である環境では通常不要なため、macOS／Linuxの通常表示から外しています。必要な場合は、`agent codex skill-validator-utf8`で専用メニューを開くか、操作を直接指定できます。単体スクリプトもOSで制限しません。
 - `log-policy`はOS固有APIに依存しませんが、macOS／Linuxでは実機未検証です。その旨を表示し、既存のDB・スキーマ・変更確認の検査は維持します。
 - `session`の`list`・`plan`・`export`は全OSで利用できますが、macOS／Linuxでは実機未検証です。`archive`と`delete`はWindowsに限定しています。
@@ -25,6 +25,7 @@ agent codex --help
 ```powershell
 agent codex git-acl status 'C:/work/my-project'
 agent codex disk-pressure status
+agent codex marketplace-staging status
 agent codex skill-validator-utf8 status
 agent codex log-policy status
 agent codex session list
@@ -236,6 +237,35 @@ Gitが認識する作業ルートと管理ディレクトリが指定先と一�
 
 このスクリプトはディスクを自動清掃するものではありません。先に十分な空き容量を確保してから、ディスクフル時の書き込み失敗で空になった特定のACL状態ファイルを修復します。データベース、セッション、サンドボックスアカウントなどは変更しません。
 
+### `manage-marketplace-staging.mjs`
+
+共通コマンド：`agent codex marketplace-staging`
+
+[スクリプトを表示](../tools/agent/codex/manage-marketplace-staging.mjs) · [調査記録と削除範囲](./notes/codex-marketplace-staging-cleanup.md)
+
+内蔵マーケットプレイスの更新時に残った一時コピーを点検・清掃します。対象はCodexホームの`.tmp/bundled-marketplaces/openai-bundled.staging-<UUID>`だけです。Codexホームは`--codex-home <ディレクトリ>`、環境変数`CODEX_HOME`、`~/.codex`の順に決まります。
+
+`agent`導入後、任意のディレクトリから一覧を確認できます。`status`はCodex起動中でも実行できます。
+
+```powershell
+agent codex marketplace-staging status
+```
+
+各フォルダーの容量、配下を含む最新の作成・更新日時、候補または除外理由を表示します。作成・更新から24時間以上経過し、リンクなどを含まないフォルダーを候補にします。表示容量はファイルサイズの合計で、実際に増える空き容量と一致するとは限りません。
+
+削除する場合は、Codex／ChatGPT Desktop、CLI、IDE拡張のCodexを終了し、外部のPowerShellで次を実行します。処理完了までクライアントを起動しないでください。対象と合計容量を確認し、`y`を入力すると完全削除します。ごみ箱への移動や自動復元は行いません。
+
+```powershell
+agent codex marketplace-staging clean
+agent codex marketplace-staging status
+```
+
+削除前にプロセス、ロック、パスとファイルのメタデータを再確認します。確認後の変更、プロセス確認の失敗、更新用ロックを検出すると停止します。シンボリックリンク、ジャンクション、ハードリンクを含む対象は除外し、対象の祖先がリンクなら操作を拒否します。通常の`openai-bundled`、プラグインキャッシュ、自作スキル、履歴や設定は削除対象に含めません。
+
+清掃コマンド同士は専用ロックで排他しますが、Codex本体との排他は保証しません。強制終了後にロックが残った場合は自動解除せず、実行中の清掃がないことを手動で確認します。途中で失敗した場合は、削除済み件数を表示します。処理中だったフォルダーは一部だけ削除されている可能性があるため、`status`で残りを確認してください。
+
+終了コードは、正常終了・取り消し・対象なしが`0`、検査や削除の失敗が`1`、引数の誤りが`2`、除外された項目が残る場合が`3`です。`clean`には対話端末が必要で、確認を省略するオプションはありません。清掃は残骸の除去であり、Codex本体の不具合修正や再発防止ではありません。
+
 ### `manage-skill-validator-utf8-patch.mjs`
 
 共通コマンド：`agent codex skill-validator-utf8`（全OSで直接指定可能）
@@ -338,6 +368,7 @@ CodexアプリまたはCLIを更新した後は、設定が維持されている
 
 - `manage-git-write-acl.ps1`：Windows、PowerShell 7、`git`、ローカルのNTFS上にあるリポジトリ
 - `manage-codex-disk-pressure.mjs`：Windows、Node.js 18.15以降
+- `manage-marketplace-staging.mjs`：Windows、Node.js 24以降
 - `manage-skill-validator-utf8-patch.mjs`：Node.js 18以降。`apply`による実検証には、PyYAMLを読み込める`python`コマンド
 - `manage-sqlite-trace-log-suppression.mjs`：組み込みの`node:sqlite`を利用できるNode.js 22.5以降
 - `manage-codex-sessions.mjs`：Node.js 24以降。`archive`と`delete`にはWindows、PowerShell 7、Codex CLI 0.153.4も必要

@@ -23,6 +23,13 @@ export const CODEX_TOOLS = [
     actions: [["status", "s", "Show status (read-only)"], ["repair", "r", "Back up corrupted ACL state"]],
   },
   {
+    name: "marketplace-staging", key: "m", title: "Marketplace temporary files",
+    description: "Inspect and remove old bundled-marketplace staging directories.",
+    requirements: "Windows, Node.js 24. Clean requires closed Codex/ChatGPT clients and interactive confirmation; deletion is permanent.",
+    file: "manage-marketplace-staging.mjs", windowsOnly: true,
+    actions: [["status", "s", "List temporary files and cleanup candidates (read-only)"], ["clean", "c", "Confirm cleanup of old staging directories"]],
+  },
+  {
     name: "skill-validator-utf8", key: "u", title: "Skill validator UTF-8 patch",
     description: "Inspect, apply, or restore the UTF-8 patch for reviewed Codex validator versions.",
     requirements: "Usually unnecessary when Python already reads UTF-8 by default. Apply requires Python with PyYAML. Unknown versions are never modified.",

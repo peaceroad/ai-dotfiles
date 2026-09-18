@@ -1,5 +1,10 @@
 # Repository instructions
 
+## Privacy of repository content
+
+- Treat details of the user's actual environment as private, even when names and paths are anonymized. Do not record local inventory, configuration details, diagnostic logs, or measurements (such as file counts, storage usage, timestamps, or benchmark results) in repository files unless the user explicitly requests their inclusion. This applies across documentation, notes, examples, tests, and exports.
+- Preserve reusable findings as generalized behavior, requirements, and verification methods; use synthetic examples or fixtures instead of copying local observations. General platform requirements and facts from public sources may remain, with attribution where appropriate.
+
 ## Public exports
 
 - `home/.agents/` and `home/.codex/` are export destinations for publishable files from the user's home directory. Avoid introducing personal usernames, machine-specific absolute paths, or credentials. These destinations are distinct from repository-root `.agents/` and `.codex/`.
