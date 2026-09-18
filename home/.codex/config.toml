@@ -98,6 +98,14 @@ description = "ワークスペース、~/.agents、および許可した開発�
 # プロジェクト内の.agents/.codexの保護を解除する個別ルールは、現在は無効。
 # 通信を許可する。ドメイン制限の適用条件はnetwork節を参照する。
 [permissions.workspace-with-agents.filesystem]
+
+# 現在のWindows elevated sandboxは、起動前に:rootの実効的な読み取り権限を検査する。
+# 不足するとAGENTS.mdの読み込み前に停止するため、同ファイル単体のreadでは代替できない。
+# この指定は広い読み取り許可を明示する。機密ファイルの保護は必要に応じて別途検討する。
+# 書き込み範囲や承認方針は、この指定では変更しない。
+# 根拠: https://github.com/openai/codex/pull/44327
+":root" = "read"
+
 ":minimal" = "read"            # Codexや一般的なコマンド実行に必要最低限のシステム領域
 
 # OS一時ディレクトリはワークスペース外にあり、生成物の追跡・後処理がしにくい。
