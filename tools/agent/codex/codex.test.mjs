@@ -17,7 +17,7 @@ test('normal scrollbar launch never requests debugging; failures do not retry', 
     let detached = false;
     await launchCodex('fixture.exe', { debug, port: 9333, spawnProcess: (exe, args, options) => {
       assert.equal(exe, 'fixture.exe');
-      assert.equal(options.windowsHide, true);
+      assert.equal(options.windowsHide, false);
       assert.equal(options.stdio, 'ignore');
       assert.equal(options.detached, true);
       if (debug) {

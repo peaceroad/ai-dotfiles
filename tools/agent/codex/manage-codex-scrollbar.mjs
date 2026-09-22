@@ -333,7 +333,8 @@ export function launchCodex(executable, { debug = false, port = defaultPort, spa
       "--enable-blink-features=PreferDefaultScrollbarStyles",
       "--blink-settings=prefersDefaultScrollbarStyles=true",
     ];
-    const child = spawnProcess(executable, args, { detached: true, stdio: "ignore", windowsHide: true });
+    // This is the visible app, not a console helper. windowsHide also requests SW_HIDE for GUIs.
+    const child = spawnProcess(executable, args, { detached: true, stdio: "ignore", windowsHide: false });
     child.once("error", () => {
       reject(new Error("Could not start Codex with the requested scrollbar options."));
     });
