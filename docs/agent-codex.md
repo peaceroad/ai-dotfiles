@@ -13,9 +13,9 @@ agent codex --help
 
 対話端末で`agent codex`だけを実行すると、用途の説明付きメニューが開きます。ツールを選ぶと、必要条件と操作一覧を表示します。操作は番号・短縮キー・名前で選べ、`h`で詳細ヘルプ、`b`で戻る、`q`で終了できます。入力・出力をリダイレクトした場合は、メニューの代わりにヘルプだけを表示します。
 
-メニューと通常ヘルプには、Windowsでは8項目すべて、macOS／Linuxでは`log-policy`・`session`・`history`・`permission`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
+メニューと通常ヘルプには、Windowsではすべての項目、macOS／Linuxでは`log-policy`・`session`・`history`・`permission`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
 
-- `git-acl`、`disk-pressure`、`marketplace-staging`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
+- `git-acl`、`disk-pressure`、`marketplace-staging`、`app`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
 - `skill-validator-utf8`は、Pythonの既定文字コードがUTF-8である環境では通常不要なため、macOS／Linuxの通常表示から外しています。必要な場合は、`agent codex skill-validator-utf8`で専用メニューを開くか、操作を直接指定できます。単体スクリプトもOSで制限しません。
 - `log-policy`はOS固有APIに依存しませんが、macOS／Linuxでは実機未検証です。その旨を表示し、既存のDB・スキーマ・変更確認の検査は維持します。
 - `session`の`list`・`plan`・`export`は全OSで利用できますが、macOS／Linuxでは実機未検証です。`archive`と`delete`はWindowsに限定しています。
@@ -55,6 +55,36 @@ node "$HOME/.agents/ai-dotfiles/runtime/codex/<スクリプト名>.mjs" help
 ```
 
 ## スクリプト一覧
+
+### `manage-codex-scrollbar.mjs`
+
+共通コマンド：`agent codex app`（`scrollbar`も互換エイリアス）。Windows、Node.js 24以降が必要です。引数なしでは対話メニューを開き、起動や`codexapp`の登録を選べます。リダイレクト時はヘルプだけを表示します。
+
+Codexを完全に終了してから、外部のPowerShellで次を実行します。
+
+```powershell
+agent codex app launch
+```
+
+`launch`はデバッグ接続を有効にせず、標準のスクロールバー表示を優先するChromiumの起動引数を渡します。24pxなどの幅指定ではなく、細い表示や独自の色指定を標準表示に戻すための実験的な方法です。Codexの公式設定ではなく、実際の表示は未検証です。起動後にサイドバーと会話欄のつかみやすさを確認してください。ほかの領域のスクロールバーにも影響する場合があります。
+
+起動引数は`--enable-blink-features=PreferDefaultScrollbarStyles`と`--blink-settings=prefersDefaultScrollbarStyles=true`です。[Chromiumのテスト設定](https://github.com/chromium/chromium/blob/153.0.8010.48/third_party/blink/web_tests/VirtualTestSuites#L2485-L2509)に同じ組み合わせがあります。終了表示は起動要求の送信を示し、表示への反映を保証しません。効かなくてもデバッグ方式へ自動で切り替えません。元に戻すには、Codexを終了してスタートメニューから通常起動します。アプリ本体や保存設定は書き換えません。
+
+短い起動コマンド`codexapp`は、`agent codex app profile`で登録できます。PowerShell 7のコンソール用ユーザープロファイルが対象です。登録先と追加内容を表示し、対話端末で確認した場合だけ追記します。既存ファイルは隣にバックアップし、登録済みなら追記しません。同名コマンドや変更済みの登録ブロックを検出した場合は上書きせず停止します。別ファイルで定義されたコマンドは読み込み時にも確認し、既存の定義を優先します。非対話実行では表示だけで終わります。
+
+登録後は新しいPowerShell 7のコンソールで`codexapp`を実行します。現在のコンソールで使う場合は、プロンプトに直接`. $PROFILE`を入力してください。関数はデバッグなしの`launch`を呼び、幅やポートの指定は受け付けません。解除する場合は、プロファイル内の`# >>> ai-dotfiles codexapp >>>`から対応する終了マーカーまでを削除します。
+
+ピクセル幅を指定する従来の方式は、明示的な実験用操作として残しています。
+
+```powershell
+agent codex app debug-launch --width 24
+agent codex app apply --width 24
+agent codex app remove
+```
+
+`debug-launch`はローカルのデバッグ接続を有効にして起動し、一時的なCSSを挿入します。幅の既定値は24pxです。`apply`と`remove`はデバッグ接続があるアプリ専用で、通常起動への後付け適用はできません。`remove`はCSSだけを解除します。接続口が開いている間はほかのローカルプロセスもアプリを操作できるため、使用後はCodexを終了して通常起動し直してください。成功表示はCSSの挿入確認で、表示幅の検証ではありません。再読み込みや追加ウィンドウでは再適用が必要になる場合があります。常駐監視は行いません。
+
+関連する要望：[Custom scrollbar width / DevTools access in Codex Desktop #36270](https://github.com/openai/codex/discussions/36270)。公式の対応予定を示すものではありません。
 
 ### `manage-codex-permissions.mjs`
 

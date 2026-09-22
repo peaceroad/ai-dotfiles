@@ -22,7 +22,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 - **[agentコマンド](#agentコマンド)**：スキルとは別に実行する管理用CLI。
   - [`agent dev`](docs/agent-development.md)：開発対象の確認・同期、共有Marketplaceの設定・配布。
   - [`agent marketplace`](docs/agent-development.md#別マシンで単体skillを利用する)：プラグインに含めず個別に配布されたスキルの一覧表示・導入・更新・削除。
-  - [`agent codex`](docs/agent-codex.md)：Codexの状態確認・修復、セッション整理、書き出した会話の検索・参照。
+  - [`agent codex`](docs/agent-codex.md)：Codexアプリの起動・簡易コマンド登録、状態確認・修復、セッション整理、書き出した会話の検索・参照。
 
 CLIはプラグインなしでも動作します。`ai-dotfiles-cli`プラグインにCLI本体は含まれず、それぞれを別々に導入・更新します。
 

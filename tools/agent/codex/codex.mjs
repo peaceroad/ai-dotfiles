@@ -67,6 +67,14 @@ export const CODEX_TOOLS = [
     supportFiles: ['inspect-codex-permissions.py'],
     actions: [["status", "s", "Inspect permission and approval settings"]],
   },
+  {
+    name: "app", aliases: ["scrollbar"], key: "w", title: "Codex desktop app",
+    description: "Launch Codex with standard scrollbar styles without debugging; explicit debug experiments are separate.",
+    requirements: "Windows, Node.js 24. Experimental Chromium flags; visual effect unverified. Close Codex before launch. Debug operations keep an endpoint open until app exit.",
+    file: "manage-codex-scrollbar.mjs", windowsOnly: true,
+    supportFiles: ["register-codex-app-profile.ps1"],
+    actions: [["launch", "l", "Launch with standard scrollbar styles (no debugging)"], ["profile", "p", "Inspect or confirm codexapp registration (PowerShell 7)"], ["debug-launch", "d", "Experimental: launch with debugging and temporary pixel width"], ["apply", "a", "Apply width to a debug-enabled app"], ["remove", "r", "Remove the temporary CSS (keeps debugging enabled)"]],
+  },
 ];
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -75,7 +83,7 @@ const matchesTool = (tool, name) => tool.name === name || tool.aliases?.includes
 const isAvailable = (tool, platform) => !tool.windowsOnly || platform === "win32";
 // Default discovery is narrower than explicit access for environment-dependent fixes.
 const isVisible = (tool, platform) => isAvailable(tool, platform) && (!tool.windowsMenuOnly || platform === "win32");
-const banner = "Codex diagnostics, session management, and saved history\nProvided by ai-dotfiles; not an official Codex command.";
+const banner = "Codex diagnostics, desktop tools, session management, and saved history\nProvided by ai-dotfiles; not an official Codex command.";
 
 function printHelp(log, platform, tool) {
   log(banner);
@@ -85,7 +93,8 @@ function printHelp(log, platform, tool) {
     log(`\n${entry.name}: ${entry.description}\n  ${entry.requirements}`);
     if (entry.aliases?.length) log(`  Aliases: ${entry.aliases.join(", ")}`);
     for (const [action, , description] of entry.actions) {
-      const argumentsHint = entry.name === "permission" ? " [--thread UUID] [--turn UUID] [--project DIRECTORY] [--json]"
+      const argumentsHint = entry.name === "app" ? (["launch", "profile"].includes(action) ? "" : action === "remove" ? " [--port NUMBER]" : " [--width 8..32] [--port NUMBER]")
+        : entry.name === "permission" ? " [--thread UUID] [--turn UUID] [--project DIRECTORY] [--json]"
         : entry.repository ? " <repository> [-CodexHome <directory>]"
         : entry.name === "session" ? (action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
         : entry.name === "history" ? (action === "search" ? " <text>" : action === "read" ? " <snapshot-key>" : "")

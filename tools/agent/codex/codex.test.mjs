@@ -1,11 +1,229 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CODEX_TOOLS, runCodex, runTool } from './codex.mjs';
+import { applyToCodexTarget, evaluate, launchCodex, parseOptions, waitForCodexRenderer } from './manage-codex-scrollbar.mjs';
 
 const agent = fileURLToPath(new URL('../agent.mjs', import.meta.url));
+
+test('normal scrollbar launch never requests debugging; failures do not retry', async () => {
+  for (const debug of [undefined, true]) {
+    let detached = false;
+    await launchCodex('fixture.exe', { debug, port: 9333, spawnProcess: (exe, args, options) => {
+      assert.equal(exe, 'fixture.exe');
+      assert.equal(options.windowsHide, true);
+      assert.equal(options.stdio, 'ignore');
+      assert.equal(options.detached, true);
+      if (debug) {
+        assert.deepEqual(args, ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9333']);
+      } else {
+        assert.deepEqual(args, ['--enable-blink-features=PreferDefaultScrollbarStyles', '--blink-settings=prefersDefaultScrollbarStyles=true']);
+        assert.ok(args.every(arg => !arg.includes('remote-debugging')));
+      }
+      const child = new EventEmitter();
+      child.unref = () => { detached = true; };
+      queueMicrotask(() => child.emit('spawn'));
+      return child;
+    } });
+    assert.equal(detached, true);
+  }
+  let attempts = 0;
+  await assert.rejects(launchCodex('fixture.exe', { spawnProcess: () => {
+    attempts++;
+    const child = new EventEmitter();
+    queueMicrotask(() => child.emit('error', new Error('fixture launch failure')));
+    return child;
+  } }), /Could not start Codex/);
+  assert.equal(attempts, 1);
+});
+
+test('scrollbar startup applies once per target and shares one deadline across retries', async () => {
+  const options = { action: 'debug-launch', width: 24, port: 9222 };
+  const targets = [{ webSocketDebuggerUrl: 'fixture' }];
+  let time = 0;
+  let calls = 0;
+  const output = [];
+  await waitForCodexRenderer(options, {
+    now: () => time,
+    get: async () => targets,
+    sleep: async ms => { time += ms; },
+    apply: (items, settings, timing) => applyToCodexTarget(items, settings, {
+      ...timing, log: text => output.push(text),
+      run: async () => {
+        calls += 1;
+        return { success: calls === 2, sidebar: true, width: 24 };
+      },
+    }),
+  });
+  assert.equal(calls, 2);
+  assert.equal(time, 150);
+  assert.equal(output.length, 1);
+
+  time = 0;
+  const budgets = [];
+  await assert.rejects(waitForCodexRenderer(options, {
+    now: () => time,
+    get: async (_port, waitMs) => {
+      assert.ok(waitMs > 0 && waitMs <= 2000);
+      time += waitMs;
+      return [...targets, ...targets, ...targets];
+    },
+    sleep: async ms => { time += ms; },
+    apply: (items, settings, timing) => applyToCodexTarget(items, settings, {
+      ...timing,
+      run: async (_url, _expression, waitMs) => {
+        budgets.push(waitMs);
+        time += waitMs;
+        throw new Error('Simulated unresponsive renderer');
+      },
+    }),
+  }), /before the timeout/);
+  assert.equal(time, 45000);
+  assert.ok(budgets.at(-1) < 10000);
+
+  time = 0;
+  let attempts = 0;
+  await waitForCodexRenderer(options, {
+    now: () => time,
+    get: async () => ++attempts === 1 ? [] : targets,
+    sleep: async ms => { time += ms; },
+    apply: async items => {
+      assert.deepEqual(items, targets, 'Empty discovery must not build or apply a style');
+      return true;
+    },
+  });
+  assert.equal(attempts, 2);
+});
+
+test('scrollbar evaluation closes connecting sockets on timeout and open sockets on completion', async t => {
+  let socket;
+  class FakeSocket extends EventTarget {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    readyState = FakeSocket.CONNECTING;
+    closed = 0;
+    constructor() { super(); socket = this; }
+    close() { this.closed += 1; this.readyState = 3; }
+    send() {
+      this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: 1, result: { result: { value: { success: true } } } }) }));
+    }
+  }
+  const original = globalThis.WebSocket;
+  t.after(() => { globalThis.WebSocket = original; });
+  globalThis.WebSocket = FakeSocket;
+  await assert.rejects(evaluate('fixture', 'expression', 10), /timed out/);
+  assert.equal(socket.closed, 1);
+  const result = evaluate('fixture', 'expression');
+  socket.readyState = FakeSocket.OPEN;
+  socket.dispatchEvent(new Event('open'));
+  assert.deepEqual(await result, { success: true });
+  assert.equal(socket.closed, 1);
+});
+
+test('scrollbar options are validated per action before execution', () => {
+  assert.deepEqual(parseOptions(['launch']), { action: 'launch' });
+  assert.deepEqual(parseOptions(['profile']), { action: 'profile' });
+  assert.deepEqual(parseOptions(['--action', 'launch']), { action: 'launch' });
+  assert.deepEqual(parseOptions(['debug-launch']), { action: 'debug-launch', width: 24, port: 9222 });
+  assert.deepEqual(parseOptions(['apply', '--width', '20', '--port', '9333']), { action: 'apply', width: 20, port: 9333 });
+  assert.deepEqual(parseOptions(['remove']), { action: 'remove', port: 9222 });
+  for (const args of [
+    ['launch', '--width', '24'], ['launch', '--port', '9222'], ['debug-launch', '--width', '33'],
+    ['apply', '--port', '0'], ['remove', '--width', '24'], ['profile', '--width', '24'],
+    ['launch', '--action', 'remove'], ['--width', '24'], ['launch', '--help', 'extra'],
+    ['apply', '--width'], ['apply', '--width', '20', '--width', '24'],
+    ['apply', '--port', 'NaN'], ['apply', '--width', '12.5'],
+  ]) {
+    assert.throws(() => parseOptions(args), Error, args.join(' '));
+  }
+});
+
+test('scrollbar help, profile instructions and CLI argument errors do not contact the app', () => {
+  const script = fileURLToPath(new URL('manage-codex-scrollbar.mjs', import.meta.url));
+  const run = args => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8', timeout: 5000 });
+  for (const args of [[], ['help'], ['--help'], ['launch', '--help'], ['debug-launch', '--help']]) {
+    const result = run(args);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /default: 24 CSS pixels/);
+    assert.match(result.stdout, /no debugging/);
+  }
+  for (const args of [['launch', '--width', '24'], ['launch', '--port', '9222']]) {
+    const result = run(args);
+    assert.equal(result.status, 1, result.stdout);
+    assert.doesNotMatch(result.stderr, /endpoint|already running|package/);
+  }
+});
+
+test('app is canonical and scrollbar remains an alias', async () => {
+  for (const name of ['app', 'scrollbar']) {
+    assert.equal(await runCodex([name, 'launch'], { platform: 'win32', run: (tool, args) => {
+      assert.equal(tool.name, 'app');
+      assert.deepEqual(args, ['launch']);
+      return 0;
+    } }), 0);
+  }
+});
+
+test('profile registration previews, backs up, preserves content and refuses conflicts', { skip: process.platform !== 'win32' }, t => {
+  const root = fs.mkdtempSync(join(tmpdir(), 'codexapp-profile-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const script = fileURLToPath(new URL('register-codex-app-profile.ps1', import.meta.url));
+  const profile = join(root, 'space 日本語', 'profile.ps1');
+  fs.writeFileSync(join(root, 'agent.cmd'), '@echo off\n');
+  const env = { ...process.env, PATH: root + ';' + process.env.PATH };
+  const run = (...args) => spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', script, '-ProfilePath', profile, ...args], { env, encoding: 'utf8', timeout: 10000 });
+  let result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Preview only/);
+  assert.equal(fs.existsSync(profile), false);
+  result = run('-Register', '-WhatIf');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.existsSync(profile), false);
+  fs.mkdirSync(join(root, 'space 日本語'));
+  const original = Buffer.from('# unrelated\r\n$fixture = 1\r\n');
+  fs.writeFileSync(profile, original);
+  result = run('-Register');
+  assert.equal(result.status, 0, result.stderr);
+  const installed = fs.readFileSync(profile);
+  assert.deepEqual(installed.subarray(0, original.length), original);
+  const backup = fs.readdirSync(join(root, 'space 日本語')).find(x => x.endsWith('.bak'));
+  assert.deepEqual(fs.readFileSync(join(root, 'space 日本語', backup)), original);
+  result = run('-Register');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /already present/);
+  assert.deepEqual(fs.readFileSync(profile), installed);
+  const command = `. '${profile.replaceAll("'", "''")}'\nfunction agent.cmd { ConvertTo-Json -InputObject ([string[]]$args) -Compress }\ncodexapp 'space value' --help`;
+  result = spawnSync('pwsh', ['-NoProfile', '-Command', command], { encoding: 'utf8', timeout: 10000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), ['codex', 'app', 'launch', 'space value', '--help']);
+  result = spawnSync('pwsh', ['-NoProfile', '-Command', `function codexapp { 'existing' }; . '${profile.replaceAll("'", "''")}'; codexapp`], { encoding: 'utf8', timeout: 10000 });
+  assert.equal(result.stdout.trim(), 'existing');
+  for (const content of ['function codexapp { "existing" }', '# >>> ai-dotfiles codexapp >>>', 'function broken {']) {
+    fs.writeFileSync(profile, content);
+    result = run('-Register');
+    assert.equal(result.status, 1);
+    assert.doesNotMatch(result.stderr, /At .*line:|register-codex-app-profile\.ps1/);
+    assert.ok(!result.stderr.includes(root));
+    assert.equal(fs.readFileSync(profile, 'utf8'), content);
+  }
+  const invalidUtf8 = Buffer.from([0xff, 0xfe, 0x00]);
+  fs.writeFileSync(profile, invalidUtf8);
+  result = run('-Register');
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /check file access and UTF-8 encoding/);
+  assert.ok(!result.stderr.includes(root));
+  assert.deepEqual(fs.readFileSync(profile), invalidUtf8);
+  fs.unlinkSync(profile);
+  result = run('-Register');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(fs.readFileSync(profile, 'utf8'), /function global:codexapp/);
+});
 
 test('non-interactive entry and help only describe operations', async () => {
   for (const args of [[], ['--help'], ['help'], ['-h'], ...CODEX_TOOLS.map(tool => [tool.name])]) {
