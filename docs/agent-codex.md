@@ -58,7 +58,7 @@ node "$HOME/.agents/ai-dotfiles/runtime/codex/<スクリプト名>.mjs" help
 
 ### `manage-codex-scrollbar.mjs`
 
-共通コマンド：`agent codex app`（`scrollbar`も互換エイリアス）。Windows、Node.js 24以降が必要です。引数なしでは対話メニューを開き、起動や`codexapp`の登録を選べます。リダイレクト時はヘルプだけを表示します。
+共通コマンド：`agent codex app`（`scrollbar`も互換エイリアス）。Windows専用で、Node.js 24以降が必要です。引数なしでは対話メニューを開き、起動や`codexapp`の登録を選べます。リダイレクト時はヘルプだけを表示します。
 
 Codexを完全に終了してから、外部のPowerShellで次を実行します。
 
@@ -66,9 +66,11 @@ Codexを完全に終了してから、外部のPowerShellで次を実行しま�
 agent codex app launch
 ```
 
-`launch`はデバッグ接続を有効にせず、標準のスクロールバー表示を優先するChromiumの起動引数を渡します。24pxなどの幅指定ではなく、細い表示や独自の色指定を標準表示に戻すための実験的な方法です。Codexの公式設定ではなく、実際の表示は未検証です。起動後にサイドバーと会話欄のつかみやすさを確認してください。ほかの領域のスクロールバーにも影響する場合があります。
+`launch`は、細いスクロールバーをつかみやすくするため、標準の幅と色でCodexを起動します。24pxなどの幅指定はできません。Codexの公式設定ではないため、アプリの更新によって効かなくなる場合があります。起動後にサイドバーと会話欄の表示を確認してください。ほかの領域のスクロールバーにも影響する場合があります。元に戻すには、Codexを終了してスタートメニューから通常起動します。
 
-起動引数は`--enable-blink-features=PreferDefaultScrollbarStyles`と`--blink-settings=prefersDefaultScrollbarStyles=true`です。[Chromiumのテスト設定](https://github.com/chromium/chromium/blob/153.0.8010.48/third_party/blink/web_tests/VirtualTestSuites#L2485-L2509)に同じ組み合わせがあります。終了表示は起動要求の送信を示し、表示への反映を保証しません。効かなくてもデバッグ方式へ自動で切り替えません。元に戻すには、Codexを終了してスタートメニューから通常起動します。アプリ本体や保存設定は書き換えません。
+内部では、起動引数`--enable-blink-features=PreferDefaultScrollbarStyles`と`--blink-settings=prefersDefaultScrollbarStyles=true`を渡します。[Chromiumのテスト設定](https://github.com/chromium/chromium/blob/153.0.8010.48/third_party/blink/web_tests/VirtualTestSuites#L2485-L2509)に同じ組み合わせがあります。アプリ本体や保存設定は書き換えず、デバッグ接続も有効にしません。
+
+起動にはWindowsの[パッケージ起動API](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-iapplicationactivationmanager-activateapplication)を使います。実行ファイルの直接起動では、必要なパッケージIDが付かず起動に失敗する場合があるためです。補助スクリプト`launch-codex-app.ps1`はWindows PowerShellで動作します。`Opening Codex with wider scrollbars.`は、Windowsが起動要求を受け付けた時点で表示します。画面が開かない場合は、スタートメニューから通常起動できるか確認してください。
 
 短い起動コマンド`codexapp`は、`agent codex app profile`で登録できます。PowerShell 7のコンソール用ユーザープロファイルが対象です。登録先と追加内容を表示し、対話端末で確認した場合だけ追記します。既存ファイルは隣にバックアップし、登録済みなら追記しません。同名コマンドや変更済みの登録ブロックを検出した場合は上書きせず停止します。別ファイルで定義されたコマンドは読み込み時にも確認し、既存の定義を優先します。非対話実行では表示だけで終わります。
 

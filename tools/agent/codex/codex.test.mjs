@@ -1,46 +1,51 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CODEX_TOOLS, runCodex, runTool } from './codex.mjs';
 import { applyToCodexTarget, evaluate, launchCodex, parseOptions, waitForCodexRenderer } from './manage-codex-scrollbar.mjs';
 
 const agent = fileURLToPath(new URL('../agent.mjs', import.meta.url));
 
-test('normal scrollbar launch never requests debugging; failures do not retry', async () => {
+test('packaged launch preserves arguments, hides only the helper and never falls back', () => {
   for (const debug of [undefined, true]) {
-    let detached = false;
-    await launchCodex('fixture.exe', { debug, port: 9333, spawnProcess: (exe, args, options) => {
-      assert.equal(exe, 'fixture.exe');
-      assert.equal(options.windowsHide, false);
-      assert.equal(options.stdio, 'ignore');
-      assert.equal(options.detached, true);
-      if (debug) {
-        assert.deepEqual(args, ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9333']);
-      } else {
-        assert.deepEqual(args, ['--enable-blink-features=PreferDefaultScrollbarStyles', '--blink-settings=prefersDefaultScrollbarStyles=true']);
-        assert.ok(args.every(arg => !arg.includes('remote-debugging')));
-      }
-      const child = new EventEmitter();
-      child.unref = () => { detached = true; };
-      queueMicrotask(() => child.emit('spawn'));
-      return child;
+    launchCodex({ debug, port: 9333, run: (exe, args, options) => {
+      assert.equal(exe, 'powershell.exe');
+      assert.deepEqual(args.slice(0, 4), ['-NoLogo', '-NoProfile', '-NonInteractive', '-File']);
+      assert.ok(args[4].endsWith('launch-codex-app.ps1'));
+      assert.equal(args[5], '-LaunchArguments');
+      assert.equal(args[6], debug
+        ? '--remote-debugging-address=127.0.0.1 --remote-debugging-port=9333'
+        : '--enable-blink-features=PreferDefaultScrollbarStyles --blink-settings=prefersDefaultScrollbarStyles=true');
+      assert.equal(options.windowsHide, true);
+      assert.equal(options.timeout, 30000);
+      return { status: 0, stdout: '1234' };
     } });
-    assert.equal(detached, true);
   }
-  let attempts = 0;
-  await assert.rejects(launchCodex('fixture.exe', { spawnProcess: () => {
-    attempts++;
-    const child = new EventEmitter();
-    queueMicrotask(() => child.emit('error', new Error('fixture launch failure')));
-    return child;
-  } }), /Could not start Codex/);
-  assert.equal(attempts, 1);
+  for (const result of [
+    { status: 1 }, { status: 2 }, { status: 3 }, { status: 4 },
+    { status: 0, stdout: '' }, { status: 0, stdout: '0' },
+    { status: null, error: new Error('PRIVATE PATH') },
+  ]) {
+    let calls = 0;
+    assert.throws(() => launchCodex({ run: () => { calls++; return result; } }), error => {
+      assert.ok(!error.message.includes('PRIVATE PATH'));
+      return true;
+    });
+    assert.equal(calls, 1);
+  }
+});
+
+test('package activation helper parses and its COM declaration compiles without launching', { skip: process.platform !== 'win32' }, () => {
+  const script = fileURLToPath(new URL('launch-codex-app.ps1', import.meta.url));
+  const content = fs.readFileSync(script, 'utf8');
+  const csharp = content.match(/Add-Type -TypeDefinition @'\n([\s\S]*?)\n'@/)[1];
+  const command = `$tokens = $null; $errors = $null; $null = [Management.Automation.Language.Parser]::ParseFile('${script.replaceAll("'", "''")}', [ref]$tokens, [ref]$errors); if ($errors.Count) { exit 1 }; Add-Type -TypeDefinition @'\n${csharp}\n'@\n`;
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(result.status, 0, result.stderr);
 });
 
 test('scrollbar startup applies once per target and shares one deadline across retries', async () => {
@@ -151,7 +156,7 @@ test('scrollbar help, profile instructions and CLI argument errors do not contac
     const result = run(args);
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /default: 24 CSS pixels/);
-    assert.match(result.stdout, /no debugging/);
+    assert.match(result.stdout, /Normal launch does not enable debugging/);
   }
   for (const args of [['launch', '--width', '24'], ['launch', '--port', '9222']]) {
     const result = run(args);

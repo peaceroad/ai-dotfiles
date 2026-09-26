@@ -3,7 +3,7 @@
 // Prefer native scrollbar styles without a debugging endpoint on normal launch.
 // Explicit debug operations remain available for temporary pixel-width experiments.
 
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { dirname, join, resolve } from "node:path";
@@ -30,7 +30,7 @@ export function parseOptions(args) {
     console.log(`Usage: agent codex app <launch|profile|debug-launch|apply|remove> [options]
 Standalone: node tools/agent/codex/manage-codex-scrollbar.mjs <action> [options]
 
-  launch                        Prefer standard scrollbar styles; no debugging
+  launch                        Open Codex with wider scrollbars
   profile                       Inspect or confirm codexapp registration (PowerShell 7)
   debug-launch                  Launch with debugging and inject temporary CSS
   apply / remove                Change CSS in an already debug-enabled app
@@ -44,9 +44,9 @@ Debug operations only:
 profile previews registration; interactive runs offer confirmation before writing.
 Requires Windows and Node.js 24 or later. Bare invocation shows help.
 Both launch actions require closed Codex and an external terminal.
-launch uses experimental Chromium flags, not an official Codex setting. It requests
-standard width and colors throughout the app, not a pixel width. Visual results
-must be checked manually; unsupported flags never trigger a debug fallback.
+launch uses standard scrollbar width and colors without a fixed pixel width.
+This is not an official Codex setting and may stop working after an app update.
+Normal launch does not enable debugging.
 debug-launch opens a loopback endpoint: local processes can control the app until
 it exits. remove only removes CSS. Debug output confirms insertion, not pixel width.
 Reloads/additional windows may need apply again. No background watcher is installed.
@@ -94,37 +94,6 @@ Close Codex normally and reopen it from Start to revert either launch mode.
     settings[key] = value;
   }
   return settings;
-}
-
-function resolveCodexExecutable() {
-  const script = String.raw`
-if (Get-Process -Name 'ChatGPT' -ErrorAction SilentlyContinue) {
-  [Console]::Error.WriteLine('Codex is already running.'); exit 2
-}
-$package = Get-AppxPackage -Name 'OpenAI.Codex' |
-  Sort-Object { [version]$_.Version } -Descending |
-  Select-Object -First 1
-if ($null -eq $package) {
-  [Console]::Error.WriteLine('The Codex desktop package was not found.'); exit 3
-}
-$executable = Join-Path $package.InstallLocation 'app\ChatGPT.exe'
-if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
-  [Console]::Error.WriteLine('The Codex desktop executable was not found.'); exit 4
-}
-[Console]::Out.Write($executable)
-`;
-
-  try {
-    return execFileSync("powershell.exe",
-      ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
-    ).trim();
-  } catch (error) {
-    if (error.status === 2) {
-      throw new Error("Close Codex normally, then repeat the requested launch action from a separate terminal.");
-    }
-    throw new Error("Could not resolve the installed Codex app package.");
-  }
 }
 
 function isPortAvailable(portNumber) {
@@ -324,25 +293,23 @@ export async function applyToCodexTarget(targets, options, {
   return false;
 }
 
-export function launchCodex(executable, { debug = false, port = defaultPort, spawnProcess = spawn } = {}) {
-  return new Promise((resolve, reject) => {
-    const args = debug ? [
-      `--remote-debugging-address=${host}`,
-      `--remote-debugging-port=${port}`,
-    ] : [
-      "--enable-blink-features=PreferDefaultScrollbarStyles",
-      "--blink-settings=prefersDefaultScrollbarStyles=true",
-    ];
-    // This is the visible app, not a console helper. windowsHide also requests SW_HIDE for GUIs.
-    const child = spawnProcess(executable, args, { detached: true, stdio: "ignore", windowsHide: false });
-    child.once("error", () => {
-      reject(new Error("Could not start Codex with the requested scrollbar options."));
-    });
-    child.once("spawn", () => {
-      child.unref();
-      resolve();
-    });
-  });
+export function launchCodex({ debug = false, port = defaultPort, run = spawnSync } = {}) {
+  const flags = debug ? [
+    `--remote-debugging-address=${host}`, `--remote-debugging-port=${port}`,
+  ] : [
+    "--enable-blink-features=PreferDefaultScrollbarStyles",
+    "--blink-settings=prefersDefaultScrollbarStyles=true",
+  ];
+  const result = run("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-File",
+    join(dirname(fileURLToPath(import.meta.url)), "launch-codex-app.ps1"),
+    "-LaunchArguments", flags.join(" "),
+  ], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], windowsHide: true, timeout: 30_000 });
+  if (result.status === 2) throw new Error("Close Codex normally, then repeat the requested launch action from a separate terminal.");
+  if (result.status === 3) throw new Error("The registered Codex app package was not found.");
+  if (result.status === 4) throw new Error("The Codex app manifest has no unique supported desktop entry point.");
+  if (result.error || result.status !== 0 || !/^[1-9]\d*$/.test(result.stdout?.trim() ?? "")) {
+    throw new Error("Could not activate the packaged Codex app. Try launching it from Start. No direct-executable or debugging fallback was attempted.");
+  }
 }
 
 async function main() {
@@ -361,17 +328,16 @@ async function main() {
   }
 
   if (action === "launch") {
-    await launchCodex(resolveCodexExecutable());
-    console.log("Codex launch requested with standard scrollbar flags; no debugging endpoint was enabled by this command.");
-    console.log("Visual effect is unverified. Check sidebar and session dragging; no automatic debug fallback is used.");
-    console.log("Close Codex normally and reopen it from Start to revert.");
+    launchCodex();
+    console.log("Opening Codex with wider scrollbars.");
+    console.log("To restore the original appearance, close Codex and reopen it from Start.");
     return;
   }
   if (action === "debug-launch") {
     if (!(await isPortAvailable(port))) {
       throw new Error(`Loopback port ${port} is already in use; no app was launched.`);
     }
-    await launchCodex(resolveCodexExecutable(), { debug: true, port });
+    launchCodex({ debug: true, port });
     try {
       await waitForCodexRenderer(settings);
     } catch (error) {

@@ -69,11 +69,11 @@ export const CODEX_TOOLS = [
   },
   {
     name: "app", aliases: ["scrollbar"], key: "w", title: "Codex desktop app",
-    description: "Launch Codex with standard scrollbar styles without debugging; explicit debug experiments are separate.",
-    requirements: "Windows, Node.js 24. Experimental Chromium flags; visual effect unverified. Close Codex before launch. Debug operations keep an endpoint open until app exit.",
+    description: "Open Codex with wider scrollbars or register the codexapp shortcut.",
+    requirements: "Windows only; Node.js 24. Close Codex before launch. See help for experimental debug operations.",
     file: "manage-codex-scrollbar.mjs", windowsOnly: true,
-    supportFiles: ["register-codex-app-profile.ps1"],
-    actions: [["launch", "l", "Launch with standard scrollbar styles (no debugging)"], ["profile", "p", "Inspect or confirm codexapp registration (PowerShell 7)"], ["debug-launch", "d", "Experimental: launch with debugging and temporary pixel width"], ["apply", "a", "Apply width to a debug-enabled app"], ["remove", "r", "Remove the temporary CSS (keeps debugging enabled)"]],
+    supportFiles: ["register-codex-app-profile.ps1", "launch-codex-app.ps1"],
+    actions: [["launch", "l", "Open Codex with wider scrollbars"], ["profile", "p", "Inspect or confirm codexapp registration (PowerShell 7)"], ["debug-launch", "d", "Experimental: launch with debugging and temporary pixel width"], ["apply", "a", "Apply width to a debug-enabled app"], ["remove", "r", "Remove the temporary CSS (keeps debugging enabled)"]],
   },
 ];
 
