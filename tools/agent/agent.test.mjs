@@ -1296,6 +1296,8 @@ test("migrates legacy Marketplace and installed Skill digests without discarding
     mkdirSync(source, { recursive: true });
     mkdirSync(dirname(config), { recursive: true });
     writeFileSync(join(source, "SKILL.md"), "---\nname: portable\ndescription: Portable test\n---\nBody\n");
+    // Cross several streaming chunks and a partial final chunk in both digest formats.
+    writeFileSync(join(source, "payload.bin"), Buffer.alloc(1024 * 1024 + 17, 0xa7));
     writeJson(assemblyConfig, { schemaVersion: 2, name: "portable", displayName: "Portable", plugins: [], skills: [{ source }] });
     writeJson(config, { schemaVersion: 2, skills: {}, plugins: {}, marketplaces: { team: {
       root: marketplace, name: "portable", displayName: "Portable", mode: "consumer", plugins: [], skills: [],

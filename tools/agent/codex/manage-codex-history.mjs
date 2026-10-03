@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ExportError, reject, listBundles, verifyBundle, bundleFile, readExportDirectory, safeText } from './session-export-storage.mjs';
+import { ExportError, reject, listBundles, readBundle, verifyBundle, bundleFile, readExportDirectory, safeText } from './session-export-storage.mjs';
 import { listBatches } from './session-export-batches.mjs';
 
 const help = `Read saved Codex session exports. No source database, network, Codex server, import, or deletion.
@@ -86,8 +86,10 @@ export async function runHistory(args, { log = console.log } = {}) {
       }
       return 0;
     }
-    const bundles = selectBundles(listBundles(directory), options);
+    const selected = options.target && options.action !== 'search' ? readBundle(directory, options.target) : undefined;
+    const bundles = selectBundles(selected === undefined ? listBundles(directory) : selected ? [selected] : [], options);
     if (options.target && options.action !== 'search' && !bundles.length) reject('Saved snapshot key not found.');
+    const query = options.action === 'search' ? options.target.toLowerCase() : null;
     const results = []; let partial = false;
     if (options.action === 'projects') {
       const projects = new Map();
@@ -118,7 +120,7 @@ export async function runHistory(args, { log = console.log } = {}) {
             if (line >= options.from + options.lines) break;
             results.push({ line, text: safeText(text).slice(0, 12000), ...(text.length > 12000 ? { truncated: true } : {}) });
           } else {
-            const match = text.toLowerCase().indexOf(options.target.toLowerCase());
+            const match = text.toLowerCase().indexOf(query);
             if (match !== -1) {
               const start = Math.max(0, match - 200), end = start + 1200;
               results.push({ key, line, text: `${start ? '…' : ''}${safeText(text.slice(start, end))}${end < text.length ? '…' : ''}`, warnings: manifest.warnings });

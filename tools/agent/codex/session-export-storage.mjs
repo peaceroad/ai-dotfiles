@@ -8,6 +8,19 @@ import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+const ROLLOUT_FILENAME = /([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:_([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?\.jsonl(?:\.zst)?$/i;
+// Rust canonical paths on Windows may use the extended-length namespace.
+// Normalize only filesystem drive/UNC paths, never device namespaces.
+export function filesystemPath(path) {
+  if (process.platform !== 'win32' || typeof path !== 'string') return path;
+  if (/^\\\\\?\\[a-z]:\\/i.test(path)) return path.slice(4);
+  if (/^\\\\\?\\UNC\\/i.test(path)) return `\\\\${path.slice(8)}`;
+  return path;
+}
+export function rolloutIdentity(path) {
+  const match = ROLLOUT_FILENAME.exec(basename(path));
+  return match ? { thread: match[1].toLowerCase(), rollout: (match[2] ?? match[1]).toLowerCase() } : null;
+}
 export const FORMAT = 'ai-dotfiles/codex-session-export';
 export const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_CONFIG_BYTES = 64 * 1024;
@@ -55,6 +68,7 @@ export function writeExportDirectory(directory, path = configPath(), expected) {
   return true;
 }
 export function regularFile(path, root) {
+  path = filesystemPath(path); root = filesystemPath(root);
   if (root) {
     const rel = relative(root, path);
     if (!rel || isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) reject('File escapes the expected directory.');
@@ -69,54 +83,69 @@ export function regularFile(path, root) {
   if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) reject('Linked or non-regular file is unsupported.');
   return stat;
 }
-export function bundleFile(folder, name) {
+function bundleMember(folder, name) {
   if (typeof name !== 'string' || !/^[a-zA-Z0-9_.\/-]+$/.test(name) || name.split('/').some(p => !p || p === '.' || p === '..')) reject('Unsafe bundle member name.');
   const path = resolve(folder, name);
-  regularFile(path, folder);
-  return path;
+  return { path, stat: regularFile(path, folder) };
 }
-export async function digestFile(path) {
-  return digestChunks(createReadStream(path));
+export const bundleFile = (folder, name) => bundleMember(folder, name).path;
+export async function digestFile(path, progress) {
+  return digestChunks(createReadStream(path), progress);
 }
-export async function digestChunks(chunks) {
+export async function digestChunks(chunks, progress) {
   const digest = createHash('sha256');
-  for await (const chunk of chunks) digest.update(chunk);
+  let bytes = 0;
+  for await (const chunk of chunks) {
+    digest.update(chunk); bytes += Buffer.byteLength(chunk); progress?.(bytes);
+  }
   return digest.digest('hex');
 }
-export async function writeVerifiedFile(source, path) {
+export async function writeVerifiedFile(source, path, progress) {
   const digest = createHash('sha256'); let bytes = 0;
   await pipeline(source, new Transform({ transform(chunk, encoding, callback) {
-    digest.update(chunk); bytes += chunk.length; callback(null, chunk);
+    digest.update(chunk); bytes += chunk.length; progress?.(bytes); callback(null, chunk);
   } }), createWriteStream(path, { flags: 'wx', mode: 0o600 }));
   const sha256 = digest.digest('hex');
-  if (await digestFile(path) !== sha256) reject('Export copy verification failed.');
+  if (await digestFile(path, progress) !== sha256) reject('Export copy verification failed.');
   return { file: basename(path), bytes, sha256 };
 }
 // Bounded line parsing preserves byte offsets; never silently drop malformed records.
-export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024 } = {}) {
+export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress } = {}) {
   let pieces = [], length = 0, offset = 0, line = 0;
   const decoder = new TextDecoder('utf-8', { fatal: true });
+  let read = 0;
   for await (const chunk of createReadStream(path)) {
+    read += chunk.length; progress?.(read);
     let start = 0, end;
     while ((end = chunk.indexOf(10, start)) !== -1) {
-      if (length + end - start > maxLine) reject('A history record exceeds the supported size.');
+      if (length + end - start > maxLine) reject(`A history record exceeds the supported size at line ${line + 1}.`);
       const tail = chunk.subarray(start, end + 1);
       const bytes = pieces.length ? Buffer.concat([...pieces, tail], length + tail.length) : tail;
       offset += bytes.length; line++;
-      const text = decoder.decode(bytes).trim();
-      if (text) yield { value: JSON.parse(text), line, end: offset };
+      let text, value;
+      try { text = decoder.decode(bytes).trim(); }
+      catch { reject(`Invalid UTF-8 in history record at line ${line}.`); }
+      if (text) {
+        // JSON.parse diagnostics can quote private record contents. Report only the location.
+        try { value = JSON.parse(text); }
+        catch { reject(`Invalid JSON in history record at line ${line}.`); }
+        yield { value, line, end: offset };
+      }
       pieces = []; length = 0;
       start = end + 1;
     }
     if (start < chunk.length) { pieces.push(chunk.subarray(start)); length += chunk.length - start; }
-    if (length > maxLine) reject('A history record exceeds the supported size.');
+    if (length > maxLine) reject(`A history record exceeds the supported size at line ${line + 1}.`);
   }
-  if (length) reject('History ends in an incomplete record; close writers and retry.');
+  if (length) reject(`History ends in an incomplete record at line ${line + 1}; close writers and retry.`);
 }
 export function readBundle(directory, key) {
+  return readBundleAtRoot(realpathSync(directory), key);
+}
+function readBundleAtRoot(root, key, manifestPresent = false) {
   if (!/^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(key ?? '')) reject('Use a snapshot key, not a file path.');
-  const root = realpathSync(directory), folder = join(root, key), path = join(folder, 'manifest.json');
-  if (!exists(path)) return null;
+  const folder = join(root, key), path = join(folder, 'manifest.json');
+  if (!manifestPresent && !exists(path)) return null;
   if (regularFile(path, root).size > MAX_MANIFEST_BYTES) reject('Export manifest exceeds the supported size.');
   const manifest = JSON.parse(readFileSync(path, 'utf8'));
   if (manifest.format !== FORMAT || manifest.schemaVersion !== 2 || manifest.complete !== true) return null;
@@ -128,19 +157,35 @@ export function listBundles(directory) {
   for (const entry of readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     if (!entry.isDirectory() || entry.isSymbolicLink() || entry.name.startsWith('.')) continue;
     if (!exists(join(root, entry.name, 'manifest.json'))) continue;
-    const bundle = readBundle(root, entry.name);
+    const bundle = readBundleAtRoot(root, entry.name, true);
     if (bundle) bundles.push(bundle);
   }
   return bundles;
 }
-export async function verifyBundle(bundle) {
+export async function verifyBundle(bundle, progress) {
   if (snapshotDigest(bundle.manifest) !== bundle.manifest.contentDigest) reject('Saved export metadata failed integrity verification.');
   const names = new Set();
+  const members = [];
   for (const file of bundle.manifest.files) {
     if (!file || !/^[0-9a-f]{64}$/.test(file.sha256 ?? '') || !Number.isSafeInteger(file.bytes) || file.bytes < 0 || names.has(file.file)) reject('Invalid export file inventory.');
     names.add(file.file);
-    const path = bundleFile(bundle.folder, file.file);
-    if (lstatSync(path).size !== file.bytes || await digestFile(path) !== file.sha256) reject('Saved export failed integrity verification.');
+    const { path, stat } = bundleMember(bundle.folder, file.file);
+    if (stat.size !== file.bytes) reject('Saved export failed integrity verification.');
+    members.push({ path, file });
   }
   if (!names.has('conversation.md') || !names.has('rollout.jsonl')) reject('Required export files are missing.');
+  // Bound disk pressure and await both workers even if one fails. No background
+  // verification can continue after this function returns or throws.
+  let next = 0, failed = false;
+  const worker = async () => {
+    while (!failed && next < members.length) {
+      const { path, file } = members[next++];
+      try {
+        if (await digestFile(path, read => progress?.(read, file.bytes)) !== file.sha256) reject('Saved export failed integrity verification.');
+      } catch (error) { failed = true; throw error; }
+    }
+  };
+  const results = await Promise.allSettled(Array.from({ length: Math.min(2, members.length) }, worker));
+  const error = results.find(result => result.status === 'rejected');
+  if (error) throw error.reason;
 }

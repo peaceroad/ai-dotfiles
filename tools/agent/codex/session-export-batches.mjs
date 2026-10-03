@@ -26,8 +26,11 @@ export function writeBatch(directory, snapshot, plan, entries, selection) {
   return receipt;
 }
 export function readBatch(directory, id) {
+  return readBatchAtRoot(realpathSync(directory), id);
+}
+function readBatchAtRoot(root, id) {
   if (!KEY.test(id ?? '')) reject('Use an export batch ID, not a path.');
-  const root = realpathSync(directory), path = join(root, 'batches', `${id}.json`);
+  const path = join(root, 'batches', `${id}.json`);
   if (regularFile(path, root).size > MAX_MANIFEST_BYTES) reject('Export batch exceeds the supported size.');
   const value = JSON.parse(readFileSync(path, 'utf8'));
   const { digest, ...body } = value;
@@ -54,7 +57,7 @@ export function listBatches(directory) {
   if (!exists(folder)) return [];
   if (!lstatSync(folder).isDirectory() || lstatSync(folder).isSymbolicLink()) reject('Batch directory must be a real directory.');
   return readdirSync(folder).filter(name => !name.startsWith('.') && name.endsWith('.json'))
-    .map(name => readBatch(root, name.slice(0, -5))).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    .map(name => readBatchAtRoot(root, name.slice(0, -5))).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
 }
 
 const historyTables = ['thread_turns', 'thread_items', 'thread_realtime_items', 'thread_history_projection_state'];

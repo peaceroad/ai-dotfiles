@@ -10,6 +10,9 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
+  readSync,
+  closeSync,
   readFileSync,
   readlinkSync,
   readdirSync,
@@ -81,6 +84,8 @@ Usage: agent <command> [arguments...]
   dev          Develop Skills/plugins and publish shared Marketplaces.
   marketplace  Browse and manage published standalone Skill copies.
   codex        Codex diagnostics, session management, and saved-history access.
+  info         Show runtime identity and setting locations (read-only; --json supported).
+  --version    Show the content-based runtime ID.
 
 Examples:
   agent dev --help
@@ -1381,6 +1386,8 @@ function treeDigestSync(root, expectedDigest) {
   const legacy = expectedDigest?.startsWith("sha256:") ?? false;
   const hash = createHash("sha256");
   const realRoot = realpathSync(root);
+  // Bound memory independently of file size; preserve both published digest formats.
+  const buffer = Buffer.allocUnsafe(256 * 1024);
   function visit(directory, relativeDirectory) {
     const entries = readdirSync(directory, { withFileTypes: true })
       .sort((left, right) => legacy ? left.name.localeCompare(right.name, "en") : Buffer.compare(Buffer.from(left.name), Buffer.from(right.name)));
@@ -1395,8 +1402,13 @@ function treeDigestSync(root, expectedDigest) {
         visit(target, join(relativeDirectory, entry.name));
       } else if (stats.isFile()) {
         hash.update(legacy ? `f\0${relativePath}\0${stats.mode & 0o777}\0` : `f\0${relativePath}\0`);
-        const content = readFileSync(target);
-        hash.update(legacy ? content : createHash("sha256").update(content).digest("hex"));
+        const contentHash = legacy ? hash : createHash("sha256");
+        const fd = openSync(target, "r");
+        try {
+          let count;
+          while ((count = readSync(fd, buffer, 0, buffer.length, null)) > 0) contentHash.update(buffer.subarray(0, count));
+        } finally { closeSync(fd); }
+        if (!legacy) hash.update(contentHash.digest("hex"));
         hash.update("\0");
       } else if (stats.isSymbolicLink()) {
         const linkTarget = readlinkSync(target);
@@ -2676,7 +2688,7 @@ function parseInvocation(argv) {
     if (rest.length > 4) fail(`Unexpected argument: ${rest[4]}.`, 2);
     return { consumerMarketplace: true, action, skillName, target: rest[3] };
   }
-  if (command !== "dev") fail(`Unknown command: ${argv[0]}. Available: dev, marketplace (mp), codex.`, 2);
+  if (command !== "dev") fail(`Unknown command: ${argv[0]}. Available: dev, marketplace (mp), codex, info, --version.`, 2);
   if (argv[1] === "status") {
     if (argv.length !== 2) fail("dev status does not accept arguments.", 2);
     return { summary: true };
@@ -2729,6 +2741,17 @@ function parseInvocation(argv) {
 }
 
 async function main() {
+  if (['info', '--version'].includes(process.argv[2])) {
+    const args = process.argv.slice(3);
+    if (process.argv[2] === 'info' && args.length === 1 && isHelp(args[0])) {
+      console.log('Usage: agent info [--json]\nShow the running code fingerprint, Node.js version, and setting locations. No configuration contents or external services are read.\nagent --version prints only the runtime identity; it is not a release number.');
+      return;
+    }
+    if (args.length && !(process.argv[2] === 'info' && args.length === 1 && args[0] === '--json')) fail('Use agent info [--json] or agent --version.', 2);
+    const { printAgentInfo } = await import('./agent-info.mjs');
+    process.exitCode = printAgentInfo({ json: args[0] === '--json', versionOnly: process.argv[2] === '--version' });
+    return;
+  }
   if (process.argv[2] === "codex") {
     const { runCodex } = await import("./codex/codex.mjs");
     process.exitCode = await runCodex(process.argv.slice(3));

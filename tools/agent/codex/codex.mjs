@@ -44,12 +44,19 @@ export const CODEX_TOOLS = [
     actions: [["status", "s", "Show status (read-only)"], ["suppress", "p", "Choose a log retention level"], ["restore", "r", "Restore all future log levels"]],
   },
   {
+    name: "process", key: "c", title: "Codex processes",
+    description: "Inspect running Codex/ChatGPT processes or explicitly request shutdown.",
+    requirements: "Windows, PowerShell 7. Close/stop require terminal confirmation; helpers/services and the hosting process are never stopped.",
+    file: "manage-codex-processes.mjs", windowsOnly: true,
+    actions: [["status", "s", "List detected processes (read-only)"], ["close", "c", "Confirm normal desktop window closure"], ["stop", "t", "Confirm force termination of one PID"]],
+  },
+  {
     name: "session", key: "e", title: "Session management",
     description: "Inspect, archive, delete, or export sessions selected by UUID, date, or weeks of age.",
-    requirements: "Node.js 24. Archive/delete require Windows, PowerShell 7, and Codex CLI 0.153.4. Export is not an importable backup. macOS/Linux are not yet validated.",
+    requirements: "Node.js 24. Archive/delete require Windows, PowerShell 7, and a Codex CLI with compatible commands and storage. Export is not an importable backup. macOS/Linux are not yet validated.",
     file: "manage-codex-sessions.mjs",
     actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview an operation plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion (period, UUID, or export batch)"], ["export", "e", "Export private session history"], ["config", "c", "Inspect/change export directories"]],
-    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-batches.mjs'],
+    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-batches.mjs', 'manage-codex-processes.mjs', 'session-progress.mjs'],
   },
   {
     name: "history", key: "h", title: "Saved session history",
@@ -85,6 +92,23 @@ const isAvailable = (tool, platform) => !tool.windowsOnly || platform === "win32
 const isVisible = (tool, platform) => isAvailable(tool, platform) && (!tool.windowsMenuOnly || platform === "win32");
 const banner = "Codex diagnostics, desktop tools, session management, and saved history\nProvided by ai-dotfiles; not an official Codex command.";
 
+function operationResult(tool, action, status) {
+  if (status === 0) return 'Command finished (exit 0). See the result above for completed work or cancellation.';
+  if (status === 130) return 'Interrupted (exit 130). Review any completed effects before retrying.';
+  if (status === 2) return `Invalid arguments (exit 2). Next: agent codex ${tool.name}${tool.name === 'session' ? ` ${action} --help` : ' help'}`;
+  if (status === 3) {
+    const meaning = {
+      session: 'Coverage warnings or excluded deletion families remain; completed effects are retained.',
+      history: 'Saved history has coverage warnings; output is not an unconditional completeness check.',
+      process: 'Blocking processes remain. Next: agent codex process status',
+      permission: 'The diagnostic reports differences or incomplete evidence; this alone does not mean corruption.',
+      'marketplace-staging': 'Excluded staging directories remain; review the reported reasons.',
+    }[tool.name] ?? 'Review the tool-specific findings above.';
+    return `Attention required (exit 3). ${meaning}`;
+  }
+  return `Stopped (exit ${status}). Review the cause and any completed effects above; no automatic retry was attempted.`;
+}
+
 function printHelp(log, platform, tool) {
   log(banner);
   log("Usage: agent codex [<tool> [<action> [arguments...]]]");
@@ -94,6 +118,7 @@ function printHelp(log, platform, tool) {
     if (entry.aliases?.length) log(`  Aliases: ${entry.aliases.join(", ")}`);
     for (const [action, , description] of entry.actions) {
       const argumentsHint = entry.name === "app" ? (["launch", "profile"].includes(action) ? "" : action === "remove" ? " [--port NUMBER]" : " [--width 8..32] [--port NUMBER]")
+        : entry.name === "process" ? (action === "status" ? " [--json]" : action === "stop" ? " --pid NUMBER" : " [--pid NUMBER]")
         : entry.name === "permission" ? " [--thread UUID] [--turn UUID] [--project DIRECTORY] [--json]"
         : entry.repository ? " <repository> [-CodexHome <directory>]"
         : entry.name === "session" ? (action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
@@ -181,6 +206,13 @@ async function menu(initialTool, { ask, run, log, platform }) {
       : select(tool.actions, choice, item => item[1], item => item[0])?.[0];
     if (!action) { log("Choose a listed action."); continue; }
     const args = [action];
+    if (tool.name === 'process' && action === 'stop') {
+      const value = await ask('PID from process status (Enter cancels): ');
+      if (value === null) return lastFailure;
+      if (!value.trim()) continue;
+      if (!/^[1-9]\d*$/.test(value.trim())) { log('Enter a positive numeric PID.'); continue; }
+      args.push('--pid', value.trim());
+    }
     if (tool.name === 'history' && ['search', 'read'].includes(action)) {
       const value = await ask(`${action === 'search' ? 'Search text' : 'Snapshot key from history list'} (Enter cancels): `);
       if (value === null) return lastFailure;
@@ -196,7 +228,7 @@ async function menu(initialTool, { ask, run, log, platform }) {
     }
     log(`\nRunning: agent codex ${tool.name} ${action}`);
     const status = await run(tool, args);
-    log(`Operation finished with exit code ${status}.`);
+    log(operationResult(tool, action, status));
     if (status) lastFailure = status;
     if (status === 130) return status;
   }
@@ -214,6 +246,9 @@ export async function runCodex(args, {
     return 2;
   }
   const forwarded = args.slice(1);
+  if (tool?.name === 'session' && forwarded.length === 2 && isHelp(forwarded[0]) && tool.actions.some(([action]) => action === forwarded[1])) {
+    return run(tool, [forwarded[1], '--help']);
+  }
   if (isHelp(forwarded[0])) {
     if (forwarded.length !== 1) { log("Help does not accept extra arguments."); return 2; }
     forwarded[0] = "help";

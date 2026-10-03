@@ -13,6 +13,8 @@ Identify the available entrypoint before invoking it. With a known ai-dotfiles `
 
 This plugin supplies instructions, not the CLI or an execution tool. If `agent` is unavailable, a known `~/.agents/ai-dotfiles/runtime/agent.mjs` or a user-identified ai-dotfiles checkout can be run through Node.js. Keep its runtime modules together. Do not search the whole device or install software merely to discover a command. If no compatible entrypoint is available, explain the missing prerequisite; setup is a separate authorized operation.
 
+When troubleshooting which runtime is in use, `agent info [--json]` reports the entrypoint and setting locations without reading settings or histories. `agent --version` prints a content-based ID of shipped code/schema files, not a release number. Compare it with the intended checkout's ID when needed; it does not establish provenance or external-tool compatibility. Older runtimes may not offer these commands. Do not repeat this inspection for routine operations on an already identified runtime.
+
 Read only the relevant target configuration. Availability of the CLI does not establish ownership of a repository or share. Default local settings are under `~/.agents/ai-dotfiles/`; respect `AGENT_DEV_CONFIG` and command-specific overrides. A `managedBy: "ai-dotfiles/agent-dev"` marker identifies a management workflow, not authentication or the identity of its author. Missing or unreadable ownership evidence does not authorize taking over a target.
 
 ## Choose the requested operation

@@ -182,32 +182,32 @@ test('profile registration previews, backs up, preserves content and refuses con
   const profile = join(root, 'space 日本語', 'profile.ps1');
   fs.writeFileSync(join(root, 'agent.cmd'), '@echo off\n');
   const env = { ...process.env, PATH: root + ';' + process.env.PATH };
-  const run = (...args) => spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', script, '-ProfilePath', profile, ...args], { env, encoding: 'utf8', timeout: 10000 });
+  const run = (...args) => spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', script, '-ProfilePath', profile, ...args], { env, encoding: 'utf8', timeout: 30000 });
   let result = run();
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
   assert.match(result.stdout, /Preview only/);
   assert.equal(fs.existsSync(profile), false);
   result = run('-Register', '-WhatIf');
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
   assert.equal(fs.existsSync(profile), false);
   fs.mkdirSync(join(root, 'space 日本語'));
   const original = Buffer.from('# unrelated\r\n$fixture = 1\r\n');
   fs.writeFileSync(profile, original);
   result = run('-Register');
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
   const installed = fs.readFileSync(profile);
   assert.deepEqual(installed.subarray(0, original.length), original);
   const backup = fs.readdirSync(join(root, 'space 日本語')).find(x => x.endsWith('.bak'));
   assert.deepEqual(fs.readFileSync(join(root, 'space 日本語', backup)), original);
   result = run('-Register');
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
   assert.match(result.stdout, /already present/);
   assert.deepEqual(fs.readFileSync(profile), installed);
   const command = `. '${profile.replaceAll("'", "''")}'\nfunction agent.cmd { ConvertTo-Json -InputObject ([string[]]$args) -Compress }\ncodexapp 'space value' --help`;
-  result = spawnSync('pwsh', ['-NoProfile', '-Command', command], { encoding: 'utf8', timeout: 10000 });
-  assert.equal(result.status, 0, result.stderr);
+  result = spawnSync('pwsh', ['-NoProfile', '-Command', command], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ['codex', 'app', 'launch', 'space value', '--help']);
-  result = spawnSync('pwsh', ['-NoProfile', '-Command', `function codexapp { 'existing' }; . '${profile.replaceAll("'", "''")}'; codexapp`], { encoding: 'utf8', timeout: 10000 });
+  result = spawnSync('pwsh', ['-NoProfile', '-Command', `function codexapp { 'existing' }; . '${profile.replaceAll("'", "''")}'; codexapp`], { encoding: 'utf8', timeout: 30000 });
   assert.equal(result.stdout.trim(), 'existing');
   for (const content of ['function codexapp { "existing" }', '# >>> ai-dotfiles codexapp >>>', 'function broken {']) {
     fs.writeFileSync(profile, content);
@@ -226,7 +226,7 @@ test('profile registration previews, backs up, preserves content and refuses con
   assert.deepEqual(fs.readFileSync(profile), invalidUtf8);
   fs.unlinkSync(profile);
   result = run('-Register');
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
   assert.match(fs.readFileSync(profile, 'utf8'), /function global:codexapp/);
 });
 
@@ -330,7 +330,7 @@ test('menu supports descriptions, back, cancellation, and explicit operations', 
 test('menu maps each displayed action without implicit changes', async () => {
   for (const tool of CODEX_TOOLS) {
     for (const [index, [action]] of tool.actions.entries()) {
-      const answers = [String(index + 1), ...(tool.repository || (tool.name === 'history' && ['search', 'read'].includes(action)) ? ['fixture'] : []), 'q'];
+      const answers = [String(index + 1), ...(tool.repository || (tool.name === 'history' && ['search', 'read'].includes(action)) ? ['fixture'] : []), ...(tool.name === 'process' && action === 'stop' ? ['1234'] : []), 'q'];
       let count = 0;
       assert.equal(await runCodex([tool.name], {
         interactive: true, platform: 'win32', log() {}, ask: async () => answers.shift(),

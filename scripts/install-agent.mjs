@@ -5,12 +5,11 @@ import { dirname, join, resolve, relative, isAbsolute, delimiter } from 'node:pa
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { CODEX_TOOLS } from '../tools/agent/codex/codex.mjs';
+import { runtimePayload } from '../tools/agent/agent-info.mjs';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const marker = '@ai-dotfiles agent-dev-runtime managed';
 const coreMarkers = [marker, '@ai-dotfiles agent-command v1'];
-const assemblerMarker = '@plugin-creator-agent-plugins managed-marketplace-assembler v1';
 const stat = path => { try { return fs.lstatSync(path); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } };
 const hasMarker = (content, markers) => content.toString('utf8').split(/\r?\n/, 8).some(line => markers.some(value => line.includes(value)));
 const same = (a, b) => process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b);
@@ -54,22 +53,9 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
   binDir = platform === 'win32' ? resolve(binDir) : canonicalRoot(binDir);
   const checkedParents = new Set();
   const runtime = join(agentsRoot, 'ai-dotfiles', 'runtime');
-  const plugin = 'plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins';
   const payload = [];
   const add = (source, target, markers = coreMarkers) => payload.push({ source: join(repository, source), target: join(agentsRoot, target), markers });
-  for (const name of new Set([...CODEX_TOOLS.flatMap(tool => [tool.file, ...(tool.supportFiles ?? [])]), 'codex.mjs'])) {
-    add(`tools/agent/codex/${name}`, `ai-dotfiles/runtime/codex/${name}`);
-  }
-  add('tools/agent/development.schema.json', 'ai-dotfiles/development.schema.json');
-  add('tools/agent/manage-skill-links.mjs', 'ai-dotfiles/runtime/manage-skill-links.mjs');
-  for (const [name, owner] of [
-    ['scripts/manage-local-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-local-runner v1'],
-    ['scripts/assemble-agent-marketplace.mjs', assemblerMarker],
-    ['scripts/validate-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-portable-validator v1'],
-    ['assets/marketplace-distribution/marketplace-development.schema.json', '@plugin-creator-agent-plugins managed-marketplace-schema v2'],
-  ]) add(`${plugin}/${name}`, `ai-dotfiles/runtime/plugin-tools/${name}`, [owner, marker]);
-  // Switch the public entry point only after its complete runtime is installed.
-  add('tools/agent/agent.mjs', 'ai-dotfiles/runtime/agent.mjs');
+  for (const item of runtimePayload()) add(item.source, `ai-dotfiles/runtime/${item.target}`, item.markers);
   if (platform === 'win32') add('tools/agent/agent.cmd', 'scripts/agent.cmd');
   for (const item of payload) {
     assertParents(item.target, checkedParents);

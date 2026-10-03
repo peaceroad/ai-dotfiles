@@ -33,8 +33,46 @@ function setup(t) {
   return { root, home, output, path, snapshot, save };
 }
 
+test('Codex-owned structured attachments are collected without extending external roots', async t => {
+  const f = setup(t), attachment = join(f.home, 'attachments', 'fixture.png');
+  mkdirSync(join(f.home, 'attachments'));
+  writeFileSync(attachment, 'synthetic attachment bytes');
+  writeFileSync(f.path, line(meta(id)) + line(msg('Attached image', [{ type: 'local_image', path: attachment }])));
+  await f.save();
+  const [bundle] = listBundles(f.output);
+  await verifyBundle(bundle);
+  assert.equal(bundle.manifest.attachments.length, 1);
+  assert.equal(bundle.manifest.warnings.some(w => w.reason === 'local-reference-not-collected'), false);
+  assert.equal(readFileSync(bundleFile(bundle.folder, bundle.manifest.attachments[0].file), 'utf8'), 'synthetic attachment bytes');
+});
+
+test('inherited history resolves a rollout ID distinct from its session ID', async t => {
+  const f = setup(t), alias = '00000000-0000-4000-8000-000000000004';
+  const raw = line(meta(ancestor)) + line(msg('Inherited fixture'));
+  writeFileSync(join(f.home, 'sessions', `rollout-2000-01-01T00-00-00-${ancestor}_${alias}.jsonl`), raw);
+  writeFileSync(f.path, line(meta(id, { thread_id: alias, end_ordinal_exclusive: 2, end_byte_offset: Buffer.byteLength(raw) })) + line(msg('Fork fixture')));
+  await f.save();
+  const [bundle] = listBundles(f.output);
+  await verifyBundle(bundle);
+  assert.equal(readFileSync(bundleFile(bundle.folder, `dependencies/${alias}.jsonl`), 'utf8'), raw);
+  assert.equal(bundle.manifest.warnings.some(w => w.kind === 'history'), false);
+});
+
+test('a fresh export inventory includes newly added rollouts without stale ownership caching', async t => {
+  const f = setup(t), alias = '00000000-0000-4000-8000-000000000005';
+  await f.save();
+  writeFileSync(join(f.home, 'sessions', `rollout-2000-01-01T00-00-00-${id}_${alias}.jsonl`), line(meta(id)));
+  await f.save();
+  const bundles = listBundles(f.output);
+  assert.equal(bundles.length, 2);
+  const added = bundles.find(bundle => bundle.manifest.files.some(file => file.file === `rollouts/${alias}.jsonl`));
+  assert.ok(added);
+  await verifyBundle(added);
+});
+
 test('embedded user media is extracted, literal file mentions and tool outputs are not followed', async t => {
   const f = setup(t), data = Buffer.from('fixture image bytes').toString('base64');
+  writeFileSync(join(f.root, 'private.txt'), 'uncollected fixture');
   writeFileSync(f.path, line(meta(id)) + line(msg('Files mentioned by the user: secret.txt', [
     { type: 'input_image', image_url: `data:image/png;base64,${data}` },
     { type: 'input_image', image_url: `data:image/png;base64,${data}` },
@@ -58,6 +96,64 @@ test('approved structured local media is current-file evidence, never an assumed
   const [bundle] = listBundles(f.output);
   assert.equal(bundle.manifest.attachments[0].provenance, 'current-local-file-not-historical-original');
   assert.equal(readFileSync(join(bundle.folder, bundle.manifest.attachments[0].file), 'utf8'), 'current image');
+});
+
+test('empty and noncanonical embedded media preserve raw history and publish explicit coverage warnings', async t => {
+  const f = setup(t), data = Buffer.from('valid fixture attachment').toString('base64'), logs = [];
+  const raw = line(meta(id)) + line(msg('Synthetic private message', [
+    { type: 'input_image', image_url: 'data:image/png;base64,' },
+    { type: 'input_image', image_url: 'data:image/png;base64,' },
+  ])) + line(msg('Invalid and valid attachments', [
+    { type: 'input_audio', audio_url: 'data:audio/wav;base64,Zh==' },
+    { type: 'input_image', image_url: `data:image/png;base64,${data}` },
+  ]));
+  writeFileSync(f.path, raw);
+  const result = await f.save({ log: text => logs.push(text) });
+  assert.equal(result.partial, true); assert.equal(result.batch.entries.length, 1);
+  const [bundle] = listBundles(f.output); await verifyBundle(bundle);
+  assert.equal(readFileSync(join(bundle.folder, 'rollout.jsonl'), 'utf8'), raw);
+  assert.equal(readFileSync(f.path, 'utf8'), raw);
+  assert.deepEqual(bundle.manifest.warnings.map(w => [w.reason, w.origin]), [
+    ['empty-embedded-media', 'rollout.jsonl:2'], ['empty-embedded-media', 'rollout.jsonl:2'],
+    ['invalid-embedded-media-encoding', 'rollout.jsonl:3'],
+  ]);
+  assert.equal(bundle.manifest.attachments.length, 1);
+  assert.equal(readFileSync(join(bundle.folder, bundle.manifest.attachments[0].file), 'utf8'), 'valid fixture attachment');
+  assert.match(readFileSync(join(bundle.folder, 'conversation.md'), 'utf8'), /Attachment not collected; see manifest/);
+  const warnings = logs.filter(text => text.startsWith('Warning:'));
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0], /empty-embedded-media; count 2; first source rollout\.jsonl:2; Embedded media has no data/);
+  assert.match(warnings[1], /invalid-embedded-media-encoding.*rollout\.jsonl:3.*noncanonical Base64/);
+  assert.doesNotMatch(logs.join('\n'), /Synthetic private message|data:image|Zh==/);
+  assert.ok(logs.includes('Progress: Prepare session exports 1/1'));
+  assert.ok(logs.some(text => text.startsWith('Export complete:')));
+});
+
+test('fatal record errors identify the session, phase, relative source and line without quoting record contents', async t => {
+  const f = setup(t), logs = [];
+  writeFileSync(f.path, line(meta(id)) + line(msg('Valid message')) + 'SYNTHETIC PRIVATE JSON CONTENT\n');
+  await assert.rejects(f.save({ log: text => logs.push(text) }), error => {
+    assert.match(error.message, new RegExp(`session ${id}; phase render conversation and attachments; source rollout\\.jsonl`));
+    assert.match(error.message, /Invalid JSON in history record at line 3/);
+    assert.doesNotMatch(error.message, /SYNTHETIC PRIVATE|codex-export-fixture/);
+    return true;
+  });
+  assert.deepEqual(listBundles(f.output), []);
+  assert.ok(logs.some(text => text.startsWith('Incomplete export retained:')));
+});
+
+test('unexpected export errors report a storage code and session context without leaking the native message', async t => {
+  const f = setup(t);
+  await assert.rejects(f.save({ log(text) {
+    if (text === 'Progress: Prepare session exports 1/1') throw Object.assign(new Error('SYNTHETIC PRIVATE PATH AND DATA'), { code: 'ENOSPC' });
+  } }), error => {
+    assert.match(error.message, new RegExp(`session ${id}; phase render conversation and attachments`));
+    assert.match(error.message, /Storage operation failed \(ENOSPC\)/);
+    assert.match(error.message, /Insufficient filesystem free space/);
+    assert.doesNotMatch(error.message, /SYNTHETIC PRIVATE/);
+    return true;
+  });
+  assert.deepEqual(listBundles(f.output), []);
 });
 
 test('core TurnItems and legacy user media are retained without hiding response-only messages', async t => {
@@ -112,6 +208,12 @@ test('streamed UTF-8 records retain exact line numbers and byte boundaries acros
   for await (const record of jsonLines(f.path)) records.push({ line: record.line, end: record.end });
   assert.deepEqual(records, [{ line: 1, end: Buffer.byteLength(first) }, { line: 2, end: Buffer.byteLength(first + second) }]);
   await assert.rejects(async () => { for await (const record of jsonLines(f.path, { maxLine: 100 })) void record; }, /exceeds/);
+});
+
+test('invalid UTF-8 records fail with an exact line and no decoder content', async t => {
+  const f = setup(t);
+  writeFileSync(f.path, Buffer.concat([Buffer.from(line(msg('Valid message'))), Buffer.from([0xc3, 0x28, 0x0a])]));
+  await assert.rejects(async () => { for await (const record of jsonLines(f.path)) void record; }, /Invalid UTF-8 in history record at line 2/);
 });
 
 test('search snippets include late matches and read-only result limits are explicit', async t => {
@@ -179,6 +281,22 @@ test('tampering stops reads and deduplication; manifest paths cannot escape the 
   writeFileSync(join(bundle.folder, 'conversation.md'), 'tampered');
   assert.equal(await runHistory(['read', bundle.key, '--in', f.output], { log() {} }), 1);
   await assert.rejects(f.save(), /integrity/);
+});
+
+test('a selected snapshot reads only that bundle while full scans still report unrelated corruption', async t => {
+  const f = setup(t); await f.save(); const [bundle] = listBundles(f.output);
+  mkdirSync(join(f.output, 'unrelated notes'));
+  assert.equal(listBundles(f.output).length, 1);
+  mkdirSync(join(f.output, 'broken'));
+  writeFileSync(join(f.output, 'broken', 'manifest.json'), 'invalid unrelated manifest');
+  for (const action of ['read', 'check']) {
+    assert.equal(await runHistory([action, bundle.key, '--in', f.output], { log() {} }), 0);
+    assert.equal(await runHistory([action, bundle.key, '--in', f.output, '--project', 'another-project'], { log() {} }), 1);
+    assert.equal(await runHistory([action, 'missing-key', '--in', f.output], { log() {} }), 1);
+  }
+  assert.equal(await runHistory(['list', '--in', f.output], { log() {} }), 1);
+  writeFileSync(join(bundle.folder, 'conversation.md'), 'tampered');
+  assert.equal(await runHistory(['read', bundle.key, '--in', f.output], { log() {} }), 1);
 });
 
 test('config is a narrow file-only setting; a missing drive is never replaced with another directory', t => {
