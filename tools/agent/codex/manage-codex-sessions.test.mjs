@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { inspectSessions, inspectDeletionReferences, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
 import { listBundles } from './session-export-storage.mjs';
 import { listBatches, readBatch } from './session-export-batches.mjs';
+import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -968,4 +969,41 @@ test('batch deletion stops when a remaining family history changes after the fir
   } }), 1);
   assert.deepEqual(calls, [parent]);
   assert.deepEqual((await inspectSessions(f.home)).sessions.map(row => row.id), [other]);
+});
+
+test('verified deletion schedules the sidebar scan, including before a later family fails', async t => {
+  for (const mode of ['complete', 'later-failure', 'unknown-cache']) {
+    const f = fixture(t), base = deletionOptions(f), output = [];
+    mkdirSync(join(f.home, 'sqlite'));
+    const db = new DatabaseSync(join(f.home, 'sqlite', 'codex-dev.db'));
+    db.exec(`CREATE TABLE automations (target_thread_id TEXT);
+      CREATE TABLE automation_runs (thread_id TEXT); CREATE TABLE inbox_items (thread_id TEXT);
+      CREATE TABLE local_thread_catalog_hosts (host_id TEXT PRIMARY KEY, host_kind TEXT);
+      CREATE TABLE local_thread_catalog_sync_state (host_id TEXT PRIMARY KEY, watermark_updated_at INTEGER, initial_build_complete INTEGER, observation_sequence INTEGER, last_full_reconciled_at INTEGER);
+      CREATE TABLE local_thread_catalog_scan_checkpoints (host_id TEXT PRIMARY KEY, checkpoint TEXT, failed_at INTEGER);
+      INSERT INTO local_thread_catalog_hosts VALUES ('local', 'local');
+      INSERT INTO local_thread_catalog_sync_state VALUES ('local', 123, 1, 5, 456);`);
+    if (mode === 'unknown-cache') db.exec('ALTER TABLE local_thread_catalog_sync_state ADD COLUMN unknown TEXT');
+    db.close();
+    let mutations = 0;
+    const status = await runSessions(['delete', '--before', '2026-07-01'], { ...base, ask: confirmPrompt, log: s => output.push(s), cli: args => {
+      if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+      if (++mutations === 2 && mode === 'later-failure') return { status: 1 };
+      for (const id of args[1] === parent ? [parent, child] : [other]) {
+        f.update('DELETE FROM threads WHERE id=?', id);
+        rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+      }
+      f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id=?', args[1]);
+      return { status: 0 };
+    } });
+    assert.equal(status, mode === 'complete' ? 0 : mode === 'unknown-cache' ? 3 : 1);
+    assert.match(output.join('\n'), /Verified delete/);
+    if (mode === 'unknown-cache') {
+      assert.match(output.join('\n'), /deletion was verified, but Unsupported sidebar cache/);
+      assert.equal(existsSync(join(f.home, 'backups')), false);
+    } else {
+      assert.equal((await inspectSidebarRefresh(f.home)).pending, true);
+      assert.equal(readdirSync(join(f.home, 'backups', 'sidebar-refresh')).length, 1);
+    }
+  }
 });

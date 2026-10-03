@@ -13,6 +13,7 @@ import { collectDependencies, collectOwnedRollouts, checkDependencySources, chec
 import { writeBatch, readBatch, listBatches, sourceIdentity, openHistoryReader } from './session-export-batches.mjs';
 import { ProcessError, assertClientsClosed as checkClientsClosed } from './manage-codex-processes.mjs';
 import { createProgress } from './session-progress.mjs';
+import { SidebarCacheError, inspectSidebarRefresh, requestSidebarRefresh, sidebarRefreshError } from './session-sidebar-cache.mjs';
 
 const bytes = value => `${(value / 1024 ** 2).toFixed(2)} MiB`;
 class SessionError extends Error {}
@@ -69,7 +70,8 @@ Deletion preflight scans active/archived rollout metadata, including unindexed h
 Eligible referencing forks are deleted before their ancestors within the same reviewed run.
 References outside the eligible deletion set retain the ancestor; referencing session IDs are shown.
 Unreadable or compressed-only reference metadata blocks deletion before execution.
-Protected, changed, or incompletely exported families remain excluded; exit 3 reports exclusions.`,
+Verified deletion schedules a full local app sidebar scan on its next startup when the cache is supported.
+Protected, changed, or incompletely exported families remain excluded; exit 3 reports exclusions or sidebar refresh issues.`,
   archive: `Usage: agent codex session archive <UUID | --before DATE|Nw> [--confirm <token>]
 Example: agent codex session archive --before 4w
 Archive sessions and eligible descendants using the official CLI. Rollout bytes remain on disk.
@@ -84,6 +86,15 @@ Inspect or change the default export destination. The directory must already exi
 Without options, a terminal offers current/previous destinations; redirected use only displays them.
 Changing this setting never moves or deletes saved files. --output on export overrides one run.
 For non-interactive changes: review --dry-run, then replace it with --confirm <config-token>.`,
+  'refresh-sidebar': `Usage: agent codex session refresh-sidebar [--dry-run | --confirm <token>]
+Example: agent codex session refresh-sidebar
+Schedule a full local sidebar catalog reconciliation on the app's next startup.
+Use this when deleted sessions still appear after restarting Codex.
+Requires Windows and closed Codex/ChatGPT clients and background writers.
+The app's cache format must pass schema checks. Existing reconciliation state is backed up.
+Only the local cache scan marker and checkpoint change; the app performs the actual scan.
+No thread history, catalog entry, project, or worktree is deleted by this command.
+For non-interactive use: review --dry-run, then pass its --confirm token.`,
 };
 const actions = Object.keys(actionHelp);
 
@@ -91,15 +102,15 @@ function help(log, action) {
   if (action) {
     log(`${actionHelp[action]}
 
-Requires Node.js 24.${action === 'config' ? ' Config does not inspect session history.' : ' Requires the supported local storage format; session mutation/export is experimental.'}
-${action === 'config' ? 'Setting changes require their own configuration confirmation token.' : 'Dates use UTC midnight; Nw means N * 7 days before invocation, fixed for the run.'}
+Requires Node.js 24.${['config', 'refresh-sidebar'].includes(action) ? ' This action does not inspect session history.' : ' Requires the supported local storage format; session mutation/export is experimental.'}
+${['config', 'refresh-sidebar'].includes(action) ? 'Changes require their own confirmation.' : 'Dates use UTC midnight; Nw means N * 7 days before invocation, fixed for the run.'}
 Exit codes: 0 completed/cancelled, 1 blocked/failed, 2 invalid arguments${['delete', 'export'].includes(action) ? ', 3 warnings/exclusions' : ''}.
 Full requirements and safety boundaries: agent codex session help`);
     return;
   }
   log(`Inspect, archive, delete, or export local Codex sessions, including spawned descendants.
 Experimental local storage integration; compatibility checks do not guarantee future Codex formats.
-Usage: agent codex session <list|plan|archive|delete|export|config> [arguments]
+Usage: agent codex session <list|plan|archive|delete|export|config|refresh-sidebar> [arguments]
 Standalone: node <runtime>/codex/manage-codex-sessions.mjs <command> [arguments]
 
   list [--before DATE|Nw] [--limit N]
@@ -109,6 +120,7 @@ Standalone: node <runtime>/codex/manage-codex-sessions.mjs <command> [arguments]
   export <selection> [--output <directory>] Save one reference folder per session snapshot.
   delete --exported [batch-id] [--in <directory>]  Review/delete exactly one export batch.
   config [--output <directory>] [--dry-run | --confirm <token>]  Inspect/change destinations.
+  refresh-sidebar [--dry-run | --confirm <token>]  Schedule a full app sidebar scan.
   help                                    Show this help.
   <action> --help                          Show focused help without starting an operation.
 
@@ -160,12 +172,15 @@ Batch deletion excludes changed/protected families, missing snapshots, unresolve
 and existing uncollected external attachments. Verified raw history permits rendering/media warnings;
 attachments absent at export must remain absent. Unknown warning types exclude the family.
 Both saved and live bytes are rechecked. Receipts do not authorize deletion or guarantee restoration.
+After verified deletion, a compatible app sidebar cache is scheduled for a full scan on next startup.
+Use refresh-sidebar to schedule the same scan for already deleted sessions. Unsupported caches
+remain unchanged and are reported separately; this does not undo completed deletion.
 Progress updates one line in a terminal; redirected logs report phase boundaries and at most
 one intermediate update per 30 seconds. Warnings and completed results remain as ordinary lines.
 The output parent must exist, outside CODEX_HOME and outside Git repositories. Originals stay intact.
-No --force/--yes bypass, automatic retry, direct source-file deletion, or database repair.
+No --force/--yes bypass, automatic retry, direct source-file deletion, or source database repair.
 Exit codes: 0 completed/cancelled, 1 blocked/failed, 2 invalid arguments,
-3 export coverage warnings or exported deletion with excluded families (already absent is not a warning).`);
+3 export coverage warnings, excluded deletion families, or a sidebar refresh issue (already absent is not a warning).`);
 }
 
 export function parseSessionArgs(args, now = Date.now()) {
@@ -182,12 +197,12 @@ export function parseSessionArgs(args, now = Date.now()) {
     if (!value?.trim() || value.startsWith('--')) fail(`${key} requires a value. Run agent codex session ${action} --help.`);
     return value;
   };
-  if (action === 'config') {
+  if (['config', 'refresh-sidebar'].includes(action)) {
     const options = { action }, seen = new Set();
     for (let i = 0; i < rest.length; i++) {
       const key = rest[i];
-      if (!['--dry-run', '--output', '--confirm'].includes(key)) fail('Unknown configuration option. Use --output, --dry-run, or --confirm; see agent codex session config --help.');
-      if (seen.has(key)) fail(`Repeated configuration option: ${key}. Specify it once.`); seen.add(key);
+      if (!['--dry-run', '--confirm', ...(action === 'config' ? ['--output'] : [])].includes(key)) fail(`Unknown option. Run agent codex session ${action} --help.`);
+      if (seen.has(key)) fail(`Repeated option: ${key}. Specify it once.`); seen.add(key);
       if (key === '--dry-run') options.dryRun = true;
       else {
         const value = requireValue(key, rest, ++i);
@@ -195,7 +210,8 @@ export function parseSessionArgs(args, now = Date.now()) {
         else options.confirm = tokenValue(value);
       }
     }
-    if ((!options.output && (options.dryRun || options.confirm)) || (options.dryRun && options.confirm)) fail('Configuration confirmation requires an output directory and cannot accompany --dry-run.');
+    if (action === 'config' && !options.output && (options.dryRun || options.confirm)) fail('Configuration confirmation requires an output directory.');
+    if (options.dryRun && options.confirm) fail('--confirm cannot accompany --dry-run.');
     return options;
   }
   if (!actions.includes(action)) fail('Unknown command. Run agent codex session help.');
@@ -955,7 +971,7 @@ export async function runSessions(args, {
   log = console.log, ask = askTerminal, inspect = inspectSessions,
   closed = assertClientsClosed, cli = runOfficialCodex,
 } = {}) {
-  let options, reviewedPlan, operationStarted = false;
+  let options, reviewedPlan, operationStarted = false, sidebarRefreshAttempted = false, sidebarAttention = false;
   const completed = [];
   const progress = createProgress(log);
   log = progress.log;
@@ -965,6 +981,27 @@ export async function runSessions(args, {
   try { options = parseSessionArgs(args, now); } catch (error) { log(`Error: ${error.message}`); return 2; }
   if (options.action === 'help') { help(log, options.topic); return 0; }
   try {
+    if (options.action === 'refresh-sidebar') {
+      if (platform !== 'win32') fail('Sidebar refresh is currently supported only on Windows.');
+      const plan = await inspectSidebarRefresh(home);
+      if (!plan.available) { log('No supported local sidebar cache is present; nothing changed.'); return 0; }
+      log('Proposed action: schedule a full local sidebar scan on the next Codex startup. No history or worktree will be deleted.');
+      log(`Confirmation token: ${plan.token}`);
+      if (options.confirm && options.confirm !== plan.token) fail('Sidebar refresh confirmation token does not match the current plan.');
+      if (options.dryRun) { log('Read-only preview. Close clients before applying this plan.'); return 0; }
+      if (plan.pending) { log('A full sidebar scan is already pending; start Codex and let its catalog scan finish.'); return 0; }
+      closed();
+      if (!options.confirm) {
+        if (!interactive) fail('Review refresh-sidebar --dry-run, then pass its --confirm token.');
+        if ((await ask('Type REFRESH SIDEBAR to schedule the scan (Enter cancels): '))?.trim() !== 'REFRESH SIDEBAR') { log('Cancelled; nothing changed.'); return 0; }
+      }
+      try {
+        await requestSidebarRefresh(home, { closed, expectedToken: plan.token });
+      } catch (error) { fail(sidebarRefreshError(error)); }
+      log('Sidebar refresh scheduled. Previous scan state was backed up under CODEX_HOME/backups/sidebar-refresh.');
+      log('Next: start Codex and allow the full local catalog scan to finish. Scheduling is not proof that reconciliation has completed.');
+      return 0;
+    }
     if (options.action === 'config') {
       const settings = readExportSettings(), known = [settings.directory, ...settings.previousDirectories].filter(Boolean);
       log(`Default export directory: ${displayText(settings.directory ?? '(not configured)')}`);
@@ -1085,6 +1122,7 @@ export async function runSessions(args, {
     }
     log(options.action === 'export' ? 'Export includes private history. Originals stay intact; no import/restore is provided.'
       : 'Keep all clients and background writers closed until completion. Delete is permanent. Archive retains rollout bytes; the app may clean up associated managed worktrees. Preserve worktree changes first.');
+    if (options.action === 'delete') log('Verified deletion also schedules a full local app sidebar scan when its cache format is supported.');
     const confirmation = `${options.action.toUpperCase()} ${options.id ?? `${plan.sessions.length} ${plan.fingerprint.slice(0, 8)}`}`;
     const token = confirmationToken(plan, options);
     log(`Confirmation token: ${token}`);
@@ -1150,15 +1188,26 @@ export async function runSessions(args, {
       if (incomplete) fail('Official operation returned success but descendant verification is incomplete. No retry was attempted.');
       completed.push(group.root);
       log(`Verified ${options.action}: ${group.root}`);
+      if (options.action === 'delete' && !sidebarRefreshAttempted) {
+        sidebarRefreshAttempted = true;
+        try {
+          const refresh = await requestSidebarRefresh(home, { closed });
+          if (refresh.available) log('Sidebar refresh pending: Codex will reconcile the local catalog on its next startup.');
+        } catch (error) {
+          sidebarAttention = true;
+          log(`Warning: deletion was verified, but ${sidebarRefreshError(error)}`);
+          log('Next: review agent codex session refresh-sidebar --dry-run from an external terminal.');
+        }
+      }
     }
     log(`${options.action === 'delete' ? 'Deleted' : 'Archived'} and verified: ${plan.sessions.length} indexed session(s). No project file or shared database was manually removed.`);
     printExclusions(plan, log);
     if (excluded) log('Next: review the exclusion reasons above. To inspect this same batch again, use agent codex session plan delete --exported <batch-id> --in <export-directory>. Do not substitute a new date selector.');
-    return excluded ? 3 : 0;
+    return excluded || sidebarAttention ? 3 : 0;
   } catch (error) {
     // OS/SQLite/child stderr can contain private paths, settings, and history content.
     if (error instanceof ProcessError) log(`Error: ${error.message}`);
-    else log(`Error: ${error instanceof SessionError || error instanceof ExportError ? displayText(error.message) : `Session operation failed (${errorTag(error)}). Check permissions, free space, and the supported storage layout; no automatic retry was attempted.`}`);
+    else log(`Error: ${error instanceof SessionError || error instanceof ExportError || error instanceof SidebarCacheError ? displayText(error.message) : `Session operation failed (${errorTag(error)}). Check permissions, free space, and the supported storage layout; no automatic retry was attempted.`}`);
     if (operationStarted) log(`The official operation was started; completion may be partial. Verified roots: ${completed.join(', ') || 'none'}. Inspect remaining sessions before retrying.`);
     if (reviewedPlan) printExclusions(reviewedPlan, log);
     if (operationStarted) log(`Next: agent codex session list --limit 0, then review a fresh ${options.action} plan for the remaining intended targets.`);

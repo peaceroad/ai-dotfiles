@@ -55,8 +55,8 @@ export const CODEX_TOOLS = [
     description: "Inspect, archive, delete, or export sessions selected by UUID, date, or weeks of age.",
     requirements: "Node.js 24. Archive/delete require Windows, PowerShell 7, and a Codex CLI with compatible commands and storage. Export is not an importable backup. macOS/Linux are not yet validated.",
     file: "manage-codex-sessions.mjs",
-    actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview an operation plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion (period, UUID, or export batch)"], ["export", "e", "Export private session history"], ["config", "c", "Inspect/change export directories"]],
-    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-batches.mjs', 'manage-codex-processes.mjs', 'session-progress.mjs'],
+    actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview an operation plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion (period, UUID, or export batch)"], ["export", "e", "Export private session history"], ["config", "c", "Inspect/change export directories"], ["refresh-sidebar", "r", "Schedule a full app sidebar scan"]],
+    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-batches.mjs', 'manage-codex-processes.mjs', 'session-progress.mjs', 'session-sidebar-cache.mjs'],
   },
   {
     name: "history", key: "h", title: "Saved session history",
@@ -98,7 +98,7 @@ function operationResult(tool, action, status) {
   if (status === 2) return `Invalid arguments (exit 2). Next: agent codex ${tool.name}${tool.name === 'session' ? ` ${action} --help` : ' help'}`;
   if (status === 3) {
     const meaning = {
-      session: 'Coverage warnings or excluded deletion families remain; completed effects are retained.',
+      session: 'Coverage warnings, excluded deletion families, or sidebar refresh issues remain; completed effects are retained.',
       history: 'Saved history has coverage warnings; output is not an unconditional completeness check.',
       process: 'Blocking processes remain. Next: agent codex process status',
       permission: 'The diagnostic reports differences or incomplete evidence; this alone does not mean corruption.',
@@ -121,7 +121,7 @@ function printHelp(log, platform, tool) {
         : entry.name === "process" ? (action === "status" ? " [--json]" : action === "stop" ? " --pid NUMBER" : " [--pid NUMBER]")
         : entry.name === "permission" ? " [--thread UUID] [--turn UUID] [--project DIRECTORY] [--json]"
         : entry.repository ? " <repository> [-CodexHome <directory>]"
-        : entry.name === "session" ? (action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
+        : entry.name === "session" ? (action === "refresh-sidebar" ? " [--dry-run | --confirm <token>]" : action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
         : entry.name === "history" ? (action === "search" ? " <text>" : action === "read" ? " <snapshot-key>" : "")
         : action === "suppress" ? " [trace|debug|info|warn|error|none]" : "";
       log(`  agent codex ${entry.name} ${action}${argumentsHint} - ${description}`);
