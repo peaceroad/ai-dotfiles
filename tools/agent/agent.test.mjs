@@ -173,6 +173,8 @@ test("Marketplace commands reject the retired management directory", () => {
     assert.equal(result.status, 1);
     assert.match(result.stdout, /Rename that directory to \.agents\/marketplace-development/u);
     assert.match(result.stdout, /Result: UNABLE TO CHECK/);
+    assert.match(result.stdout, /resolve the reported access, layout, or configuration issue and rerun this check/);
+    assert.doesNotMatch(result.stdout, /If changes are intended and validation passes/);
     assert.equal(result.stderr, "");
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -338,6 +340,8 @@ test("configures a new Marketplace and plugin assignment without syncing", () =>
   const input = [
     "1",
     "shared",
+    "https://example.com/marketplace",
+    "marketplaces/shared",
     marketplaceRoot,
     "",
     "Shared Marketplace",
@@ -394,6 +398,9 @@ test("configures a new Marketplace and plugin assignment without syncing", () =>
     assert.match(result.stdout, /1\/r\. Use repository settings/u);
     assert.match(result.stdout, /2\/d\. Use the plugin directory directly/u);
     assert.match(result.stdout, /1\/k\. Keep the current version/u);
+    assert.match(result.stdout, /a relative path or repository URL cannot be used here/u);
+    assert.match(result.stdout, /Category is a free-form Marketplace display label/u);
+    assert.match(result.stdout, /Added Marketplace target: shared \(pending settings\)/u);
 
     const cancelled = run(CLI, ["dev", "marketplace", "setup", "shared"], {
       AGENT_DEV_HOME: home,
@@ -404,6 +411,104 @@ test("configures a new Marketplace and plugin assignment without syncing", () =>
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("plugin setup retries absolute and escaping roots before saving a repository-relative path", () => {
+  const root = join(tmpdir(), `agent-dev-plugin-path-input-${process.pid}-${Date.now()}`);
+  const home = join(root, "home");
+  const repository = join(root, "repository");
+  const configPath = join(home, ".agents", "development.json");
+  mkdirSync(repository, { recursive: true });
+  mkdirSync(dirname(configPath), { recursive: true });
+  writeJson(configPath, { schemaVersion: 2, plugins: {}, marketplaces: {} });
+  const env = { AGENT_DEV_HOME: home, AGENT_DEV_CONFIG: configPath };
+  const input = [
+    "t", "p", "a", "sample", repository, "d",
+    join(repository, "plugins", "sample"),
+    "C:/projects/example-repo/plugins/sample", "C:plugins/sample",
+    "~/projects/example-repo/plugins/sample", "\\\\server\\share\\sample",
+    "../outside", "..\\outside",
+    "plugins\\sample", "n", "b", "b", "b", "s", "",
+  ].join("\n");
+  try {
+    const result = run(CLI, ["dev", "marketplace", "configure"], env, input);
+    assert.equal(result.status, 0, result.stderr);
+    const saved = JSON.parse(readFileSync(configPath, "utf8"));
+    assert.deepEqual(saved.plugins, { sample: { repository, pluginRoot: "plugins/sample" } });
+    assert.deepEqual(saved.marketplaces, {});
+    assert.match(result.stdout, /Local plugin repository root path/u);
+    assert.match(result.stdout, /Example: plugins\/example-plugin/u);
+    assert.match(result.stdout, /an absolute or home-directory path cannot be used here/u);
+    assert.match(result.stdout, /must stay inside the local repository/u);
+    assert.doesNotMatch(result.stdout, new RegExp(home.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("editing an invalid plugin root preserves cancellation and repairs only the selected field", () => {
+  const root = join(tmpdir(), `agent-dev-plugin-path-edit-${process.pid}-${Date.now()}`);
+  const home = join(root, "home");
+  const repository = join(root, "repository");
+  const configPath = join(home, ".agents", "development.json");
+  mkdirSync(repository, { recursive: true });
+  mkdirSync(dirname(configPath), { recursive: true });
+  const original = {
+    schemaVersion: 2,
+    plugins: { sample: { repository, pluginRoot: join(repository, "plugins", "sample"), versionPolicy: "keep" } },
+    marketplaces: {},
+  };
+  writeJson(configPath, original);
+  const originalBytes = readFileSync(configPath, "utf8");
+  const env = { AGENT_DEV_HOME: home, AGENT_DEV_CONFIG: configPath };
+  const edit = ["t", "p", "e", "", "", "", "plugins/sample", "", "b", "b", "b"];
+  try {
+    const cancelled = run(CLI, ["dev", "marketplace", "configure"], env, [...edit, "q", ""].join("\n"));
+    assert.equal(cancelled.status, 0, cancelled.stderr);
+    assert.equal(readFileSync(configPath, "utf8"), originalBytes);
+    const saved = run(CLI, ["dev", "marketplace", "configure"], env, [...edit, "s", ""].join("\n"));
+    assert.equal(saved.status, 0, saved.stderr);
+    assert.match(saved.stdout, /an absolute or home-directory path cannot be used here/u);
+    const expected = structuredClone(original);
+    expected.plugins.sample.pluginRoot = "plugins/sample";
+    assert.deepEqual(JSON.parse(readFileSync(configPath, "utf8")), { ...expected, skills: {} });
+    const rootPlugin = run(CLI, ["dev", "marketplace", "configure"], env,
+      ["t", "p", "e", "", "", ".", "", "b", "b", "b", "s", ""].join("\n"));
+    assert.equal(rootPlugin.status, 0, rootPlugin.stderr);
+    assert.equal(JSON.parse(readFileSync(configPath, "utf8")).plugins.sample.pluginRoot, ".");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("Skill path forms retry invalid input, keep cancellation, and accept a repository-root Skill", () => {
+  const root = join(tmpdir(), `agent-dev-skill-path-input-${process.pid}-${Date.now()}`);
+  const home = join(root, "home");
+  const repository = join(home, "projects", "sample");
+  const skillRoot = join(repository, "skills", "sample");
+  const configPath = join(home, ".agents", "development.json");
+  mkdirSync(skillRoot, { recursive: true });
+  mkdirSync(dirname(configPath), { recursive: true });
+  const skillText = "---\nname: sample\ndescription: Sample Skill.\n---\n";
+  for (const directory of [repository, skillRoot]) writeFileSync(join(directory, "SKILL.md"), skillText, "utf8");
+  writeJson(configPath, { schemaVersion: 2, plugins: {}, skills: {}, marketplaces: {} });
+  const original = readFileSync(configPath);
+  const env = { AGENT_DEV_HOME: home, AGENT_DEV_CONFIG: configPath };
+  const add = ["t", "s", "a", "sample", "r", "projects/sample", "https://example.com/repo",
+    repository, skillRoot, "~/skills/sample", "../outside", "skills\\sample", "", "b", "b"];
+  const invoke = (input) => run(CLI, ["dev", "marketplace", "configure"], env, [...input, ""].join("\n"));
+  try {
+    const cancelled = invoke([...add, "q"]);
+    assert.equal(cancelled.status, 0, cancelled.stderr);
+    assert.deepEqual(readFileSync(configPath), original);
+    const saved = invoke([...add, "s"]);
+    assert.equal(saved.status, 0, saved.stdout + saved.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(configPath)).skills, { sample: { repository, skillRoot: "skills/sample" } });
+    assert.match(saved.stdout, /a relative path or repository URL cannot be used here/u);
+    assert.match(saved.stdout, /The skill directory must stay inside the local repository/u);
+    const edited = invoke(["t", "s", "e", "", "", ".", "", "b", "b", "s"]);
+    assert.equal(edited.status, 0, edited.stdout + edited.stderr);
+    assert.equal(JSON.parse(readFileSync(configPath)).skills.sample.skillRoot, ".");
+    assert.match(edited.stdout, /current: ~\/projects\/sample; Enter keeps current/u);
+    assert.match(edited.stdout, /current: skills\/sample; Enter keeps current/u);
+    assert.equal(edited.stdout.includes(home), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("configures and syncs an installed Skill snapshot with editable provenance", () => {
@@ -1096,6 +1201,8 @@ test("first full sync accepts matching assignments only after success and preser
     });
     assert.equal(scopedCheck.status, 0, scopedCheck.stdout + scopedCheck.stderr);
     assert.doesNotMatch(scopedCheck.stdout, /First full sync:/);
+    assert.match(scopedCheck.stdout, /No synchronization is needed for the checked scope/);
+    assert.doesNotMatch(scopedCheck.stdout, /Review content\/validation findings before syncing/);
     assert.equal(observationExists("scoped"), false);
     configure("protected");
     writeFileSync(join(sharedRoot, "plugins", "first", "README.md"), "Manual NAS edit\n");
@@ -1128,13 +1235,24 @@ test("full sync requires acceptance after another contributor updates shared out
     const matching = runA("check");
     assert.equal(matching.status, 0);
     assert.match(matching.stdout, /Result: IN SYNC \(entire Marketplace\)/);
+    assert.match(matching.stdout, /No synchronization is needed for the checked scope/);
     assert.equal(matching.stderr, "");
+    // A failure after reading shared metadata must not recommend syncing an invalid local source.
+    const validConfig = readFileSync(configA);
+    writeJson(configA, { ...config, plugins: { ...config.plugins, first: { ...config.plugins.first, pluginRoot: first } } });
+    const invalidSource = runA("check");
+    assert.equal(invalidSource.status, 1);
+    assert.match(invalidSource.stdout, /Result: UNABLE TO CHECK/);
+    assert.match(invalidSource.stdout, /resolve the reported access, layout, or configuration issue and rerun this check/);
+    assert.doesNotMatch(invalidSource.stdout, /If changes are intended and validation passes/);
+    writeFileSync(configA, validConfig);
     assert.equal(runB().status, 0);
     const state = readFileSync(statePath);
     assert.match(runA("status").stdout, /changed since acceptance/);
     const drift = runA("check");
     assert.equal(drift.status, 1);
     assert.match(drift.stdout, /Result: NOT VERIFIED/);
+    assert.match(drift.stdout, /If changes are intended and validation passes, run agent dev marketplace sync shared\./);
     assert.equal(drift.stderr, "");
     let result = runA("sync");
     assert.equal(result.status, 1);

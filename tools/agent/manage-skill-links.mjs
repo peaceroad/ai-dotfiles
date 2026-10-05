@@ -405,6 +405,7 @@ export async function runLinks(argv, { interactive = Boolean(process.stdin.isTTY
     }
     while (true) {
       console.log("\nLocal development skill links (not Marketplace installations)");
+      console.log("Confirmed changes are saved immediately; quitting does not undo them.");
       ACTIONS.forEach(([, key, label], index) => console.log(`  ${index + 1}/${key}. ${label}`));
       console.log("  h. Help\n  q. Quit");
       const choice = (await ask("Selection: "))?.trim().toLowerCase();
@@ -417,7 +418,8 @@ export async function runLinks(argv, { interactive = Boolean(process.stdin.isTTY
           if (command !== "add") await inspect("status");
           const name = (await ask("Skill name (Enter cancels): "))?.trim();
           if (!name) continue;
-          const source = command === "remove" ? undefined : (await ask("Source directory (Enter cancels): "))?.trim();
+          if (command !== "remove") console.log("Use a local directory under your home containing SKILL.md. Example: ~/projects/example-repo/skills/example-skill");
+          const source = command === "remove" ? undefined : (await ask("Local Skill source directory (Enter cancels): "))?.trim();
           if (command !== "remove" && !source) continue;
           await mutate({ command, name, source }, ask);
         } else console.log(`Operation finished with exit code ${await inspect(command)}.`);

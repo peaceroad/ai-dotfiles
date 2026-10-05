@@ -1667,8 +1667,66 @@ function createPromptReader() {
 }
 
 async function askReplacement(input, prompt, current) {
-  const value = await askConfigurationValue(input, `${prompt} (Enter keeps the current value): `);
+  const display = isAbsolute(current) ? displayPath(current) : sanitizeOutput(current, [[HOME_PATH, "~"]]);
+  const value = await askConfigurationValue(input, `${prompt} (current: ${display}; Enter keeps current): `);
   return value === "" ? current : value;
+}
+
+async function askAbsoluteConfigurationPath(input, prompt, current) {
+  while (true) {
+    const value = current === undefined
+      ? await askRequired(input, `${prompt}: `)
+      : await askReplacement(input, prompt, current);
+    try {
+      expandPath(value, prompt);
+      return value;
+    } catch (error) {
+      if (error.exitCode === undefined) throw error;
+      console.log("Use an absolute filesystem path or ~/...; a relative path or repository URL cannot be used here.");
+    }
+  }
+}
+
+async function askLocalRepositoryPath(input, kind, current) {
+  const example = process.platform === "win32" ? "C:/projects/example-repo" : "~/projects/example-repo";
+  console.log(`Use the root of the local repository checkout. Example: ${example}`);
+  return askAbsoluteConfigurationPath(input, `Local ${kind} repository root path (absolute path or ~/...)`, current);
+}
+
+async function askRepositoryDirectory(input, repository, kind, current) {
+  const root = expandPath(repository, `Local ${kind} repository root`);
+  const example = kind === "Plugin" ? "plugins/example-plugin" : "skills/example-skill";
+  const entryFile = kind === "Plugin" ? "plugin.json" : "SKILL.md";
+  console.log(`Enter the ${kind.toLowerCase()} directory relative to that local repository root. Example: ${example}`);
+  console.log(`Use . when the repository root itself contains ${entryFile}.`);
+  const prompt = `${kind} directory (relative to local repository root)`;
+  while (true) {
+    const value = current === undefined
+      ? await askRequired(input, `${prompt}: `)
+      : await askReplacement(input, prompt, current);
+    if (isAbsolute(value) || /^[A-Za-z]:/u.test(value) || value.startsWith("\\")
+      || value === "~" || value.startsWith("~/") || value.startsWith("~\\")) {
+      console.log(`Use a repository-relative path, such as ${example}; an absolute or home-directory path cannot be used here.`);
+      continue;
+    }
+    const normalized = value.replaceAll("\\", "/");
+    if (!sameOrWithin(root, resolve(root, normalized))) {
+      console.log(`The ${kind.toLowerCase()} directory must stay inside the local repository. Enter a path such as ${example}.`);
+      continue;
+    }
+    return normalized;
+  }
+}
+
+async function askMarketplaceRootPath(input, current) {
+  const example = process.platform === "win32" ? "//server/share/example-marketplace" : "~/marketplaces/example-marketplace";
+  console.log(`Use the Marketplace folder on a NAS share or in a local checkout. Example: ${example}`);
+  console.log("Enter a filesystem path; clone a Git-hosted Marketplace before connecting to its local checkout.");
+  return askAbsoluteConfigurationPath(input, "Marketplace folder path (absolute path or ~/...)", current);
+}
+
+function reportPendingConfiguration(message) {
+  console.log(`${message} (pending settings). Choose s in the main menu to save.`);
 }
 
 async function askDefault(input, prompt, defaultValue) {
@@ -1764,7 +1822,7 @@ async function addMarketplace(input, config, suggestedName) {
     console.log(`Marketplace target already exists: ${name}`);
     return null;
   }
-  const root = await askRequired(input, "Marketplace root path: ");
+  const root = await askMarketplaceRootPath(input);
   const identifier = isMarketplaceName(name)
     ? await askDefault(input, "Marketplace identifier", name)
     : await askRequired(input, "Marketplace identifier: ");
@@ -1781,7 +1839,7 @@ async function addMarketplace(input, config, suggestedName) {
     plugins: [],
     skills: [],
   };
-  console.log(`Added Marketplace target: ${name}`);
+  reportPendingConfiguration(`Added Marketplace target: ${name}`);
   return name;
 }
 
@@ -1794,9 +1852,9 @@ async function connectMarketplace(input, config, suggestedName) {
     console.log(`Marketplace target already exists: ${name}`);
     return null;
   }
-  const root = await askRequired(input, "Existing Marketplace root path: ");
+  const root = await askMarketplaceRootPath(input);
   config.marketplaces[name] = importExistingMarketplace(name, root, config);
-  console.log(`Connected existing Marketplace: ${name}`);
+  reportPendingConfiguration(`Connected existing Marketplace: ${name}`);
   if (config.marketplaces[name].mode === "consumer") {
     console.log("This connection can browse and install Skills but cannot update the Marketplace until its management mode is changed.");
   }
@@ -1807,13 +1865,13 @@ async function editMarketplace(input, config, preferredName) {
   const name = await chooseName(input, sortedNames(config.marketplaces), "Marketplace target", preferredName);
   if (!name) return;
   const entry = config.marketplaces[name];
-  entry.root = await askReplacement(input, "Marketplace root path", entry.root);
+  entry.root = await askMarketplaceRootPath(input, entry.root);
   entry.name = validateMarketplaceName(
     await askReplacement(input, "Marketplace identifier", entry.name),
     "Marketplace identifier",
   );
   entry.displayName = await askReplacement(input, "Marketplace display name", entry.displayName);
-  console.log(`Updated Marketplace target: ${name}`);
+  reportPendingConfiguration(`Updated Marketplace target: ${name}`);
 }
 
 async function chooseMarketplaceMode(input, currentMode) {
@@ -1902,7 +1960,7 @@ async function changeMarketplaceMode(input, config, preferredName) {
   }
 
   entry.mode = mode;
-  console.log(`Changed Marketplace ${name} mode to ${mode}.`);
+  reportPendingConfiguration(`Changed Marketplace ${name} mode to ${mode}`);
   if (mode === "contributor") {
     console.log("Existing plugin and Skill assignments remain local update targets; remove any this machine should no longer publish.");
   } else if (mode === "consumer") {
@@ -1914,7 +1972,8 @@ async function removeMarketplace(input, config, preferredName) {
   const name = await chooseName(input, sortedNames(config.marketplaces), "Marketplace target", preferredName);
   if (!name || !await confirm(input, `Remove ${name} from local configuration only?`)) return false;
   delete config.marketplaces[name];
-  console.log(`Removed Marketplace target: ${name}. Distribution files were not deleted.`);
+  reportPendingConfiguration(`Removed Marketplace target: ${name}`);
+  console.log("Distribution files were not deleted.");
   return preferredName === name;
 }
 
@@ -1925,13 +1984,13 @@ async function addPluginTarget(input, config) {
     console.log(`Plugin target already exists: ${name}`);
     return;
   }
-  const repository = await askRequired(input, "Plugin repository path: ");
+  const repository = await askLocalRepositoryPath(input, "plugin");
   const mode = await choosePluginTargetType(input);
   if (mode === "repository-managed") {
-    const developmentConfig = await askRequired(input, "Repository development configuration path: ");
+    const developmentConfig = await askRequired(input, "Repository development configuration path (relative, e.g. .agents/plugin-development/example-plugin.json): ");
     const runner = await askConfigurationValue(
       input,
-      "Repository runner path (Enter uses scripts/local-plugin.mjs): ",
+      "Repository runner path (relative; Enter uses scripts/local-plugin.mjs): ",
     );
     config.plugins[name] = {
       repository,
@@ -1939,11 +1998,11 @@ async function addPluginTarget(input, config) {
       ...(runner ? { runner } : {}),
     };
   } else {
-    const pluginRoot = await askRequired(input, "Portable plugin root path: ");
+    const pluginRoot = await askRepositoryDirectory(input, repository, "Plugin");
     const versionPolicy = await chooseDirectVersionPolicy(input);
     config.plugins[name] = { repository, pluginRoot, ...(versionPolicy ? { versionPolicy } : {}) };
   }
-  console.log(`Added plugin target: ${name}`);
+  reportPendingConfiguration(`Added plugin target: ${name}`);
   return name;
 }
 
@@ -2007,9 +2066,10 @@ async function addSkillTarget(input, config) {
   let entry;
   let suggested = null;
   if (mode === "repository") {
+    const repository = await askLocalRepositoryPath(input, "Skill");
     entry = {
-      repository: await askRequired(input, "Skill repository path: "),
-      skillRoot: await askRequired(input, "Skill directory path inside the repository: "),
+      repository,
+      skillRoot: await askRepositoryDirectory(input, repository, "Skill"),
     };
   } else {
     const installedSkill = validateSkillName(
@@ -2024,7 +2084,7 @@ async function addSkillTarget(input, config) {
   if (sourceUrl) entry.sourceUrl = sourceUrl;
   skillSourceContext(name, entry);
   config.skills[name] = entry;
-  console.log(`Added Skill target: ${name}`);
+  reportPendingConfiguration(`Added Skill target: ${name}`);
   return name;
 }
 
@@ -2035,12 +2095,8 @@ async function editSkillTarget(input, config) {
   const currentMode = entry.installedSkill ? "installed-snapshot" : "repository";
   const mode = await chooseSkillTargetType(input, currentMode);
   if (mode === "repository") {
-    entry.repository = currentMode === "repository"
-      ? await askReplacement(input, "Skill repository path", entry.repository)
-      : await askRequired(input, "Skill repository path: ");
-    entry.skillRoot = currentMode === "repository"
-      ? await askReplacement(input, "Skill directory path inside the repository", entry.skillRoot)
-      : await askRequired(input, "Skill directory path inside the repository: ");
+    entry.repository = await askLocalRepositoryPath(input, "Skill", currentMode === "repository" ? entry.repository : undefined);
+    entry.skillRoot = await askRepositoryDirectory(input, entry.repository, "Skill", currentMode === "repository" ? entry.skillRoot : undefined);
     delete entry.installedSkill;
   } else {
     entry.installedSkill = currentMode === "installed-snapshot"
@@ -2062,7 +2118,7 @@ async function editSkillTarget(input, config) {
   if (sourceUrl) entry.sourceUrl = sourceUrl;
   else delete entry.sourceUrl;
   skillSourceContext(name, entry);
-  console.log(`Updated Skill target: ${name}`);
+  reportPendingConfiguration(`Updated Skill target: ${name}`);
 }
 
 async function removeSkillTarget(input, config) {
@@ -2077,7 +2133,7 @@ async function removeSkillTarget(input, config) {
   }
   if (!await confirm(input, `Remove Skill target ${name}?`)) return;
   delete config.skills[name];
-  console.log(`Removed Skill target: ${name}`);
+  reportPendingConfiguration(`Removed Skill target: ${name}`);
 }
 
 async function choosePluginTargetType(input, currentMode = null) {
@@ -2104,7 +2160,7 @@ async function choosePluginTargetType(input, currentMode = null) {
 async function chooseDirectVersionPolicy(input, currentPolicy = null) {
   const current = currentPolicy ?? "disabled";
   while (true) {
-    console.log(`How should plugin sync handle this plugin? (current: ${current})
+    console.log(`How should local Codex installation (plugin sync) handle this plugin? (current: ${current})
   1/k. Keep the current version
        Install using the version already in plugin.json.
   2/b. Create a local development version
@@ -2127,38 +2183,36 @@ async function editPluginTarget(input, config) {
   const name = await chooseName(input, sortedNames(config.plugins), "plugin target");
   if (!name) return;
   const entry = config.plugins[name];
-  entry.repository = await askReplacement(input, "Plugin repository path", entry.repository);
+  entry.repository = await askLocalRepositoryPath(input, "plugin", entry.repository);
   const currentMode = entry.developmentConfig ? "repository-managed" : "direct";
   const mode = await choosePluginTargetType(input, currentMode);
   if (mode === "repository-managed") {
     if (currentMode === "repository-managed") {
       entry.developmentConfig = await askReplacement(
         input,
-        "Repository development configuration path",
+        "Repository development configuration path (relative to local repository root)",
         entry.developmentConfig,
       );
     } else {
-      entry.developmentConfig = await askRequired(input, "Repository development configuration path: ");
+      entry.developmentConfig = await askRequired(input, "Repository development configuration path (relative, e.g. .agents/plugin-development/example-plugin.json): ");
       delete entry.pluginRoot;
       delete entry.versionPolicy;
     }
     const runner = await askConfigurationValue(
       input,
-      "Repository runner path (Enter keeps current; 'default' removes override): ",
+      "Repository runner path (relative; Enter keeps current; 'default' removes override): ",
     );
     if (runner === "default") delete entry.runner;
     else if (runner !== "") entry.runner = runner;
   } else {
-    entry.pluginRoot = currentMode === "direct"
-      ? await askReplacement(input, "Portable plugin root path", entry.pluginRoot)
-      : await askRequired(input, "Portable plugin root path: ");
+    entry.pluginRoot = await askRepositoryDirectory(input, entry.repository, "Plugin", currentMode === "direct" ? entry.pluginRoot : undefined);
     const versionPolicy = await chooseDirectVersionPolicy(input, entry.versionPolicy ?? null);
     if (versionPolicy) entry.versionPolicy = versionPolicy;
     else delete entry.versionPolicy;
     delete entry.developmentConfig;
     delete entry.runner;
   }
-  console.log(`Updated plugin target: ${name}`);
+  reportPendingConfiguration(`Updated plugin target: ${name}`);
 }
 
 async function removePluginTarget(input, config) {
@@ -2173,7 +2227,7 @@ async function removePluginTarget(input, config) {
   }
   if (!await confirm(input, `Remove plugin target ${name}?`)) return;
   delete config.plugins[name];
-  console.log(`Removed plugin target: ${name}`);
+  reportPendingConfiguration(`Removed plugin target: ${name}`);
 }
 
 async function setMarketplacePlugin(input, config, preferredMarketplace) {
@@ -2208,12 +2262,13 @@ async function setMarketplacePlugin(input, config, preferredMarketplace) {
   if (!target) return;
   const entries = config.marketplaces[marketplace].plugins;
   const existing = entries.find((plugin) => plugin.target === target);
+  console.log("Category is a free-form Marketplace display label. Examples: Developer tools, Productivity.");
   const category = existing
-    ? await askReplacement(input, "Plugin category", existing.category)
-    : await askRequired(input, "Plugin category: ");
+    ? await askReplacement(input, "Marketplace display category", existing.category)
+    : await askRequired(input, "Marketplace display category: ");
   if (existing) existing.category = category;
   else entries.push({ target, category });
-  console.log(`${existing ? "Updated" : "Added"} Marketplace plugin: ${marketplace} <- ${target}`);
+  reportPendingConfiguration(`${existing ? "Updated" : "Added"} Marketplace plugin: ${marketplace} <- ${target}`);
 }
 
 async function removeMarketplacePlugin(input, config, preferredMarketplace) {
@@ -2228,7 +2283,7 @@ async function removeMarketplacePlugin(input, config, preferredMarketplace) {
   const target = await chooseName(input, entries.map((plugin) => plugin.target), "Marketplace plugin");
   if (!target || !await confirm(input, `Remove ${target} from Marketplace ${marketplace}?`)) return;
   config.marketplaces[marketplace].plugins = entries.filter((plugin) => plugin.target !== target);
-  console.log(`Removed Marketplace plugin: ${marketplace} <- ${target}`);
+  reportPendingConfiguration(`Removed Marketplace plugin: ${marketplace} <- ${target}`);
 }
 
 async function setMarketplaceSkill(input, config, preferredMarketplace) {
@@ -2266,7 +2321,7 @@ async function setMarketplaceSkill(input, config, preferredMarketplace) {
     return;
   }
   entries.push({ target });
-  console.log(`Added Marketplace Skill: ${marketplace} <- ${target}`);
+  reportPendingConfiguration(`Added Marketplace Skill: ${marketplace} <- ${target}`);
 }
 
 async function removeMarketplaceSkill(input, config, preferredMarketplace) {
@@ -2281,7 +2336,7 @@ async function removeMarketplaceSkill(input, config, preferredMarketplace) {
   const target = await chooseName(input, entries.map((skill) => skill.target), "Marketplace Skill");
   if (!target || !await confirm(input, `Remove ${target} from Marketplace ${marketplace}?`)) return;
   config.marketplaces[marketplace].skills = entries.filter((skill) => skill.target !== target);
-  console.log(`Removed Marketplace Skill: ${marketplace} <- ${target}`);
+  reportPendingConfiguration(`Removed Marketplace Skill: ${marketplace} <- ${target}`);
 }
 
 async function setMarketplaceContent(input, config, preferredMarketplace) {
@@ -2401,6 +2456,7 @@ async function checkMarketplace({ target, pluginTarget, skillTarget, interactive
   let name = target;
   let root;
   let reviewAvailable = false;
+  let comparisonCompleted = false;
   let status = 1;
   let step = "read local configuration";
   try {
@@ -2432,6 +2488,7 @@ async function checkMarketplace({ target, pluginTarget, skillTarget, interactive
       status = handleMarketplace("check", name, pluginTarget, skillTarget, config, true);
       console.log(status === 0 ? `Result: IN SYNC (${scope})` : "Result: NOT VERIFIED (differences or validation errors; see details)");
     }
+    comparisonCompleted = true;
     if (entry.mode !== "authoritative" || pluginTarget || skillTarget) {
       console.log("Unselected package contents were not checked; this does not certify the entire Marketplace.");
     }
@@ -2445,8 +2502,12 @@ async function checkMarketplace({ target, pluginTarget, skillTarget, interactive
     console.log("Unavailable information is unknown, not evidence of missing or matching contents.");
   }
   console.log("No managed files or settings were changed; shared changes were not accepted.");
-  if (reviewAvailable) console.log(`Review content/validation findings before syncing. If shared assignments or maintenance scope need review, use agent dev marketplace check ${name} --interactive.`);
-  else console.log("Next: resolve the reported access, layout, or configuration issue and rerun this check.");
+  if (status === 0) console.log("No synchronization is needed for the checked scope.");
+  else if (comparisonCompleted) {
+    const selection = pluginTarget ? ` --plugin ${pluginTarget}` : skillTarget ? ` --skill ${skillTarget}` : "";
+    console.log(`Next: review the differences and validation findings above. If changes are intended and validation passes, run agent dev marketplace sync ${name}${selection}.`);
+    console.log(`If shared assignments or maintenance scope need review, use agent dev marketplace check ${name} --interactive.`);
+  } else console.log("Next: resolve the reported access, layout, or configuration issue and rerun this check.");
   console.log("Copy this complete report when asking for help.");
   console.log("--- End Marketplace check report ---");
   if (interactive && reviewAvailable) return reconcileMarketplace(name);

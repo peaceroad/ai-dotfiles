@@ -220,7 +220,8 @@ async function menu(initialTool, { ask, run, log, platform }) {
       args.push(value.trim());
     }
     if (tool.repository && action !== "help") {
-      const repository = await ask("Repository path (Enter cancels): ");
+      log("Use a local Git checkout, not a repository URL. Example: C:/projects/example-repo");
+      const repository = await ask("Local Git repository path (absolute or relative to current directory; Enter cancels): ");
       if (repository === null) return lastFailure;
       if (!repository.trim()) continue;
       // A prompt accepts a literal path, not a shell command.
