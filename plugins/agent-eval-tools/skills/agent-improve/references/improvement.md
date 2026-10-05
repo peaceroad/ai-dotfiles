@@ -14,6 +14,14 @@ Continue for the requested search scope, stopping at the goal, budget, lack of a
 
 Confirm the selected version on the reserved evidence, if available. Do not repeatedly use that evidence to select among candidates. Apply only an accepted change, check intervening edits, and identify the actually active version in the next fresh execution. Preserve the prior accepted bundle for recovery.
 
+## Authoring within an experiment
+
+Authoring skills can guide candidate construction and validation; they do not replace the experiment's comparison and adoption criteria. Ordinary skill creation or a focused correction can finish in its authoring workflow without starting this process. Add an experiment when a requested evaluation, uncertain effect, recurring failure, or capability goal warrants measured trials; the user need not name an evaluation tool.
+
+The parent selects relevant support guidance before trials and freezes it with the method inputs. Supply it only to roles that need it. A text-only proposal or target worker follows its frozen request; an authoring skill's general workflow does not authorize extra file reads, validation commands, agents, or source application inside that trial. The parent performs required checks in the permitted workspace or chooses a suitable harness when tool behavior is part of the claim.
+
+Reuse authoring tests or independent forward-tests when they cover the same candidate, relevant conditions, and acceptance requirement. When using prior model results in a comparison, follow the harness's acceptance contract; unsupported imports remain supporting evidence, not completed trials. A candidate-only check does not establish an improvement over a baseline, and structural validity does not establish task quality. Do not repeat an equivalent check merely because another skill recommends it. A repair creates a new candidate version; rerun affected checks and comparisons before adopting it.
+
 ## Self-application
 
 Start a separately scoped self-improvement run when requested or when an already authorized trigger and budget apply. Useful triggers include a concrete hypothesis, a recurring cross-task problem, one consequential false judgment, or a model/runtime change. The volume or age of notes alone is not a reason to run.

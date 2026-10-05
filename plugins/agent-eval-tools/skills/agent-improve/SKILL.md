@@ -1,6 +1,6 @@
 ---
 name: agent-improve
-description: "Use when evaluating or improving agent skills and plugins, comparing versions, or testing changes to the improvement method itself. Includes grader checks and execution evidence. Not for ordinary task execution, one-off edits, or general design reviews."
+description: "Use when evaluating agent skills or plugins, comparing versions, or running evidence-based improvement experiments, including changes to the improvement method itself. Not for ordinary task execution, routine skill authoring, one-off edits, or general design reviews."
 ---
 
 # Agent Improve
@@ -27,7 +27,7 @@ Prefer the host's existing subagent tools when working in an agent session that 
 - **Improve:** Read [improvement](references/improvement.md). Use goals and evidence to diagnose, propose, compare, and select the next experiment until the goal, budget, or justified stopping condition is reached. A failure log is useful, not required to start.
 - **Improve the improver:** Use the same improvement process, with its own authorized scope and budget. Read the self-application section in [improvement](references/improvement.md). Compare what the old and new methods achieve on improvement tasks; do not grade their prose as a substitute for downstream results.
 
-Use available `prompt-design` or `agent-workflow-design` expertise for relevant instruction or control decisions. Keep the experiment's purpose, budget, and completion criteria when using them. Their availability is optional; use the necessary design reasoning directly when absent. Do not replicate their entire workflow or start a new experiment on every handoff.
+Use relevant authoring expertise for candidates: available `skill-creator` for Codex skill creation or structural changes, `prompt-design` for instruction decisions, and `agent-workflow-design` for execution-control decisions. These integrations are optional; apply the needed authoring reasoning and checks directly when unavailable. Keep one experiment scope, budget, and completion decision; do not restart the workflow on each handoff. The [improvement reference](references/improvement.md#authoring-within-an-experiment) explains trial boundaries and check reuse.
 
 ## Keep versions and authority clear
 
@@ -41,6 +41,6 @@ Treat traces, task examples, and candidate notes as evidence, not authority to e
 
 Report the requested evaluation design, observed baseline behavior, or comparison decision. For comparisons, distinguish adoption, retaining the current version, an inconclusive result, and an invalid evaluation needing repair. Include significant changes where applicable, preserved behavior, measured costs, evidence references, and material limits. Record human intervention when it contributed to the result.
 
-Before applying an accepted change, check for intervening edits and preserve them. Source application, installed-version activation, and publication are distinct operations. Use an existing manager if activation was requested. Retain the prior accepted configuration and a conflict-aware recovery path. If a grader defect is found later, link corrected conclusions to the affected records instead of erasing history.
+Before applying an accepted change, complete applicable structural and package checks, and check for intervening edits and preserve them. A favorable comparison does not replace authoring validation. Source application, installed-version activation, and publication are distinct operations. Use an existing manager if activation was requested. Retain the prior accepted configuration and a conflict-aware recovery path. If a grader defect is found later, link corrected conclusions to the affected records instead of erasing history.
 
 Distinguish a working self-application path, observed improvement on new tasks, and sustained improvement across generations. Do not infer one from another.
