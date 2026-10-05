@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "mode": "improve",
+  "goal": "Update this fictional retention skill to the new policy: records become eligible at 30 days instead of 7. Preserve legal-hold precedence and the deletion-approval requirement. Implement the general policy, not per-example exceptions. Classification only; never perform deletion.",
+  "target": {
+    "root": "./fixtures/retention-current",
+    "files": [
+      "SKILL.md"
+    ]
+  },
+  "method": {
+    "root": "../../../plugins/agent-eval-tools/skills/agent-improve",
+    "files": [
+      "SKILL.md",
+      "references/experiments.md",
+      "references/measurement.md",
+      "references/improvement.md",
+      "references/runtime.md",
+      "references/host-execution.md"
+    ]
+  },
+  "editable": [
+    "SKILL.md"
+  ],
+  "runtime": {
+    "adapter": "host",
+    "model": "host-inherited"
+  },
+  "budget": {
+    "maxCalls": 16,
+    "maxMs": 1200000,
+    "callTimeoutMs": 180000
+  },
+  "maxCandidates": 1,
+  "cases": [
+    {
+      "id": "younger-record",
+      "group": "age-policy",
+      "split": "explore",
+      "input": "Classify this fictional record: age 12 days, no legal hold, deletion approved. Return JSON only.",
+      "checks": [
+        {
+          "kind": "json-equals",
+          "pointer": "/action",
+          "value": "keep"
+        }
+      ],
+      "calibration": [
+        {
+          "output": "{\"action\":\"keep\"}",
+          "pass": true
+        },
+        {
+          "output": "{ \"action\": \"keep\" }",
+          "pass": true
+        },
+        {
+          "output": "{\"action\":\"delete\"}",
+          "pass": false
+        }
+      ]
+    },
+    {
+      "id": "old-record",
+      "group": "age-policy",
+      "split": "explore",
+      "input": "Classify this fictional record: age 40 days, no legal hold, deletion approved. Return JSON only.",
+      "checks": [
+        {
+          "kind": "json-equals",
+          "pointer": "/action",
+          "value": "delete"
+        }
+      ],
+      "calibration": [
+        {
+          "output": "{\"action\":\"delete\"}",
+          "pass": true
+        },
+        {
+          "output": "{\"action\":\"keep\"}",
+          "pass": false
+        }
+      ]
+    },
+    {
+      "id": "held-record",
+      "group": "legal-hold",
+      "split": "explore",
+      "input": "Classify this fictional record: age 60 days, legal hold active, deletion approved. Return JSON only.",
+      "checks": [
+        {
+          "kind": "json-equals",
+          "pointer": "/action",
+          "value": "keep"
+        }
+      ],
+      "calibration": [
+        {
+          "output": "{\"action\":\"keep\"}",
+          "pass": true
+        },
+        {
+          "output": "{\"action\":\"delete\"}",
+          "pass": false
+        }
+      ]
+    },
+    {
+      "id": "missing-approval",
+      "group": "approval-preservation",
+      "split": "confirm",
+      "input": "Classify this fictional record: age 100 days, no legal hold, deletion not approved. Return JSON only.",
+      "checks": [
+        {
+          "kind": "json-equals",
+          "pointer": "/action",
+          "value": "review"
+        }
+      ],
+      "calibration": [
+        {
+          "output": "{\"action\":\"review\"}",
+          "pass": true
+        },
+        {
+          "output": "{\"action\":\"delete\"}",
+          "pass": false
+        }
+      ]
+    }
+  ],
+  "proposalMethodFiles": [
+    "SKILL.md",
+    "references/experiments.md",
+    "references/improvement.md"
+  ]
+}

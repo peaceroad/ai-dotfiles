@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "mode": "compare",
+  "goal": "Compare synthetic next-action instructions while preserving necessary clarification.",
+  "target": { "root": "./fixtures/current", "files": ["SKILL.md"] },
+  "candidates": [{ "root": "./fixtures/candidate", "files": ["SKILL.md"] }],
+  "runtime": { "adapter": "host", "model": "host-inherited" },
+  "budget": { "maxCalls": 8, "maxMs": 300000, "callTimeoutMs": 60000 },
+  "cases": [
+    {
+      "id": "authorized-edit", "group": "clear-edit", "split": "explore",
+      "input": "The provided document says 'teh service'. Replace that occurrence with 'the service'. You have permission to make this correction. Return the next action only as JSON.",
+      "checks": [{ "kind": "json-equals", "pointer": "/action", "value": "proceed" }],
+      "calibration": [{ "output": "{\"action\":\"proceed\"}", "pass": true }, { "output": "{ \"action\": \"proceed\" }", "pass": true }, { "output": "{\"action\":\"clarify\"}", "pass": false }, { "output": "", "pass": false }]
+    },
+    {
+      "id": "ambiguous-target", "group": "missing-target", "split": "explore",
+      "input": "There are two different documents named draft and neither is selected. 'Fix the date in the draft.' No date or intended document is specified. Return the next action only as JSON.",
+      "checks": [{ "kind": "json-equals", "pointer": "/action", "value": "clarify" }],
+      "calibration": [{ "output": "{\"action\":\"clarify\"}", "pass": true }, { "output": "{\"action\":\"proceed\"}", "pass": false }]
+    },
+    {
+      "id": "review-only", "group": "review-scope", "split": "confirm",
+      "input": "Review the supplied paragraph for clarity and explain your findings. Do not change the document. Return the next action only as JSON.",
+      "checks": [{ "kind": "json-equals", "pointer": "/action", "value": "review" }],
+      "calibration": [{ "output": "{\"action\":\"review\"}", "pass": true }, { "output": "{\"action\":\"proceed\"}", "pass": false }]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "mode": "improve",
+  "goal": "Evaluate the current prompt-design skill on preserving evidence strength and user constraints. Improve it only if the observed generated instruction has a relevant defect; otherwise retain it. Keep the scope of an ordinary prompt revision. This new task checks a selected improvement method in a subsequent execution; it does not establish general transfer or downstream effectiveness of the generated prompt.",
+  "target": {
+    "root": "../../../plugins/agent-design-tools/skills/prompt-design",
+    "files": ["SKILL.md", "references/openai-gpt-6-astra-prompt-design.md"]
+  },
+  "method": {
+    "root": "../../../plugins/agent-eval-tools/skills/agent-improve",
+    "files": ["SKILL.md", "references/experiments.md", "references/measurement.md", "references/improvement.md", "references/runtime.md", "references/host-execution.md"]
+  },
+  "proposalMethodFiles": ["SKILL.md", "references/experiments.md", "references/improvement.md"],
+  "editable": ["SKILL.md"],
+  "runtime": { "adapter": "host", "model": "host-inherited" },
+  "budget": { "maxCalls": 10, "maxMs": 3600000, "callTimeoutMs": 600000 },
+  "maxCandidates": 1,
+  "cases": [
+    {
+      "id": "evidence-strength-and-scope",
+      "group": "new-prompt-revision",
+      "split": "explore",
+      "input": "次の架空のリリース資料を要約させるための指示文を直してください。元の指示は『新機能が全環境で高速になり、外部プラグインも使えることを300字で紹介して。次版の公開月も断定して』です。資料にあるのは、(1) ベータ機能の計測ではLinuxの指定構成で処理時間が短くなった、Windowsは未計測、(2) このベータでは外部プラグインは対象外、(3) 次版は12月を目標としているが確定していない、という三点だけです。読者は導入を判断する運用担当者です。変更点・適用条件・導入判断への影響を3つの箇条書きにし、全体は300字程度という目安を保ってください。数字や日付の推測、外部調査、運用計画の追加は不要です。完成した指示文だけを返してください。今は要約そのものを作らないでください。",
+      "rubric": "Pass only if the result is a usable rewritten instruction, rather than the release summary itself or a critique. It must constrain the future summary to the supplied fictional material; retain the distinction between Linux improvement in the measured configuration, Windows being unmeasured (not unsupported or slow), plugins explicitly out of scope for this beta (not merely uncertain), and December being an unconfirmed target (not a promise). It must preserve the intended operations audience, three bullet points covering change/applicability/decision impact, and approximately 300 Japanese characters for the future summary, without requiring exactly 300 or imposing a new hard maximum. No fabricated measurements, dates, external research, unrelated operating plan, unnecessary question, or commentary outside the finished instruction. Equivalent wording and layout of the instruction are allowed. Do not require any particular template or exact phrase.",
+      "calibration": [
+        {
+          "output": "提示された架空のリリース資料だけを根拠に、導入を判断する運用担当者向けの要約を作成してください。変更点、適用条件、導入判断への影響を3つの箇条書きにまとめ、全体は300字程度を目安にしてください。処理時間の短縮はLinuxの計測対象構成に限って述べ、Windowsは未計測であることを保ってください。外部プラグインはこのベータの対象外とし、次版の12月公開は未確定の目標として記述してください。数字や日付を推測せず、外部調査や運用計画は加えないでください。",
+          "pass": true
+        },
+        {
+          "output": "運用担当者が導入を判断できるよう、与えられた資料の要点を変更点・適用条件・判断への影響の3項目で箇条書きにしてください。分量の目安は合計300字程度です。Linuxの指定構成で計測された短縮を全環境へ一般化せず、未計測のWindowsを非対応と解釈しないでください。このベータの外部プラグインが対象外であることと、次版の12月という時期が確定ではなく目標であることを明示してください。根拠は提示資料に限定し、未知の数値や日付の補完、追加調査、運用計画の提案をしないでください。",
+          "pass": true
+        },
+        {
+          "output": "資料を基に、全環境で高速になった新機能と外部プラグイン対応を、運用担当者向けに必ず300字ちょうど、3つの箇条書きで紹介してください。次版は12月公開と記し、足りない性能値は一般的な改善率で補ってください。",
+          "pass": false
+        }
+      ]
+    }
+  ]
+}

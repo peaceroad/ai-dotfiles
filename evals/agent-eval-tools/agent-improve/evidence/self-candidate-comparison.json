@@ -1,0 +1,2129 @@
+{
+  "schema": 1,
+  "kind": "curated-behavioral-evidence",
+  "purpose": "Preserve a prospective self-candidate comparison, rejection of an unproven addition, and subsequent execution of the retained method.",
+  "protocol": {
+    "candidateDesignWorkers": 1,
+    "comparisonWorkerRequests": 8,
+    "followupWorkerRequests": 4,
+    "totalWorkerExecutions": 13,
+    "freshWorkerPerRequest": true,
+    "grading": "deterministic json-equals checks; no model judges",
+    "methodSettings": "host inherited; no model or effort overrides",
+    "sourceApplicationPerformed": false,
+    "installationPerformed": false
+  },
+  "sourceVersionNote": "Uncommitted frozen source; per-file hashes were checked against the source after execution. No immutable release revision is asserted.",
+  "sourceFiles": [
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/SKILL.md",
+      "sha256": "f701d28e003924390aa70c4589b1f6fbf49b180116aaa6709d496169a3cdb6c3"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/experiments.md",
+      "sha256": "362c1c19dd4fca4b894b6189f76bbb5cf5d6ae9a408aabba38f93df1e85b3766"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/measurement.md",
+      "sha256": "81ef0b4605ced4dbfd2ea5a0f9cad68c73b5fe6c879edb53ff02584f6a48f3bb"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/improvement.md",
+      "sha256": "2c8353b0612e2f2d0bcbd9875db5a271087de3bbc8bc96e4d729983a1e98336d"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/runtime.md",
+      "sha256": "0d8d02c9652ee53dddfd7bfedb4163d402320895bad9f519501e7ca85bdfc0cc"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/host-execution.md",
+      "sha256": "ba76e2ec307fcfbfb35d35c91e22d9e33f954d406d91f6162725c16e2c6ef2d0"
+    }
+  ],
+  "candidateDesign": {
+    "status": "candidate",
+    "hypothesis": "A conditional instruction that anchors revision in one concrete decision, follows the references available at that point, and distinguishes the intended joint behavior from a neighboring working behavior may produce target revisions that reconcile interacting requirements without broadening their scope. The proposed mechanism is to make the shared decision boundary the revision unit, so a locally plausible reference edit is not mistaken for a complete fix when it is loaded too late or conflicts with other applicable guidance. This is a prospective capability hypothesis, not a diagnosed failure or measured improvement.",
+    "methodHash": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+    "candidateHash": "bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7",
+    "changedFile": "references/improvement.md",
+    "replacementText": "# Improvement and self-application\n\nRead this when improvement, rather than evaluation alone, is requested. Use the comparison contract in [experiments](experiments.md).\n\n## Search from a goal or evidence\n\nMeasure the current version, including behavior that must be preserved. Diagnose the relevant gap: instructions, selection or reference loading, task data, tools, grader, or runtime. Avoid adding an instruction already present when the failure came from another layer.\n\nForm a concrete hypothesis and create a candidate in the authorized scope. Reorganization, removing instructions, changing a reference, or retaining the current version can all be reasonable. An observed bug supports a focused fix; a capability goal can support a broader redesign. Do not intentionally weaken the initial method to make self-improvement easy to demonstrate.\n\nWhen several requirements govern the same decision across a target's entrypoint and references, anchor the hypothesis in a concrete point where they interact. Trace the instruction-loading path to that point and identify behavior that satisfies the applicable requirements together, plus the condition separating it from an already-working neighboring behavior. Revise that decision boundary and conflicting dependent wording as one candidate within the allowed files. Guidance loaded only after the decision cannot resolve it. Use that joint behavior and boundary to explain the expected effect, not separate compliance claims for each edited file.\n\nCompare under fixed conditions and inspect where the hypothesis succeeded or failed. Choose the next parent and experiment from the evidence. A rejected candidate can remain an exploration parent when there is a new hypothesis and remaining budget; it does not become the deployed champion. Keep every attempt and explain retries.\n\nContinue for the requested search scope, stopping at the goal, budget, lack of a useful hypothesis, or an execution problem. A single successful candidate does not necessarily exhaust an authorized search. Conversely, do not keep editing until a noisy score increases. If evaluation variance hides the proposed effect, improve the experiment before generating more candidates.\n\nConfirm the selected version on the reserved evidence, if available. Do not repeatedly use that evidence to select among candidates. Apply only an accepted change, check intervening edits, and identify the actually active version in the next fresh execution. Preserve the prior accepted bundle for recovery.\n\n## Self-application\n\nStart a separately scoped self-improvement run when requested or when an already authorized trigger and budget apply. Useful triggers include a concrete hypothesis, a recurring cross-task problem, one consequential false judgment, or a model/runtime change. The volume or age of notes alone is not a reason to run.\n\nSelect related records and read the underlying evidence and versions. If evidence is missing or stale, reproduce a small case before treating the cause as established. Include useful successes and counterexamples. Current broken evaluation must be repaired now; deferring shared self-improvement is not permission to rely on an invalid comparison.\n\nUse the current method H0 to generate a candidate H1 of its own permitted instructions, references, or supported helpers. Keep H0 fixed while it generates and tests H1. To compare the methods, give H0 and H1 the same starting target skills, task goals, accessible exploration evidence, and budgets. Evaluate the target improvements they produce with an outer criterion outside either candidate's control.\n\nBefore spending the comparison budget, check that the tasks can distinguish the proposed effect. If H0 already reaches their quality ceiling, use relevant harder tasks or an explicitly supported cost comparison. Repeating saturated tasks cannot establish a quality gain, and weakening H0 to create one is not a remedy. A run ending with only invalid proposals is incomplete evidence, not a successful no-change judgment.\n\nSeparate the improvement-task split from each task's own target-case split. Replaying familiar tasks can confirm mechanics and regressions, but does not establish transfer. A source rewrite is not successful activation: the selected method must run a subsequent task in a fresh context with its version identified.\n\nIf H1 is not demonstrably better, retain H0 and keep the informative evidence. If H1 is accepted, it can generate the next candidate. No new meta-agent product is required. Later, compare self-updating runs with runs that keep H0 fixed, giving both equivalent evidence and total budgets. To attribute better successor creation to H1, hold the successor's starting version fixed while comparing H0 and H1 as generators.\n\nTrack both the investment in creating the new method and its per-use cost. Do not claim the investment pays off without an appropriate usage horizon. One improved target, a better improver on new tasks, and better successor generation are distinct findings.\n\n## What remains mutable\n\nDiagnosis, case selection, candidate proposals, reference routing, curated knowledge, and trial allocation can be improvement targets within scope and the chosen harness's capabilities. In the bundled method comparison, only declared method text changes; case generation, grader settings and trial allocation remain fixed. The controller's enforcement and the current acceptance evidence stay outside candidate control. Improving a helper does not authorize executing it with access to the controller or protected records.\n\nWhen a model changes, establish a new baseline. Consider removing obsolete scaffolding as well as adding new guidance. Compare old and new methods on the same model before attributing a difference to the method. Preserve useful domain constraints and task requirements across model updates.\n",
+    "parentIntervention": "The parent chose the prospective interacting-requirements goal, the single editable reference, and the bounded comparison tasks. H0 produced the paragraph with explicitly requested prompt-design assistance. This is not autonomous diagnosis from retained notes.",
+    "designSupport": "prompt-design was explicitly requested for candidate creation. The nested comparison gives H0 and H1 the same three proposal method files, without that extra design-support skill. Read events and actual use of support were not independently audited.",
+    "limits": [
+      "No comparison or downstream target execution was performed by this candidate-design task; no quality or cost gain is established.",
+      "No parent evaluation cases or other evidence folders were inspected. The parent owns the fixed downstream comparison and any adoption decision.",
+      "This was explicit skill invocation and does not measure natural discovery.",
+      "The guidance may be redundant for an agent that already reasons successfully across loaded references; it may add analysis effort without improving outcomes.",
+      "The paragraph cannot repair inaccessible instructions, missing editable authority, unsupported runtime behavior, or defects outside the instruction layer."
+    ]
+  },
+  "definitions": {
+    "cacheSource": "evals/agent-eval-tools/agent-improve/prepare-cache-policy.mjs",
+    "retentionSource": "evals/agent-eval-tools/agent-improve/prepare-self-application.mjs",
+    "transformation": "Combine each task's existing batches into one explore case; prefix each check pointer with its batch ID. Original batch labels remain output keys only; select/confirm labels do not establish held-out splits here.",
+    "comparison": {
+      "goal": "Migrate this fictional cache skill to a new policy. Preserve the ordered authorization, tenant, integrity, forced-refresh and numeric-validation guards. Preserve fresh reuse whenever valid age <= ttl, regardless of grace or sensitivity. For expired records only, add reuse when offline and allowStale are exactly true, sensitive is not true, grace is a finite nonnegative JSON number, and age <= ttl + grace. All other expired records require revalidation. Missing or non-boolean flags are not true; do not coerce numeric strings. Reconcile both declared text files so the entry point and policy agree. Implement the general rule rather than record-ID exceptions. Classification only, no side effects.",
+      "startingTarget": {
+        "hash": "ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506",
+        "files": {
+          "SKILL.md": "---\nname: fictional-cache-policy\ndescription: Classify fictional cache records under the supplied reuse policy without fetching data or changing storage.\n---\n\n# Fictional cache policy\n\nClassify each record using `references/policy.md`. Return one JSON object mapping each input record ID to `reuse`, `revalidate`, `fetch`, or `blocked`, without commentary. Do not perform any of those actions.\n\nInputs may specify common defaults and per-record overrides. Merge them before classification; an explicit null overrides a default. Omitted booleans are false. Non-boolean values do not count as true. A missing or invalid numeric value is unknown; do not coerce strings into numbers.\n\nApply the policy in order. Authorization, tenant, integrity, and forced-refresh checks take precedence over cache age. Expired records always require revalidation under this version of the policy, including when offline.\n",
+          "references/policy.md": "# Reuse policy\n\nApply the first matching rule after merging input defaults and record overrides:\n\n1. If `requiresAuth` is true and `authorized` is not true, return `blocked`.\n2. If `crossTenant` or `corrupt` is true, return `fetch`.\n3. If `forceRefresh` is true, return `fetch`.\n4. If either `age` or `ttl` is not a finite, nonnegative JSON number, return `revalidate`.\n5. If `age <= ttl`, return `reuse`.\n6. Otherwise return `revalidate`.\n\nOther fields do not change these decisions. In particular, `offline`, `allowStale`, `sensitive`, and `grace` do not permit expired reuse in this version. This is a fictional classification exercise; it does not implement a network cache.\n"
+        }
+      },
+      "proposalMethodFiles": [
+        "SKILL.md",
+        "references/experiments.md",
+        "references/improvement.md"
+      ],
+      "cases": [
+        {
+          "id": "interacting-cache-rules",
+          "group": "cache-policy",
+          "split": "explore",
+          "input": "Apply the supplied skill and policy to the following independent batches. Each batch defines its own defaults and records. Return JSON only, mapping each batch ID to its requested ID-to-action object. Classification only.\n[{\"id\":\"stale-development\",\"input\":\"Classify every fictional record using the supplied skill and policy. Merge common defaults with each record before classifying; explicit null overrides a default. Return JSON only, mapping each ID to its action.\\n{\\\"defaults\\\":{\\\"requiresAuth\\\":false,\\\"authorized\\\":false,\\\"crossTenant\\\":false,\\\"corrupt\\\":false,\\\"forceRefresh\\\":false,\\\"offline\\\":true,\\\"allowStale\\\":true,\\\"sensitive\\\":false,\\\"age\\\":12,\\\"ttl\\\":10,\\\"grace\\\":5},\\\"records\\\":[{\\\"id\\\":\\\"stale\\\"},{\\\"id\\\":\\\"fresh-without-grace\\\",\\\"age\\\":8,\\\"grace\\\":null},{\\\"id\\\":\\\"online\\\",\\\"offline\\\":false},{\\\"id\\\":\\\"sensitive\\\",\\\"sensitive\\\":true},{\\\"id\\\":\\\"not-enabled\\\",\\\"allowStale\\\":false}]}\"},{\"id\":\"legacy-preservation\",\"input\":\"Classify every fictional record using the supplied skill and policy. Merge common defaults with each record before classifying; explicit null overrides a default. Return JSON only, mapping each ID to its action.\\n{\\\"defaults\\\":{\\\"requiresAuth\\\":false,\\\"authorized\\\":false,\\\"crossTenant\\\":false,\\\"corrupt\\\":false,\\\"forceRefresh\\\":false,\\\"offline\\\":true,\\\"allowStale\\\":true,\\\"sensitive\\\":false,\\\"age\\\":12,\\\"ttl\\\":10,\\\"grace\\\":5},\\\"records\\\":[{\\\"id\\\":\\\"auth-first\\\",\\\"requiresAuth\\\":true,\\\"crossTenant\\\":true,\\\"corrupt\\\":true},{\\\"id\\\":\\\"tenant\\\",\\\"crossTenant\\\":true},{\\\"id\\\":\\\"integrity\\\",\\\"corrupt\\\":true},{\\\"id\\\":\\\"forced\\\",\\\"forceRefresh\\\":true},{\\\"id\\\":\\\"age-unknown\\\",\\\"age\\\":null},{\\\"id\\\":\\\"ttl-negative\\\",\\\"ttl\\\":-1},{\\\"id\\\":\\\"fresh\\\",\\\"age\\\":8}]}\"},{\"id\":\"stale-selection\",\"input\":\"Classify every fictional record using the supplied skill and policy. Merge common defaults with each record before classifying; explicit null overrides a default. Return JSON only, mapping each ID to its action.\\n{\\\"defaults\\\":{\\\"requiresAuth\\\":false,\\\"authorized\\\":false,\\\"crossTenant\\\":false,\\\"corrupt\\\":false,\\\"forceRefresh\\\":false,\\\"offline\\\":true,\\\"allowStale\\\":true,\\\"sensitive\\\":false,\\\"age\\\":12,\\\"ttl\\\":10,\\\"grace\\\":5},\\\"records\\\":[{\\\"id\\\":\\\"at-grace\\\",\\\"age\\\":20,\\\"ttl\\\":14,\\\"grace\\\":6},{\\\"id\\\":\\\"past-grace\\\",\\\"age\\\":21,\\\"ttl\\\":14,\\\"grace\\\":6},{\\\"id\\\":\\\"missing-grace\\\",\\\"grace\\\":null},{\\\"id\\\":\\\"string-grace\\\",\\\"grace\\\":\\\"5\\\"},{\\\"id\\\":\\\"zero-grace\\\",\\\"grace\\\":0},{\\\"id\\\":\\\"auth-ok-stale\\\",\\\"requiresAuth\\\":true,\\\"authorized\\\":true}]}\"},{\"id\":\"preservation-confirmation\",\"input\":\"Classify every fictional record using the supplied skill and policy. Merge common defaults with each record before classifying; explicit null overrides a default. Return JSON only, mapping each ID to its action.\\n{\\\"defaults\\\":{\\\"requiresAuth\\\":false,\\\"authorized\\\":false,\\\"crossTenant\\\":false,\\\"corrupt\\\":false,\\\"forceRefresh\\\":false,\\\"offline\\\":true,\\\"allowStale\\\":true,\\\"sensitive\\\":false,\\\"age\\\":12,\\\"ttl\\\":10,\\\"grace\\\":5},\\\"records\\\":[{\\\"id\\\":\\\"auth-missing-fresh\\\",\\\"requiresAuth\\\":true,\\\"authorized\\\":null,\\\"age\\\":0,\\\"grace\\\":null},{\\\"id\\\":\\\"authorized-tenant\\\",\\\"requiresAuth\\\":true,\\\"authorized\\\":true,\\\"crossTenant\\\":true,\\\"age\\\":0},{\\\"id\\\":\\\"force-unknown-age\\\",\\\"forceRefresh\\\":true,\\\"age\\\":null},{\\\"id\\\":\\\"fresh-sensitive\\\",\\\"age\\\":3,\\\"ttl\\\":3,\\\"sensitive\\\":true,\\\"grace\\\":-1},{\\\"id\\\":\\\"unknown-age\\\",\\\"age\\\":\\\"12\\\"},{\\\"id\\\":\\\"negative-age\\\",\\\"age\\\":-1},{\\\"id\\\":\\\"online-sensitive\\\",\\\"offline\\\":false,\\\"sensitive\\\":true}]}\"}]",
+          "checks": [
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-development/stale",
+              "value": "reuse"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-development/fresh-without-grace",
+              "value": "reuse"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-development/online",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-development/sensitive",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-development/not-enabled",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/legacy-preservation/auth-first",
+              "value": "blocked"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/legacy-preservation/tenant",
+              "value": "fetch"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/legacy-preservation/integrity",
+              "value": "fetch"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/legacy-preservation/forced",
+              "value": "fetch"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/legacy-preservation/age-unknown",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/legacy-preservation/ttl-negative",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/legacy-preservation/fresh",
+              "value": "reuse"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-selection/at-grace",
+              "value": "reuse"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-selection/past-grace",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-selection/missing-grace",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-selection/string-grace",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-selection/zero-grace",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/stale-selection/auth-ok-stale",
+              "value": "reuse"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preservation-confirmation/auth-missing-fresh",
+              "value": "blocked"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preservation-confirmation/authorized-tenant",
+              "value": "fetch"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preservation-confirmation/force-unknown-age",
+              "value": "fetch"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preservation-confirmation/fresh-sensitive",
+              "value": "reuse"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preservation-confirmation/unknown-age",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preservation-confirmation/negative-age",
+              "value": "revalidate"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preservation-confirmation/online-sensitive",
+              "value": "revalidate"
+            }
+          ],
+          "calibration": [
+            {
+              "output": "{\"stale-development\":{\"stale\":\"reuse\",\"fresh-without-grace\":\"reuse\",\"online\":\"revalidate\",\"sensitive\":\"revalidate\",\"not-enabled\":\"revalidate\"},\"legacy-preservation\":{\"auth-first\":\"blocked\",\"tenant\":\"fetch\",\"integrity\":\"fetch\",\"forced\":\"fetch\",\"age-unknown\":\"revalidate\",\"ttl-negative\":\"revalidate\",\"fresh\":\"reuse\"},\"stale-selection\":{\"at-grace\":\"reuse\",\"past-grace\":\"revalidate\",\"missing-grace\":\"revalidate\",\"string-grace\":\"revalidate\",\"zero-grace\":\"revalidate\",\"auth-ok-stale\":\"reuse\"},\"preservation-confirmation\":{\"auth-missing-fresh\":\"blocked\",\"authorized-tenant\":\"fetch\",\"force-unknown-age\":\"fetch\",\"fresh-sensitive\":\"reuse\",\"unknown-age\":\"revalidate\",\"negative-age\":\"revalidate\",\"online-sensitive\":\"revalidate\"}}",
+              "pass": true
+            },
+            {
+              "output": "{\"stale-development\":{\"stale\":\"reuse\",\"fresh-without-grace\":\"reuse\",\"online\":\"revalidate\",\"sensitive\":\"revalidate\",\"not-enabled\":\"revalidate\"},\"legacy-preservation\":{\"auth-first\":\"reuse\",\"tenant\":\"fetch\",\"integrity\":\"fetch\",\"forced\":\"fetch\",\"age-unknown\":\"revalidate\",\"ttl-negative\":\"revalidate\",\"fresh\":\"reuse\"},\"stale-selection\":{\"at-grace\":\"reuse\",\"past-grace\":\"revalidate\",\"missing-grace\":\"revalidate\",\"string-grace\":\"revalidate\",\"zero-grace\":\"revalidate\",\"auth-ok-stale\":\"reuse\"},\"preservation-confirmation\":{\"auth-missing-fresh\":\"blocked\",\"authorized-tenant\":\"fetch\",\"force-unknown-age\":\"fetch\",\"fresh-sensitive\":\"reuse\",\"unknown-age\":\"revalidate\",\"negative-age\":\"revalidate\",\"online-sensitive\":\"revalidate\"}}",
+              "pass": false
+            },
+            {
+              "output": "{}",
+              "pass": false
+            }
+          ]
+        }
+      ]
+    },
+    "followup": {
+      "goal": "Migrate this fictional retention classifier from the old seven-day policy to policy r2. Return only keep, delete, or review in the existing JSON action contract. Legal hold exactly true always means keep; next, pendingExport exactly true means keep. Otherwise age must be a finite nonnegative JSON number (do not coerce strings), and category must be audit, operational, or ephemeral; unknown/invalid values mean review. Eligibility thresholds are respectively 90, 30, and 7 days, inclusive. Younger records mean keep regardless of approval fields. For eligible records, delete only when ownerVerified and approval are exactly true, approvalPolicy is exactly r2, now and approvalExpiresAt are finite nonnegative JSON numbers, and approvalExpiresAt >= now. Otherwise review. Missing flags are not true. Preserve legal-hold precedence, the approval requirement, and classification-only behavior. Implement general conditions, not record-ID exceptions.",
+      "startingTarget": {
+        "hash": "4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946",
+        "files": {
+          "SKILL.md": "---\nname: synthetic-retention\ndescription: Classify a fictional record under the supplied retention policy.\n---\n\n# Synthetic Retention\n\nReturn one JSON object with an `action` field: `keep`, `delete`, or `review`.\n\nA legal hold always means `keep`. Without a legal hold, a record is eligible for deletion at an age of 7 days or more. Eligible records require deletion approval: choose `delete` when approval exists and `review` otherwise. Younger records remain `keep`.\n\nClassify the record only; do not delete anything or use tools.\n"
+        }
+      },
+      "proposalMethodFiles": [
+        "SKILL.md",
+        "references/experiments.md",
+        "references/improvement.md"
+      ],
+      "cases": [
+        {
+          "id": "retention-followup",
+          "group": "retention-policy",
+          "split": "explore",
+          "input": "Classify the following independent batches under the supplied skill. Return JSON only, mapping each batch ID to its requested ID-to-action object. Classification only; do not perform retention operations.\n[{\"id\":\"changed-policy\",\"input\":\"Classify each fictional record independently using the supplied skill. Merge defaults with each record first; explicit null overrides defaults. Each individual classification has its existing action field. For this batch return JSON only, mapping each ID to that action string. Do not perform any retention operation.\\n{\\\"defaults\\\":{\\\"age\\\":40,\\\"category\\\":\\\"operational\\\",\\\"legalHold\\\":false,\\\"pendingExport\\\":false,\\\"ownerVerified\\\":true,\\\"approval\\\":true,\\\"approvalPolicy\\\":\\\"r2\\\",\\\"now\\\":100,\\\"approvalExpiresAt\\\":100},\\\"records\\\":[{\\\"id\\\":\\\"audit-young\\\",\\\"category\\\":\\\"audit\\\"},{\\\"id\\\":\\\"operational-young\\\",\\\"age\\\":12,\\\"approval\\\":false},{\\\"id\\\":\\\"export-first\\\",\\\"pendingExport\\\":true,\\\"age\\\":null,\\\"category\\\":null},{\\\"id\\\":\\\"wrong-policy\\\",\\\"approvalPolicy\\\":\\\"r1\\\"},{\\\"id\\\":\\\"expired-approval\\\",\\\"approvalExpiresAt\\\":99},{\\\"id\\\":\\\"unknown-owner\\\",\\\"ownerVerified\\\":null},{\\\"id\\\":\\\"string-age\\\",\\\"age\\\":\\\"40\\\"},{\\\"id\\\":\\\"unknown-category\\\",\\\"category\\\":\\\"other\\\"}]}\"},{\"id\":\"preserve-working-behavior\",\"input\":\"Classify each fictional record independently using the supplied skill. Merge defaults with each record first; explicit null overrides defaults. Each individual classification has its existing action field. For this batch return JSON only, mapping each ID to that action string. Do not perform any retention operation.\\n{\\\"defaults\\\":{\\\"age\\\":40,\\\"category\\\":\\\"operational\\\",\\\"legalHold\\\":false,\\\"pendingExport\\\":false,\\\"ownerVerified\\\":true,\\\"approval\\\":true,\\\"approvalPolicy\\\":\\\"r2\\\",\\\"now\\\":100,\\\"approvalExpiresAt\\\":100},\\\"records\\\":[{\\\"id\\\":\\\"hold\\\",\\\"legalHold\\\":true,\\\"age\\\":150,\\\"approval\\\":false},{\\\"id\\\":\\\"authorized\\\"},{\\\"id\\\":\\\"unapproved\\\",\\\"approval\\\":false},{\\\"id\\\":\\\"young\\\",\\\"age\\\":2,\\\"approval\\\":false}]}\"},{\"id\":\"r2-boundaries\",\"input\":\"Classify each fictional record independently using the supplied skill. Merge defaults with each record first; explicit null overrides defaults. Each individual classification has its existing action field. For this batch return JSON only, mapping each ID to that action string. Do not perform any retention operation.\\n{\\\"defaults\\\":{\\\"age\\\":40,\\\"category\\\":\\\"operational\\\",\\\"legalHold\\\":false,\\\"pendingExport\\\":false,\\\"ownerVerified\\\":true,\\\"approval\\\":true,\\\"approvalPolicy\\\":\\\"r2\\\",\\\"now\\\":100,\\\"approvalExpiresAt\\\":100},\\\"records\\\":[{\\\"id\\\":\\\"audit-edge\\\",\\\"category\\\":\\\"audit\\\",\\\"age\\\":90},{\\\"id\\\":\\\"operational-edge\\\",\\\"age\\\":30},{\\\"id\\\":\\\"ephemeral-edge\\\",\\\"category\\\":\\\"ephemeral\\\",\\\"age\\\":7},{\\\"id\\\":\\\"young-invalid-approval\\\",\\\"age\\\":29,\\\"now\\\":null,\\\"approvalExpiresAt\\\":null},{\\\"id\\\":\\\"hold-invalid-age\\\",\\\"legalHold\\\":true,\\\"age\\\":-1,\\\"category\\\":null},{\\\"id\\\":\\\"string-owner\\\",\\\"ownerVerified\\\":\\\"true\\\"},{\\\"id\\\":\\\"string-now\\\",\\\"now\\\":\\\"100\\\"},{\\\"id\\\":\\\"negative-expiry\\\",\\\"approvalExpiresAt\\\":-1}]}\"}]",
+          "checks": [
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/audit-young",
+              "value": "keep"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/operational-young",
+              "value": "keep"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/export-first",
+              "value": "keep"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/wrong-policy",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/expired-approval",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/unknown-owner",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/string-age",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/changed-policy/unknown-category",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preserve-working-behavior/hold",
+              "value": "keep"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preserve-working-behavior/authorized",
+              "value": "delete"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preserve-working-behavior/unapproved",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/preserve-working-behavior/young",
+              "value": "keep"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/audit-edge",
+              "value": "delete"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/operational-edge",
+              "value": "delete"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/ephemeral-edge",
+              "value": "delete"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/young-invalid-approval",
+              "value": "keep"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/hold-invalid-age",
+              "value": "keep"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/string-owner",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/string-now",
+              "value": "review"
+            },
+            {
+              "kind": "json-equals",
+              "pointer": "/r2-boundaries/negative-expiry",
+              "value": "review"
+            }
+          ],
+          "calibration": [
+            {
+              "output": "{\"changed-policy\":{\"audit-young\":\"keep\",\"operational-young\":\"keep\",\"export-first\":\"keep\",\"wrong-policy\":\"review\",\"expired-approval\":\"review\",\"unknown-owner\":\"review\",\"string-age\":\"review\",\"unknown-category\":\"review\"},\"preserve-working-behavior\":{\"hold\":\"keep\",\"authorized\":\"delete\",\"unapproved\":\"review\",\"young\":\"keep\"},\"r2-boundaries\":{\"audit-edge\":\"delete\",\"operational-edge\":\"delete\",\"ephemeral-edge\":\"delete\",\"young-invalid-approval\":\"keep\",\"hold-invalid-age\":\"keep\",\"string-owner\":\"review\",\"string-now\":\"review\",\"negative-expiry\":\"review\"}}",
+              "pass": true
+            },
+            {
+              "output": "{\"changed-policy\":{\"audit-young\":\"keep\",\"operational-young\":\"keep\",\"export-first\":\"keep\",\"wrong-policy\":\"review\",\"expired-approval\":\"review\",\"unknown-owner\":\"review\",\"string-age\":\"review\",\"unknown-category\":\"review\"},\"preserve-working-behavior\":{\"hold\":\"delete\",\"authorized\":\"delete\",\"unapproved\":\"review\",\"young\":\"keep\"},\"r2-boundaries\":{\"audit-edge\":\"delete\",\"operational-edge\":\"delete\",\"ephemeral-edge\":\"delete\",\"young-invalid-approval\":\"keep\",\"hold-invalid-age\":\"keep\",\"string-owner\":\"review\",\"string-now\":\"review\",\"negative-expiry\":\"review\"}}",
+              "pass": false
+            },
+            {
+              "output": "{}",
+              "pass": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "comparison": {
+    "sourceRecordSha256": "0433908e4cdc7d1820d30dc2f79f63502d1e8859d9629152b86b00a733ecf9b6",
+    "contractHash": "4a8eda10eeedfabf12fd3ca86f53128885930da1967ae5ebaa2420d9e66d160f",
+    "controllerHash": "456a16315ba3264cf6aab38fd58e9e6137b4100bb2ca395edce37599dadcc731",
+    "targetHash": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+    "methodHash": null,
+    "workerRequests": 8,
+    "tokens": null,
+    "observedBackendVersion": null,
+    "trials": [
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\n  \"stale-development\": {\n    \"stale\": \"revalidate\",\n    \"fresh-without-grace\": \"reuse\",\n    \"online\": \"revalidate\",\n    \"sensitive\": \"revalidate\",\n    \"not-enabled\": \"revalidate\"\n  },\n  \"legacy-preservation\": {\n    \"auth-first\": \"blocked\",\n    \"tenant\": \"fetch\",\n    \"integrity\": \"fetch\",\n    \"forced\": \"fetch\",\n    \"age-unknown\": \"revalidate\",\n    \"ttl-negative\": \"revalidate\",\n    \"fresh\": \"reuse\"\n  },\n  \"stale-selection\": {\n    \"at-grace\": \"revalidate\",\n    \"past-grace\": \"revalidate\",\n    \"missing-grace\": \"revalidate\",\n    \"string-grace\": \"revalidate\",\n    \"zero-grace\": \"revalidate\",\n    \"auth-ok-stale\": \"revalidate\"\n  },\n  \"preservation-confirmation\": {\n    \"auth-missing-fresh\": \"blocked\",\n    \"authorized-tenant\": \"fetch\",\n    \"force-unknown-age\": \"fetch\",\n    \"fresh-sensitive\": \"reuse\",\n    \"unknown-age\": \"revalidate\",\n    \"negative-age\": \"revalidate\",\n    \"online-sensitive\": \"revalidate\"\n  }\n}",
+        "outputSha256": "c453b24f0fb00b822bd9a70f99a46632f95505ee89d24129264e5e13a8468ebb"
+      },
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/proposal/0",
+        "role": "generator",
+        "status": "completed",
+        "output": "{\n  \"action\": \"candidate\",\n  \"parent\": \"ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506\",\n  \"hypothesis\": \"The observed baseline preserves the earlier guards and fresh reuse but rejects the three eligible stale cases because both files prohibit expired reuse. Replacing that prohibition with one conditional expired-reuse rule after the unchanged guards and fresh-reuse rule should enable the requested behavior while preserving existing decisions. Grace and sensitivity must be consulted only after a valid record is found to be expired.\",\n  \"edits\": [\n    {\n      \"path\": \"SKILL.md\",\n      \"content\": \"---\\nname: fictional-cache-policy\\ndescription: Classify fictional cache records under the supplied reuse policy without fetching data or changing storage.\\n---\\n\\n# Fictional cache policy\\n\\nClassify each record using `references/policy.md`. Return JSON only, mapping each input record ID to `reuse`, `revalidate`, `fetch`, or `blocked`, using any batch grouping requested by the input. Do not perform any of those actions.\\n\\nInputs may specify common defaults and per-record overrides. Merge them before classification; an explicit null overrides a default. Only the JSON boolean `true` counts as true. Missing flags, null, and non-boolean flag values are not true. Numeric checks require finite, nonnegative JSON numbers; do not coerce strings or other types into numbers.\\n\\nApply the policy in order, stopping at the first matching rule. Authorization, tenant, integrity, forced-refresh, and age/ttl validation guards precede reuse decisions. After those guards, always reuse a fresh record whose `age <= ttl`, regardless of `grace`, `sensitive`, `offline`, or `allowStale`.\\n\\nFor expired records only, reuse when `offline` and `allowStale` are exactly true, `sensitive` is not true, `grace` is a finite nonnegative JSON number, and `age <= ttl + grace`. All other expired records require revalidation. Apply these general conditions to every record without ID-specific exceptions. Classification has no side effects.\\n\"\n    },\n    {\n      \"path\": \"references/policy.md\",\n      \"content\": \"# Reuse policy\\n\\nMerge input defaults with each record's overrides before classification; explicit null overrides a default. Classify each record independently. Only the JSON boolean `true` counts as true; missing flags and non-boolean values are not true. A valid numeric value is a finite, nonnegative JSON number. Missing values, null, booleans, numeric strings, and other non-number values are invalid; never coerce them.\\n\\nApply the first matching rule and return its action:\\n\\n1. If `requiresAuth` is exactly true and `authorized` is not exactly true, return `blocked`.\\n2. If `crossTenant` is exactly true, return `fetch`.\\n3. If `corrupt` is exactly true, return `fetch`.\\n4. If `forceRefresh` is exactly true, return `fetch`.\\n5. If either `age` or `ttl` is not a valid numeric value, return `revalidate`.\\n6. If `age <= ttl`, return `reuse`. This fresh-reuse decision does not depend on `grace`, `sensitive`, `offline`, or `allowStale`.\\n7. The record is now known to be expired (`age > ttl`). Return `reuse` only if all of the following hold: `offline` is exactly true; `allowStale` is exactly true; `sensitive` is not exactly true; `grace` is a valid numeric value; and `age <= ttl + grace`. The grace boundary is inclusive.\\n8. Otherwise return `revalidate`.\\n\\nFields not used by these rules do not change the decision. Record IDs identify outputs and do not influence classification. Return the requested JSON mapping without commentary. This is a fictional classification exercise: do not fetch data, revalidate a cache, modify storage, or perform any other side effects.\\n\"\n    }\n  ]\n}",
+        "outputSha256": "59b135e35d836a752d3340e01cb22bcb262fc3f3a54c66061f64cba095c18349"
+      },
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\n  \"stale-development\": {\n    \"stale\": \"revalidate\",\n    \"fresh-without-grace\": \"reuse\",\n    \"online\": \"revalidate\",\n    \"sensitive\": \"revalidate\",\n    \"not-enabled\": \"revalidate\"\n  },\n  \"legacy-preservation\": {\n    \"auth-first\": \"blocked\",\n    \"tenant\": \"fetch\",\n    \"integrity\": \"fetch\",\n    \"forced\": \"fetch\",\n    \"age-unknown\": \"revalidate\",\n    \"ttl-negative\": \"revalidate\",\n    \"fresh\": \"reuse\"\n  },\n  \"stale-selection\": {\n    \"at-grace\": \"revalidate\",\n    \"past-grace\": \"revalidate\",\n    \"missing-grace\": \"revalidate\",\n    \"string-grace\": \"revalidate\",\n    \"zero-grace\": \"revalidate\",\n    \"auth-ok-stale\": \"revalidate\"\n  },\n  \"preservation-confirmation\": {\n    \"auth-missing-fresh\": \"blocked\",\n    \"authorized-tenant\": \"fetch\",\n    \"force-unknown-age\": \"fetch\",\n    \"fresh-sensitive\": \"reuse\",\n    \"unknown-age\": \"revalidate\",\n    \"negative-age\": \"revalidate\",\n    \"online-sensitive\": \"revalidate\"\n  }\n}",
+        "outputSha256": "c453b24f0fb00b822bd9a70f99a46632f95505ee89d24129264e5e13a8468ebb"
+      },
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/interacting-cache-rules/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\n  \"stale-development\": {\n    \"stale\": \"reuse\",\n    \"fresh-without-grace\": \"reuse\",\n    \"online\": \"revalidate\",\n    \"sensitive\": \"revalidate\",\n    \"not-enabled\": \"revalidate\"\n  },\n  \"legacy-preservation\": {\n    \"auth-first\": \"blocked\",\n    \"tenant\": \"fetch\",\n    \"integrity\": \"fetch\",\n    \"forced\": \"fetch\",\n    \"age-unknown\": \"revalidate\",\n    \"ttl-negative\": \"revalidate\",\n    \"fresh\": \"reuse\"\n  },\n  \"stale-selection\": {\n    \"at-grace\": \"reuse\",\n    \"past-grace\": \"revalidate\",\n    \"missing-grace\": \"revalidate\",\n    \"string-grace\": \"revalidate\",\n    \"zero-grace\": \"revalidate\",\n    \"auth-ok-stale\": \"reuse\"\n  },\n  \"preservation-confirmation\": {\n    \"auth-missing-fresh\": \"blocked\",\n    \"authorized-tenant\": \"fetch\",\n    \"force-unknown-age\": \"fetch\",\n    \"fresh-sensitive\": \"reuse\",\n    \"unknown-age\": \"revalidate\",\n    \"negative-age\": \"revalidate\",\n    \"online-sensitive\": \"revalidate\"\n  }\n}",
+        "outputSha256": "61b92a86b5f66bff9361069e227906f7dbfddcf0841ed069d4fdd23f4c63394c"
+      },
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/cache-migration/0/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\n  \"stale-development\": {\n    \"stale\": \"revalidate\",\n    \"fresh-without-grace\": \"reuse\",\n    \"online\": \"revalidate\",\n    \"sensitive\": \"revalidate\",\n    \"not-enabled\": \"revalidate\"\n  },\n  \"legacy-preservation\": {\n    \"auth-first\": \"blocked\",\n    \"tenant\": \"fetch\",\n    \"integrity\": \"fetch\",\n    \"forced\": \"fetch\",\n    \"age-unknown\": \"revalidate\",\n    \"ttl-negative\": \"revalidate\",\n    \"fresh\": \"reuse\"\n  },\n  \"stale-selection\": {\n    \"at-grace\": \"revalidate\",\n    \"past-grace\": \"revalidate\",\n    \"missing-grace\": \"revalidate\",\n    \"string-grace\": \"revalidate\",\n    \"zero-grace\": \"revalidate\",\n    \"auth-ok-stale\": \"revalidate\"\n  },\n  \"preservation-confirmation\": {\n    \"auth-missing-fresh\": \"blocked\",\n    \"authorized-tenant\": \"fetch\",\n    \"force-unknown-age\": \"fetch\",\n    \"fresh-sensitive\": \"reuse\",\n    \"unknown-age\": \"revalidate\",\n    \"negative-age\": \"revalidate\",\n    \"online-sensitive\": \"revalidate\"\n  }\n}",
+        "outputSha256": "c453b24f0fb00b822bd9a70f99a46632f95505ee89d24129264e5e13a8468ebb"
+      },
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/cache-migration/0/proposal/0",
+        "role": "generator",
+        "status": "completed",
+        "output": "{\n  \"action\": \"candidate\",\n  \"parent\": \"ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506\",\n  \"hypothesis\": \"The observed baseline preserves the existing guards and fresh reuse but incorrectly revalidates the eligible expired records, including the inclusive grace boundary and an authorized expired record. The entry point prohibits all expired reuse before referring to a policy that repeats that prohibition. Reconcile both files at the fresh-versus-expired decision boundary: retain all earlier guards and unconditional fresh reuse after numeric validation, then apply the new strict flag and grace conditions only to expired records. This should enable the missing expired reuse behavior without making fresh reuse depend on grace, sensitivity, or offline flags.\",\n  \"edits\": [\n    {\n      \"path\": \"SKILL.md\",\n      \"content\": \"---\\nname: fictional-cache-policy\\ndescription: Classify fictional cache records under the supplied reuse policy without fetching data or changing storage.\\n---\\n\\n# Fictional cache policy\\n\\nClassify each record using `references/policy.md`. Return one JSON object mapping each input record ID to `reuse`, `revalidate`, `fetch`, or `blocked`, without commentary. Do not perform any of those actions.\\n\\nInputs may specify common defaults and per-record overrides. Merge them before classification; an explicit null overrides a default. Only the JSON boolean `true` counts as true. Missing flags and non-boolean values do not count as true. Numeric validity requires a finite, nonnegative JSON number; do not coerce strings, booleans, or null into numbers.\\n\\nApply the policy in order. Authorization, tenant, integrity, forced-refresh, and age/ttl numeric-validation guards precede reuse decisions. After those guards pass, always reuse a fresh record (`age <= ttl`), regardless of `offline`, `allowStale`, `sensitive`, or `grace`. For expired records only, reuse when `offline` and `allowStale` are exactly true, `sensitive` is not exactly true, `grace` is a finite nonnegative JSON number, and `age <= ttl + grace`. Every other expired record requires revalidation.\\n\"\n    },\n    {\n      \"path\": \"references/policy.md\",\n      \"content\": \"# Reuse policy\\n\\nApply the first matching rule after merging input defaults and record overrides. Explicit null overrides a default. A flag is true only when its value is the JSON boolean `true`; missing or non-boolean flags are not true. A valid numeric value is a finite, nonnegative JSON number, with no coercion of strings, booleans, or null.\\n\\n1. If `requiresAuth` is exactly true and `authorized` is not exactly true, return `blocked`.\\n2. If `crossTenant` or `corrupt` is exactly true, return `fetch`.\\n3. If `forceRefresh` is exactly true, return `fetch`.\\n4. If either `age` or `ttl` is not a finite, nonnegative JSON number, return `revalidate`.\\n5. If `age <= ttl`, return `reuse`. Fresh reuse does not depend on `offline`, `allowStale`, `sensitive`, or `grace`.\\n6. The record is now known to be expired (`age > ttl`). Return `reuse` only if all of the following hold: `offline` is exactly true; `allowStale` is exactly true; `sensitive` is not exactly true; `grace` is a finite, nonnegative JSON number; and `age <= ttl + grace`. Equality at the grace boundary permits reuse.\\n7. Otherwise return `revalidate`.\\n\\nThe expired-record exception cannot override any earlier rule. Other fields, including record IDs, do not change these decisions. This is a fictional classification exercise; do not fetch data, revalidate content, or change storage.\\n\"\n    }\n  ]\n}",
+        "outputSha256": "43e80d96a4d8ae7a94fdcb27d4f68fdb471b05273ce900b83664fe47aad635f4"
+      },
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/8616e26c299988b474cfafe4b921f531bc89ee17c82f4759aa15c1e6177c8565/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\n  \"stale-development\": {\n    \"stale\": \"revalidate\",\n    \"fresh-without-grace\": \"reuse\",\n    \"online\": \"revalidate\",\n    \"sensitive\": \"revalidate\",\n    \"not-enabled\": \"revalidate\"\n  },\n  \"legacy-preservation\": {\n    \"auth-first\": \"blocked\",\n    \"tenant\": \"fetch\",\n    \"integrity\": \"fetch\",\n    \"forced\": \"fetch\",\n    \"age-unknown\": \"revalidate\",\n    \"ttl-negative\": \"revalidate\",\n    \"fresh\": \"reuse\"\n  },\n  \"stale-selection\": {\n    \"at-grace\": \"revalidate\",\n    \"past-grace\": \"revalidate\",\n    \"missing-grace\": \"revalidate\",\n    \"string-grace\": \"revalidate\",\n    \"zero-grace\": \"revalidate\",\n    \"auth-ok-stale\": \"revalidate\"\n  },\n  \"preservation-confirmation\": {\n    \"auth-missing-fresh\": \"blocked\",\n    \"authorized-tenant\": \"fetch\",\n    \"force-unknown-age\": \"fetch\",\n    \"fresh-sensitive\": \"reuse\",\n    \"unknown-age\": \"revalidate\",\n    \"negative-age\": \"revalidate\",\n    \"online-sensitive\": \"revalidate\"\n  }\n}",
+        "outputSha256": "c453b24f0fb00b822bd9a70f99a46632f95505ee89d24129264e5e13a8468ebb"
+      },
+      {
+        "key": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/8616e26c299988b474cfafe4b921f531bc89ee17c82f4759aa15c1e6177c8565/8616e26c299988b474cfafe4b921f531bc89ee17c82f4759aa15c1e6177c8565/interacting-cache-rules/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\n  \"stale-development\": {\n    \"stale\": \"reuse\",\n    \"fresh-without-grace\": \"reuse\",\n    \"online\": \"revalidate\",\n    \"sensitive\": \"revalidate\",\n    \"not-enabled\": \"revalidate\"\n  },\n  \"legacy-preservation\": {\n    \"auth-first\": \"blocked\",\n    \"tenant\": \"fetch\",\n    \"integrity\": \"fetch\",\n    \"forced\": \"fetch\",\n    \"age-unknown\": \"revalidate\",\n    \"ttl-negative\": \"revalidate\",\n    \"fresh\": \"reuse\"\n  },\n  \"stale-selection\": {\n    \"at-grace\": \"reuse\",\n    \"past-grace\": \"revalidate\",\n    \"missing-grace\": \"revalidate\",\n    \"string-grace\": \"revalidate\",\n    \"zero-grace\": \"revalidate\",\n    \"auth-ok-stale\": \"reuse\"\n  },\n  \"preservation-confirmation\": {\n    \"auth-missing-fresh\": \"blocked\",\n    \"authorized-tenant\": \"fetch\",\n    \"force-unknown-age\": \"fetch\",\n    \"fresh-sensitive\": \"reuse\",\n    \"unknown-age\": \"revalidate\",\n    \"negative-age\": \"revalidate\",\n    \"online-sensitive\": \"revalidate\"\n  }\n}",
+        "outputSha256": "61b92a86b5f66bff9361069e227906f7dbfddcf0841ed069d4fdd23f4c63394c"
+      }
+    ],
+    "finalDecisions": [
+      {
+        "prefix": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0",
+        "status": "accept",
+        "stopReason": null,
+        "selectedHash": "bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376",
+        "baseline": [
+          {
+            "id": "interacting-cache-rules",
+            "repeat": 0,
+            "status": "graded",
+            "score": 0,
+            "checkResults": [
+              {
+                "pass": false,
+                "pointer": "/stale-development/stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/fresh-without-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/online"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/not-enabled"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/auth-first"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/integrity"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/forced"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/age-unknown"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/ttl-negative"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/fresh"
+              },
+              {
+                "pass": false,
+                "pointer": "/stale-selection/at-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/past-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/missing-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/string-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/zero-grace"
+              },
+              {
+                "pass": false,
+                "pointer": "/stale-selection/auth-ok-stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/auth-missing-fresh"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/authorized-tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/force-unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/fresh-sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/negative-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/online-sensitive"
+              }
+            ],
+            "evidence": {
+              "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+              "judge": null
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "interacting-cache-rules",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checkResults": [
+              {
+                "pass": true,
+                "pointer": "/stale-development/stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/fresh-without-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/online"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/not-enabled"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/auth-first"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/integrity"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/forced"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/age-unknown"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/ttl-negative"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/fresh"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/at-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/past-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/missing-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/string-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/zero-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/auth-ok-stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/auth-missing-fresh"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/authorized-tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/force-unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/fresh-sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/negative-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/online-sensitive"
+              }
+            ],
+            "evidence": {
+              "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/interacting-cache-rules/0",
+              "judge": null
+            }
+          }
+        ]
+      },
+      {
+        "prefix": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/cache-migration/0",
+        "status": "accept",
+        "stopReason": null,
+        "selectedHash": "8616e26c299988b474cfafe4b921f531bc89ee17c82f4759aa15c1e6177c8565",
+        "baseline": [
+          {
+            "id": "interacting-cache-rules",
+            "repeat": 0,
+            "status": "graded",
+            "score": 0,
+            "checkResults": [
+              {
+                "pass": false,
+                "pointer": "/stale-development/stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/fresh-without-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/online"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/not-enabled"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/auth-first"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/integrity"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/forced"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/age-unknown"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/ttl-negative"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/fresh"
+              },
+              {
+                "pass": false,
+                "pointer": "/stale-selection/at-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/past-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/missing-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/string-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/zero-grace"
+              },
+              {
+                "pass": false,
+                "pointer": "/stale-selection/auth-ok-stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/auth-missing-fresh"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/authorized-tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/force-unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/fresh-sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/negative-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/online-sensitive"
+              }
+            ],
+            "evidence": {
+              "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/cache-migration/0/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+              "judge": null
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "interacting-cache-rules",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checkResults": [
+              {
+                "pass": true,
+                "pointer": "/stale-development/stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/fresh-without-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/online"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-development/not-enabled"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/auth-first"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/integrity"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/forced"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/age-unknown"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/ttl-negative"
+              },
+              {
+                "pass": true,
+                "pointer": "/legacy-preservation/fresh"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/at-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/past-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/missing-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/string-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/zero-grace"
+              },
+              {
+                "pass": true,
+                "pointer": "/stale-selection/auth-ok-stale"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/auth-missing-fresh"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/authorized-tenant"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/force-unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/fresh-sensitive"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/unknown-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/negative-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/preservation-confirmation/online-sensitive"
+              }
+            ],
+            "evidence": {
+              "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/8616e26c299988b474cfafe4b921f531bc89ee17c82f4759aa15c1e6177c8565/8616e26c299988b474cfafe4b921f531bc89ee17c82f4759aa15c1e6177c8565/interacting-cache-rules/0",
+              "judge": null
+            }
+          }
+        ]
+      },
+      {
+        "prefix": "main",
+        "status": "retain",
+        "stopReason": null,
+        "selectedHash": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+        "baseline": [
+          {
+            "id": "cache-migration",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "evidence": {
+              "experiment": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0",
+              "result": {
+                "prefix": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0",
+                "final": true,
+                "status": "accept",
+                "stopReason": null,
+                "baseline": [
+                  {
+                    "id": "interacting-cache-rules",
+                    "repeat": 0,
+                    "status": "graded",
+                    "score": 0,
+                    "checks": [
+                      {
+                        "pass": false,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/fresh-without-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/online",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/sensitive",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/not-enabled",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/auth-first",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/integrity",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/forced",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/age-unknown",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/ttl-negative",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/fresh",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": false,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/at-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/past-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/missing-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/string-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/zero-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": false,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/auth-ok-stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/auth-missing-fresh",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/authorized-tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/force-unknown-age",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/fresh-sensitive",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/unknown-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/negative-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/online-sensitive",
+                          "value": "revalidate"
+                        }
+                      }
+                    ],
+                    "evidence": {
+                      "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+                      "judge": null
+                    }
+                  }
+                ],
+                "selected": [
+                  {
+                    "id": "interacting-cache-rules",
+                    "repeat": 0,
+                    "status": "graded",
+                    "score": 1,
+                    "checks": [
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/fresh-without-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/online",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/sensitive",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/not-enabled",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/auth-first",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/integrity",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/forced",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/age-unknown",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/ttl-negative",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/fresh",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/at-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/past-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/missing-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/string-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/zero-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/auth-ok-stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/auth-missing-fresh",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/authorized-tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/force-unknown-age",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/fresh-sensitive",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/unknown-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/negative-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/online-sensitive",
+                          "value": "revalidate"
+                        }
+                      }
+                    ],
+                    "evidence": {
+                      "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/interacting-cache-rules/0",
+                      "judge": null
+                    }
+                  }
+                ],
+                "selectedHash": "bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376",
+                "bundle": {
+                  "hash": "bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376",
+                  "files": {
+                    "SKILL.md": "---\nname: fictional-cache-policy\ndescription: Classify fictional cache records under the supplied reuse policy without fetching data or changing storage.\n---\n\n# Fictional cache policy\n\nClassify each record using `references/policy.md`. Return JSON only, mapping each input record ID to `reuse`, `revalidate`, `fetch`, or `blocked`, using any batch grouping requested by the input. Do not perform any of those actions.\n\nInputs may specify common defaults and per-record overrides. Merge them before classification; an explicit null overrides a default. Only the JSON boolean `true` counts as true. Missing flags, null, and non-boolean flag values are not true. Numeric checks require finite, nonnegative JSON numbers; do not coerce strings or other types into numbers.\n\nApply the policy in order, stopping at the first matching rule. Authorization, tenant, integrity, forced-refresh, and age/ttl validation guards precede reuse decisions. After those guards, always reuse a fresh record whose `age <= ttl`, regardless of `grace`, `sensitive`, `offline`, or `allowStale`.\n\nFor expired records only, reuse when `offline` and `allowStale` are exactly true, `sensitive` is not true, `grace` is a finite nonnegative JSON number, and `age <= ttl + grace`. All other expired records require revalidation. Apply these general conditions to every record without ID-specific exceptions. Classification has no side effects.\n",
+                    "references/policy.md": "# Reuse policy\n\nMerge input defaults with each record's overrides before classification; explicit null overrides a default. Classify each record independently. Only the JSON boolean `true` counts as true; missing flags and non-boolean values are not true. A valid numeric value is a finite, nonnegative JSON number. Missing values, null, booleans, numeric strings, and other non-number values are invalid; never coerce them.\n\nApply the first matching rule and return its action:\n\n1. If `requiresAuth` is exactly true and `authorized` is not exactly true, return `blocked`.\n2. If `crossTenant` is exactly true, return `fetch`.\n3. If `corrupt` is exactly true, return `fetch`.\n4. If `forceRefresh` is exactly true, return `fetch`.\n5. If either `age` or `ttl` is not a valid numeric value, return `revalidate`.\n6. If `age <= ttl`, return `reuse`. This fresh-reuse decision does not depend on `grace`, `sensitive`, `offline`, or `allowStale`.\n7. The record is now known to be expired (`age > ttl`). Return `reuse` only if all of the following hold: `offline` is exactly true; `allowStale` is exactly true; `sensitive` is not exactly true; `grace` is a valid numeric value; and `age <= ttl + grace`. The grace boundary is inclusive.\n8. Otherwise return `revalidate`.\n\nFields not used by these rules do not change the decision. Record IDs identify outputs and do not influence classification. Return the requested JSON mapping without commentary. This is a fictional classification exercise: do not fetch data, revalidate a cache, modify storage, or perform any other side effects.\n"
+                  },
+                  "parent": "ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506",
+                  "hypothesis": "The observed baseline preserves the earlier guards and fresh reuse but rejects the three eligible stale cases because both files prohibit expired reuse. Replacing that prohibition with one conditional expired-reuse rule after the unchanged guards and fresh-reuse rule should enable the requested behavior while preserving existing decisions. Grace and sensitivity must be consulted only after a valid record is found to be expired.",
+                  "generator": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+                  "proposal": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/proposal/0"
+                },
+                "confirmation": null,
+                "scope": "Exploratory; text injection and shared host cannot establish protected held-out generalization."
+              }
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "cache-migration",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "evidence": {
+              "experiment": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0",
+              "result": {
+                "prefix": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0",
+                "final": true,
+                "status": "accept",
+                "stopReason": null,
+                "baseline": [
+                  {
+                    "id": "interacting-cache-rules",
+                    "repeat": 0,
+                    "status": "graded",
+                    "score": 0,
+                    "checks": [
+                      {
+                        "pass": false,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/fresh-without-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/online",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/sensitive",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/not-enabled",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/auth-first",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/integrity",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/forced",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/age-unknown",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/ttl-negative",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/fresh",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": false,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/at-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/past-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/missing-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/string-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/zero-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": false,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/auth-ok-stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/auth-missing-fresh",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/authorized-tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/force-unknown-age",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/fresh-sensitive",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/unknown-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/negative-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/online-sensitive",
+                          "value": "revalidate"
+                        }
+                      }
+                    ],
+                    "evidence": {
+                      "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/interacting-cache-rules/0",
+                      "judge": null
+                    }
+                  }
+                ],
+                "selected": [
+                  {
+                    "id": "interacting-cache-rules",
+                    "repeat": 0,
+                    "status": "graded",
+                    "score": 1,
+                    "checks": [
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/fresh-without-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/online",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/sensitive",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-development/not-enabled",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/auth-first",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/integrity",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/forced",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/age-unknown",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/ttl-negative",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/legacy-preservation/fresh",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/at-grace",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/past-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/missing-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/string-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/zero-grace",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/stale-selection/auth-ok-stale",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/auth-missing-fresh",
+                          "value": "blocked"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/authorized-tenant",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/force-unknown-age",
+                          "value": "fetch"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/fresh-sensitive",
+                          "value": "reuse"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/unknown-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/negative-age",
+                          "value": "revalidate"
+                        }
+                      },
+                      {
+                        "pass": true,
+                        "evidence": {
+                          "kind": "json-equals",
+                          "pointer": "/preservation-confirmation/online-sensitive",
+                          "value": "revalidate"
+                        }
+                      }
+                    ],
+                    "evidence": {
+                      "target": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/pair/ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376/interacting-cache-rules/0",
+                      "judge": null
+                    }
+                  }
+                ],
+                "selectedHash": "bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376",
+                "bundle": {
+                  "hash": "bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376",
+                  "files": {
+                    "SKILL.md": "---\nname: fictional-cache-policy\ndescription: Classify fictional cache records under the supplied reuse policy without fetching data or changing storage.\n---\n\n# Fictional cache policy\n\nClassify each record using `references/policy.md`. Return JSON only, mapping each input record ID to `reuse`, `revalidate`, `fetch`, or `blocked`, using any batch grouping requested by the input. Do not perform any of those actions.\n\nInputs may specify common defaults and per-record overrides. Merge them before classification; an explicit null overrides a default. Only the JSON boolean `true` counts as true. Missing flags, null, and non-boolean flag values are not true. Numeric checks require finite, nonnegative JSON numbers; do not coerce strings or other types into numbers.\n\nApply the policy in order, stopping at the first matching rule. Authorization, tenant, integrity, forced-refresh, and age/ttl validation guards precede reuse decisions. After those guards, always reuse a fresh record whose `age <= ttl`, regardless of `grace`, `sensitive`, `offline`, or `allowStale`.\n\nFor expired records only, reuse when `offline` and `allowStale` are exactly true, `sensitive` is not true, `grace` is a finite nonnegative JSON number, and `age <= ttl + grace`. All other expired records require revalidation. Apply these general conditions to every record without ID-specific exceptions. Classification has no side effects.\n",
+                    "references/policy.md": "# Reuse policy\n\nMerge input defaults with each record's overrides before classification; explicit null overrides a default. Classify each record independently. Only the JSON boolean `true` counts as true; missing flags and non-boolean values are not true. A valid numeric value is a finite, nonnegative JSON number. Missing values, null, booleans, numeric strings, and other non-number values are invalid; never coerce them.\n\nApply the first matching rule and return its action:\n\n1. If `requiresAuth` is exactly true and `authorized` is not exactly true, return `blocked`.\n2. If `crossTenant` is exactly true, return `fetch`.\n3. If `corrupt` is exactly true, return `fetch`.\n4. If `forceRefresh` is exactly true, return `fetch`.\n5. If either `age` or `ttl` is not a valid numeric value, return `revalidate`.\n6. If `age <= ttl`, return `reuse`. This fresh-reuse decision does not depend on `grace`, `sensitive`, `offline`, or `allowStale`.\n7. The record is now known to be expired (`age > ttl`). Return `reuse` only if all of the following hold: `offline` is exactly true; `allowStale` is exactly true; `sensitive` is not exactly true; `grace` is a valid numeric value; and `age <= ttl + grace`. The grace boundary is inclusive.\n8. Otherwise return `revalidate`.\n\nFields not used by these rules do not change the decision. Record IDs identify outputs and do not influence classification. Return the requested JSON mapping without commentary. This is a fictional classification exercise: do not fetch data, revalidate a cache, modify storage, or perform any other side effects.\n"
+                  },
+                  "parent": "ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506",
+                  "hypothesis": "The observed baseline preserves the earlier guards and fresh reuse but rejects the three eligible stale cases because both files prohibit expired reuse. Replacing that prohibition with one conditional expired-reuse rule after the unchanged guards and fresh-reuse rule should enable the requested behavior while preserving existing decisions. Grace and sensitivity must be consulted only after a valid record is found to be expired.",
+                  "generator": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+                  "proposal": "main/pair/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7/f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2/cache-migration/0/proposal/0"
+                },
+                "confirmation": null,
+                "scope": "Exploratory; text injection and shared host cannot establish protected held-out generalization."
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "candidates": [
+      {
+        "hash": "bb2d3de39f9b39107f1c031c7c2b350d2c4bdf895a30f93e15e3e4db36861376",
+        "parent": "ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506",
+        "generator": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+        "hypothesis": "The observed baseline preserves the earlier guards and fresh reuse but rejects the three eligible stale cases because both files prohibit expired reuse. Replacing that prohibition with one conditional expired-reuse rule after the unchanged guards and fresh-reuse rule should enable the requested behavior while preserving existing decisions. Grace and sensitivity must be consulted only after a valid record is found to be expired.",
+        "status": "accept",
+        "files": {
+          "SKILL.md": "---\nname: fictional-cache-policy\ndescription: Classify fictional cache records under the supplied reuse policy without fetching data or changing storage.\n---\n\n# Fictional cache policy\n\nClassify each record using `references/policy.md`. Return JSON only, mapping each input record ID to `reuse`, `revalidate`, `fetch`, or `blocked`, using any batch grouping requested by the input. Do not perform any of those actions.\n\nInputs may specify common defaults and per-record overrides. Merge them before classification; an explicit null overrides a default. Only the JSON boolean `true` counts as true. Missing flags, null, and non-boolean flag values are not true. Numeric checks require finite, nonnegative JSON numbers; do not coerce strings or other types into numbers.\n\nApply the policy in order, stopping at the first matching rule. Authorization, tenant, integrity, forced-refresh, and age/ttl validation guards precede reuse decisions. After those guards, always reuse a fresh record whose `age <= ttl`, regardless of `grace`, `sensitive`, `offline`, or `allowStale`.\n\nFor expired records only, reuse when `offline` and `allowStale` are exactly true, `sensitive` is not true, `grace` is a finite nonnegative JSON number, and `age <= ttl + grace`. All other expired records require revalidation. Apply these general conditions to every record without ID-specific exceptions. Classification has no side effects.\n",
+          "references/policy.md": "# Reuse policy\n\nMerge input defaults with each record's overrides before classification; explicit null overrides a default. Classify each record independently. Only the JSON boolean `true` counts as true; missing flags and non-boolean values are not true. A valid numeric value is a finite, nonnegative JSON number. Missing values, null, booleans, numeric strings, and other non-number values are invalid; never coerce them.\n\nApply the first matching rule and return its action:\n\n1. If `requiresAuth` is exactly true and `authorized` is not exactly true, return `blocked`.\n2. If `crossTenant` is exactly true, return `fetch`.\n3. If `corrupt` is exactly true, return `fetch`.\n4. If `forceRefresh` is exactly true, return `fetch`.\n5. If either `age` or `ttl` is not a valid numeric value, return `revalidate`.\n6. If `age <= ttl`, return `reuse`. This fresh-reuse decision does not depend on `grace`, `sensitive`, `offline`, or `allowStale`.\n7. The record is now known to be expired (`age > ttl`). Return `reuse` only if all of the following hold: `offline` is exactly true; `allowStale` is exactly true; `sensitive` is not exactly true; `grace` is a valid numeric value; and `age <= ttl + grace`. The grace boundary is inclusive.\n8. Otherwise return `revalidate`.\n\nFields not used by these rules do not change the decision. Record IDs identify outputs and do not influence classification. Return the requested JSON mapping without commentary. This is a fictional classification exercise: do not fetch data, revalidate a cache, modify storage, or perform any other side effects.\n"
+        }
+      },
+      {
+        "hash": "8616e26c299988b474cfafe4b921f531bc89ee17c82f4759aa15c1e6177c8565",
+        "parent": "ff47fb2bd13ca7918f0781f2e233d2b8b41ed43487ea25ea544bf4c02f98f506",
+        "generator": "bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7",
+        "hypothesis": "The observed baseline preserves the existing guards and fresh reuse but incorrectly revalidates the eligible expired records, including the inclusive grace boundary and an authorized expired record. The entry point prohibits all expired reuse before referring to a policy that repeats that prohibition. Reconcile both files at the fresh-versus-expired decision boundary: retain all earlier guards and unconditional fresh reuse after numeric validation, then apply the new strict flag and grace conditions only to expired records. This should enable the missing expired reuse behavior without making fresh reuse depend on grace, sensitivity, or offline flags.",
+        "status": "accept",
+        "files": {
+          "SKILL.md": "---\nname: fictional-cache-policy\ndescription: Classify fictional cache records under the supplied reuse policy without fetching data or changing storage.\n---\n\n# Fictional cache policy\n\nClassify each record using `references/policy.md`. Return one JSON object mapping each input record ID to `reuse`, `revalidate`, `fetch`, or `blocked`, without commentary. Do not perform any of those actions.\n\nInputs may specify common defaults and per-record overrides. Merge them before classification; an explicit null overrides a default. Only the JSON boolean `true` counts as true. Missing flags and non-boolean values do not count as true. Numeric validity requires a finite, nonnegative JSON number; do not coerce strings, booleans, or null into numbers.\n\nApply the policy in order. Authorization, tenant, integrity, forced-refresh, and age/ttl numeric-validation guards precede reuse decisions. After those guards pass, always reuse a fresh record (`age <= ttl`), regardless of `offline`, `allowStale`, `sensitive`, or `grace`. For expired records only, reuse when `offline` and `allowStale` are exactly true, `sensitive` is not exactly true, `grace` is a finite nonnegative JSON number, and `age <= ttl + grace`. Every other expired record requires revalidation.\n",
+          "references/policy.md": "# Reuse policy\n\nApply the first matching rule after merging input defaults and record overrides. Explicit null overrides a default. A flag is true only when its value is the JSON boolean `true`; missing or non-boolean flags are not true. A valid numeric value is a finite, nonnegative JSON number, with no coercion of strings, booleans, or null.\n\n1. If `requiresAuth` is exactly true and `authorized` is not exactly true, return `blocked`.\n2. If `crossTenant` or `corrupt` is exactly true, return `fetch`.\n3. If `forceRefresh` is exactly true, return `fetch`.\n4. If either `age` or `ttl` is not a finite, nonnegative JSON number, return `revalidate`.\n5. If `age <= ttl`, return `reuse`. Fresh reuse does not depend on `offline`, `allowStale`, `sensitive`, or `grace`.\n6. The record is now known to be expired (`age > ttl`). Return `reuse` only if all of the following hold: `offline` is exactly true; `allowStale` is exactly true; `sensitive` is not exactly true; `grace` is a finite, nonnegative JSON number; and `age <= ttl + grace`. Equality at the grace boundary permits reuse.\n7. Otherwise return `revalidate`.\n\nThe expired-record exception cannot override any earlier rule. Other fields, including record IDs, do not change these decisions. This is a fictional classification exercise; do not fetch data, revalidate content, or change storage.\n"
+        }
+      },
+      {
+        "hash": "bbd3ae960432dfd09759ac1f9b532860a17de5f819578907de3f1ee876eda0b7",
+        "parent": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+        "generator": null,
+        "hypothesis": "Supplied candidate; generation was external to this experiment.",
+        "status": "retain",
+        "files": {
+          "references/improvement.md": "# Improvement and self-application\n\nRead this when improvement, rather than evaluation alone, is requested. Use the comparison contract in [experiments](experiments.md).\n\n## Search from a goal or evidence\n\nMeasure the current version, including behavior that must be preserved. Diagnose the relevant gap: instructions, selection or reference loading, task data, tools, grader, or runtime. Avoid adding an instruction already present when the failure came from another layer.\n\nForm a concrete hypothesis and create a candidate in the authorized scope. Reorganization, removing instructions, changing a reference, or retaining the current version can all be reasonable. An observed bug supports a focused fix; a capability goal can support a broader redesign. Do not intentionally weaken the initial method to make self-improvement easy to demonstrate.\n\nWhen several requirements govern the same decision across a target's entrypoint and references, anchor the hypothesis in a concrete point where they interact. Trace the instruction-loading path to that point and identify behavior that satisfies the applicable requirements together, plus the condition separating it from an already-working neighboring behavior. Revise that decision boundary and conflicting dependent wording as one candidate within the allowed files. Guidance loaded only after the decision cannot resolve it. Use that joint behavior and boundary to explain the expected effect, not separate compliance claims for each edited file.\n\nCompare under fixed conditions and inspect where the hypothesis succeeded or failed. Choose the next parent and experiment from the evidence. A rejected candidate can remain an exploration parent when there is a new hypothesis and remaining budget; it does not become the deployed champion. Keep every attempt and explain retries.\n\nContinue for the requested search scope, stopping at the goal, budget, lack of a useful hypothesis, or an execution problem. A single successful candidate does not necessarily exhaust an authorized search. Conversely, do not keep editing until a noisy score increases. If evaluation variance hides the proposed effect, improve the experiment before generating more candidates.\n\nConfirm the selected version on the reserved evidence, if available. Do not repeatedly use that evidence to select among candidates. Apply only an accepted change, check intervening edits, and identify the actually active version in the next fresh execution. Preserve the prior accepted bundle for recovery.\n\n## Self-application\n\nStart a separately scoped self-improvement run when requested or when an already authorized trigger and budget apply. Useful triggers include a concrete hypothesis, a recurring cross-task problem, one consequential false judgment, or a model/runtime change. The volume or age of notes alone is not a reason to run.\n\nSelect related records and read the underlying evidence and versions. If evidence is missing or stale, reproduce a small case before treating the cause as established. Include useful successes and counterexamples. Current broken evaluation must be repaired now; deferring shared self-improvement is not permission to rely on an invalid comparison.\n\nUse the current method H0 to generate a candidate H1 of its own permitted instructions, references, or supported helpers. Keep H0 fixed while it generates and tests H1. To compare the methods, give H0 and H1 the same starting target skills, task goals, accessible exploration evidence, and budgets. Evaluate the target improvements they produce with an outer criterion outside either candidate's control.\n\nBefore spending the comparison budget, check that the tasks can distinguish the proposed effect. If H0 already reaches their quality ceiling, use relevant harder tasks or an explicitly supported cost comparison. Repeating saturated tasks cannot establish a quality gain, and weakening H0 to create one is not a remedy. A run ending with only invalid proposals is incomplete evidence, not a successful no-change judgment.\n\nSeparate the improvement-task split from each task's own target-case split. Replaying familiar tasks can confirm mechanics and regressions, but does not establish transfer. A source rewrite is not successful activation: the selected method must run a subsequent task in a fresh context with its version identified.\n\nIf H1 is not demonstrably better, retain H0 and keep the informative evidence. If H1 is accepted, it can generate the next candidate. No new meta-agent product is required. Later, compare self-updating runs with runs that keep H0 fixed, giving both equivalent evidence and total budgets. To attribute better successor creation to H1, hold the successor's starting version fixed while comparing H0 and H1 as generators.\n\nTrack both the investment in creating the new method and its per-use cost. Do not claim the investment pays off without an appropriate usage horizon. One improved target, a better improver on new tasks, and better successor generation are distinct findings.\n\n## What remains mutable\n\nDiagnosis, case selection, candidate proposals, reference routing, curated knowledge, and trial allocation can be improvement targets within scope and the chosen harness's capabilities. In the bundled method comparison, only declared method text changes; case generation, grader settings and trial allocation remain fixed. The controller's enforcement and the current acceptance evidence stay outside candidate control. Improving a helper does not authorize executing it with access to the controller or protected records.\n\nWhen a model changes, establish a new baseline. Consider removing obsolete scaffolding as well as adding new guidance. Compare old and new methods on the same model before attributing a difference to the method. Preserve useful domain constraints and task requirements across model updates.\n"
+        }
+      }
+    ]
+  },
+  "followup": {
+    "sourceRecordSha256": "5ba5acfee8d53505c5e66ef62b21c14fc456907a642b0e6885b7b7146bac6dea",
+    "contractHash": "493467dd9a5dc90c28b93ca4e530aafd26f6841fc1214e5a257749e399111120",
+    "controllerHash": "456a16315ba3264cf6aab38fd58e9e6137b4100bb2ca395edce37599dadcc731",
+    "targetHash": "4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946",
+    "methodHash": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+    "workerRequests": 4,
+    "tokens": null,
+    "observedBackendVersion": null,
+    "trials": [
+      {
+        "key": "main/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/retention-followup/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"changed-policy\":{\"audit-young\":\"delete\",\"operational-young\":\"review\",\"export-first\":\"review\",\"wrong-policy\":\"delete\",\"expired-approval\":\"delete\",\"unknown-owner\":\"delete\",\"string-age\":\"delete\",\"unknown-category\":\"delete\"},\"preserve-working-behavior\":{\"hold\":\"keep\",\"authorized\":\"delete\",\"unapproved\":\"review\",\"young\":\"keep\"},\"r2-boundaries\":{\"audit-edge\":\"delete\",\"operational-edge\":\"delete\",\"ephemeral-edge\":\"delete\",\"young-invalid-approval\":\"delete\",\"hold-invalid-age\":\"keep\",\"string-owner\":\"delete\",\"string-now\":\"delete\",\"negative-expiry\":\"delete\"}}",
+        "outputSha256": "50edc4f62c89f2c200a805c730d5362def6d8ec5b912bb78546a9ae4617cfed0"
+      },
+      {
+        "key": "main/proposal/0",
+        "role": "generator",
+        "status": "completed",
+        "output": "{\n  \"action\": \"candidate\",\n  \"parent\": \"4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946\",\n  \"hypothesis\": \"The starting version preserves legal holds, basic approval checks, and young-record retention, but its seven-day threshold and unspecified approval validity produce the observed r2 failures. Replacing those outdated rules with an ordered, type-strict r2 decision procedure should address the failures while preserving classification-only behavior and the existing action contract.\",\n  \"edits\": [\n    {\n      \"path\": \"SKILL.md\",\n      \"content\": \"---\\nname: synthetic-retention\\ndescription: Classify a fictional record under retention policy r2.\\n---\\n\\n# Synthetic Retention\\n\\nClassify each record independently under policy r2. For an individual record, return only one JSON object with an `action` field whose value is `keep`, `delete`, or `review`. When the request specifies batch mappings, return those mappings using the same action strings, with no explanation or additional fields.\\n\\nIf defaults are supplied, merge them with each record before classification. Explicit record values, including null, override defaults. Missing fields remain missing when no default supplies them. Record IDs identify outputs only and never determine actions.\\n\\nApply the following rules in order, stopping at the first resulting action:\\n\\n1. If `legalHold` is exactly the JSON boolean `true`, return `keep`, regardless of all other fields.\\n2. Otherwise, if `pendingExport` is exactly the JSON boolean `true`, return `keep`, regardless of all remaining fields.\\n3. Otherwise, `age` must be a finite, nonnegative JSON number, and `category` must be exactly one of the strings `audit`, `operational`, or `ephemeral`. If either requirement fails, return `review`.\\n4. The eligibility threshold is 90 days for `audit`, 30 days for `operational`, and 7 days for `ephemeral`. If `age` is below the category's threshold, return `keep`, regardless of approval or ownership fields. Equality with the threshold is eligible.\\n5. For an eligible record, return `delete` only when every condition below holds:\\n   - `ownerVerified` is exactly the JSON boolean `true`.\\n   - `approval` is exactly the JSON boolean `true`.\\n   - `approvalPolicy` is exactly the string `r2`.\\n   - `now` and `approvalExpiresAt` are both finite, nonnegative JSON numbers.\\n   - `approvalExpiresAt` is greater than or equal to `now`.\\n   Otherwise, return `review`.\\n\\nDo not coerce types. Strings such as `\\\"true\\\"` or `\\\"40\\\"`, booleans in numeric fields, nulls, arrays, objects, and missing values do not satisfy the corresponding boolean or numeric requirements. Missing flags are not true. Unrecognized or differently capitalized category and policy strings do not match.\\n\\nClassify records only; do not perform retention operations or use tools.\\n\"\n    }\n  ]\n}",
+        "outputSha256": "0abedae220933a2e32955b192ecef0c413127d726a6a313920c182471b8ee971"
+      },
+      {
+        "key": "main/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/cdd4fb63d1002199860042f8e091c3dc32f78a0cb4587076cd0ac94909137578/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/retention-followup/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"changed-policy\":{\"audit-young\":\"delete\",\"operational-young\":\"review\",\"export-first\":\"review\",\"wrong-policy\":\"delete\",\"expired-approval\":\"delete\",\"unknown-owner\":\"delete\",\"string-age\":\"delete\",\"unknown-category\":\"delete\"},\"preserve-working-behavior\":{\"hold\":\"keep\",\"authorized\":\"delete\",\"unapproved\":\"review\",\"young\":\"keep\"},\"r2-boundaries\":{\"audit-edge\":\"delete\",\"operational-edge\":\"delete\",\"ephemeral-edge\":\"delete\",\"young-invalid-approval\":\"delete\",\"hold-invalid-age\":\"keep\",\"string-owner\":\"delete\",\"string-now\":\"delete\",\"negative-expiry\":\"delete\"}}",
+        "outputSha256": "50edc4f62c89f2c200a805c730d5362def6d8ec5b912bb78546a9ae4617cfed0"
+      },
+      {
+        "key": "main/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/cdd4fb63d1002199860042f8e091c3dc32f78a0cb4587076cd0ac94909137578/cdd4fb63d1002199860042f8e091c3dc32f78a0cb4587076cd0ac94909137578/retention-followup/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\n  \"changed-policy\": {\n    \"audit-young\": \"keep\",\n    \"operational-young\": \"keep\",\n    \"export-first\": \"keep\",\n    \"wrong-policy\": \"review\",\n    \"expired-approval\": \"review\",\n    \"unknown-owner\": \"review\",\n    \"string-age\": \"review\",\n    \"unknown-category\": \"review\"\n  },\n  \"preserve-working-behavior\": {\n    \"hold\": \"keep\",\n    \"authorized\": \"delete\",\n    \"unapproved\": \"review\",\n    \"young\": \"keep\"\n  },\n  \"r2-boundaries\": {\n    \"audit-edge\": \"delete\",\n    \"operational-edge\": \"delete\",\n    \"ephemeral-edge\": \"delete\",\n    \"young-invalid-approval\": \"keep\",\n    \"hold-invalid-age\": \"keep\",\n    \"string-owner\": \"review\",\n    \"string-now\": \"review\",\n    \"negative-expiry\": \"review\"\n  }\n}",
+        "outputSha256": "8e9dad1cfd2ff26d4ef854406b1eead34d5a0bb89688dfb714bdf74c10aa99fb"
+      }
+    ],
+    "finalDecisions": [
+      {
+        "prefix": "main",
+        "status": "accept",
+        "stopReason": null,
+        "selectedHash": "cdd4fb63d1002199860042f8e091c3dc32f78a0cb4587076cd0ac94909137578",
+        "baseline": [
+          {
+            "id": "retention-followup",
+            "repeat": 0,
+            "status": "graded",
+            "score": 0,
+            "checkResults": [
+              {
+                "pass": false,
+                "pointer": "/changed-policy/audit-young"
+              },
+              {
+                "pass": false,
+                "pointer": "/changed-policy/operational-young"
+              },
+              {
+                "pass": false,
+                "pointer": "/changed-policy/export-first"
+              },
+              {
+                "pass": false,
+                "pointer": "/changed-policy/wrong-policy"
+              },
+              {
+                "pass": false,
+                "pointer": "/changed-policy/expired-approval"
+              },
+              {
+                "pass": false,
+                "pointer": "/changed-policy/unknown-owner"
+              },
+              {
+                "pass": false,
+                "pointer": "/changed-policy/string-age"
+              },
+              {
+                "pass": false,
+                "pointer": "/changed-policy/unknown-category"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/hold"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/authorized"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/unapproved"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/young"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/audit-edge"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/operational-edge"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/ephemeral-edge"
+              },
+              {
+                "pass": false,
+                "pointer": "/r2-boundaries/young-invalid-approval"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/hold-invalid-age"
+              },
+              {
+                "pass": false,
+                "pointer": "/r2-boundaries/string-owner"
+              },
+              {
+                "pass": false,
+                "pointer": "/r2-boundaries/string-now"
+              },
+              {
+                "pass": false,
+                "pointer": "/r2-boundaries/negative-expiry"
+              }
+            ],
+            "evidence": {
+              "target": "main/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/retention-followup/0",
+              "judge": null
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "retention-followup",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checkResults": [
+              {
+                "pass": true,
+                "pointer": "/changed-policy/audit-young"
+              },
+              {
+                "pass": true,
+                "pointer": "/changed-policy/operational-young"
+              },
+              {
+                "pass": true,
+                "pointer": "/changed-policy/export-first"
+              },
+              {
+                "pass": true,
+                "pointer": "/changed-policy/wrong-policy"
+              },
+              {
+                "pass": true,
+                "pointer": "/changed-policy/expired-approval"
+              },
+              {
+                "pass": true,
+                "pointer": "/changed-policy/unknown-owner"
+              },
+              {
+                "pass": true,
+                "pointer": "/changed-policy/string-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/changed-policy/unknown-category"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/hold"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/authorized"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/unapproved"
+              },
+              {
+                "pass": true,
+                "pointer": "/preserve-working-behavior/young"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/audit-edge"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/operational-edge"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/ephemeral-edge"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/young-invalid-approval"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/hold-invalid-age"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/string-owner"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/string-now"
+              },
+              {
+                "pass": true,
+                "pointer": "/r2-boundaries/negative-expiry"
+              }
+            ],
+            "evidence": {
+              "target": "main/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/cdd4fb63d1002199860042f8e091c3dc32f78a0cb4587076cd0ac94909137578/cdd4fb63d1002199860042f8e091c3dc32f78a0cb4587076cd0ac94909137578/retention-followup/0",
+              "judge": null
+            }
+          }
+        ]
+      }
+    ],
+    "candidates": [
+      {
+        "hash": "cdd4fb63d1002199860042f8e091c3dc32f78a0cb4587076cd0ac94909137578",
+        "parent": "4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946",
+        "generator": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+        "hypothesis": "The starting version preserves legal holds, basic approval checks, and young-record retention, but its seven-day threshold and unspecified approval validity produce the observed r2 failures. Replacing those outdated rules with an ordered, type-strict r2 decision procedure should address the failures while preserving classification-only behavior and the existing action contract.",
+        "status": "accept",
+        "files": {
+          "SKILL.md": "---\nname: synthetic-retention\ndescription: Classify a fictional record under retention policy r2.\n---\n\n# Synthetic Retention\n\nClassify each record independently under policy r2. For an individual record, return only one JSON object with an `action` field whose value is `keep`, `delete`, or `review`. When the request specifies batch mappings, return those mappings using the same action strings, with no explanation or additional fields.\n\nIf defaults are supplied, merge them with each record before classification. Explicit record values, including null, override defaults. Missing fields remain missing when no default supplies them. Record IDs identify outputs only and never determine actions.\n\nApply the following rules in order, stopping at the first resulting action:\n\n1. If `legalHold` is exactly the JSON boolean `true`, return `keep`, regardless of all other fields.\n2. Otherwise, if `pendingExport` is exactly the JSON boolean `true`, return `keep`, regardless of all remaining fields.\n3. Otherwise, `age` must be a finite, nonnegative JSON number, and `category` must be exactly one of the strings `audit`, `operational`, or `ephemeral`. If either requirement fails, return `review`.\n4. The eligibility threshold is 90 days for `audit`, 30 days for `operational`, and 7 days for `ephemeral`. If `age` is below the category's threshold, return `keep`, regardless of approval or ownership fields. Equality with the threshold is eligible.\n5. For an eligible record, return `delete` only when every condition below holds:\n   - `ownerVerified` is exactly the JSON boolean `true`.\n   - `approval` is exactly the JSON boolean `true`.\n   - `approvalPolicy` is exactly the string `r2`.\n   - `now` and `approvalExpiresAt` are both finite, nonnegative JSON numbers.\n   - `approvalExpiresAt` is greater than or equal to `now`.\n   Otherwise, return `review`.\n\nDo not coerce types. Strings such as `\"true\"` or `\"40\"`, booleans in numeric fields, nulls, arrays, objects, and missing values do not satisfy the corresponding boolean or numeric requirements. Missing flags are not true. Unrecognized or differently capitalized category and policy strings do not match.\n\nClassify records only; do not perform retention operations or use tools.\n"
+        }
+      }
+    ]
+  },
+  "handoff": {
+    "selectedMethodHash": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2",
+    "subsequentMethodHash": "f59f029eb35b8362578e5075c28abcf30093fcf6f7aaaee9014590fad6cc7ed2"
+  },
+  "omissions": [
+    "Local paths, runtime execution IDs, operational timestamps, and execution diagnostics are omitted.",
+    "Full internal reasoning and tool traces are not retained here.",
+    "Request prompts and unchanged method text are represented by source references and hashes rather than duplicated.",
+    "Check decisions are projected to pass flags and JSON pointers; expected values remain in definitions. Final answer strings and generated candidate text are unchanged."
+  ],
+  "limits": [
+    "One synthetic improvement task per method, one generated target candidate per task; records within a response are not independent trials.",
+    "Both methods reach the required quality ceiling on this task. The result supports no additional quality benefit, not statistical equivalence or general superiority.",
+    "No protected held-out data, natural discovery, actual reference-loading schedule, interactive task tools, or executable candidate helpers were evaluated.",
+    "The candidate hypothesis about instruction-loading timing is not tested by text-bundle injection.",
+    "Fresh follow-up execution is on a known synthetic task; it establishes handoff, not transfer or sustained RSI.",
+    "Worker request counts are not all model invocations, tokens, monetary cost, or total parent effort."
+  ]
+}

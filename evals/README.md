@@ -1,6 +1,8 @@
 # 評価記録
 
-評価入力、判定条件、応答記録、評価対象のmanifestを保存します。プラグインは`evals/<plugin>/<skill>/`、グローバル指示は`evals/codex-agents/`にまとめます。評価の説明、採用判断、限界は`docs/`に置きます。
+このリポジトリで保守するスキル・指示・ワークフローについて、公開可能で保守に役立つ評価入力、判定条件、応答記録、評価対象のmanifestを保存します。プラグインは`evals/<plugin>/<skill>/`、グローバル指示は`evals/codex-agents/`にまとめます。評価の説明、採用判断、限界は`docs/`に置きます。保存対象の判断は[リポジトリの規約](../AGENTS.md#privacy-of-repository-content)に従います。
+
+配置は、評価を実行したツール名ではなく、何の保守に使うかで選びます。たとえば、`prompt-design` の回帰記録はそのスキルの評価場所へ、`prompt-design` を題材に `agent-improve` の現行維持の判断を確かめた記録は後者の評価場所へ置きます。両方に役立つ場合は参照で結び付け、同じ記録を複製しません。
 
 ## グローバルAGENTS.md
 
@@ -32,6 +34,12 @@
 使いやすさと冗長さの再監査では、[追加の比較入力](agent-design-tools/agent-workflow-design/second-review-cases.json)と[再監査manifest](agent-design-tools/agent-workflow-design/second-review-manifest.json)に、基準版・途中候補・修正候補の設計生成を記録しています。[再監査の判断と限界](../docs/agent-workflow-design/second-review.md)も参照してください。
 
 2026年9月6日の[公開前確認](../docs/agent-workflow-design/publication-review.md)で、応答ファイルに残っていたローカル絶対パスを匿名化しました。過去のmanifestは維持し、[publication-manifest](agent-design-tools/agent-workflow-design/publication-manifest.json)に加工前後のハッシュと変更箇所を記録しています。
+
+## agent-eval-tools / agent-improve
+
+[検証用素材](agent-eval-tools/agent-improve/README.md)には、小さな比較、候補生成を伴う改善、変更不要の対象、不整合な採点器、自己適用の入力を準備するスクリプトがあります。ランナーの合成応答による自動テストと、実モデルによる行動評価は区別します。生の実験記録は原則としてリポジトリ外へ保存します。ここには評価定義や検証方法に加え、内容を確認した公開可能な課題・応答・判定を、保守上必要な範囲で残せます。[現行維持の例](agent-eval-tools/agent-improve/evidence/prompt-design-retain.json)は、そのように選んだ証拠の抜粋です。
+
+[初回の自己適用と後続課題の記録](agent-eval-tools/agent-improve/evidence/self-application-retain.json)には、対象の改善、不要な変更の回避、方法自身の現行維持、選んだ方法の引き継ぎを残しています。その後の[自身の候補を比較した記録](agent-eval-tools/agent-improve/evidence/self-candidate-comparison.json)では、追加の効果が示されず現行方法を維持し、その版を別の改善課題へ渡しました。[公開前確認の説明](../docs/agent-eval-tools/prepublication-review.md)で、確認範囲と計画上の残りを区別しています。
 
 ## パスと記録の保全
 

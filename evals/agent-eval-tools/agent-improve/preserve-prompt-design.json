@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "mode": "improve",
+  "goal": "Check the current prompt-design skill for demonstrated defects on these existing public regression requests. Preserve its working behavior and keep the current version when requirements are met. Do not create wording-only revisions without evidence of a relevant defect. This evaluates produced instruction artifacts, not their downstream execution or natural skill discovery.",
+  "target": {
+    "root": "../../../plugins/agent-design-tools/skills/prompt-design",
+    "files": [
+      "SKILL.md",
+      "references/openai-gpt-6-astra-prompt-design.md"
+    ]
+  },
+  "method": {
+    "root": "../../../plugins/agent-eval-tools/skills/agent-improve",
+    "files": [
+      "SKILL.md",
+      "references/experiments.md",
+      "references/measurement.md",
+      "references/improvement.md",
+      "references/runtime.md",
+      "references/host-execution.md"
+    ]
+  },
+  "editable": [
+    "SKILL.md"
+  ],
+  "runtime": {
+    "adapter": "host",
+    "model": "host-inherited"
+  },
+  "budget": {
+    "maxCalls": 20,
+    "maxMs": 1800000,
+    "callTimeoutMs": 180000
+  },
+  "maxCandidates": 1,
+  "cases": [
+    {
+      "id": "decision-extraction",
+      "group": "extraction-preservation",
+      "split": "explore",
+      "input": "次の議事録抽出プロンプトをレビューして、問題があれば修正済みの完成形まで返して。『議事録から決定事項だけを抽出する。各決定事項の担当者と期限を必ず記入する。記録にない情報は推測しない。』担当者・期限の欄は残したいです。記録にない場合は空欄で構いません。新しい管理フローは不要です。",
+      "rubric": "Pass only if the response supplies a usable corrected prompt that extracts decided items only, retains owner and deadline fields, leaves missing values blank, and forbids inventing facts. Brief explanation is allowed. It must complete the requested correction rather than merely offer to do so, and must not add an unrelated management workflow. Judge semantic preservation, not exact wording.",
+      "calibration": [
+        {
+          "output": "議事録から決定事項だけを抽出してください。各決定事項には担当者と期限の欄を設け、記録にない値は空欄にします。未決定の議題は含めず、記録にない情報は推測しないでください。",
+          "pass": true
+        },
+        {
+          "output": "決定済みの事項のみを議事録から取り出し、決定内容・担当者・期限を示す。担当者または期限の記載がなければ、その欄を空欄にする。推測で補わない。",
+          "pass": true
+        },
+        {
+          "output": "議事録から決定事項と未決事項を抽出し、担当者と期限がなければ一般的な値を推測して埋める。",
+          "pass": false
+        }
+      ]
+    },
+    {
+      "id": "approximate-summary",
+      "group": "strength-preservation",
+      "split": "explore",
+      "input": "技術ニュースの要約に使う指示を整えてください。『渡した記事だけを根拠に、変更点と利用者への影響を300字程度で説明する。記事に書かれていない性能や日付は補わない。重要な適用条件は省かない。』です。文字数は目安のまま、自然な日本語の完成形だけ返してください。",
+      "rubric": "Pass only if the response consists of a usable rewritten instruction preserving: rely only on the supplied article; explain changes and user impact; about 300 Japanese characters as an approximate goal, not a strict maximum or tolerance; no invented performance or dates; retain important applicability conditions. Do not require additional sections, external research, or unrelated operations. Equivalent wording is valid.",
+      "calibration": [
+        {
+          "output": "渡された記事だけを根拠に、変更点と利用者への影響を300字程度で説明してください。記事にない性能や日付を補わず、重要な適用条件を残してください。",
+          "pass": true
+        },
+        {
+          "output": "渡された記事に書かれた情報のみを使って、何が変わり利用者にどう影響するかをまとめる。長さはおよそ300字を目安とし、重要な適用条件は省かない。未記載の性能や日付は創作しない。",
+          "pass": true
+        },
+        {
+          "output": "記事と外部情報から、変更点と利用者への影響を必ず300字以内で説明する。性能値がなければ推測する。",
+          "pass": false
+        }
+      ]
+    }
+  ],
+  "proposalMethodFiles": [
+    "SKILL.md",
+    "references/experiments.md",
+    "references/improvement.md"
+  ]
+}

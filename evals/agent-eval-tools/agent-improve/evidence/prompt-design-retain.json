@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "kind": "curated-behavioral-evidence",
+  "purpose": "Preserve a limited example of retaining a working prompt-design skill instead of manufacturing an unsupported revision.",
+  "selection": "One completed run selected for its no-change decision, not a complete trial history or a performance aggregate. Earlier incomplete attempts remain in the private development evidence.",
+  "provenance": {
+    "sourceRecordSha256": "5c3a8ed8d983e2871525526844ef1e3f3d7de62ec0a3b67cd18b6dd1c2b9521e",
+    "target": {
+      "bundleSha256": "bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674",
+      "repositoryCommit": "5e9e08944985822f9054aa46bb0afd010795af56",
+      "files": [
+        {
+          "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+          "sha256": "0bcd464a9e9b486d9a596490bb9f8d5d08a3dc57bfe8a9bc24409032cd2ced7c"
+        },
+        {
+          "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+          "sha256": "9b30b7d98d4cd41c05d8760be51829527b0b452baae6a0244725b759b4f3c7ab"
+        }
+      ]
+    },
+    "improver": {
+      "bundleSha256": "574ba8ace154e27c807ad79cc15239b6579d59ae7572a82c02e9cff085366c68",
+      "proposalFiles": [
+        {
+          "path": "SKILL.md",
+          "sha256": "75a6194c6c258f87c41f564c6d670f73416bfad96bcc6c3631054335fe034ae0"
+        },
+        {
+          "path": "references/experiments.md",
+          "sha256": "6b1dac7c79bb6c5e3b017b0831701809724105d0990f69ecd5cd685f38ac09bb"
+        },
+        {
+          "path": "references/improvement.md",
+          "sha256": "723686c1ba003bbbc29ec26bdc596fa4c8f075957e5ba7198e74cadcdc17b93e"
+        }
+      ],
+      "historicalVersionPublished": false
+    },
+    "controllerSha256": "b4ba1a65863bb788798fa5bbc11a766799754041cfe8d7ae860efec6a19ff0cf",
+    "caseDefinition": "evals/agent-eval-tools/agent-improve/preserve-prompt-design.json",
+    "caseSnapshotSha256": "5ca05bb0e028b88168f54a74b26c3fd4321e60d1929298598e41180d160425e2"
+  },
+  "conditions": {
+    "mode": "improve",
+    "goal": "Check the current prompt-design skill for demonstrated defects on these existing public regression requests. Preserve its working behavior and keep the current version when requirements are met. Do not create wording-only revisions without evidence of a relevant defect. This evaluates produced instruction artifacts, not their downstream execution or natural skill discovery.",
+    "delivery": "The target was an explicit frozen text bundle delivered to fresh host subagent contexts. Target execution, semantic grading and the improvement decision used separate contexts.",
+    "requestedModel": "host-inherited",
+    "observedBackendModel": null,
+    "grading": "Semantic pass/fail against the saved rubric; calibration labels were checked before target grading.",
+    "calibration": [
+      {
+        "case": "decision-extraction",
+        "sample": 0,
+        "expectedPass": true,
+        "observedPass": true
+      },
+      {
+        "case": "decision-extraction",
+        "sample": 1,
+        "expectedPass": true,
+        "observedPass": true
+      },
+      {
+        "case": "decision-extraction",
+        "sample": 2,
+        "expectedPass": false,
+        "observedPass": false
+      },
+      {
+        "case": "approximate-summary",
+        "sample": 0,
+        "expectedPass": true,
+        "observedPass": true
+      },
+      {
+        "case": "approximate-summary",
+        "sample": 1,
+        "expectedPass": true,
+        "observedPass": true
+      },
+      {
+        "case": "approximate-summary",
+        "sample": 2,
+        "expectedPass": false,
+        "observedPass": false
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "decision-extraction",
+      "input": "次の議事録抽出プロンプトをレビューして、問題があれば修正済みの完成形まで返して。『議事録から決定事項だけを抽出する。各決定事項の担当者と期限を必ず記入する。記録にない情報は推測しない。』担当者・期限の欄は残したいです。記録にない場合は空欄で構いません。新しい管理フローは不要です。",
+      "rubric": "Pass only if the response supplies a usable corrected prompt that extracts decided items only, retains owner and deadline fields, leaves missing values blank, and forbids inventing facts. Brief explanation is allowed. It must complete the requested correction rather than merely offer to do so, and must not add an unrelated management workflow. Judge semantic preservation, not exact wording.",
+      "response": "「担当者と期限を必ず記入する」と「記録にない情報は推測しない」が、情報が欠けている場合に両立しません。欄の存在を必須にし、記録にない値は空欄にできるよう修正します。\n\n```text\n議事録から決定事項だけを抽出する。\n\n各決定事項について、「決定事項」「担当者」「期限」の欄を設ける。\n担当者と期限は、議事録に記録されている場合に記入する。記録されていない場合も欄は残し、該当する欄を空欄にする。\n記録にない情報は推測・補完しない。\n```",
+      "responseSha256": "5fe48f4b15870d48f1facf1b9af70824776b2bf9c3ab85c00cc8c5f090b759c8",
+      "judgment": {
+        "pass": true,
+        "evidence": "修正済みの完成形をコードブロックで提示している。「議事録から決定事項だけを抽出する」と対象を限定し、「決定事項」「担当者」「期限」の欄を保持している。担当者・期限が記録されていない場合は欄を残して空欄にすること、および記録にない情報を推測・補完しないことを明記している。説明は元の指示の矛盾と修正方針にとどまり、無関係な管理フローを追加していない。"
+      }
+    },
+    {
+      "id": "approximate-summary",
+      "input": "技術ニュースの要約に使う指示を整えてください。『渡した記事だけを根拠に、変更点と利用者への影響を300字程度で説明する。記事に書かれていない性能や日付は補わない。重要な適用条件は省かない。』です。文字数は目安のまま、自然な日本語の完成形だけ返してください。",
+      "rubric": "Pass only if the response consists of a usable rewritten instruction preserving: rely only on the supplied article; explain changes and user impact; about 300 Japanese characters as an approximate goal, not a strict maximum or tolerance; no invented performance or dates; retain important applicability conditions. Do not require additional sections, external research, or unrelated operations. Equivalent wording is valid.",
+      "response": "渡された記事だけを根拠に、変更点と利用者への影響を300字程度を目安に説明してください。記事に書かれていない性能や日付は補わず、重要な適用条件は省略しないでください。",
+      "responseSha256": "a7c1248631ac2d4db55e5685aa782c3f09cba95ea779b18ea1c5c80934b75536",
+      "judgment": {
+        "pass": true,
+        "evidence": "完成形の指示文だけを返している。「渡された記事だけを根拠に」で根拠を限定し、「変更点と利用者への影響」を説明対象としている。「300字程度を目安に」は厳密な上限や許容範囲を設けず、文字数を目安として保持している。また、記事にない性能や日付を補わないこと、重要な適用条件を省略しないことを明記している。追加の節、外部調査、無関係な作業は要求していない。"
+      }
+    }
+  ],
+  "decision": {
+    "response": "{\n  \"action\": \"stop\",\n  \"parent\": \"bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674\",\n  \"hypothesis\": \"Retain the current version. Both supplied regression outputs meet their requirements, consistent with their recorded passing grades. The decision-extraction output supplies a completed correction that extracts decisions only, retains owner and deadline fields, leaves missing values blank, prohibits invented information, and adds no management workflow. The approximate-summary output preserves the supplied article as its sole source, changes and user impact, an approximate 300-character goal, the prohibition on invented performance and dates, and important applicability conditions; it also returns only the requested instruction. No relevant defect is demonstrated, so a wording-only revision is unwarranted. This conclusion is limited to the two observed instruction artifacts and does not establish downstream execution quality or natural skill discovery.\",\n  \"edits\": []\n}",
+    "responseSha256": "2345f43e302b5a3e70898c06eac798551969282f613db8fe04c2506373c08e31",
+    "recordedOutcome": "retain",
+    "candidateComparisonPerformed": false,
+    "sourceApplicationPerformed": false
+  },
+  "publication": {
+    "form": "Selected fields from a retained private record, not a raw runtime record or a resumable experiment.",
+    "transformations": "Task inputs, rubrics, target responses and the final proposal response are unchanged. Target judgments are parsed from their original JSON; calibration is reduced to label comparisons. Source identities use content hashes and repository-relative references.",
+    "omitted": [
+      "machine paths",
+      "host execution and session identifiers",
+      "timestamps and scheduling diagnostics",
+      "usage and runtime settings unrelated to this behavioral claim",
+      "full method and controller snapshots",
+      "calibration explanations"
+    ]
+  },
+  "limitations": [
+    "Only two known public regression tasks, with one target response per task; this is not a broad skill-quality benchmark.",
+    "No candidate was proposed, so retain means no demonstrated reason to edit in this scope, not that a candidate lost a before/after comparison.",
+    "The generated prompts were evaluated as artifacts; downstream execution and natural skill discovery were not tested.",
+    "The historical improvement method and controller differ from the current source. Hashes identify them but the omitted historical bundles prevent full public reconstruction of that run.",
+    "The backend model version and complete host context are unavailable; this excerpt makes no performance, cost-reduction or RSI claim."
+  ]
+}

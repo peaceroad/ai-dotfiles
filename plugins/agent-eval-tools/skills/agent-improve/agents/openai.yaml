@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Improve"
+  short_description: "Evaluate and improve agent skills and plugins"
+  default_prompt: "Use $agent-improve for the requested evaluation or improvement of this skill or plugin, within the agreed scope and budget."

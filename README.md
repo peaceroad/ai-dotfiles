@@ -12,8 +12,10 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 
 - **[agent-design-tools](plugins/agent-design-tools/README.md)**：指示と作業の進め方を設計するプラグイン。
   - [prompt-design](plugins/agent-design-tools/skills/prompt-design/SKILL.md)：新しいプロンプトや`AGENTS.md`を書くとき、既存の指示が曖昧・矛盾していて期待する回答や動作にならないときに使います。AIへ伝える目的、条件、出力の要件を整理し、利用するモデルに合わせて指示を見直します。複数の局所修正を比較しやすい場合は「修正前／修正後／理由」で報告する調整を加えています。固定の出力形式ではなく、全面的な書き直しやファイル編集では変更規模と依頼に合わせます。
-  - [agent-workflow-design](plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)：定期的な確認や長時間の開発など、繰り返し・継続して行う作業の進め方を設計するときに使います。複数のツールやエージェントの役割分担、待機・中断・再開の条件、実行記録を踏まえた改善を検討します。通常の作業を実行するだけなら不要です。後の保守に改善候補や判断理由を残す必要がある場合は、`~/.agents/notes/`の利用も検討できるようにしています。既存の保存先を優先し、採用が認められた範囲で使う任意のローカル規約であり、常時ログを記録する仕組みではありません。
+  - [agent-workflow-design](plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)：定期的な確認や長時間の開発など、繰り返し・継続して行う作業の進め方を設計するときに使います。複数のツールやエージェントの役割分担、待機・中断・再開の条件、実行記録を踏まえた改善を検討します。通常の作業を実行するだけなら不要です。
   - [prompt-gemini-reference](plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)：Gemini向けのプロンプトやGemsの指示、添付メディアの読み取り・分析、画像・動画の生成・編集に使う指示文を設計するときに使います。Gemini 3以降を基準に、`prompt-design`の共通方針と、用途に必要な資料だけを読みます。Veoなど別系統のメディアモデルは、それぞれの現行ガイドで扱います。画像・動画を生成するツールではありません。個別に導入する場合も`prompt-design`を併せて用意します。
+- **[agent-eval-tools](plugins/agent-eval-tools/README.md)**：スキル・プラグインと改善方法を、実験で評価・改善するための実験的なプラグイン。
+  - [agent-improve](plugins/agent-eval-tools/skills/agent-improve/SKILL.md)：スキルやプラグインの変更前後を比較するとき、予算を決めて改善案を試すとき、蓄積した証拠から改善方法自体を見直すときに使います。付属ランナーは、明示的に渡したテキストの比較と改善を扱います。ツール連携や実行中のイベントなどを観測する場合は、適したハーネスを使います。付属ランナーはこれらと保護された最終評価には未対応です。[利用場面と設計理由](docs/notes/agent-eval-tools-use-cases.md)も参照してください。
 - **[agent-plugin-tools](plugins/agent-plugin-tools/README.md)**：ポータブルなプラグインを作るための汎用スキルとツール。
   - [plugin-creator-agent-plugins](plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)：スキルやMCPサーバーをポータブルなプラグインにまとめるとき、既存パッケージを検証・移行するとき、配布用のMarketplaceを作るときに使います。パッケージ構成の確認からローカルでの導入確認まで、依頼した範囲を同梱ツールで支援します。`agent` CLIなしでも利用できます。
 - **[ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)**：このリポジトリのCLI操作をAIへ案内するプラグイン。
@@ -61,14 +63,13 @@ Codexへ渡す共通指示の例です。回答の詳しさ、待機中の進め
 - **開発中のスキルを使う**
   - [スキルリンクの登録・変更・検査・解除](docs/skill-links.md)：開発フォルダーをコピーせず、`~/.agents/skills/`から参照する方法。
   - 同名スキルの直接リンクとインストール済みプラグインは併用せず、日常のスキル開発とプラグイン全体の動作確認で切り替えます。
-- **利用者ごとの設定・保守記録**
-  - [スキルの設定を外部に置く考え方](docs/notes/agents-config-local-convention.md)
-  - [保守記録を残す考え方](docs/notes/agents-notes-local-convention.md)
-  - いずれも標準仕様ではなく、対応するスキルや運用で採用するローカルな案・規約です。
+- **利用者設定・記録・一時ファイル**
+  - [~/.agents/とプロジェクト内の保存先](docs/agents-directory.md)：CLIの管理領域、`config/`、`notes/`、評価記録、一時ファイルの使い分け。
+  - `agent-workflow-design`や`agent-improve`の保守記録も、既存の保存先を優先します。`config/`や`notes/`は、対応するスキルや運用で採用する任意のローカル規約です。設計理由はガイドから各ノートを参照できます。
 
 ## プラグイン
 
-提供する3つのプラグインはAgent Plugins v1形式です。導入は各プラグインのREADME、パッケージの作成や開発環境の準備は次の資料を参照してください。
+提供するプラグインはAgent Plugins v1形式です。導入は各プラグインのREADME、パッケージの作成や開発環境の準備は次の資料を参照してください。
 
 - [プラグイン作成・検証・移行のガイド](plugins/agent-plugin-tools/README.md)：`agent` CLIに依存しない汎用ツールと導入方法。
 - [agent devによる開発対象の設定と管理](docs/agent-development.md)：登録したローカル開発元の検証とCodexへのインストール・更新。
@@ -130,7 +131,8 @@ Codexの保守には操作ごとのOS・バージョン制限があります。`
 検証にはNode.js 24以降を使い、Windowsではインストーラーのテスト用にPowerShell 7（`pwsh`）も必要です。次のコマンドはリポジトリのルートで実行します。
 
 - `npm run check`：エクスポート計画のドライラン、CLI・スキルリンク・プラグイン管理ツールのテスト、プラグインの構造・配布テストを実行します。
-- `npm run check:plugins`：3つのプラグインの構造と同梱リンク、汎用ツールの単体起動を検証します。
+- `npm run check:plugins`：各プラグインの構造と同梱リンク、汎用ツールの単体起動、隔離した評価プラグインのテストを検証します。
+- `npm run check:eval-tools`：評価ランナーと比較処理に加え、リポジトリで保守する改善課題の正解・保持条件を、モデルを使わずに検証します。
 
 `npm run check`では設定ファイルを書き出しません。実際に書き出す`npm run build`は、[エクスポート手順](docs/export.md#使い方)に従い、コピー元と書き出し予定を確認してから実行してください。
 

@@ -28,7 +28,7 @@ function assertLocalDocumentation(root) {
   }
 }
 
-for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli']) {
+for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli', 'agent-eval-tools']) {
   test(`${name} keeps local documentation dependencies inside its isolated package`, t => {
     const root = mkdtempSync(join(tmpdir(), 'agent-package-test-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -43,6 +43,18 @@ for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli
       }
     } else if (name === 'ai-dotfiles-cli') {
       assert.deepEqual(readdirSync(join(plugin, 'skills')).sort(), ['ai-dotfiles-cli', 'codex-history']);
+    } else if (name === 'agent-eval-tools') {
+      assert.deepEqual(readdirSync(join(plugin, 'skills')), ['agent-improve']);
+      const script = join(plugin, 'skills', 'agent-improve', 'scripts', 'agent-eval.mjs');
+      const result = spawnSync(process.execPath, [script, '--help'], { cwd: root, encoding: 'utf8', env: { ...process.env, PATH: '' } });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      const testEnvironment = { ...process.env, PATH: '' };
+      // A nested Node test invocation must start its own runner, not inherit
+      // the parent's internal worker context and exit without running tests.
+      delete testEnvironment.NODE_TEST_CONTEXT;
+      const tests = spawnSync(process.execPath, ['--test', '--test-reporter=tap', join(dirname(script), 'agent-eval.test.mjs'), join(dirname(script), 'comparison.test.mjs')], { cwd: root, encoding: 'utf8', env: testEnvironment });
+      assert.equal(tests.status, 0, tests.stdout + tests.stderr);
+      assert.match(tests.stdout, /^# tests [1-9][0-9]*$/m, 'The isolated package must execute its controller tests.');
     } else {
       assert.deepEqual(readdirSync(join(plugin, 'skills')).sort(), ['agent-workflow-design', 'prompt-design', 'prompt-gemini-reference']);
     }

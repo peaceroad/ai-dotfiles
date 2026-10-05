@@ -1,0 +1,828 @@
+{
+  "schema": 1,
+  "kind": "curated-behavioral-evidence",
+  "purpose": "Retain a supported no-change self-application decision and verify the selected method in a subsequent prompt-design task.",
+  "sourceFiles": [
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/SKILL.md",
+      "sha256": "f473b3d3dda9a69dcc1ce8c0dc3e915e8fc0f973fb01796441371f49957a0fa1"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/experiments.md",
+      "sha256": "9cc4f2577909860943137432de751a153f03e57e60eea03185eaecca823e00aa"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/host-execution.md",
+      "sha256": "776a447c476fcabd16b6fb8506c3dfba23865462abd56eb28f8adddaec2b7fcb"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/improvement.md",
+      "sha256": "723686c1ba003bbbc29ec26bdc596fa4c8f075957e5ba7198e74cadcdc17b93e"
+    },
+    {
+      "path": "plugins/agent-eval-tools/skills/agent-improve/references/runtime.md",
+      "sha256": "5623cdbd9a7113a10eb1e20447b0fa47da377039c5f22b7d6c9f0ba26f113e92"
+    },
+    {
+      "path": "evals/agent-eval-tools/agent-improve/fixtures/retention-current/SKILL.md",
+      "sha256": "768f0d2825351ce1dc25d514388cc1c9d4566348a387660cf52417c3c3cb2438"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+      "sha256": "0bcd464a9e9b486d9a596490bb9f8d5d08a3dc57bfe8a9bc24409032cd2ced7c"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+      "sha256": "9b30b7d98d4cd41c05d8760be51829527b0b452baae6a0244725b759b4f3c7ab"
+    }
+  ],
+  "sourceVersionNote": "Hashes identify the evaluated files in the accompanying source tree. The working source was not committed when this excerpt was created; no immutable publication revision is asserted. The private frozen contract retains all delivered bundles.",
+  "definitions": [
+    {
+      "path": "evals/agent-eval-tools/agent-improve/prepare-self-application.mjs",
+      "sha256": "f7a2215689e5804e0954deb5be4903ada0e8683aaad04eb456ecf10b91892519"
+    },
+    {
+      "path": "evals/agent-eval-tools/agent-improve/followup-source-preservation.json",
+      "sha256": "578d4463cf31b7a21ea276851b2ef4b101fa1283285d06f35b495ad235ed32ea"
+    }
+  ],
+  "selfApplication": {
+    "sourceRecordSha256": "d98dc6e9d34fc3dcc251810962d58e644878b3d2b2f637c9efbe5d1a9af7541c",
+    "contractHash": "a0559294a2eb2c80caa2fefb0fb73b5d9fc78e79e012194f8ec6e5b64d8ba9c8",
+    "controllerHash": "710ec5f4db75a410d96affd9281f1f50404d653530e8522f8e6253b1f5ab4fbe",
+    "targetHash": "13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13",
+    "methodHash": "13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13",
+    "requestedRuntime": {
+      "adapter": "host",
+      "model": "host-inherited"
+    },
+    "observedBackendVersion": null,
+    "modelCalls": 12,
+    "unreportedTokenUsage": true,
+    "sourceApplicationPerformed": false,
+    "trials": [
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/changed-policy/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"audit-young\":\"delete\",\"operational-young\":\"review\",\"export-first\":\"review\",\"wrong-policy\":\"delete\",\"expired-approval\":\"delete\",\"unknown-owner\":\"delete\",\"string-age\":\"delete\",\"unknown-category\":\"delete\"}",
+        "outputSha256": "822f306296984b43b58f396d4659bcf83d381ce5286bb068038764cb6d8e19f8"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/preserve-working-behavior/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"hold\":\"keep\",\"authorized\":\"delete\",\"unapproved\":\"review\",\"young\":\"keep\"}",
+        "outputSha256": "5f66feb5168a581fbfa3c54473bf9452b28c2eca008bd9bf106c7dde233f9b47"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/proposal/0",
+        "role": "generator",
+        "status": "completed",
+        "output": "{\"action\":\"candidate\",\"parent\":\"4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946\",\"hypothesis\":\"The starting skill preserves basic legal-hold and approval behavior but still applies the old seven-day threshold and omits r2 validation, export protection, category thresholds, and approval validity. Replacing that rule with ordered, strict r2 conditions should correct the observed policy failures while preserving classification-only behavior, legal-hold precedence, approved eligible deletion, and keeping younger records.\",\"edits\":[{\"path\":\"SKILL.md\",\"content\":\"---\\nname: synthetic-retention\\ndescription: Classify a fictional record under retention policy r2.\\n---\\n\\n# Synthetic Retention\\n\\nClassify each record independently under policy r2. Return JSON only. For an individual record, return one object with an `action` field whose value is `keep`, `delete`, or `review`. When a batch request specifies an ID-to-action mapping, use that requested JSON mapping.\\n\\nIf the input supplies defaults, merge them with each record before classification. Explicit record values, including null, override defaults. Do not invent missing values or coerce types. Exactly true means the JSON boolean true; missing flags, strings, numbers, and null are not true. A valid number means a finite, nonnegative JSON number; numeric strings, booleans, null, and missing values are invalid.\\n\\nEvaluate these rules in order and stop at the first decision:\\n\\n1. If `legalHold` is exactly true, choose `keep`, regardless of all other fields.\\n2. Otherwise, if `pendingExport` is exactly true, choose `keep`, regardless of all remaining fields.\\n3. Otherwise, require a valid number for `age` and a `category` exactly equal to `audit`, `operational`, or `ephemeral`. If either requirement fails, choose `review`.\\n4. The eligibility threshold is 90 days for `audit`, 30 days for `operational`, and 7 days for `ephemeral`. If `age` is below the applicable threshold, choose `keep`, regardless of approval or owner fields. Equality with the threshold is eligible.\\n5. For an eligible record, choose `delete` only if all of the following hold: `ownerVerified` is exactly true; `approval` is exactly true; `approvalPolicy` is exactly the string `r2`; both `now` and `approvalExpiresAt` are valid numbers; and `approvalExpiresAt` is greater than or equal to `now`. Otherwise choose `review`.\\n\\nApply these conditions to every record without ID-specific exceptions. Classify only; do not delete anything, perform retention operations, or use tools.\\n\"}]}",
+        "outputSha256": "5663a0ebd67634d251468f590c46426afc2c0420eb08f5f5047157a15ec324fb"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/changed-policy/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"audit-young\":\"delete\",\"operational-young\":\"review\",\"export-first\":\"review\",\"wrong-policy\":\"delete\",\"expired-approval\":\"delete\",\"unknown-owner\":\"delete\",\"string-age\":\"delete\",\"unknown-category\":\"delete\"}",
+        "outputSha256": "822f306296984b43b58f396d4659bcf83d381ce5286bb068038764cb6d8e19f8"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/changed-policy/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"audit-young\":\"keep\",\"operational-young\":\"keep\",\"export-first\":\"keep\",\"wrong-policy\":\"review\",\"expired-approval\":\"review\",\"unknown-owner\":\"review\",\"string-age\":\"review\",\"unknown-category\":\"review\"}",
+        "outputSha256": "dc751eb00811ff60dba87e5e539e6d2d702dfc6921559f57c00c1ed36d9533a8"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/preserve-working-behavior/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"hold\":\"keep\",\"authorized\":\"delete\",\"unapproved\":\"review\",\"young\":\"keep\"}",
+        "outputSha256": "5f66feb5168a581fbfa3c54473bf9452b28c2eca008bd9bf106c7dde233f9b47"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/preserve-working-behavior/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"hold\":\"keep\",\"authorized\":\"delete\",\"unapproved\":\"review\",\"young\":\"keep\"}",
+        "outputSha256": "5f66feb5168a581fbfa3c54473bf9452b28c2eca008bd9bf106c7dde233f9b47"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/confirmation/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/r2-boundaries/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"audit-edge\":\"delete\",\"operational-edge\":\"delete\",\"ephemeral-edge\":\"delete\",\"young-invalid-approval\":\"delete\",\"hold-invalid-age\":\"keep\",\"string-owner\":\"delete\",\"string-now\":\"delete\",\"negative-expiry\":\"delete\"}",
+        "outputSha256": "7de7c3d0afd2821b4d1cda5dd9adb89b2325e65e4afdbd30bef5591388483c18"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/confirmation/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/r2-boundaries/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"audit-edge\":\"delete\",\"operational-edge\":\"delete\",\"ephemeral-edge\":\"delete\",\"young-invalid-approval\":\"keep\",\"hold-invalid-age\":\"keep\",\"string-owner\":\"review\",\"string-now\":\"review\",\"negative-expiry\":\"review\"}",
+        "outputSha256": "cffb88fca8b2abc2f47bfd3753ec64e9a733998b196851e2bbb1eabb225e903a"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/preserve-working-skill/0/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/complete-current-policy/0",
+        "role": "target",
+        "status": "completed",
+        "output": "{\"held\":\"keep\",\"young\":\"keep\",\"approved\":\"delete\",\"unapproved\":\"review\"}",
+        "outputSha256": "7149780bc1c8f306921fee3c80b84b47b8baa545dba6462a7049b1684c6ffacd"
+      },
+      {
+        "key": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/preserve-working-skill/0/proposal/0",
+        "role": "generator",
+        "status": "completed",
+        "output": "{\"action\":\"stop\",\"parent\":\"4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946\",\"hypothesis\":\"Retain the current skill. Its instructions implement the specified seven-day policy, and the observed exploration output correctly handles legal hold, younger records, approved eligibility at age 7, and unapproved eligibility. The supplied evidence reveals no relevant defect, so no change is justified.\",\"edits\":[]}",
+        "outputSha256": "ea62e444e77e9702c52de5f1524ef87b1da522566673abfd78081f5729879526"
+      },
+      {
+        "key": "main/proposal/0",
+        "role": "generator",
+        "status": "completed",
+        "output": "{\"action\":\"stop\",\"parent\":\"13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13\",\"hypothesis\":\"The supplied downstream evidence does not support a useful change to this method's diagnosis, candidate construction, or stopping behavior. On retention-migration, H0 identified the obsolete policy, produced candidate 8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539, corrected every observed changed-policy classification, and preserved every separately tested working behavior; the candidate was accepted. On preserve-working-skill, the starting target already passed every supplied check and no candidate edits were proposed. Its outer score of 0 measures no increase in successful cases, not a demonstrated defect in preservation or stopping. Both tasks therefore reach the observed quality ceiling. The retained timeout observations confound context size, scheduling, and elapsed allowances, so they do not establish a text-method defect or measurable cost benefit. Retain H0 without edits. This is a justified stopping decision for these known synthetic tasks, not evidence of broad effectiveness, held-out transfer, or sustained self-improvement.\",\"edits\":[]}",
+        "outputSha256": "f489fbf2fa1e13ffac555abcaefed58a82fdc9bbdd28068f800ef057c43a9cfd"
+      }
+    ],
+    "decisions": [
+      {
+        "prefix": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0",
+        "final": false,
+        "status": "accept",
+        "candidate": "8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539",
+        "parent": "4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946",
+        "baselineHash": "4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946"
+      },
+      {
+        "prefix": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0",
+        "final": true,
+        "status": "accept",
+        "selectedHash": "8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539",
+        "baseline": [
+          {
+            "id": "changed-policy",
+            "repeat": 0,
+            "status": "graded",
+            "score": 0,
+            "checks": [
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/audit-young",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/operational-young",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/export-first",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/wrong-policy",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/expired-approval",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/unknown-owner",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/string-age",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": false,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/unknown-category",
+                  "value": "review"
+                }
+              }
+            ],
+            "evidence": {
+              "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/changed-policy/0",
+              "judge": null
+            }
+          },
+          {
+            "id": "preserve-working-behavior",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checks": [
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/hold",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/authorized",
+                  "value": "delete"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/unapproved",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/young",
+                  "value": "keep"
+                }
+              }
+            ],
+            "evidence": {
+              "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/preserve-working-behavior/0",
+              "judge": null
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "changed-policy",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checks": [
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/audit-young",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/operational-young",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/export-first",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/wrong-policy",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/expired-approval",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/unknown-owner",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/string-age",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/unknown-category",
+                  "value": "review"
+                }
+              }
+            ],
+            "evidence": {
+              "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/changed-policy/0",
+              "judge": null
+            }
+          },
+          {
+            "id": "preserve-working-behavior",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checks": [
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/hold",
+                  "value": "keep"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/authorized",
+                  "value": "delete"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/unapproved",
+                  "value": "review"
+                }
+              },
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "/young",
+                  "value": "keep"
+                }
+              }
+            ],
+            "evidence": {
+              "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/preserve-working-behavior/0",
+              "judge": null
+            }
+          }
+        ],
+        "stopReason": null,
+        "confirmation": {
+          "baseline": [
+            {
+              "id": "r2-boundaries",
+              "repeat": 0,
+              "status": "graded",
+              "score": 0,
+              "checks": [
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/audit-edge",
+                    "value": "delete"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/operational-edge",
+                    "value": "delete"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/ephemeral-edge",
+                    "value": "delete"
+                  }
+                },
+                {
+                  "pass": false,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/young-invalid-approval",
+                    "value": "keep"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/hold-invalid-age",
+                    "value": "keep"
+                  }
+                },
+                {
+                  "pass": false,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/string-owner",
+                    "value": "review"
+                  }
+                },
+                {
+                  "pass": false,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/string-now",
+                    "value": "review"
+                  }
+                },
+                {
+                  "pass": false,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/negative-expiry",
+                    "value": "review"
+                  }
+                }
+              ],
+              "evidence": {
+                "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/confirmation/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/r2-boundaries/0",
+                "judge": null
+              }
+            }
+          ],
+          "candidate": [
+            {
+              "id": "r2-boundaries",
+              "repeat": 0,
+              "status": "graded",
+              "score": 1,
+              "checks": [
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/audit-edge",
+                    "value": "delete"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/operational-edge",
+                    "value": "delete"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/ephemeral-edge",
+                    "value": "delete"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/young-invalid-approval",
+                    "value": "keep"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/hold-invalid-age",
+                    "value": "keep"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/string-owner",
+                    "value": "review"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/string-now",
+                    "value": "review"
+                  }
+                },
+                {
+                  "pass": true,
+                  "evidence": {
+                    "kind": "json-equals",
+                    "pointer": "/negative-expiry",
+                    "value": "review"
+                  }
+                }
+              ],
+              "evidence": {
+                "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/confirmation/pair/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539/r2-boundaries/0",
+                "judge": null
+              }
+            }
+          ]
+        }
+      },
+      {
+        "prefix": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/preserve-working-skill/0",
+        "final": true,
+        "status": "retain",
+        "selectedHash": "4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946",
+        "baseline": [
+          {
+            "id": "complete-current-policy",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checks": [
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "",
+                  "value": {
+                    "held": "keep",
+                    "young": "keep",
+                    "approved": "delete",
+                    "unapproved": "review"
+                  }
+                }
+              }
+            ],
+            "evidence": {
+              "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/preserve-working-skill/0/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/complete-current-policy/0",
+              "judge": null
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "complete-current-policy",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checks": [
+              {
+                "pass": true,
+                "evidence": {
+                  "kind": "json-equals",
+                  "pointer": "",
+                  "value": {
+                    "held": "keep",
+                    "young": "keep",
+                    "approved": "delete",
+                    "unapproved": "review"
+                  }
+                }
+              }
+            ],
+            "evidence": {
+              "target": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/preserve-working-skill/0/4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946/complete-current-policy/0",
+              "judge": null
+            }
+          }
+        ],
+        "stopReason": "stop"
+      },
+      {
+        "prefix": "main",
+        "final": true,
+        "status": "retain",
+        "selectedHash": "13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13",
+        "baseline": [
+          {
+            "id": "preserve-working-skill",
+            "repeat": 0,
+            "status": "graded",
+            "score": 0,
+            "evidence": {
+              "experiment": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/preserve-working-skill/0"
+            }
+          },
+          {
+            "id": "retention-migration",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "evidence": {
+              "experiment": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0"
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "preserve-working-skill",
+            "repeat": 0,
+            "status": "graded",
+            "score": 0,
+            "evidence": {
+              "experiment": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/preserve-working-skill/0"
+            }
+          },
+          {
+            "id": "retention-migration",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "evidence": {
+              "experiment": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0"
+            }
+          }
+        ],
+        "stopReason": "stop"
+      }
+    ],
+    "candidates": [
+      {
+        "experiment": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0",
+        "hash": "8353e4f805484e0ced3159b1f0bb86c40fc6ed447ab577eff7d2c507a2470539",
+        "parent": "4cf4d14a048db114b44090947469317d886dcabec3f49000676b385eea828946",
+        "generator": "13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13",
+        "hypothesis": "The starting skill preserves basic legal-hold and approval behavior but still applies the old seven-day threshold and omits r2 validation, export protection, category thresholds, and approval validity. Replacing that rule with ordered, strict r2 conditions should correct the observed policy failures while preserving classification-only behavior, legal-hold precedence, approved eligible deletion, and keeping younger records.",
+        "proposal": "main/13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13/retention-migration/0/proposal/0",
+        "status": "accept",
+        "files": {
+          "SKILL.md": "---\nname: synthetic-retention\ndescription: Classify a fictional record under retention policy r2.\n---\n\n# Synthetic Retention\n\nClassify each record independently under policy r2. Return JSON only. For an individual record, return one object with an `action` field whose value is `keep`, `delete`, or `review`. When a batch request specifies an ID-to-action mapping, use that requested JSON mapping.\n\nIf the input supplies defaults, merge them with each record before classification. Explicit record values, including null, override defaults. Do not invent missing values or coerce types. Exactly true means the JSON boolean true; missing flags, strings, numbers, and null are not true. A valid number means a finite, nonnegative JSON number; numeric strings, booleans, null, and missing values are invalid.\n\nEvaluate these rules in order and stop at the first decision:\n\n1. If `legalHold` is exactly true, choose `keep`, regardless of all other fields.\n2. Otherwise, if `pendingExport` is exactly true, choose `keep`, regardless of all remaining fields.\n3. Otherwise, require a valid number for `age` and a `category` exactly equal to `audit`, `operational`, or `ephemeral`. If either requirement fails, choose `review`.\n4. The eligibility threshold is 90 days for `audit`, 30 days for `operational`, and 7 days for `ephemeral`. If `age` is below the applicable threshold, choose `keep`, regardless of approval or owner fields. Equality with the threshold is eligible.\n5. For an eligible record, choose `delete` only if all of the following hold: `ownerVerified` is exactly true; `approval` is exactly true; `approvalPolicy` is exactly the string `r2`; both `now` and `approvalExpiresAt` are valid numbers; and `approvalExpiresAt` is greater than or equal to `now`. Otherwise choose `review`.\n\nApply these conditions to every record without ID-specific exceptions. Classify only; do not delete anything, perform retention operations, or use tools.\n"
+        }
+      }
+    ]
+  },
+  "followup": {
+    "sourceRecordSha256": "cbd94e27ea24f513fe1aa0c9e966e600efd0aea8a2b7f11c1042b8bf72dac9fd",
+    "contractHash": "c30efb0f9d0cb7870f79cb8c9c7daced8881d65ec6805d58ec5776ed6995a639",
+    "controllerHash": "710ec5f4db75a410d96affd9281f1f50404d653530e8522f8e6253b1f5ab4fbe",
+    "targetHash": "bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674",
+    "methodHash": "13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13",
+    "requestedRuntime": {
+      "adapter": "host",
+      "model": "host-inherited"
+    },
+    "observedBackendVersion": null,
+    "modelCalls": 6,
+    "unreportedTokenUsage": true,
+    "sourceApplicationPerformed": false,
+    "trials": [
+      {
+        "key": "main/calibration/evidence-strength-and-scope/0/judge",
+        "role": "judge",
+        "status": "completed",
+        "output": "{\"pass\":true,\"evidence\":\"完成した指示文として要約作成を依頼しており、要約そのものや批評は返していない。「提示された架空のリリース資料だけを根拠に」と情報源を限定し、導入を判断する運用担当者、変更点・適用条件・導入判断への影響の3つの箇条書き、全体300字程度という目安を保持している。また、処理時間の短縮をLinuxの計測対象構成に限定し、Windowsは未計測、外部プラグインはこのベータの対象外、12月公開は未確定の目標と明示している。数字や日付の推測、外部調査、運用計画の追加を禁止し、不要な質問や指示文外の解説もない。\"}",
+        "outputSha256": "c275532f9ce7619bd27025ff3b6c94eab91cc901ba2a8c0a97de281727990ed5"
+      },
+      {
+        "key": "main/calibration/evidence-strength-and-scope/1/judge",
+        "role": "judge",
+        "status": "completed",
+        "output": "{\"pass\":true,\"evidence\":\"要約そのものや批評ではなく、今後の要約に使える完成した指示文になっている。「運用担当者が導入を判断できるよう」と読者・目的を保持し、「変更点・適用条件・判断への影響の3項目で箇条書き」「分量の目安は合計300字程度」と形式と柔軟な字数目安を指定している。「Linuxの指定構成で計測された短縮を全環境へ一般化せず」「未計測のWindowsを非対応と解釈しない」と計測条件と未計測の区別を維持し、Windowsが遅いとも断定していない。外部プラグインは「このベータ」で「対象外」、次版の12月は「確定ではなく目標」と明示するよう求めている。根拠を提示資料に限定し、未知の数値・日付の補完、追加調査、運用計画の提案を禁止しており、不要な質問や指示文以外の解説もない。\"}",
+        "outputSha256": "f75e867c7796735c766416f153132beccb92302e5e951092f584ce23474b98f9"
+      },
+      {
+        "key": "main/calibration/evidence-strength-and-scope/2/judge",
+        "role": "judge",
+        "status": "completed",
+        "output": "{\"pass\":false,\"evidence\":\"完成した指示文の形式で、運用担当者向け・3つの箇条書きという条件は保っています。しかし、「全環境で高速になった」はLinuxの指定構成でのみ計測された改善を一般化し、Windowsは未計測という区別を失っています。「外部プラグイン対応」は、このベータでは対象外という資料に反します。「次版は12月公開」は未確定の目標を確約に変えています。「必ず300字ちょうど」は300字程度という目安を厳密な字数条件に変え、「足りない性能値は一般的な改善率で補って」は資料にない数値の捏造を指示しています。また、3つの箇条書きで変更点・適用条件・導入判断への影響を扱う指定も欠けています。\"}",
+        "outputSha256": "4f10e64a8a2f0d7f12c59c0a550751651d6c787edcfee8b23e0388ec5646c760"
+      },
+      {
+        "key": "main/bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674/evidence-strength-and-scope/0",
+        "role": "target",
+        "status": "completed",
+        "output": "次の架空のリリース資料を、導入を判断する運用担当者向けに要約してください。\n\n資料に含まれる事実は以下の3点です。\n- ベータ機能の計測では、Linuxの指定構成で処理時間が短くなった。Windowsは未計測。\n- このベータでは、外部プラグインは対象外。\n- 次版は12月の公開を目標としているが、確定していない。\n\n出力は「変更点」「適用条件」「導入判断への影響」の3つの箇条書きにし、全体で300字程度を目安にしてください。計測結果を全環境に一般化せず、Windowsの未計測、外部プラグインの対象外、公開月の未確定を明示してください。導入判断への影響は、これらの条件や未確定事項から読み取れる範囲で説明し、事実と推論を区別してください。数字や日付の推測、外部調査、運用計画の追加は不要です。",
+        "outputSha256": "8e7a2c843675cb42a19c17c627d95a8c0470e0f098c4dd8011f3418ad9052f33"
+      },
+      {
+        "key": "main/bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674/evidence-strength-and-scope/0/judge",
+        "role": "judge",
+        "status": "completed",
+        "output": "{\"pass\":true,\"evidence\":\"完成した要約ではなく、「要約してください」と将来の出力を指定する、使用可能な指示文になっている。提示資料の3点を再掲し、「Linuxの指定構成」での処理時間短縮、「Windowsは未計測」、「外部プラグインは対象外」、「12月の公開を目標としているが、確定していない」を区別して保持している。読者を導入判断を行う運用担当者とし、「変更点」「適用条件」「導入判断への影響」の3つの箇条書きと、厳密な字数制限ではない「300字程度」の目安を指定している。全環境への一般化を禁じ、判断への影響を資料の条件と未確定事項から読み取れる範囲に限定している。数字や日付の推測、外部調査、運用計画の追加を求めず、指示文外の批評や質問もない。\"}",
+        "outputSha256": "db4f69d4e6258d842421a52ecf4a9d9f80f22ae090014b479febbaf5b4f63bba"
+      },
+      {
+        "key": "main/proposal/0",
+        "role": "generator",
+        "status": "completed",
+        "output": "{\n  \"action\": \"stop\",\n  \"parent\": \"bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674\",\n  \"hypothesis\": \"Retain the current prompt-design skill. The observed output is a usable rewritten instruction, not a release summary or critique. It preserves the supplied fictional evidence: the measured improvement is limited to the specified Linux configuration, Windows remains unmeasured, external plugins are explicitly outside this beta's scope, and December remains an unconfirmed publication target. It also preserves the operations audience, the three requested bullet points, and approximately 300 characters as a guideline, while excluding guessed numbers or dates, external research, and an added operating plan. The recorded passing grade agrees with direct inspection of the output. No relevant observed defect warrants a revision, so there is no useful candidate hypothesis within this conditional improvement scope. This single generated-instruction result does not establish downstream effectiveness, general transfer, or recursive quality gains.\",\n  \"edits\": []\n}",
+        "outputSha256": "d9630987b7c499ac7f758b518834f7dcb5a0ff378236ee120ee5e1c9664f7c14"
+      }
+    ],
+    "decisions": [
+      {
+        "prefix": "main",
+        "final": true,
+        "status": "retain",
+        "selectedHash": "bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674",
+        "baseline": [
+          {
+            "id": "evidence-strength-and-scope",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checks": [
+              {
+                "pass": true,
+                "evidence": "完成した要約ではなく、「要約してください」と将来の出力を指定する、使用可能な指示文になっている。提示資料の3点を再掲し、「Linuxの指定構成」での処理時間短縮、「Windowsは未計測」、「外部プラグインは対象外」、「12月の公開を目標としているが、確定していない」を区別して保持している。読者を導入判断を行う運用担当者とし、「変更点」「適用条件」「導入判断への影響」の3つの箇条書きと、厳密な字数制限ではない「300字程度」の目安を指定している。全環境への一般化を禁じ、判断への影響を資料の条件と未確定事項から読み取れる範囲に限定している。数字や日付の推測、外部調査、運用計画の追加を求めず、指示文外の批評や質問もない。"
+              }
+            ],
+            "evidence": {
+              "target": "main/bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674/evidence-strength-and-scope/0",
+              "judge": "main/bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674/evidence-strength-and-scope/0/judge"
+            }
+          }
+        ],
+        "selected": [
+          {
+            "id": "evidence-strength-and-scope",
+            "repeat": 0,
+            "status": "graded",
+            "score": 1,
+            "checks": [
+              {
+                "pass": true,
+                "evidence": "完成した要約ではなく、「要約してください」と将来の出力を指定する、使用可能な指示文になっている。提示資料の3点を再掲し、「Linuxの指定構成」での処理時間短縮、「Windowsは未計測」、「外部プラグインは対象外」、「12月の公開を目標としているが、確定していない」を区別して保持している。読者を導入判断を行う運用担当者とし、「変更点」「適用条件」「導入判断への影響」の3つの箇条書きと、厳密な字数制限ではない「300字程度」の目安を指定している。全環境への一般化を禁じ、判断への影響を資料の条件と未確定事項から読み取れる範囲に限定している。数字や日付の推測、外部調査、運用計画の追加を求めず、指示文外の批評や質問もない。"
+              }
+            ],
+            "evidence": {
+              "target": "main/bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674/evidence-strength-and-scope/0",
+              "judge": "main/bfa25b85c0a45cbf8b26b004d4aacd7f0152fc539d4076bc43326ff366c5e674/evidence-strength-and-scope/0/judge"
+            }
+          }
+        ],
+        "stopReason": "stop"
+      }
+    ],
+    "candidates": []
+  },
+  "methodHandoff": {
+    "selectedHash": "13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13",
+    "deliveredMethodHash": "13e07541eaab24c6bd2d9fc528a575adaa40c15bdd62e189e7afe46c7235ca13",
+    "matched": true
+  },
+  "findings": {
+    "methodCandidateGenerated": false,
+    "methodCandidateComparisonPerformed": false,
+    "recursiveImprovementDemonstrated": false
+  },
+  "publication": {
+    "selection": "Both completed experiments from this bounded check, including every final model response. Earlier development runs are not part of this selection.",
+    "transformations": "Copied final response strings unchanged; selected contract/decision fields; linked public input definitions; omitted private runtime metadata and flattened nested evidence to decision references.",
+    "omitted": [
+      "machine paths",
+      "host execution and session IDs",
+      "run UUIDs",
+      "timestamps and elapsed measurements",
+      "raw request envelopes and prompts",
+      "host configuration and transport records",
+      "full frozen method/controller snapshots"
+    ]
+  },
+  "limitations": [
+    "Known synthetic retention tasks; each input batch is one trial, not several independent improvement tasks.",
+    "No method successor was generated or compared, so this does not complete the planned H0/H1 comparison.",
+    "The following prompt-design task checks the generated instruction and a no-change decision, not downstream execution of that instruction.",
+    "Fresh contexts and matched method hashes do not provide protected held-out isolation or natural skill discovery.",
+    "No backend identity, token cost, broad quality gain, cost gain, or sustained RSI claim.",
+    "This excerpt supports inspection with the public definitions but is not the full runtime record or a self-contained replay archive."
+  ]
+}
