@@ -36,15 +36,46 @@ model_verbosity = "medium"
 web_search = "live"
 
 # 承認プロセス。
-# "untrusted": 信頼済みと判断されないコマンドについて承認を求める
-# "on-request": Permission profileの範囲内では実行、範囲外の操作が必要な場合に承認を求める
+# "on-request": Permission profileの範囲内では実行、承認が必要な操作は審査担当に判断を求める
 # "never": 承認を求めない。許可範囲内はそのまま実行し、許可範囲外は承認を求めず失敗する
-# 注意：neverでは、許可済みのファイル操作・通信が確認なしで実行される。
+# 承認の審査担当はapprovals_reviewerで指定する。
+# 注意：どちらの設定でも、許可済みのファイル操作・通信は承認なしで実行される。
 # github.comへの通信を許可した認証済み環境では、Git pushなどの外部変更も実行され得る。
-approval_policy = "never"
+approval_policy = "on-request"
+
+# 承認要求の審査担当。
+# "user": ユーザーが手動で承認・拒否を判断する（既定値）
+# "auto_review": 別のレビュー用エージェントが審査し、承認されれば自動で続行する
+# on-requestなど、承認要求が発生するポリシーと組み合わせる。neverでは審査されない。
+# 許可範囲内の操作は審査対象外。この設定自体はファイルや通信の許可範囲を変更しない。
+# 注意：拒否され、安全な代替手段でも進められない場合は、ユーザーへの確認が必要になる。
+# Computer Useのアプリへのアクセス承認など、自動レビューで代替されない確認もある。
+# ポリシーのカスタマイズ例は、後述の[auto_review]を参照する。
+# https://learn.chatgpt.com/docs/sandboxing/auto-review
+approvals_reviewer = "auto_review"
 
 # Permission profileでローカルコマンドのファイルアクセスとネットワークを制御する
 default_permissions = "workspace-with-agents"
+
+# 自動レビューのポリシー。
+# 通常は以下を省略し、標準ポリシーを使う。
+# カスタマイズする場合は、[auto_review]と使用する項目のコメントを外す。
+# 管理者設定に対応するポリシーがある場合は、そちらが優先される。
+# https://learn.chatgpt.com/docs/config-file/config-reference
+# [auto_review]
+
+# 主ポリシーに追加する指示。既存ポリシーを維持して補足する場合に使う。
+# extra_policy = """
+# ここに追加の指示を記述する。
+# """
+
+# 既存のレビューポリシーを置き換える本文。単に指示を追加する場合はextra_policyを使う。
+# 適用中のポリシー全文を複製し、既存の規則を維持して編集する。
+# 本文を用意してから有効にする。適用中のポリシーを確認できない場合は指定しない。
+# https://learn.chatgpt.com/docs/sandboxing/auto-review
+# policy = """
+# ここに、適用中のポリシー全文をもとに編集した本文を記述する。
+# """
 
 [features]
 # タスク（セッション）をまたいで知識を保存・再利用するメモリ機能を無効/有効にする。

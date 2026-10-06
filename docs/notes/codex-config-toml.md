@@ -2,7 +2,7 @@
 
 Codexの設定は、全体で共通する既定値を`~/.codex/config.toml`へ置き、特定のリポジトリやサブフォルダーだけで必要な差分を`.codex/config.toml`へ置けます。承認方針を全体で維持しながら、モデルやファイルシステム権限などをプロジェクト単位で変えたい場合に、この設定レイヤーを使います。
 
-このノートでは、設定の読み込み順と役割を説明し、具体例として`approval_policy = "never"`を維持したまま、特定のプロジェクトでCodexにGit変更操作を任せる設定を示します。
+このノートでは、設定の読み込み順と役割、自動レビューに承認判断を任せる設定を説明します。あわせて、`approval_policy = "never"`を維持したまま、特定のプロジェクトでCodexにGit変更操作を任せる例も示します。
 
 Codexアプリの権限メニューや、既存タスクが保持する承認設定も含めた確認は、[Codexアプリで承認設定が反映されないときの確認と対処](codex-desktop-permission-diagnostics.md)を参照してください。設定ファイル同士の優先順位だけで、アプリのタスクの実効値を判断することはできません。
 
@@ -28,6 +28,51 @@ Permission profileも同じ設定レイヤーに従います。上位の設定�
 実際に操作できる範囲は、Permission profileのファイルシステム規則やネットワーク規則で決まります。したがって、`never`を維持したままGit操作を許可する場合は、承認方針を変更せず、使用中のPermission profileへ対象リポジトリの`.git`に対する`write`を追加します。許可された範囲の操作は承認なしで実行されるため、対象パスと依頼する操作の両方を限定します。
 
 Permission profileはベータ機能です。`default_permissions`と`[permissions]`を使う方式は、旧方式の`sandbox_mode`や`[sandbox_workspace_write]`と併用しません。読み込まれる設定やCLI指定に`sandbox_mode`がある場合、Codexは旧方式を使用します。
+
+## Auto-reviewに承認判断を任せる
+
+承認が必要な操作を自動で審査するには、ユーザー設定のトップレベルに次の2行を置きます。Permission profileは、用途にあわせて選択したものを維持します。
+
+```toml
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
+```
+
+`approval_policy`は承認を求める条件、`approvals_reviewer`はその審査担当です。`approvals_reviewer = "user"`ではユーザーが判断し、`"auto_review"`では別のレビュー用エージェントが判断します。`approval_policy = "never"`では承認要求が発生しないため、自動レビューは行われません。
+
+自動レビューで承認されれば作業は続行します。拒否された場合は、より安全な代替手段で進めるか、ユーザーに確認します。すでに許可された範囲内の操作は審査対象外であり、この設定だけで書き込み先や通信先の許可範囲が広がるわけではありません。Computer Useのアプリへのアクセス承認など、直接ユーザーに確認するものも残ります。詳細は[Auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review)を参照してください。
+
+### ポリシーの追加と置き換え
+
+通常は`[auto_review]`を指定せず、標準ポリシーを使います。カスタマイズする場合、`extra_policy`は主ポリシーに追加する指示、`policy`は既存のレビューポリシーを置き換える本文です。どちらもMarkdownの文字列で、管理者設定に対応するポリシーがある場合はそちらが優先されます。[公式設定リファレンス](https://learn.chatgpt.com/docs/config-file/config-reference)で適用条件を確認してください。
+
+設定方法をコメントとして残す場合は、次のように書けます。
+
+```toml
+# 自動レビューのポリシー。通常は省略し、標準ポリシーを使う。
+# カスタマイズ時は、テーブル宣言と使用する項目のコメントを外す。
+# [auto_review]
+
+# 主ポリシーに追加する指示。
+# extra_policy = """
+# ここに追加の指示を記述する。
+# """
+
+# 既存ポリシーを置き換える場合のみ指定する。
+# 適用中のポリシー全文を複製し、既存の規則を維持して編集する。
+# 本文を用意してから有効にする。
+# policy = """
+# ここに置き換え後のポリシー全文を記述する。
+# """
+```
+
+`approvals_reviewer`はトップレベルに置き、`[auto_review]`の中へ移しません。テーブル宣言以降のキーは次のテーブル宣言までそのテーブルに属するため、上の例はトップレベル設定が終わった後、`[features]`などの既存テーブルの直前へ置きます。これにより、コメントを外した際に`default_permissions`などを誤って`auto_review`の項目にすることを防げます。
+
+### ChatGPTサインイン時の無料化
+
+[Tibo氏（@thsottiaux）の「Day 2.1/」で始まる発表](https://x.com/thsottiaux/status/2107368734981517634)では、ChatGPTアカウントでサインインする全ユーザーについて、Auto-reviewを無料化し、プランの利用枠を消費しないとしています。この無料化の説明は自動レビュー自体を対象としており、主エージェントの通常の作業やAPIキーでの利用まで無料になるという意味ではありません。
+
+無料化の発表直後のため、[Agent approvals & security](https://learn.chatgpt.com/docs/agent-approvals-security#automatic-approval-reviews)には、追加のモデル呼び出しによってCodexの利用量が増える可能性があるという従来の説明が残っています。このノートでは、提供された投稿本文と出典URLに基づき、ChatGPTサインイン時の扱いを上記の発表に沿って記載しています。
 
 ## 特定のプロジェクトでGit変更を許可する
 
