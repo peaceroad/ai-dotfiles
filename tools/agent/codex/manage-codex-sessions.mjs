@@ -178,6 +178,8 @@ are not followed. External local media require --attachments-from <directory> (c
 not necessarily historical originals).
 Coverage warnings remain visible; export completion does not imply full history or attachment recovery.
 Paginated/inherited history needs verified byte/ordinal coverage before exported deletion.
+Lineage policy rollout-prefix-v2 covers reviewed ordinary turn payloads, including nested fields.
+Older lineage policies remain readable but require a fresh export before deletion.
 Unknown schemas are saved with a lineage warning and excluded from exported deletion.
 Warnings identify the session, reason, and first source record; manifests retain every warning.
 Preparation is shown as progress; Saved marks a published snapshot; Export batch marks its receipt.
@@ -758,8 +760,14 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
       context.phase = 'validate history boundaries';
       progress.phase('Validate history boundaries', prepared, plan.sessions.length);
       const lineage = await validateSavedLineage(folder, inherited.sources, row.id, row.historyMode, (read, size) => progress.bytes(read, size));
-      if (lineage.status !== 'verified') inherited.warnings.push({ kind: 'history', reason: 'lineage-boundary-unverified',
-        message: 'Raw history is saved, but its schemas, ordinals or inherited dependencies could not be fully verified. Exported deletion is blocked.' });
+      if (lineage.status !== 'verified') {
+        const segment = lineage.rollouts.find(segment => segment.issues?.length)
+          ?? lineage.boundaries.find(segment => segment.issues?.length);
+        const issue = segment?.issues[0];
+        inherited.warnings.push({ kind: 'history', reason: 'lineage-boundary-unverified',
+          ...(issue ? { origin: `${segment.file}:${issue.line}` } : {}),
+          message: `Raw history is saved, but its schemas, ordinals or inherited dependencies could not be fully verified.${issue ? ` First issue: ${issue.reason}.` : ''} Exported deletion is blocked.` });
+      }
       stage.checks = inherited.checks;
       stage.rolloutIds = inherited.sources.map(source => source.id);
       context.phase = 'render conversation and attachments';

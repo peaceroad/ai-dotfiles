@@ -141,7 +141,7 @@ export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, 
         // JSON.parse diagnostics can quote private record contents. Report only the location.
         const tokens = numberTokens ? new WeakMap() : null;
         try { value = JSON.parse(text, tokens ? function(key, value, context) {
-          if (key === 'ordinal' || key === 'end_byte_offset' || key === 'end_ordinal_exclusive') {
+          if (typeof value === 'number') {
             let fields = tokens.get(this);
             if (!fields) tokens.set(this, fields = {});
             fields[key] = context?.source;

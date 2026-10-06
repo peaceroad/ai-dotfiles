@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateHistoryPrefix, validateSavedLineage } from './session-lineage.mjs';
+import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
+import { zstdCompressSync } from 'node:zlib';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const ancestor = '00000000-0000-4000-8000-000000000002';
@@ -106,4 +108,110 @@ test('only legacy histories without a base are exempt from ordinal verification'
   assert.equal((await validateSavedLineage(f.root, sources, id)).status, 'unverified');
   writeFileSync(f.path, lines([{ type: 'session_meta', payload: { id, history_mode: 'future' } }]));
   await assert.rejects(validateSavedLineage(f.root, sources, id), /mode/);
+});
+
+test('ordinary paginated turns validate metadata, events, context, tool results and exact ordinals', async t => {
+  const f = fixture(t), records = paginatedTurn(), raw = encodeTurn(records);
+  const result = await f.check(raw, records.length);
+  assert.equal(result.status, 'verified', JSON.stringify(result));
+  if (process.versions.node === '26.10.0') {
+    const compressed = `${f.path}.zst`; writeFileSync(compressed, zstdCompressSync(raw));
+    assert.deepEqual(await validateHistoryPrefix(compressed, { owner: id, endByte: Buffer.byteLength(raw), endOrdinal: records.length }), result);
+  }
+  const prefix = encodeTurn(records.slice(0, 10));
+  assert.equal((await f.check(raw, 10, Buffer.byteLength(prefix))).status, 'verified');
+  await assert.rejects(f.check(raw, 9, Buffer.byteLength(prefix)), /disagree/);
+});
+
+test('nested unknown variants, malformed payloads and integer lexemes cannot prove a boundary', async t => {
+  const f = fixture(t);
+  const changes = [
+    r => r[0].payload.source = { subagent: { future: {} } },
+    r => r[0].payload.base_instructions.provenance = { type: 'future' },
+    r => r[0].payload.dynamic_tools[0].deferLoading = null,
+    r => delete r[1].payload.turn_id,
+    r => delete r[2].payload.model,
+    r => r[2].payload.permission_profile.file_system.entries[0].access = 'future',
+    r => r[2].payload.sandbox_policy = { type: 'read-only', network_access: 'yes' },
+    r => r[2].payload.collaboration_mode.settings.reasoning_effort = 3,
+    r => r[4].payload.item.content[0].text_elements = [{ byte_range: { start: 0, end: '3' } }],
+    r => r[5].payload.summary[0].type = 'future',
+    r => r[7].payload.output[0].type = 'future',
+    r => r[8].payload.item.duration.nanos = 1000000000,
+    r => delete r[8].payload.item.duration.secs,
+    r => r[8].payload.item.cwd = 'C:/fixture',
+    r => r[8].payload.item.cwd = 'file:///fixture?query',
+    r => r[8].payload.item.cwd = 'file:///fixture#fragment',
+    r => r[8].payload.item.cwd = 'file:///fixture/%00',
+    r => r[9].payload.item.content[0].text = 42,
+    r => r[10].payload.info.total_token_usage.input_tokens = null,
+    r => r[12].payload.thread_settings.permission_profile = { type: 'future' },
+    r => r[13].payload.future = true,
+  ];
+  for (const change of changes) {
+    const records = paginatedTurn(); change(records);
+    const result = await f.check(encodeTurn(records), records.length);
+    assert.equal(result.status, 'unverified');
+    assert.match(result.issues[0].reason, /unsupported-/);
+  }
+  for (const token of ['12.0000000000000001', '12e0', '9007199254740992']) {
+    const raw = encodeTurn(paginatedTurn()).replaceAll('"input_tokens":12', `"input_tokens":${token}`);
+    assert.equal((await f.check(raw)).status, 'unverified');
+  }
+});
+
+test('unverified diagnostics are bounded, retain source lines, and cannot be cleared by later records', async t => {
+  const f = fixture(t), records = paginatedTurn();
+  records[5].payload.future = true;
+  records[7].ordinal = undefined;
+  const result = await f.check(encodeTurn(records), 100);
+  assert.equal(result.status, 'unverified');
+  assert.deepEqual(result.issues, [{ reason: 'unsupported-record-schema', line: 6 }, { reason: 'missing-ordinal', line: 8 }]);
+});
+
+test('reviewed nested variants share the closed schema and reject added fields', async t => {
+  const f = fixture(t);
+  const variants = [
+    ['response_item', { type: 'custom_tool_call', call_id: 'call', name: 'tool', input: 'fixture' }],
+    ['response_item', { type: 'custom_tool_call_output', call_id: 'call', output: 'fixture' }],
+    ['response_item', { type: 'tool_search_call', execution: 'client', arguments: { query: 'fixture' } }],
+    ['response_item', { type: 'tool_search_output', status: 'completed', execution: 'client', tools: [] }],
+    ['response_item', { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'fixture' }], phase: 'partial_answer' }],
+    ...[
+      { type: 'Plan', id: 'plan', text: 'fixture' },
+      { type: 'Reasoning', id: 'reasoning', summary_text: ['fixture'] },
+      { type: 'FunctionCallOutput', id: 'call', name: 'tool', output: 'fixture' },
+      { type: 'DynamicToolCall', id: 'call', tool: 'tool', arguments: {}, status: 'completed',
+        content_items: [{ type: 'inputText', text: 'fixture' }], success: true, duration: { secs: 1, nanos: 0 } },
+    ].map(item => ['event_msg', { type: 'item_completed', thread_id: id, turn_id: 'turn', item }]),
+    ['event_msg', { type: 'turn_started', turn_id: 'turn' }],
+    ['event_msg', { type: 'turn_complete', turn_id: 'turn' }],
+    ['event_msg', { type: 'turn_aborted', reason: 'interrupted' }],
+    ['event_msg', { type: 'thread_rolled_back', num_turns: 1 }],
+  ];
+  for (const [type, payload] of variants) {
+    const record = { timestamp: stamp, ordinal: 1, type, payload };
+    assert.equal((await f.check(lines([meta(), record]), 2)).status, 'verified', payload.type);
+    const invalid = structuredClone(record);
+    (invalid.payload.item ?? invalid.payload).future = true;
+    assert.equal((await f.check(lines([meta(), invalid]), 2)).status, 'unverified', payload.type);
+  }
+  const metadata = [
+    { source: { subagent: { thread_spawn: { parent_thread_id: ancestor, depth: 1, agent_path: '/root/worker', agent_role: 'fixture' } } }, multi_agent_version: 'v2' },
+    { source: { internal: 'guardian' }, selected_capability_roots: [{ id: 'fixture', location: { type: 'environment', environmentId: 'local', path: 'file:///fixture' } }] },
+    { dynamic_tools: [{ type: 'namespace', name: 'fixture', description: '', tools: [{ type: 'function', name: 'tool', description: '', inputSchema: {} }] }] },
+    { dynamic_tools: [{ name: 'tool', description: '', inputSchema: {}, namespace: 'fixture', exposeToContext: false }] },
+  ];
+  for (const fields of metadata) {
+    const first = meta(); Object.assign(first.payload, fields);
+    assert.equal((await f.check(lines([first]), 1)).status, 'verified');
+  }
+  for (const change of [
+    r => { r.payload.agent_type = 'fixture'; r.payload.agent_role = 'fixture'; },
+    r => { r.payload.source = { subagent: { thread_spawn: { parent_thread_id: ancestor, depth: 1, agent_path: '/root/root' } } }; },
+    r => { r.payload.source = { subagent: { thread_spawn: { parent_thread_id: ancestor, depth: 1, agent_role: 'fixture', agent_type: 'fixture' } } }; },
+  ]) {
+    const first = meta(); change(first);
+    assert.equal((await f.check(lines([first]), 1)).status, 'unverified');
+  }
 });

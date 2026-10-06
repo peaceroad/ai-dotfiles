@@ -13,6 +13,7 @@ import { listBatches, readBatch } from './session-export-batches.mjs';
 import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
 import { runHistory } from './manage-codex-history.mjs';
 import { chargeRolloutBytes } from './session-rollout-io.mjs';
+import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -97,6 +98,62 @@ test('exported deletion verifies every additional rollout owned by the session',
   const changed = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
   assert.equal(changed.sessions.length, 0);
   assert.match(changed.skipped[0].problems[0], /physical rollout content changed/);
+});
+
+test('ordinary paginated plain and compressed turns export, search and authorize verified deletion', async t => {
+  for (const compressed of [false, ...(process.versions.node === '26.10.0' ? [true] : [])]) {
+    const f = fixture(t), output = exportParent(t);
+    for (const id of [parent, child]) {
+      const raw = encodeTurn(paginatedTurn(id)), path = join(f.home, 'sessions', `${id}.jsonl`);
+      if (compressed) { writeFileSync(`${path}.zst`, zstdCompressSync(raw)); rmSync(path); }
+      else writeFileSync(path, raw);
+      f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", id);
+    }
+    historyFixture(f);
+    const { batch, partial } = await saveBatch(f, output);
+    assert.equal(partial, false);
+    const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(plan.sessions.length, 2);
+    assert.deepEqual(plan.problems, []);
+    const logs = [];
+    assert.equal(await runHistory(['search', 'Synthetic answer', '--in', output], { log: line => logs.push(line) }), 0);
+    assert.match(logs.join('\n'), /Synthetic answer/);
+    const [bundle] = listBundles(output);
+    const old = structuredClone(bundle.manifest);
+    old.coverage.lineage.policy = 'plain-prefix-v1'; old.contentDigest = snapshotDigest(old);
+    await verifyBundle({ ...bundle, manifest: old }); // Viewing old coverage remains supported.
+    writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(old));
+    batch.entries.find(entry => entry.key === bundle.key).digest = old.contentDigest;
+    const { digest, ...body } = batch;
+    writeFileSync(join(output, 'batches', `${batch.id}.json`), JSON.stringify({ ...body, digest: fingerprint(body) }));
+    const oldPlan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(oldPlan.sessions.length, 0);
+    assert.match(oldPlan.skipped[0].problems.join('\n'), /verified history boundary coverage/);
+    const fresh = await saveBatch(f, output);
+    assert.notEqual(fresh.batch.entries.find(entry => entry.id === old.session.id).key, bundle.key);
+    assert.deepEqual(JSON.parse(readFileSync(join(bundle.folder, 'manifest.json'), 'utf8')), old, 'Re-export must preserve the old snapshot');
+    assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, fresh.batch.id)).sessions.length, 2);
+  }
+});
+
+test('unknown paginated payloads remain saved with a precise warning and never call deletion', async t => {
+  const f = fixture(t), output = exportParent(t), records = paginatedTurn(parent);
+  records[8].payload.item.duration.nanos = 1000000000;
+  writeFileSync(join(f.home, 'sessions', `${parent}.jsonl`), encodeTurn(records));
+  f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", parent);
+  historyFixture(f);
+  const { batch } = await saveBatch(f, output);
+  const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+  const warning = bundle.manifest.warnings.find(w => w.reason === 'lineage-boundary-unverified');
+  assert.equal(warning.origin, 'rollout.jsonl:9');
+  assert.match(warning.message, /unsupported-record-schema/);
+  const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.equal(plan.sessions.length, 0);
+  const base = deletionOptions(f), logs = [];
+  assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+    ...base, ask: confirmPrompt, log: line => logs.push(line),
+    // This mock accepts only version/help; any mutation fails the test.
+  }), 3, logs.join('\n'));
 });
 
 test('pinned and sectioned descendants protect the parent plan', async t => {
@@ -1063,6 +1120,59 @@ test('compressed exports bind physical inventory, reject direct deletion, and re
       },
     });
     assert.ok([1, 3].includes(result), change); assert.equal(calls, 0, change);
+  }
+});
+
+test('owned paginated generations can mix plain and compressed files while preserving the inherited boundary', { skip: process.versions.node !== '26.10.0' }, async t => {
+  for (const currentCompressed of [false, true]) {
+    const f = renderableFixture(t), output = exportParent(t), alias = '00000000-0000-4000-8000-000000000055';
+    historyFixture(f);
+    const older = paginatedTurn(parent), prefix = encodeTurn(older);
+    const current = paginatedTurn(parent);
+    current[0].payload.history_base = { thread_id: alias, end_byte_offset: Buffer.byteLength(prefix), end_ordinal_exclusive: older.length };
+    for (const record of current) record.ordinal += older.length;
+    const plain = join(f.home, 'sessions', `${parent}.jsonl`);
+    const oldPath = join(f.home, 'sessions', `${parent}_${alias}.jsonl${currentCompressed ? '' : '.zst'}`);
+    const currentPath = `${plain}${currentCompressed ? '.zst' : ''}`;
+    const oldBytes = currentCompressed ? Buffer.from(prefix) : zstdCompressSync(prefix);
+    const currentRaw = encodeTurn(current), currentBytes = currentCompressed ? zstdCompressSync(currentRaw) : Buffer.from(currentRaw);
+    writeFileSync(oldPath, oldBytes); writeFileSync(currentPath, currentBytes);
+    if (currentCompressed) rmSync(plain);
+    f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", parent);
+    const { batch } = await saveBatch(f, output);
+    const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+    assert.equal(bundle.manifest.coverage.lineage.status, 'verified');
+    assert.deepEqual(readFileSync(join(bundle.folder, `rollout.jsonl${currentCompressed ? '.zst' : ''}`)), currentBytes);
+    assert.deepEqual(readFileSync(join(bundle.folder, `rollouts/${alias}.jsonl${currentCompressed ? '' : '.zst'}`)), oldBytes);
+    const boundary = bundle.manifest.coverage.lineage.boundaries[0];
+    assert.equal(boundary.endByte, Buffer.byteLength(prefix));
+    assert.equal(boundary.endOrdinal, older.length);
+    assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  }
+});
+
+test('compression after export or deletion confirmation requires a fresh snapshot and never calls deletion', { skip: process.versions.node !== '26.10.0' }, async t => {
+  for (const afterConfirmation of [false, true]) {
+    const f = renderableFixture(t), output = exportParent(t), base = deletionOptions(f);
+    const plain = join(f.home, 'sessions', `${parent}.jsonl`), raw = readFileSync(plain);
+    const { batch } = await saveBatch(f, output);
+    const saved = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+    const compress = () => { writeFileSync(`${plain}.zst`, zstdCompressSync(raw)); rmSync(plain); };
+    if (!afterConfirmation) compress();
+    let calls = 0;
+    const status = await runSessions(['delete', '--exported', batch.id, '--in', output], { ...base,
+      ask: async prompt => { assert.ok(afterConfirmation); compress(); return confirmPrompt(prompt); },
+      cli(args) {
+        if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+        calls++; return { status: 0 };
+      },
+    });
+    assert.ok([1, 3].includes(status)); assert.equal(calls, 0);
+    assert.deepEqual(readFileSync(join(saved.folder, 'rollout.jsonl')), raw);
+    const fresh = await saveBatch(f, output);
+    assert.notEqual(fresh.batch.entries.find(entry => entry.id === parent).key, saved.key);
+    assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, fresh.batch.id)).sessions.length, 2);
+    assert.ok(existsSync(`${plain}.zst`));
   }
 });
 

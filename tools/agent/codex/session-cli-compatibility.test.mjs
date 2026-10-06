@@ -9,6 +9,26 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { runOfficialCodex, inspectSessions, exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
 import { rolloutChunks } from './session-rollout-io.mjs';
 import { DatabaseSync } from 'node:sqlite';
+import { createInterface } from 'node:readline';
+import { zstdCompressSync } from 'node:zlib';
+import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
+
+function indexSyntheticThread(home, path, id) {
+  const db = new DatabaseSync(join(home, 'state_5.sqlite'));
+  try {
+    const values = { id, rollout_path: path, created_at: 946684800, updated_at: 946684800,
+      source: 'cli', model_provider: 'openai', cwd: home, title: 'Synthetic fixture',
+      sandbox_policy: '"read-only"', approval_mode: 'never', history_mode: 'legacy' };
+    for (const column of db.prepare('PRAGMA table_info(threads)').all()) {
+      if (column.notnull && column.dflt_value === null && !(column.name in values)) {
+        assert.match(column.name, /^[a-z_]+$/);
+        values[column.name] = /INT|REAL/.test(column.type) ? 0 : '';
+      }
+    }
+    const names = Object.keys(values);
+    db.prepare(`INSERT OR REPLACE INTO threads (${names.join(',')}) VALUES (${names.map(() => '?').join(',')})`).run(...Object.values(values));
+  } finally { db.close(); }
+}
 
 test('official maintenance startup overrides suppress synthetic history rewrites', {
   skip: process.platform !== 'win32' || process.env.AGENT_TEST_CODEX_COMPAT !== '1',
@@ -37,20 +57,7 @@ test('official maintenance startup overrides suppress synthetic history rewrites
       const args = [action, missing, ...(action === 'delete' ? ['--force'] : [])];
       // Initialize the official schema with workers disabled, then index only this fixture.
       assert.equal(runOfficialCodex(args, home, spawnSync, version).status, 1);
-      const db = new DatabaseSync(join(home, 'state_5.sqlite'));
-      try {
-        const values = { id, rollout_path: path, created_at: 946684800, updated_at: 946684800,
-          source: 'cli', model_provider: 'openai', cwd: home, title: 'Synthetic fixture',
-          sandbox_policy: '"read-only"', approval_mode: 'never', history_mode: 'legacy' };
-        for (const column of db.prepare('PRAGMA table_info(threads)').all()) {
-          if (column.notnull && column.dflt_value === null && !(column.name in values)) {
-            assert.match(column.name, /^[a-z_]+$/);
-            values[column.name] = /INT|REAL/.test(column.type) ? 0 : '';
-          }
-        }
-        const names = Object.keys(values);
-        db.prepare(`INSERT OR REPLACE INTO threads (${names.join(',')}) VALUES (${names.map(() => '?').join(',')})`).run(...Object.values(values));
-      } finally { db.close(); }
+      indexSyntheticThread(home, path, id);
       if (feature === 'background_paginated_rollout_migration') {
         // The short-lived delete/archive error can exit before migration's first await.
         // Keep a separately initialized local app-server alive to exercise that worker.
@@ -108,5 +115,69 @@ test('official maintenance startup overrides suppress synthetic history rewrites
         assert.equal(JSON.parse(readFileSync(path, 'utf8').split('\n')[0]).payload.history_mode, 'paginated', 'Positive control must actually migrate');
       }
     }
+  }
+});
+
+test('official projection reads ordinary paginated fixtures before verified export and deletion', {
+  skip: process.platform !== 'win32' || process.env.AGENT_TEST_CODEX_COMPAT !== '1' || process.versions.node !== '26.10.0',
+}, async t => {
+  assert.ok(!process.env.CODEX_EXEC_SERVER_URL && !process.env.CODEX_SQLITE_HOME);
+  const root = mkdtempSync(join(tmpdir(), 'agent-paginated-compat-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const version = runOfficialCodex(['--version'], root).stdout?.trim();
+  assert.equal(version, 'codex-cli 0.159.2');
+  const id = '00000000-0000-4000-8000-000000000101', missing = '00000000-0000-4000-8000-000000000199';
+  for (const compressed of [false, true]) {
+    const home = join(root, compressed ? 'zstd' : 'plain'), output = join(root, compressed ? 'saved-zstd' : 'saved-plain');
+    mkdirSync(join(home, 'sessions'), { recursive: true }); mkdirSync(output);
+    assert.equal(runOfficialCodex(['delete', missing, '--force'], home, spawnSync, version).status, 1);
+    const plain = join(home, 'sessions', `rollout-2000-01-01T00-00-00-${id}.jsonl`), path = `${plain}${compressed ? '.zst' : ''}`;
+    // Let the official migration build both the paginated file and its projection.
+    // An empty manually created projection is not a valid paginated fixture.
+    const records = paginatedTurn(id, home);
+    records[0].payload.history_mode = 'legacy';
+    for (const record of records) delete record.ordinal;
+    writeFileSync(plain, encodeTurn(records)); indexSyntheticThread(home, plain, id);
+    const server = runOfficialCodex(['-c', 'features.local_thread_store_compression=false',
+      '-c', 'features.background_paginated_rollout_migration=true', 'app-server'], home, spawn);
+    server.stderr.on('data', () => {});
+    const closed = new Promise((resolve, reject) => { server.once('error', reject); server.once('exit', resolve); });
+    const reader = createInterface({ input: server.stdout }), pending = new Map();
+    reader.on('line', line => {
+      let message; try { message = JSON.parse(line); } catch { return; }
+      pending.get(message.id)?.(message);
+    });
+    let next = 0;
+    const request = (method, params) => new Promise((resolve, reject) => {
+      const id = ++next;
+      const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Fixture RPC timed out: ${method}`)); }, 10000);
+      pending.set(id, message => { clearTimeout(timer); pending.delete(id); message.error ? reject(new Error(JSON.stringify(message.error))) : resolve(message.result); });
+      server.stdin.write(JSON.stringify({ id, method, params }) + '\n');
+    });
+    try {
+      await request('initialize', { clientInfo: { name: 'fixture', version: '1' }, capabilities: { experimentalApi: true } });
+      server.stdin.write(JSON.stringify({ method: 'initialized' }) + '\n');
+      for (let i = 0; i < 30; i++) {
+        if (JSON.parse(readFileSync(plain, 'utf8').split('\n')[0]).payload.history_mode === 'paginated') break;
+        await delay(200);
+      }
+      assert.equal(JSON.parse(readFileSync(plain, 'utf8').split('\n')[0]).payload.history_mode, 'paginated');
+      const page = await request('thread/turns/list', { threadId: id, itemsView: 'full', limit: 10 });
+      assert.equal(page.data.length, 1, 'Official typed projection must recover the synthetic turn');
+      const items = page.data[0].items;
+      for (const type of ['userMessage', 'agentMessage', 'commandExecution']) assert.ok(items.some(item => item.type === type), `Missing projected ${type}`);
+    } finally { reader.close(); server.stdin.end(); await closed; }
+    if (compressed) { writeFileSync(path, zstdCompressSync(readFileSync(plain))); rmSync(plain); }
+    const bytes = readFileSync(path);
+    const snapshot = await inspectSessions(home);
+    const exported = await exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', id])), output, { log() {} });
+    assert.equal(exported.partial, false);
+    assert.deepEqual(readFileSync(path), bytes, 'Export must preserve original rollout bytes');
+    const logs = [];
+    assert.equal(await runSessions(['delete', '--exported', exported.batch.id, '--in', output], {
+      home, interactive: true, log: line => logs.push(line), closed() {}, ask: async prompt => /^Type (.+) to /.exec(prompt)?.[1] ?? '',
+    }), 0, logs.join('\n'));
+    assert.equal(existsSync(path), false);
+    assert.equal((await inspectSessions(home)).sessions.length, 0);
   }
 });

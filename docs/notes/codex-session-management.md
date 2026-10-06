@@ -72,7 +72,9 @@ agent codex session plan delete --before 2026-07-01
 
 生ログとDB行は逐次出力し、書き出したファイルを読み直してハッシュを照合します。最後に元セッション・依存ログ・収集したローカル添付物を再検査し、履歴DBだけが処理中に更新された場合も検知します。検査後に`complete: true`のmanifestを書き、未完了フォルダーを通常の名前へ変更します。失敗時は途中ファイルを残して検索対象から外し、既に公開したスナップショットは巻き戻しません。
 
-`coverage.lineage`は展開後JSONLのbyte境界・ordinal・参照関係を`plain-prefix-v1`で記録します。既知schemaと連続ordinalで検証できた範囲だけをverifiedとし、未知recordやordinal欠落・gap・重複はunverifiedとしてrawを保存し、exported deletionを停止します。不正UTF-8・JSON・整数token・検証可能な境界の不一致はexport自体を失敗させます。追加の所有rolloutにも同じ検査を適用します。legacyかつbaseなしの履歴はordinal検査の対象外です。完全な公式parser互換を意味せず、対応payloadは`session-lineage.mjs`の保守的な部分集合です。
+`coverage.lineage`は展開後JSONLのbyte境界・ordinal・参照関係を`rollout-prefix-v2`で記録します。既知schemaと連続ordinalで検証できた範囲だけをverifiedとし、未知recordやordinal欠落・gap・重複はunverifiedとしてrawを保存し、exported deletionを停止します。不正UTF-8・JSON・境界に使う整数token・検証可能な境界の不一致はexport自体を失敗させます。追加の所有rolloutにも同じ検査を適用します。legacyかつbaseなしの履歴はordinal検査の対象外です。完全な公式parser互換を意味せず、対応payloadは`session-record-schema.mjs`の保守的な部分集合です。旧`plain-prefix-v1`の保存物は閲覧できますが、削除の根拠には再exportが必要です。
+
+v2 policyは通常のターン開始・終了、ターン設定、推論・ツール呼出しと戻り値、対応する完了項目、トークン使用量などを追加しました。型名だけでなく、入れ子のvariant、必須項目、nullの可否、整数の元token、パス型を検査します。たとえば`CommandExecution.cwd`には`file:` URI、`turn_context.cwd`にはnative絶対パスを要求します。未知項目を無視してordinalを進めず、未検証になった最初の理由と行番号を保存します。compaction・realtime・MCP・拡張機能など、未対応の型は引き続き削除停止の対象です。
 
 `complete: true`は書き出し処理の完了を表し、収集範囲の完全性とは分けます。入力ログに埋め込まれた対応形式の画像・音声を取り出しますが、それが添付時の原本とは限りません。構造化されたローカル参照は、Codexホームの`attachments/`内を自動収集し、それ以外は`--attachments-from`で許可したフォルダー内だけを読みます。収集したものは現在のファイルであることを記録します。本文上の添付表示だけのPDF・ソースコードなどの回収は未対応です。任意のパスやURLを本文から拾って収集せず、プロジェクトやworktreeもコピーしません。[確認対象のユーザー入力形式](https://github.com/openai/codex/blob/rust-v0.153.4/codex-rs/protocol/src/user_input.rs)
 
@@ -127,3 +129,5 @@ v2/v3の[保存・参照テスト](../../tools/agent/codex/session-export.test.m
 対象グループごとの全親子関係の走査をなくし、作成済みの索引と集計値を再利用しています。生ログとDB行の書き出し・検証も共通化しました。キーを指定した履歴の参照・検査は、そのスナップショットを直接読みます。削除計画では、欠落警告によって除外が確定するコピーの全ファイルをハッシュ計算せず、候補に残るコピーの全ファイルと原本を照合します。追加ログの所有関係は同じ検査内で索引を再利用し、参照検査直後の削除計画でディレクトリを再走査しません。保存ファイルのハッシュ検証は最大2ファイルを並列に処理します。共有状態を変更する公式の削除操作は順番に実行し、削除後には索引・所有する全ログ・所有IDのDB行の不在を確認します。DB行の不在確認は本文の読み出しや並べ替えを行わず、各テーブルの対象IDの存在だけを問い合わせます。確認後と各操作後には索引を作り直し、操作直前の再検査も残しています。実データでの速度改善率を測定したものではありません。
 
 圧縮対応は[利用説明の対応範囲](../agent-codex.md#圧縮履歴の対応範囲)に従います。共通readerは終端・ファイルidentity・物理／展開後SHAを検証し、v3の所有ログはこの検証で得た物理SHAを再利用して別のハッシュ読取を省きます。JSONLは元バイト列を保ち、未知schemaの削除停止を維持します。旧v2のdigestは変更せず、v3専用のdigestとバッチv2で物理inventoryを結び付けます。初期版ではplain/zstd共存を拒否します。隔離homeの実CLI試験は、Codex自身の圧縮出力の読取と、そのexportに基づく公式削除・削除後確認までを含みます。
+
+通常のpaginated履歴は、[共通の合成ターン](../../tools/agent/codex/fixtures/paginated-turn.mjs)でplain/zstdの境界検証、保存・検索・削除計画を確認します。[実CLI互換試験](../../tools/agent/codex/session-cli-compatibility.test.mjs)では、同じ合成データを公式CLI 0.159.2でlegacyから移行し、`thread/turns/list`がユーザーメッセージ・応答・コマンド実行を返すこと、移行後のexportと公式削除を確認します。手製の空projection DBだけを根拠にせず、公式側の読取とも照合する試験です。実ユーザーの履歴全体や、すべての対応variantを公式側で検証したという意味ではありません。

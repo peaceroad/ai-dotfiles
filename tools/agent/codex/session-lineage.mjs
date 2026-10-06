@@ -1,14 +1,12 @@
 // @ai-dotfiles agent-dev-runtime managed
-// Conservative subset of rust-v0.159.2 history/rollout and protocol/models.
+// Byte/ordinal proof, independent of codec. Payload schemas live in one module.
 // Unknown schemas are retained but cannot establish an ordinal boundary.
 import { jsonLines, reject, UUID, bundleFile } from './session-export-storage.mjs';
 import { createHash } from 'node:crypto';
+import { knownHistoryRecord } from './session-record-schema.mjs';
 
-export const LINEAGE_POLICY = 'plain-prefix-v1';
+export const LINEAGE_POLICY = 'rollout-prefix-v2';
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-const string = value => typeof value === 'string';
-const optional = (value, check) => value == null || check(value);
-const keys = (value, allowed) => object(value) && Object.keys(value).every(key => allowed.includes(key));
 
 function integer(record, owner, key, required = true) {
   const value = owner?.[key];
@@ -35,40 +33,6 @@ function historyMetadata(record, owner) {
   return meta;
 }
 
-function content(part) {
-  if (!object(part)) return false;
-  if (['input_text', 'output_text'].includes(part.type)) return keys(part, ['type', 'text']) && string(part.text);
-  if (part.type === 'input_audio') return keys(part, ['type', 'audio_url']) && string(part.audio_url);
-  if (part.type === 'input_image') return keys(part, ['type', 'image_url', 'file_id', 'detail'])
-    && (string(part.image_url) || string(part.file_id)) && optional(part.image_url, string) && optional(part.file_id, string)
-    && optional(part.detail, v => ['auto', 'low', 'high', 'original'].includes(v));
-  return false;
-}
-
-function knownRecord(value) {
-  if (!keys(value, ['timestamp', 'ordinal', 'type', 'payload']) || !string(value.timestamp)) return false;
-  const p = value.payload;
-  if (value.type !== 'response_item' || !object(p)) return false;
-  if (p.type === 'message') return keys(p, ['type', 'id', 'role', 'content', 'phase', 'end_turn'])
-    && optional(p.id, string) && string(p.role) && Array.isArray(p.content) && p.content.every(content)
-    && optional(p.phase, v => ['commentary', 'final_answer'].includes(v)) && optional(p.end_turn, v => typeof v === 'boolean');
-  if (p.type === 'function_call') return keys(p, ['type', 'id', 'call_id', 'name', 'arguments'])
-    && optional(p.id, string) && string(p.call_id) && string(p.name) && string(p.arguments);
-  // Tool outputs, events and context records need their own complete payload schemas.
-  return false;
-}
-
-function knownMetadata(value) {
-  const meta = value.payload;
-  return keys(value, ['timestamp', 'ordinal', 'type', 'payload']) && string(value.timestamp)
-    && keys(meta, ['id', 'session_id', 'timestamp', 'cwd', 'originator', 'cli_version', 'source', 'model_provider', 'history_mode', 'history_base', 'forked_from_id'])
-    && ['timestamp', 'cwd', 'originator', 'cli_version'].every(key => string(meta[key]))
-    && (meta.session_id === undefined || (string(meta.session_id) && UUID.test(meta.session_id)))
-    && (meta.source === undefined || ['cli', 'vscode', 'exec', 'mcp', 'unknown'].includes(meta.source))
-    && optional(meta.model_provider, string) && optional(meta.forked_from_id, id => UUID.test(id))
-    && optional(meta.history_base, base => keys(base, ['thread_id', 'end_byte_offset', 'end_ordinal_exclusive']));
-}
-
 // Validate exactly the retained prefix, never count records after its byte boundary.
 export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, progress }) {
   if ((endByte !== undefined && (!Number.isSafeInteger(endByte) || endByte <= 0))
@@ -76,6 +40,8 @@ export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, 
   const digest = createHash('sha256');
   let bytes = 0;
   let expected, baseOrdinal, verified = true, first = true;
+  const issues = new Map();
+  const unverified = (reason, line) => { verified = false; if (!issues.has(reason)) issues.set(reason, { reason, line }); };
   for await (const record of jsonLines(path, { endByte, numberTokens: true, onChunk(chunk) { bytes += chunk.length; digest.update(chunk); progress?.(bytes, endByte); } })) {
     const value = record.value;
     if (first) {
@@ -86,14 +52,20 @@ export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, 
       if (baseOrdinal >= Number.MAX_SAFE_INTEGER || (endOrdinal !== undefined && endOrdinal <= baseOrdinal)) reject('Inconsistent inherited history ordinals.');
       expected = baseOrdinal + 1;
       const ordinal = integer(record, value, 'ordinal', false);
-      if (!knownMetadata(value)) verified = false;
-      if (ordinal === null) verified = false;
+      if (!knownHistoryRecord(record)) unverified('unsupported-session-metadata', record.line);
+      if (ordinal === null) unverified('missing-ordinal', record.line);
       else if (ordinal !== baseOrdinal) reject('History metadata ordinal does not match its base.');
     } else {
       // Once unverified, later schemas cannot restore verification. Keep parsing
       // every record and checking integer tokens so invalid data still fails.
       const ordinal = integer(record, value, 'ordinal', false);
-      if (verified && (ordinal === null || ordinal !== expected || !knownRecord(value))) verified = false;
+      if (ordinal === null) unverified('missing-ordinal', record.line);
+      else if (verified && ordinal !== expected) unverified('noncontiguous-ordinal', record.line);
+      // The first schema issue is sufficient: later payload checks cannot improve
+      // either coverage or this bounded diagnostic. JSON/integer checks still run.
+      if (!issues.has('unsupported-record-schema') && (!knownHistoryRecord(record) || value.type === 'session_meta')) {
+        unverified('unsupported-record-schema', record.line);
+      }
       if (verified) {
         if (expected === Number.MAX_SAFE_INTEGER) reject('History ordinal overflow.');
         expected++;
@@ -104,7 +76,7 @@ export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, 
   if (endByte !== undefined && bytes !== endByte) reject('Inherited history changed while validating.');
   if (verified && endOrdinal !== undefined && expected !== endOrdinal) reject('History byte boundary and ordinal boundary disagree.');
   return { endByte: bytes, endOrdinal: endOrdinal ?? (verified ? expected : null), baseOrdinal,
-    sha256: digest.digest('hex'), status: verified ? 'verified' : 'unverified' };
+    sha256: digest.digest('hex'), status: verified ? 'verified' : 'unverified', ...(issues.size ? { issues: [...issues.values()] } : {}) };
 }
 
 export async function validateSavedLineage(folder, sources, owner, historyMode = 'legacy', progress) {

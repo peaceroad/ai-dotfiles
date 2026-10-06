@@ -7,7 +7,7 @@
 2026年10月7日時点の整理です。「実装済み」はこのリポジトリの実装と合成fixtureでの確認を指し、配布済みCLIへの反映や既存の保存物の完全性を保証するものではありません。
 
 - **履歴DBの保存・照合範囲の不足：修正済み。** 非圧縮でも、セッションIDと所有rollout IDが異なると一部のDB行が対象から漏れました。合成fixtureで再現し、全所有IDとlegacy IDを対象にする修正を検証しました。
-- **フォーク履歴の境界検証：plainの初期subsetを実装・合成fixture検証済み。** byte境界・整数token・連続ordinal・参照関係を共通処理で検査し、未対応schemaはraw保存と未検証警告、exported deletionの停止で扱います。公式の全record型への対応や実データの完全性を保証するものではありません。
+- **フォーク履歴の境界検証：通常のターンを含むsubsetを実装・合成fixture検証済み。** byte境界・整数token・連続ordinal・参照関係を共通処理で検査します。policy v2でmetadata・event・context・ツール結果などの対応範囲を広げ、公式CLIの移行・履歴取得・export後削除とも照合しました。未対応schemaはraw保存と未検証警告、exported deletionの停止で扱い、全record型への対応や実データの完全性を保証するものではありません。
 - **削除CLIの起動時更新：0.159.2用adapterを実装・隔離fixture検証済み。** daemonを再利用せず、migrationとcompressionを一回限りのoverrideで無効にします。未知版・remote環境は停止します。
 - **所有ファイルの検査・revert元の重複保存・削除後の確認不足：修正・合成fixture検証済み。** 自身の継承元は全体を一度だけ保存し、prefixを別途検証します。リンクを含む不完全な一覧は拒否し、保存中の追加はID集合だけでなく物理ファイル集合で検出します。公式delete後と同じバッチの再計画では、索引・所有ファイル・所有IDの履歴DB行の不在を確認します。
 - **plainとzstdの共存時の検査漏れ：停止ガード実装・合成fixture検証済み。** 同じrolloutの両形式共存や重複配置では停止します。単独の圧縮版はstrict readerで終端まで検証し、plainだけを選んで検査済みと扱う経路は設けません。詳細は[圧縮計画の混在形式の検証](ai-dotfiles-compressed-session-plan.md#混在形式の検証漏れを先に塞ぐ)で管理します。
@@ -35,7 +35,8 @@
 - [x] 起動時更新：CLI代役による引数検査と、対応実CLI・隔離homeでの抑止効果を検証する。
 - [x] 履歴境界：plainの境界fixture、未検証coverage、削除停止を検証する。
 - [x] 保存・削除結果：revert元の一度だけの全体保存、同一IDを持つ物理ファイルの追加、リンクを含む一覧の拒否、再検査時の全体診断、削除後・再計画時の所有ファイルと4テーブルの残存検出を検証する。
-- [ ] 通常のpaginated履歴で必要なschemaを拡張する。公式payload定義に基づく合成fixtureを追加し、未知型の停止を維持しながら対応する保存・削除経路を通す。
+- [x] 通常のターンに使うschemaを拡張する。公式payload定義に基づく合成fixtureで、未知型の停止を維持しながらplain/zstdの保存・検索・削除計画を通す。隔離homeの実CLIで移行・履歴取得とexport後削除を照合する。
+- [ ] 残るschemaを段階的に拡張する。compaction、realtime、MCP、拡張機能、retained contextなどを、nested payloadと公式側の読取を含めて検証する。上記の合成ターンの成功を全形式への対応とみなさない。
 
 ## 圧縮とは独立した履歴DB保全の修正
 
@@ -99,11 +100,15 @@
 
 ## 圧縮とは独立した履歴境界の共通検証
 
-**plainでは初期の共通validatorを実装済みで、対応schemaの拡張が残っています。圧縮readerの展開後bytesにも同じ検証を適用しました。** 比較元の [依存元の検査](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/session-export-content.mjs#L67-L143)はbyte範囲、LF終端、metadataと一部のordinal関係を確認するものでした。この節では、追加したbyte境界とordinalの対応規則、検証できない入力の扱いを定めます。実データのordinal不整合や消失事故を確認したという意味ではありません。圧縮readerも展開後bytesを同じvalidatorへ渡します。
+**共通validatorは通常のターンを含むsubsetへ拡張済みで、残るschemaへの対応を進める段階です。圧縮readerの展開後bytesにも同じ検証を適用します。** 比較元の [依存元の検査](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/session-export-content.mjs#L67-L143)はbyte範囲、LF終端、metadataと一部のordinal関係を確認するものでした。この節では、追加したbyte境界とordinalの対応規則、検証できない入力の扱いを定めます。実データのordinal不整合や消失事故を確認したという意味ではありません。
 
-実装は[`session-lineage.mjs`](../../tools/agent/codex/session-lineage.mjs)、境界fixtureは[`session-lineage.test.mjs`](../../tools/agent/codex/session-lineage.test.mjs)です。保存済みcoverageを信用するだけでなく、exported deletionの計画でも保存bytesから再計算します。policyは`plain-prefix-v1`です。旧v2は閲覧可能ですが、削除には新coverageを含む再exportが必要です。
+境界検証は[`session-lineage.mjs`](../../tools/agent/codex/session-lineage.mjs)、payload定義は[`session-record-schema.mjs`](../../tools/agent/codex/session-record-schema.mjs)、境界fixtureは[`session-lineage.test.mjs`](../../tools/agent/codex/session-lineage.test.mjs)です。保存済みcoverageを信用するだけでなく、exported deletionの計画でも保存bytesから再計算します。policyは`rollout-prefix-v2`です。旧v2や旧`plain-prefix-v1`の保存物は閲覧できますが、削除には新policyを含む再exportが必要です。既存snapshotは書き換えず、新policyの保存物を別に作ります。
 
-初期の既知schemaは基本metadataと`response_item`のmessage・function_callに限定します。metadataの追加field、event、context、その他のpayloadは未検証になる場合があります。対応型の拡張は公式のpayload定義とfixtureをそろえて行い、type名だけで検証済みにしません。通常の直接削除は保存証明を使わないため、このcoverage検査の適用先はexportと`delete --exported`です。
+v2では、基本metadataとmessage・function_callに加え、metadataの既知追加項目、ターン開始・終了、設定、推論、ツール戻り値、対応する完了項目、usage・world stateなどを検証します。根拠はCLI互換対象と同じ0.159.2の[protocol](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/protocol/src/protocol.rs)、[response models](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/protocol/src/models.rs)、[turn items](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/protocol/src/items.rs)です。入れ子のvariant、必須項目、null、整数token、パス型まで検査し、type名だけで検証済みにしません。未知fieldや未対応variantはunverifiedのままです。通常の直接削除は保存証明を使わないため、このcoverage検査の適用先はexportと`delete --exported`です。
+
+合成ターンではplain/zstdの同値性、保存済み検索、削除計画、未対応payloadで削除呼出しが0回になることを確認します。実CLI互換試験では公式migrationが作るpaginated履歴を`thread/turns/list`で読み、ユーザーメッセージ・応答・コマンド実行を確認してからexportと公式削除を行います。これにより、こちらのvalidatorだけが受け付けるfixtureではないことを照合します。全variantを公式decoderで個別検証したという意味ではありません。
+
+未検証の理由はmetadata未対応、record schema未対応、ordinal欠落、ordinal不連続を区別し、理由ごとの最初の行番号だけを記録します。ログ内容を診断文字列へ展開せず、警告表示を一定量に保ちます。scalarの判定とobjectの許可fieldは起動時に組み立てて共有し、recordごとのschema再構築や外部依存は追加しません。
 
 ### 初期実装で検証する範囲
 
@@ -159,7 +164,7 @@ DBの構造検査が成功しても、削除前の全履歴が残っている証
 
 圧縮対応と分けて追跡する残件は次のとおりです。今回の不具合修正をコミットしても、これらの完了を意味しません。
 
-- **通常の履歴形式への対応拡張。** `plain-prefix-v1`の既知schemaを公式payload定義と合成fixtureに基づいて拡張する。正常なpaginated履歴を保存・検証・削除まで通す試験と、未知型や破損入力では削除しない試験を対にする。削除停止を解除するためだけに検査を省略しない。
+- **残る履歴形式への対応拡張。** `rollout-prefix-v2`の既知schemaを、compaction・realtime・MCP・拡張機能などへ段階的に広げる。公式payload定義と合成fixtureを根拠に、正常な履歴を保存・検証・削除まで通す試験と、未知型や破損入力では削除しない試験を対にする。削除停止を解除するためだけに検査を省略しない。
 
 - **保全対象の範囲。** 現在対象外の添付membership metadataやアプリ固有sidecarをどこまで保存するか。圧縮計画の[フォーク履歴の境界と添付物](ai-dotfiles-compressed-session-plan.md#フォーク履歴の境界と添付物)に現行範囲と根拠をまとめています。外部添付payloadまで削除されると推測しないことが必要です。
 - **保存耐久性。** close・再読hash・renameに加えて、どこまでsyncを削除条件にするか。対象OSと外付けdriveでのファイル・ディレクトリ同期、失敗時に削除を止める条件を確定し、障害fixtureで検証する。圧縮計画の[同時更新と途中失敗](ai-dotfiles-compressed-session-plan.md#同時更新と途中失敗)に検討条件をまとめています。読めることと、停電後にも残ることは同じ保証ではありません。
