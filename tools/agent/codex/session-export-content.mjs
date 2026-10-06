@@ -1,11 +1,12 @@
 // @ai-dotfiles agent-dev-runtime managed
 // Reviewed against rust-v0.153.4/codex-rs/thread-store/src/local/rollout_lineage.rs.
 // A history_base names a rollout, not necessarily a currently indexed thread.
-import { createReadStream, mkdirSync, readdirSync, lstatSync, openSync, readSync, closeSync, readFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, lstatSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative, isAbsolute, sep } from 'node:path';
 import { Readable } from 'node:stream';
-import { UUID, filesystemPath, pathIdentity, rolloutIdentity, regularFile, writeVerifiedFile, jsonLines, reject, exists, digestFile, digestChunks } from './session-export-storage.mjs';
+import { UUID, filesystemPath, pathIdentity, rolloutIdentity, regularFile, writeVerifiedFile, jsonLines, reject, exists, digestFile } from './session-export-storage.mjs';
+import { rolloutChunks, rolloutCodec, digestRollout } from './session-rollout-io.mjs';
 const bytesHash = bytes => createHash('sha256').update(bytes).digest('hex');
 const ownedRolloutsByIndex = new WeakMap();
 
@@ -31,7 +32,11 @@ export function ownedHistoryIds(row, getIndex) {
 
 async function metadata(path, file) {
   try {
-    for await (const { value } of jsonLines(path)) return value.type === 'session_meta' ? value.payload : null;
+    // Discover dependencies only. Every owned copy is fully decoded and checked
+    // before publication; external prefixes already drained their source on copy.
+    for await (const { value } of jsonLines(path)) {
+      return value?.type === 'session_meta' ? value.payload : null;
+    }
     return null;
   } catch (error) {
     if (error instanceof Error) error.exportSource = file;
@@ -70,7 +75,8 @@ export function createRolloutIndex(home) {
   };
 }
 export async function collectDependencies(folder, row, snapshot, getIndex, progress) {
-  const sources = [{ path: join(folder, 'rollout.jsonl'), file: 'rollout.jsonl', id: rolloutIdentity(row.path)?.rollout ?? row.id }];
+  const primary = rolloutCodec(row.path) === 'zstd' ? 'rollout.jsonl.zst' : 'rollout.jsonl';
+  const sources = [{ path: join(folder, primary), file: primary, id: rolloutIdentity(row.path)?.rollout ?? row.id }];
   const files = [], checks = [], warnings = [];
   const seen = new Set([sources[0].id]);
   let meta = await metadata(sources[0].path, sources[0].file), base = meta?.history_base;
@@ -83,28 +89,24 @@ export async function collectDependencies(folder, row, snapshot, getIndex, progr
     seen.add(id);
     const candidates = getIndex().get(id) ?? [];
     // Do not choose an arbitrary duplicate or mislabel compressed bytes as JSONL.
-    if (candidates.length !== 1 || candidates[0].endsWith('.zst')) {
-      warnings.push({ kind: 'history', reason: candidates.length === 0 ? 'missing-dependency' : candidates.length > 1 ? 'ambiguous-dependency' : 'compressed-dependency-unsupported', id });
+    if (candidates.length !== 1) {
+      warnings.push({ kind: 'history', reason: candidates.length === 0 ? 'missing-dependency' : 'ambiguous-dependency', id });
       break;
     }
     const source = candidates[0], stat = regularFile(source, snapshot.home);
-    if (base.end_byte_offset > stat.size) reject('Inherited history boundary exceeds the source file.');
-    const fd = openSync(source, 'r');
-    try {
-      const last = Buffer.alloc(1);
-      if (readSync(fd, last, 0, 1, base.end_byte_offset - 1) !== 1 || last[0] !== 10) reject('Inherited history boundary splits a record.');
-    } finally { closeSync(fd); }
     // Revert can inherit an earlier rollout owned by this same session. Keep its
     // whole file once; lineage validation still checks the requested prefix only.
     const owned = rolloutIdentity(source).thread === row.id.toLowerCase();
     const directory = owned ? 'rollouts' : 'dependencies';
     const copyBytes = owned ? stat.size : base.end_byte_offset;
     mkdirSync(join(folder, directory), { recursive: true });
-    const file = `${directory}/${id}.jsonl`, path = join(folder, file);
-    const saved = await writeVerifiedFile(createReadStream(source, { end: copyBytes - 1 }), path, progress);
+    const file = `${directory}/${id}.jsonl${owned && rolloutCodec(source) === 'zstd' ? '.zst' : ''}`, path = join(folder, file);
+    const info = {};
+    const saved = await writeVerifiedFile(Readable.from(rolloutChunks(source, { root: snapshot.home, info,
+      ...(owned ? { physical: true } : { endByte: copyBytes }) })), path, progress);
     if (saved.bytes !== copyBytes) reject('Inherited history changed while copying.');
     files.push({ ...saved, file });
-    checks.push({ source, bytes: saved.bytes, sha256: saved.sha256, size: stat.size, modified: stat.mtimeMs });
+    checks.push({ source, file, bytes: stat.size, sha256: info.storedSha256, size: stat.size, modified: stat.mtimeMs });
     sources.unshift({ path, file, id });
     meta = await metadata(path, file);
     if (!meta || meta.id?.toLowerCase() !== rolloutIdentity(source)?.thread || meta.history_mode !== 'paginated') reject('Unsupported inherited session metadata.');
@@ -117,26 +119,25 @@ export async function collectOwnedRollouts(folder, row, snapshot, getIndex, coll
   const copied = new Set([pathIdentity(row.path), ...collected.checks.map(check => pathIdentity(check.source))]);
   const extra = ownedRollouts(getIndex(), row.id).filter(path => !copied.has(pathIdentity(path))).sort();
   for (const source of extra) {
-    if (source.endsWith('.zst')) reject('Additional compressed rollouts cannot be exported safely.');
     const id = rolloutIdentity(source).rollout, stat = regularFile(source, snapshot.home);
-    const file = `rollouts/${id}.jsonl`, path = join(folder, file);
+    if ((getIndex().get(id) ?? []).length !== 1) reject('ROLLOUT_VARIANTS_AMBIGUOUS: duplicate or coexisting plain/zstd history must be resolved before export.');
+    const file = `rollouts/${id}.jsonl${rolloutCodec(source) === 'zstd' ? '.zst' : ''}`, path = join(folder, file);
     mkdirSync(join(folder, 'rollouts'), { recursive: true });
-    const saved = await writeVerifiedFile(createReadStream(source), path, progress);
+    const saved = await writeVerifiedFile(Readable.from(rolloutChunks(source, { root: snapshot.home, physical: true })), path, progress);
     if (saved.bytes !== stat.size) reject('Additional rollout changed during copying.');
     const meta = await metadata(path, file);
     if (meta?.id?.toLowerCase() !== row.id.toLowerCase()) reject('Additional rollout metadata does not match the session.');
     collected.files.push({ ...saved, file });
     collected.sources.push({ path, file, id });
-    collected.checks.push({ source, bytes: saved.bytes, sha256: saved.sha256, size: stat.size, modified: stat.mtimeMs });
+    collected.checks.push({ source, file, bytes: saved.bytes, sha256: saved.sha256, size: stat.size, modified: stat.mtimeMs });
   }
 }
 export async function checkDependencySources(checks, home, progress) {
   for (const check of checks) {
     const stat = regularFile(check.source, home);
     if (stat.size !== check.size || stat.mtimeMs !== check.modified) reject('Inherited history changed during export.');
-    // Prefix hashes protect against content changes even when timestamps are retained.
-    const chunks = createReadStream(check.source, { end: check.bytes - 1 });
-    if (await digestChunks(chunks, progress) !== check.sha256) reject('Inherited history changed during export.');
+    // Verify physical bytes, including the unretained suffix of external ancestors.
+    if (await digestRollout(check.source, home, progress) !== check.sha256) reject('Inherited history changed during export.');
   }
 }
 

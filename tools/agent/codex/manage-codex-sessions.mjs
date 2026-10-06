@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 // @ai-dotfiles agent-dev-runtime managed
 
-import { createReadStream, lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { homedir } from 'node:os';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, regularFile, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, verifyIndexedHistory, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines } from './session-export-storage.mjs';
+import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, regularFile, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, verifyIndexedHistory, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines, inspectRollout, pathIdentity } from './session-export-storage.mjs';
 import { collectDependencies, collectOwnedRollouts, ownedRollouts, ownedHistoryIds, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
 import { LINEAGE_POLICY, validateSavedLineage } from './session-lineage.mjs';
+import { ROLLOUT_POLICY, rolloutChunks, rolloutCodec, digestRollout, assertZstdRuntime, withRolloutBudget } from './session-rollout-io.mjs';
 import { writeBatch, readBatch, listBatches, sourceIdentity, openHistoryReader } from './session-export-batches.mjs';
 import { ProcessError, assertClientsClosed as checkClientsClosed } from './manage-codex-processes.mjs';
 import { createProgress } from './session-progress.mjs';
@@ -48,6 +49,9 @@ The confirmation token binds the selected state, operation, and destination.`,
   export: `Usage: agent codex session export <UUID | --before DATE|Nw> [--output <directory>] [--after keep|review-delete]
 Example: agent codex session export --before 4w --output <directory> --after keep
 Save private reference copies; originals remain. This is not an importable backup.
+New exports use v3: original .jsonl or .jsonl.zst bytes plus readable conversation.md.
+Compressed history requires reviewed Node.js 26.10.0; old v2 snapshots remain readable.
+Unknown paginated schemas retain raw bytes with warnings and block exported deletion.
 The output parent must exist, outside Codex storage and Git repositories.
 --output overrides the configured destination for this run.
 Structured local media within CODEX_HOME/attachments are collected automatically.
@@ -70,7 +74,8 @@ Inspect blockers with agent codex process status from an external terminal.
 Deletion preflight scans active/archived rollout metadata, including unindexed history.
 Eligible referencing forks are deleted before their ancestors within the same reviewed run.
 References outside the eligible deletion set retain the ancestor; referencing session IDs are shown.
-Unreadable or compressed-only reference metadata blocks deletion before execution.
+Unreadable/corrupt reference metadata or coexisting plain/zstd variants block deletion.
+Compressed history requires v3 export and a v2 batch receipt; direct archive/delete is unsupported.
 Verified deletion schedules a full local app sidebar scan on its next startup when the cache is supported.
 Exported deletion requires owned-rollout indexed history coverage; older snapshots must be exported again.
 Protected, changed, or incompletely exported families remain excluded; exit 3 reports exclusions or sidebar refresh issues.`,
@@ -149,6 +154,13 @@ Updated time is not last-viewed time. Use --limit 0 to list all matching session
 Titles can contain private information; review output before sharing it.
 
 Requires Node.js 24 with node:sqlite and the reviewed state_5.sqlite layout.
+Compressed reading/export/deletion requires reviewed Node.js 26.10.0.
+Rollout reading is streamed: 8 GiB stored, 32 GiB decoded per file, 128 MiB window/record,
+10 minutes per read. Export/verification budgets: 64 GiB input, 256 GiB decoded,
+64 GiB output (cumulative passes). Exceeding a limit stops; no unlimited fallback.
+New v3 exports retain physical bytes and decoded hashes; v2 snapshots stay readable.
+Coexisting plain/zstd variants are not supported. Re-export changed physical history.
+Unknown paginated schemas warn and exclude exported deletion for either codec.
 CODEX_HOME is respected (default: ~/.codex). Custom SQLite locations are unsupported.
 Archive/delete require Windows, PowerShell 7, and a compatible Codex CLI.
 Archive/delete startup is verified for codex-cli 0.159.2 only; unknown versions stop.
@@ -399,9 +411,10 @@ export async function inspectSessions(home, { progress = () => {} } = {}) {
     if (row.thread_section_id) reasons.push('sidebar-section');
     const updated = row.updated_at_ms ?? row.updated_at * 1000;
     if (!Number.isSafeInteger(updated) || !Number.isFinite(new Date(updated).getTime())) reasons.push('invalid-date');
-    let size = null, modified = null;
+    let size = null, modified = null, path = filesystemPath(row.rollout_path);
     try {
-      const path = filesystemPath(row.rollout_path);
+      // Only the exact compressed sibling of the DB-selected generation may be used.
+      if (path.endsWith('.jsonl') && !exists(path) && exists(`${path}.zst`)) path += '.zst';
       const rel = relative(home, path);
       if (!isAbsolute(path) || isAbsolute(rel) || !['sessions', 'archived_sessions'].includes(rel.split(sep)[0])) fail('outside-storage');
       // No junctions/symlinks in the path, or shared hard-linked rollout files.
@@ -418,23 +431,25 @@ export async function inspectSessions(home, { progress = () => {} } = {}) {
       const canonical = filesystemPath(realpathSync(path)), expected = resolve(path);
       const samePath = process.platform === 'win32' ? canonical.toLowerCase() === expected.toLowerCase() : canonical === expected;
       if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) fail('linked-or-nonregular-file');
-      if (rolloutIdentity(path)?.thread !== row.id.toLowerCase() || !path.endsWith('.jsonl')) fail('filename-session-mismatch');
+      if (rolloutIdentity(path)?.thread !== row.id.toLowerCase() || !/\.jsonl(?:\.zst)?$/.test(path)) fail('filename-session-mismatch');
+      if (rolloutCodec(path) === 'zstd') assertZstdRuntime();
       if (!samePath) fail('redirected-path');
       const key = process.platform === 'win32' ? path.toLowerCase() : path;
       if (paths.has(key)) issues.push('Multiple sessions reference the same rollout.');
       paths.add(key);
       size = stat.size; modified = stat.mtimeMs;
-    } catch (error) { reasons.push(`rollout-unavailable-or-unsafe(${error instanceof SessionError ? error.message : errorTag(error)})`); }
+    } catch (error) { reasons.push(`rollout-unavailable-or-unsafe(${error instanceof SessionError || error instanceof ExportError ? error.message : errorTag(error)})`); }
     progress('Inspect indexed session files', ++inspected, rows.length);
     return { id: row.id, title: row.name || row.title || '(untitled)', updated,
       recency: row.recency_at_ms, archived: Boolean(row.archived), historyMode: row.history_mode, size, modified,
-      path: filesystemPath(row.rollout_path), project: row.project_id ? projects.get(row.project_id) ?? { id: row.project_id, name: null, roots: [] } : null,
+      path, project: row.project_id ? projects.get(row.project_id) ?? { id: row.project_id, name: null, roots: [] } : null,
       cwd: row.cwd, reasons: reasons.sort() };
   });
   return { home, sessions, edges, issues: [...new Set([...issues, ...protectionIssues])].sort(), exportIssues: [...new Set(issues)].sort() };
 }
 
-export async function inspectDeletionReferences(snapshot, { progress = () => {} } = {}) {
+export const inspectDeletionReferences = (...args) => withRolloutBudget(() => inspectDeletionReferencesWithinBudget(...args));
+async function inspectDeletionReferencesWithinBudget(snapshot, { progress = () => {} } = {}) {
   const references = [], issues = [];
   const owners = new Map(snapshot.sessions.map(row => [rolloutIdentity(row.path)?.rollout ?? row.id, row.id]));
   const indexedPaths = new Map(snapshot.sessions.map(row => [row.id, row.path]));
@@ -452,11 +467,17 @@ export async function inspectDeletionReferences(snapshot, { progress = () => {} 
     progress('Inspect fork history references', 0, rollouts.size);
     for (const [rolloutId, paths] of rollouts) {
       inspectingId = rolloutId;
-      if (paths.some(path => !path.endsWith('.jsonl'))) fail('Compressed fork history cannot be inspected, including compressed siblings of plain files; deletion is blocked.');
+      for (const path of paths) regularFile(path, snapshot.home);
+      if (paths.length !== 1) fail('ROLLOUT_VARIANTS_AMBIGUOUS: duplicate or coexisting plain/zstd history; deletion is blocked.');
       for (const path of paths) {
-        regularFile(path, snapshot.home);
-        for await (const { value } of jsonLines(path, { maxLine: 4 * 1024 * 1024 })) {
+        // Process metadata once and drain compressed JSONL to its strict terminus.
+        const compressed = rolloutCodec(path) === 'zstd';
+        let first = true;
+        for await (const { value } of jsonLines(path, { root: snapshot.home })) {
+          if (!first) continue;
+          first = false;
           const identity = rolloutIdentity(path);
+          if (compressed && value.type !== 'session_meta') fail('Compressed history has no session metadata; deletion is blocked.');
           if (value.type === 'session_meta' && value.payload?.id?.toLowerCase() !== identity.thread) fail('Rollout metadata does not match its filename; deletion is blocked.');
           if (identity.thread !== identity.rollout && (value.type !== 'session_meta' || value.payload?.id?.toLowerCase() !== identity.thread)) fail('Rollover metadata does not match its filename; deletion is blocked.');
           const owner = value.type === 'session_meta' ? value.payload?.id?.toLowerCase() : null;
@@ -469,8 +490,9 @@ export async function inspectDeletionReferences(snapshot, { progress = () => {} 
             if (!UUID.test(source ?? '') || !UUID.test(target ?? '')) fail('Invalid fork history reference; deletion is blocked.');
             if (target.toLowerCase() !== rolloutId) references.push({ source: source.toLowerCase(), rollout: owners.get(rolloutId) ?? rolloutId, target: owners.get(target.toLowerCase()) ?? target.toLowerCase() });
           }
-          break;
+          if (!compressed) break;
         }
+        if (compressed && first) fail('Compressed history has no session metadata; deletion is blocked.');
       }
       progress('Inspect fork history references', ++checked, rollouts.size);
     }
@@ -525,6 +547,9 @@ export function makePlan(snapshot, root, operation = 'delete', index = indexSnap
   const sessions = ids.map(id => byId.get(id)).filter(Boolean);
   for (const row of sessions) for (const reason of row.reasons) {
     if (operation !== 'export' || /^(invalid-|rollout-)/.test(reason)) problems.push(`${row.id}: ${reason}`);
+  }
+  if (operation !== 'export' && !index.verifyOwnedRollouts && sessions.some(row => rolloutCodec(row.path) === 'zstd')) {
+    problems.push('Compressed history requires verified exported deletion; direct archive/delete is unsupported.');
   }
   // Include edges, private paths, timestamps, titles, sizes, and protection reasons in revalidation.
   const fingerprint = hash({ home: snapshot.home, root, sessions,
@@ -626,7 +651,7 @@ export function selectPlan(snapshot, options) {
 function printRows(rows, log) {
   for (const row of rows) {
     const date = Number.isFinite(new Date(row.updated).getTime()) ? new Date(row.updated).toISOString().slice(0, 10) : 'unknown';
-    log(`${row.id}  ${date}  ${row.size === null ? 'size unknown' : bytes(row.size)}  ${row.archived ? 'archived' : 'saved'}${row.reasons.length ? `  protected: ${row.reasons.join(', ')}` : ''}`);
+    log(`${row.id}  ${date}  ${row.size === null ? 'size unknown' : bytes(row.size)}  ${row.archived ? 'archived' : 'saved'}  ${rolloutCodec(row.path) === 'zstd' ? 'zstd (decoded size unverified)' : 'jsonl'}${row.reasons.length ? `  protected: ${row.reasons.join(', ')}` : ''}`);
     log(`  ${displayText(row.title)}`);
   }
 }
@@ -652,7 +677,8 @@ function printExclusions(plan, log) {
   for (const [reason, count] of reasons) log(`  ${count} family(s): ${displayText(reason)}`);
 }
 
-export async function exportSessions(snapshot, plan, output, { inspect = inspectSessions, log = console.log, attachmentRoots = [], selection = null } = {}) {
+export const exportSessions = (...args) => withRolloutBudget(() => exportSessionsWithinBudget(...args));
+async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = inspectSessions, log = console.log, attachmentRoots = [], selection = null } = {}) {
   if (plan.operation !== 'export' || plan.problems.length || !plan.sessions.length) fail('Export requires a nonempty, unblocked export plan.');
   if (!output) fail('Export requires --output pointing to an existing directory.');
   const destination = realpathSync(output);
@@ -705,7 +731,9 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       writeFileSync(join(folder, 'README.txt'), 'PRIVATE SESSION EXPORT\nOnly a manifest.json with complete=true marks a completed write. Inspect coverage and warnings separately.\nThis is reference material, not current instructions or an importable backup.\nNo project/worktree copy, remote downloads, or attachment paths mentioned only in prose are collected.\nRaw history may contain credentials and other sensitive information. Do not publish it.\n', { flag: 'wx', mode: 0o600 });
       context.phase = 'copy rollout';
       progress.phase('Copy and verify rollout', prepared, plan.sessions.length);
-      const rollout = await writeVerifiedFile(createReadStream(row.path), join(folder, 'rollout.jsonl'), read => progress.bytes(read, row.size));
+      const primary = rolloutCodec(row.path) === 'zstd' ? 'rollout.jsonl.zst' : 'rollout.jsonl';
+      if ((getIndex().get(rolloutIdentity(row.path).rollout) ?? []).length !== 1) fail('ROLLOUT_VARIANTS_AMBIGUOUS: duplicate or coexisting plain/zstd history must be resolved before export.');
+      const rollout = await writeVerifiedFile(Readable.from(rolloutChunks(row.path, { root: snapshot.home, physical: true })), join(folder, primary), read => progress.bytes(read, row.size));
       if (rollout.bytes !== row.size) fail('Source rollout size changed during export. The bundle is incomplete; no source data was removed.');
       const historyIds = ownedHistoryIds(row, getIndex);
       let history = null;
@@ -733,6 +761,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       if (lineage.status !== 'verified') inherited.warnings.push({ kind: 'history', reason: 'lineage-boundary-unverified',
         message: 'Raw history is saved, but its schemas, ordinals or inherited dependencies could not be fully verified. Exported deletion is blocked.' });
       stage.checks = inherited.checks;
+      stage.rolloutIds = inherited.sources.map(source => source.id);
       context.phase = 'render conversation and attachments';
       progress.phase('Render conversation and attachments', prepared, plan.sessions.length);
       const rendered = await renderConversation(folder, row, inherited.sources, { attachmentRoots, progress: read => progress.bytes(read) });
@@ -757,12 +786,24 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       const session = { id: row.id, title: row.title, updated: row.updated, archived: row.archived,
         historyMode: row.historyMode, project: row.project ?? null, cwd: row.cwd ?? null };
       const spawnEdges = edgesBySession.get(row.id);
-      stage.manifest = { format: FORMAT, schemaVersion: 2, complete: true, restorable: false,
+      const sourceArtifacts = [];
+      const sourcePaths = new Map(inherited.checks.map(check => [check.file, check.source]));
+      sourcePaths.set(primary, row.path);
+      for (const source of inherited.sources.filter(source => !source.file.startsWith('dependencies/'))) {
+        const sourcePath = sourcePaths.get(source.file);
+        const decoded = await inspectRollout(source.path, folder, read => progress.bytes(read), row.id);
+        sourceArtifacts.push({ threadId: row.id, rolloutId: source.id,
+          sourcePath: relative(snapshot.home, sourcePath).split(sep).join('/'), retainedFile: source.file,
+          retention: 'full-physical', ...decoded });
+      }
+      sourceArtifacts.sort((a, b) => a.sourcePath < b.sourcePath ? -1 : a.sourcePath > b.sourcePath ? 1 : 0);
+      stage.manifest = { format: FORMAT, schemaVersion: 3, complete: true, restorable: false,
         exportedAt: new Date().toISOString(), session, files,
         coverage: { history: inherited.warnings.length ? 'partial' : 'collected', attachments: 'supported-inputs-only', conversation: 'record-view-not-exact-ui',
           indexedHistory: indexedHistoryCoverage(historyIds, reader.present), lineage },
         sources: inherited.sources.map(({ path, ...source }) => source), attachments: rendered.attachments, warnings,
-        spawnEdges };
+        spawnEdges, sourceArtifacts, artifactSetDigest: hash(sourceArtifacts),
+        validation: { policy: ROLLOUT_POLICY, decoder: 'node-zstd-strict', node: process.versions.node } };
       stage.manifest.contentDigest = snapshotDigest(stage.manifest);
       progress.phase('Prepare session exports', ++prepared, plan.sessions.length);
     }
@@ -782,7 +823,10 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       progress.phase('Reverify source exports', verified, staged.length);
       context.session = stage.manifest.session.id; context.phase = 'verify source rollout';
       if (hash(ownedRollouts(getIndex(), stage.manifest.session.id).toSorted()) !== hash(ownedRollouts(freshRollouts(), stage.manifest.session.id).toSorted())) fail('Owned rollout files changed during export.');
-      if (await digestFile(stage.source.path, read => progress.bytes(read)) !== stage.source.sha256) fail('Source rollout content changed during export.');
+      for (const id of stage.rolloutIds) {
+        if (hash((getIndex().get(id) ?? []).toSorted()) !== hash((freshRollouts().get(id) ?? []).toSorted())) fail('Inherited rollout candidates changed during export.');
+      }
+      if (await digestRollout(stage.source.path, snapshot.home, read => progress.bytes(read)) !== stage.source.sha256) fail('Source rollout content changed during export.');
       context.phase = 'verify inherited history';
       await checkDependencySources(stage.checks, snapshot.home, read => progress.bytes(read));
       context.phase = 'verify local attachments';
@@ -799,7 +843,8 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
         // Only the exact private staging directory created by this invocation is removed.
         if (relative(destination, stage.folder).includes(sep) || !basename(stage.folder).startsWith('.incomplete-')) fail('Invalid staging directory.');
         rmSync(stage.folder, { recursive: true }); stage.removed = true;
-        entries.push({ id: stage.manifest.session.id, key: duplicate.key, digest: stage.manifest.contentDigest });
+        entries.push({ id: stage.manifest.session.id, key: duplicate.key, digest: stage.manifest.contentDigest,
+          artifactSetDigest: stage.manifest.artifactSetDigest, policy: ROLLOUT_POLICY });
         skipped.push(duplicate.folder); log(`Unchanged: ${stage.manifest.session.id}`);
         progress.phase('Publish verified exports', ++published, staged.length); continue;
       }
@@ -808,7 +853,8 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       writeFileSync(join(stage.folder, 'manifest.json'), manifestText, { flag: 'wx', mode: 0o600 });
       const final = join(destination, `${stage.manifest.exportedAt.replace(/[:.]/g, '-')}_${stage.manifest.session.id}_${basename(stage.folder).slice(-6)}`);
       renameSync(stage.folder, final); stage.published = true; folders.push(final);
-      entries.push({ id: stage.manifest.session.id, key: basename(final), digest: stage.manifest.contentDigest });
+      entries.push({ id: stage.manifest.session.id, key: basename(final), digest: stage.manifest.contentDigest,
+        artifactSetDigest: stage.manifest.artifactSetDigest, policy: ROLLOUT_POLICY });
       log(`Saved: ${displayText(final)}`);
       progress.phase('Publish verified exports', ++published, staged.length);
     }
@@ -846,7 +892,8 @@ export function confirmationToken(plan, options) {
     attachmentRoot: options.attachmentRoot ?? null });
 }
 
-export async function planExportedDeletion(snapshot, directory, batchId, onlyRoot, { log = () => {} } = {}) {
+export const planExportedDeletion = (...args) => withRolloutBudget(() => planExportedDeletionWithinBudget(...args));
+async function planExportedDeletionWithinBudget(snapshot, directory, batchId, onlyRoot, { log = () => {} } = {}) {
   const batch = readBatch(directory, batchId);
   if (batch.source !== sourceIdentity(snapshot.home)) fail('Export batch belongs to a different Codex home.');
   const entries = new Map(batch.entries.map(entry => [entry.id, entry]));
@@ -915,13 +962,27 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
             await verifyBundle(bundle, (read, size) => progress.bytes(read, size));
             const lineage = await validateSavedLineage(bundle.folder, bundle.manifest.sources, row.id, row.historyMode, (read, size) => progress.bytes(read, size));
             if (hash(lineage) !== hash(savedLineage)) fail('Saved history boundary coverage does not match the saved records; export again before deletion.');
-            for (const source of snapshot.deletionIssuesBySession?.get(row.id) ?? []) {
-              const file = bundle.manifest.files.find(file => file.file === `rollouts/${rolloutIdentity(source).rollout}.jsonl`);
-              if (!file || await digestFile(source, read => progress.bytes(read, file.bytes)) !== file.sha256) fail('Additional rollout is missing from the export or changed after export.');
+            if (bundle.manifest.schemaVersion === 3) {
+              if (batch.schemaVersion !== 2 || entry.policy !== ROLLOUT_POLICY || entry.artifactSetDigest !== bundle.manifest.artifactSetDigest) fail('Export batch lacks physical rollout coverage; export again before deletion.');
+              const actual = ownedRollouts(getIndex(), row.id).map(path => pathIdentity(path)).sort();
+              const artifacts = bundle.manifest.sourceArtifacts;
+              const savedPaths = artifacts.map(a => pathIdentity(join(snapshot.home, a.sourcePath))).sort();
+              if (hash(actual) !== hash(savedPaths)) fail('Owned physical rollout inventory changed after export; export again before deletion.');
+              for (const artifact of artifacts) {
+                const source = join(snapshot.home, artifact.sourcePath);
+                if (rolloutIdentity(source)?.rollout !== artifact.rolloutId || regularFile(source, snapshot.home).size !== artifact.storedBytes
+                  || await digestRollout(source, snapshot.home, read => progress.bytes(read)) !== artifact.storedSha256) fail('Source physical rollout content changed after export.');
+              }
+            } else {
+              if (ownedRollouts(getIndex(), row.id).some(path => rolloutCodec(path) === 'zstd')) fail('Compressed deletion requires a v3 export.');
+              for (const source of snapshot.deletionIssuesBySession?.get(row.id) ?? []) {
+                const file = bundle.manifest.files.find(file => file.file === `rollouts/${rolloutIdentity(source).rollout}.jsonl`);
+                if (!file || await digestFile(source, read => progress.bytes(read, file.bytes)) !== file.sha256) fail('Additional rollout is missing from the export or changed after export.');
+              }
+              const rollout = bundle.manifest.files.find(file => file.file === 'rollout.jsonl');
+              if (await digestFile(row.path, read => progress.bytes(read, row.size)) !== rollout.sha256) fail('Source rollout content changed after export.');
             }
-            const rollout = bundle.manifest.files.find(file => file.file === 'rollout.jsonl');
             const history = bundle.manifest.files.find(file => file.file === 'history.jsonl');
-            if (await digestFile(row.path, read => progress.bytes(read, row.size)) !== rollout.sha256) fail('Source rollout content changed after export.');
             if (reader.present !== !!history || (history && await digestChunks(reader.lines(historyIds), read => progress.bytes(read, history.bytes)) !== history.sha256)) fail('Indexed history changed after export.');
           }
           reader.check();

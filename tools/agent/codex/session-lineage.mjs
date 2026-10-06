@@ -1,7 +1,7 @@
 // @ai-dotfiles agent-dev-runtime managed
 // Conservative subset of rust-v0.159.2 history/rollout and protocol/models.
 // Unknown schemas are retained but cannot establish an ordinal boundary.
-import { jsonLines, regularFile, reject, UUID, bundleFile } from './session-export-storage.mjs';
+import { jsonLines, reject, UUID, bundleFile } from './session-export-storage.mjs';
 import { createHash } from 'node:crypto';
 
 export const LINEAGE_POLICY = 'plain-prefix-v1';
@@ -71,7 +71,7 @@ function knownMetadata(value) {
 
 // Validate exactly the retained prefix, never count records after its byte boundary.
 export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, progress }) {
-  if (!Number.isSafeInteger(endByte) || endByte <= 0 || endByte > regularFile(path).size
+  if ((endByte !== undefined && (!Number.isSafeInteger(endByte) || endByte <= 0))
     || (endOrdinal !== undefined && (!Number.isSafeInteger(endOrdinal) || endOrdinal < 1))) reject('Invalid inherited history boundary.');
   const digest = createHash('sha256');
   let bytes = 0;
@@ -101,9 +101,9 @@ export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, 
     }
   }
   if (first) reject('Inherited history has no session metadata.');
-  if (bytes !== endByte) reject('Inherited history changed while validating.');
+  if (endByte !== undefined && bytes !== endByte) reject('Inherited history changed while validating.');
   if (verified && endOrdinal !== undefined && expected !== endOrdinal) reject('History byte boundary and ordinal boundary disagree.');
-  return { endByte, endOrdinal: endOrdinal ?? (verified ? expected : null), baseOrdinal,
+  return { endByte: bytes, endOrdinal: endOrdinal ?? (verified ? expected : null), baseOrdinal,
     sha256: digest.digest('hex'), status: verified ? 'verified' : 'unverified' };
 }
 
@@ -131,7 +131,7 @@ export async function validateSavedLineage(folder, sources, owner, historyMode =
       currentFile = source.file;
       if (!source.file.startsWith('dependencies/') && (meta.history_mode === 'paginated' || meta.history_base || historyMode === 'paginated')) {
         const path = bundleFile(folder, source.file);
-        const checked = await validateHistoryPrefix(path, { owner: meta.id, endByte: regularFile(path).size, progress });
+        const checked = await validateHistoryPrefix(path, { owner: meta.id, progress });
         rollouts.push({ id, file: source.file, ...checked });
       } else if (meta.history_mode != null && !['legacy', 'paginated'].includes(meta.history_mode)) reject('Unsupported history mode.');
       const seen = new Set([id]);

@@ -10,8 +10,8 @@
 - **フォーク履歴の境界検証：plainの初期subsetを実装・合成fixture検証済み。** byte境界・整数token・連続ordinal・参照関係を共通処理で検査し、未対応schemaはraw保存と未検証警告、exported deletionの停止で扱います。公式の全record型への対応や実データの完全性を保証するものではありません。
 - **削除CLIの起動時更新：0.159.2用adapterを実装・隔離fixture検証済み。** daemonを再利用せず、migrationとcompressionを一回限りのoverrideで無効にします。未知版・remote環境は停止します。
 - **所有ファイルの検査・revert元の重複保存・削除後の確認不足：修正・合成fixture検証済み。** 自身の継承元は全体を一度だけ保存し、prefixを別途検証します。リンクを含む不完全な一覧は拒否し、保存中の追加はID集合だけでなく物理ファイル集合で検出します。公式delete後と同じバッチの再計画では、索引・所有ファイル・所有IDの履歴DB行の不在を確認します。
-- **plainとzstdの共存時の検査漏れ：停止ガード実装・合成fixture検証済み。** 圧縮版が一つでもあれば参照検査を停止し、plainだけを選んで検査済みと扱う経路を閉じました。圧縮readerは未対応です。詳細は[圧縮計画の混在形式の検証](ai-dotfiles-compressed-session-plan.md#混在形式の検証漏れを先に塞ぐ)で管理します。
-- **zstdの読取・manifest v3・圧縮削除：未実装の機能追加。** [圧縮対応計画](ai-dotfiles-compressed-session-plan.md)で管理します。
+- **plainとzstdの共存時の検査漏れ：停止ガード実装・合成fixture検証済み。** 同じrolloutの両形式共存や重複配置では停止します。単独の圧縮版はstrict readerで終端まで検証し、plainだけを選んで検査済みと扱う経路は設けません。詳細は[圧縮計画の混在形式の検証](ai-dotfiles-compressed-session-plan.md#混在形式の検証漏れを先に塞ぐ)で管理します。
+- **zstdの読取・manifest v3・圧縮削除：初期対応を実装。** Node 26.10.0／Windowsの合成fixtureとCLI 0.159.2の隔離homeで検証しました。未知lineage schemaの削除停止と両形式共存の停止を維持します。 [圧縮対応計画](ai-dotfiles-compressed-session-plan.md)で管理します。
 
 **圧縮以外の全対応が完了した状態ではありません。** 通常のpaginated履歴でも、未対応のmetadata・event・context等を含むと境界検証が未検証になり、保存後の削除を停止します。対応schemaの拡張は非圧縮にも必要な機能上の残件です。添付metadata・アプリ固有sidecarの保全範囲と、停電を考慮した保存耐久性も共通の検討事項として残し、確認済みの消失不具合とは区別します。
 
@@ -99,7 +99,7 @@
 
 ## 圧縮とは独立した履歴境界の共通検証
 
-**plainでは初期の共通validatorを実装済みで、対応schemaの拡張とzstdへの適用が残っています。** 比較元の [依存元の検査](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/session-export-content.mjs#L67-L143)はbyte範囲、LF終端、metadataと一部のordinal関係を確認するものでした。この節では、追加したbyte境界とordinalの対応規則、検証できない入力の扱いを定めます。実データのordinal不整合や消失事故を確認したという意味ではありません。今後の圧縮readerは展開後bytesを同じvalidatorへ渡します。
+**plainでは初期の共通validatorを実装済みで、対応schemaの拡張が残っています。圧縮readerの展開後bytesにも同じ検証を適用しました。** 比較元の [依存元の検査](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/session-export-content.mjs#L67-L143)はbyte範囲、LF終端、metadataと一部のordinal関係を確認するものでした。この節では、追加したbyte境界とordinalの対応規則、検証できない入力の扱いを定めます。実データのordinal不整合や消失事故を確認したという意味ではありません。圧縮readerも展開後bytesを同じvalidatorへ渡します。
 
 実装は[`session-lineage.mjs`](../../tools/agent/codex/session-lineage.mjs)、境界fixtureは[`session-lineage.test.mjs`](../../tools/agent/codex/session-lineage.test.mjs)です。保存済みcoverageを信用するだけでなく、exported deletionの計画でも保存bytesから再計算します。policyは`plain-prefix-v1`です。旧v2は閲覧可能ですが、削除には新coverageを含む再exportが必要です。
 

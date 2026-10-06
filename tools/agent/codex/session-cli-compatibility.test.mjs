@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { runOfficialCodex } from './manage-codex-sessions.mjs';
+import { runOfficialCodex, inspectSessions, exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
+import { rolloutChunks } from './session-rollout-io.mjs';
 import { DatabaseSync } from 'node:sqlite';
 
 test('official maintenance startup overrides suppress synthetic history rewrites', {
@@ -83,6 +84,26 @@ test('official maintenance startup overrides suppress synthetic history rewrites
       } else if (feature === 'local_thread_store_compression') {
         assert.equal(existsSync(`${path}.zst`), true, 'Positive control must actually compress');
         assert.equal(existsSync(path), false);
+        // Independent encoder: the installed official Codex worker produced this
+        // frame from known synthetic bytes, not Node's own compression routine.
+        const chunks = [];
+        for await (const chunk of rolloutChunks(`${path}.zst`)) chunks.push(chunk);
+        assert.equal(Buffer.concat(chunks).toString('utf8'), raw);
+        if (action === 'delete') {
+          const output = join(root, 'compressed-export'); mkdirSync(output);
+          const snapshot = await inspectSessions(home);
+          assert.deepEqual(snapshot.issues, []);
+          const exported = await exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', id])), output, { log() {} });
+          const logs = [];
+          const status = await runSessions(['delete', '--exported', exported.batch.id, '--in', output], {
+            home, interactive: true, log: text => logs.push(text),
+            // Only this disposable home is affected. The live app uses a different home.
+            closed() {}, ask: async prompt => /^Type (.+) to /.exec(prompt)?.[1] ?? '',
+          });
+          assert.equal(status, 0, logs.join('\n'));
+          assert.equal(existsSync(`${path}.zst`), false, 'Official deletion must remove compressed physical bytes');
+          assert.equal((await inspectSessions(home)).sessions.length, 0);
+        }
       } else {
         assert.equal(JSON.parse(readFileSync(path, 'utf8').split('\n')[0]).payload.history_mode, 'paginated', 'Positive control must actually migrate');
       }

@@ -4,8 +4,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { zstdCompressSync } from 'node:zlib';
 import { exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
-import { FORMAT, listBundles, verifyBundle, readExportDirectory, readExportSettings, writeExportDirectory, bundleFile, jsonLines } from './session-export-storage.mjs';
+import { FORMAT, listBundles, verifyBundle, readExportDirectory, readExportSettings, writeExportDirectory, bundleFile, jsonLines, snapshotDigest, fingerprint } from './session-export-storage.mjs';
 import { runHistory, parseHistoryArgs } from './manage-codex-history.mjs';
 
 const id = '00000000-0000-4000-8000-000000000001';
@@ -32,6 +33,82 @@ function setup(t) {
   };
   return { root, home, output, path, snapshot, save };
 }
+
+test('v3 exports compressed primary, owned generations and external decoded prefixes without suffix leakage', { skip: process.versions.node !== '26.10.0' }, async t => {
+  const f = setup(t), alias = '00000000-0000-4000-8000-000000000005';
+  const prefix = line(meta(ancestor)) + line(msg('Inherited 日本語'));
+  const ancestorBytes = zstdCompressSync(prefix + line(msg('Private ancestor suffix', [], 2)));
+  writeFileSync(join(f.home, 'sessions', `${ancestor}.jsonl.zst`), ancestorBytes);
+  const base = { thread_id: ancestor, end_byte_offset: Buffer.byteLength(prefix), end_ordinal_exclusive: 2 };
+  const primaryBytes = zstdCompressSync(line(meta(id, base)) + line(msg('Compressed primary keyword', [], 3)));
+  const ownBytes = zstdCompressSync(line(meta(id)) + line(msg('Old generation')));
+  const ownPath = join(f.home, 'sessions', `${id}_${alias}.jsonl.zst`);
+  writeFileSync(ownPath, ownBytes);
+  const primaryPath = `${f.path}.zst`;
+  const original = f.snapshot();
+  writeFileSync(primaryPath, primaryBytes); rmSync(f.path);
+  const snapshot = () => ({ ...original, sessions: [{ ...original.sessions[0], path: primaryPath, size: statSync(primaryPath).size, modified: statSync(primaryPath).mtimeMs }] });
+  const save = () => exportSessions(snapshot(), selectPlan(snapshot(), parseSessionArgs(['export', id])), f.output, { inspect: snapshot, log() {} });
+  const result = await save();
+  assert.equal(result.partial, false);
+  const [bundle] = listBundles(f.output);
+  assert.equal(bundle.manifest.schemaVersion, 3);
+  await verifyBundle(bundle);
+  assert.deepEqual(readFileSync(join(bundle.folder, 'rollout.jsonl.zst')), primaryBytes);
+  assert.deepEqual(readFileSync(join(bundle.folder, `rollouts/${alias}.jsonl.zst`)), ownBytes);
+  assert.equal(readFileSync(join(bundle.folder, `dependencies/${ancestor}.jsonl`), 'utf8'), prefix);
+  assert.equal(bundle.manifest.sourceArtifacts.length, 2);
+  assert.equal(bundle.manifest.coverage.lineage.status, 'verified');
+  assert.deepEqual(bundle.manifest.coverage.indexedHistory.ids, [id, alias]);
+  assert.doesNotMatch(readFileSync(join(bundle.folder, 'conversation.md'), 'utf8'), /Private ancestor suffix/);
+  await save(); assert.equal(listBundles(f.output).length, 1, 'same-contract v3 export reuses its verified snapshot');
+  rmSync(f.home, { recursive: true });
+  const log = [];
+  assert.equal(await runHistory(['search', 'keyword', '--in', f.output], { log: text => log.push(text) }), 0);
+  assert.match(log.join('\n'), /keyword/);
+  for (const change of [m => m.validation.policy = 'unknown', m => m.sourceArtifacts[0].decodedBytes++, m => m.sourceArtifacts[0].retention = 'decoded-prefix', m => m.sourceArtifacts[0].sourcePath = '../escape.jsonl',
+    m => m.sourceArtifacts[0] = null,
+    m => { delete m.coverage.indexedHistory; m.sources.push(m.sources[0]); },
+    m => { delete m.coverage.indexedHistory; m.sources = null; }]) {
+    const manifest = structuredClone(bundle.manifest); change(manifest);
+    // Even recomputing public digests cannot turn invalid semantic evidence into coverage.
+    manifest.artifactSetDigest = fingerprint(manifest.sourceArtifacts); manifest.contentDigest = snapshotDigest(manifest);
+    await assert.rejects(verifyBundle({ ...bundle, manifest }), /Invalid|failed/);
+  }
+});
+
+test('corrupt compressed ancestor suffix prevents publishing an otherwise valid prefix', { skip: process.versions.node !== '26.10.0' }, async t => {
+  const f = setup(t), prefix = line(meta(ancestor));
+  writeFileSync(join(f.home, 'sessions', `${ancestor}.jsonl.zst`), Buffer.concat([zstdCompressSync(prefix), Buffer.from('junk')]));
+  writeFileSync(f.path, line(meta(id, { thread_id: ancestor, end_byte_offset: Buffer.byteLength(prefix), end_ordinal_exclusive: 1 })) + line(msg('Child', [], 2)));
+  await assert.rejects(f.save(), /ZSTD_INVALID/);
+  assert.equal(listBundles(f.output).length, 0);
+});
+
+test('metadata-only discovery cannot publish a compressed primary with a corrupt suffix', { skip: process.versions.node !== '26.10.0' }, async t => {
+  for (const historyMode of ['legacy', 'paginated']) {
+    const f = setup(t), snapshot = f.snapshot(), path = `${f.path}.zst`;
+    const metadata = meta(id); metadata.payload.history_mode = historyMode;
+    const bytes = zstdCompressSync(line(metadata) + line(msg('synthetic text '.repeat(8192))));
+    writeFileSync(path, Buffer.concat([bytes, Buffer.from('trailing garbage')])); rmSync(f.path);
+    Object.assign(snapshot.sessions[0], { path, historyMode, size: statSync(path).size, modified: statSync(path).mtimeMs });
+    await assert.rejects(exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', id])), f.output,
+      { inspect: () => snapshot, log() {} }), /ZSTD_INVALID/);
+    assert.deepEqual(listBundles(f.output), []);
+    assert.ok(!readdirSync(f.output).includes('batches'), 'no successful receipt is published');
+  }
+});
+
+test('v2 snapshots remain readable and never satisfy v3 deduplication', async t => {
+  const f = setup(t); await f.save();
+  const [bundle] = listBundles(f.output), m = bundle.manifest;
+  m.schemaVersion = 2; delete m.sourceArtifacts; delete m.artifactSetDigest; delete m.validation;
+  m.contentDigest = snapshotDigest(m);
+  writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(m));
+  await verifyBundle(bundle);
+  await f.save();
+  assert.deepEqual(listBundles(f.output).map(b => b.manifest.schemaVersion).sort(), [2, 3]);
+});
 
 test('Codex-owned structured attachments are collected without extending external roots', async t => {
   const f = setup(t), attachment = join(f.home, 'attachments', 'fixture.png');
@@ -319,7 +396,7 @@ test('missing dependencies are explicitly partial; cycles and split record bound
   await assert.rejects(f.save(), /cyclic/);
   writeFileSync(join(f.home, 'sessions', `${ancestor}.jsonl`), line(meta(ancestor)) + line(msg('source')));
   writeFileSync(f.path, line(meta(id, { thread_id: ancestor, end_byte_offset: 2, end_ordinal_exclusive: 2 })));
-  await assert.rejects(f.save(), /splits a record/);
+  await assert.rejects(f.save(), /incomplete record/);
 });
 
 test('same content skips a verified snapshot; changed content gets a new immutable snapshot', async t => {

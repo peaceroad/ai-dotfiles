@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { zstdCompressSync, constants as zstd } from 'node:zlib';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, renameSync, existsSync, symlinkSync, linkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -11,6 +12,7 @@ import { listBundles, snapshotDigest, fingerprint, verifyBundle, HISTORY_TABLES 
 import { listBatches, readBatch } from './session-export-batches.mjs';
 import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
 import { runHistory } from './manage-codex-history.mjs';
+import { chargeRolloutBytes } from './session-rollout-io.mjs';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -50,6 +52,16 @@ test('read-only inventory reads metadata, includes descendants, and does not cha
   assert.deepEqual(readFileSync(join(f.home, 'state_5.sqlite')), before);
 });
 
+test('standalone fork inspection bounds cumulative reads and blocks deletion on exhaustion', async t => {
+  const f = fixture(t), snapshot = await inspectSessions(f.home);
+  const exhausted = await inspectDeletionReferences(snapshot, { progress(label, done) {
+    if (done === 0) chargeRolloutBytes('stored', 64 * 1024 ** 3);
+  } });
+  assert.match(makePlan(exhausted, parent).problems.join('\n'), /OPERATION_LIMIT_EXCEEDED/);
+  const fresh = await inspectDeletionReferences(snapshot);
+  assert.deepEqual(fresh.deletionIssues, [], 'a new inspection receives a fresh budget');
+});
+
 test('extended Windows paths use the same guarded session file', { skip: process.platform !== 'win32' }, async t => {
   const f = fixture(t);
   f.update('UPDATE threads SET rollout_path = ? WHERE id = ?', `\\\\?\\${join(f.home, 'sessions', `${parent}.jsonl`)}`, parent);
@@ -84,7 +96,7 @@ test('exported deletion verifies every additional rollout owned by the session',
   writeFileSync(extra, `${readFileSync(extra, 'utf8')}{"fixture":true}\n`);
   const changed = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
   assert.equal(changed.sessions.length, 0);
-  assert.match(changed.skipped[0].problems[0], /Additional rollout/);
+  assert.match(changed.skipped[0].problems[0], /physical rollout content changed/);
 });
 
 test('pinned and sectioned descendants protect the parent plan', async t => {
@@ -475,7 +487,7 @@ test('unreadable or compressed-only reference metadata blocks deletion globally'
   rmSync(path);
   writeFileSync(`${path}.zst`, 'compressed fixture');
   snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
-  assert.match(makePlan(snapshot, parent, 'delete').problems.join('\n'), /Compressed fork history/);
+  assert.match(makePlan(snapshot, parent, 'delete').problems.join('\n'), /ZSTD_INVALID/);
 });
 
 test('bulk deletion calls only roots once, verifies each family, and leaves excluded sessions intact', async t => {
@@ -866,7 +878,7 @@ test('compressed siblings prevent deletion even when plain metadata is readable'
   const f = renderableFixture(t);
   writeFileSync(join(f.home, 'sessions', `${parent}.jsonl.zst`), 'synthetic compressed sibling');
   const snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
-  assert.match(snapshot.deletionIssues.join('\n'), /compressed siblings/);
+  assert.match(snapshot.deletionIssues.join('\n'), /ROLLOUT_VARIANTS_AMBIGUOUS/);
   assert.ok(makePlan(snapshot, parent).problems.length);
 });
 
@@ -1020,6 +1032,55 @@ async function saveBatch(f, output, selection = [parent]) {
   const snapshot = await inspectSessions(f.home);
   return exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', ...selection])), output, { log() {} });
 }
+
+test('compressed exports bind physical inventory, reject direct deletion, and recheck changes before CLI', { skip: process.versions.node !== '26.10.0' }, async t => {
+  for (const change of ['recompress', 'plain-sibling', 'saved-bytes', 'new-generation', 'after-confirmation']) {
+    const f = renderableFixture(t), output = exportParent(t), base = deletionOptions(f);
+    const path = join(f.home, 'sessions', `${parent}.jsonl`), raw = readFileSync(path);
+    writeFileSync(`${path}.zst`, zstdCompressSync(raw)); rmSync(path);
+    const snapshot = await inspectSessions(f.home);
+    assert.equal(snapshot.sessions.find(row => row.id === parent).path, `${path}.zst`, 'DB plain path resolves only its own compressed sibling');
+    assert.match(makePlan(snapshot, parent).problems.join('\n'), /Compressed history requires/);
+    const { batch } = await saveBatch(f, output);
+    assert.equal(batch.schemaVersion, 2);
+    assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).groups.length, 1);
+    const mutate = () => {
+      if (change === 'recompress') writeFileSync(`${path}.zst`, zstdCompressSync(raw, { params: { [zstd.ZSTD_c_checksumFlag]: 1 } }));
+      if (change === 'plain-sibling' || change === 'after-confirmation') writeFileSync(path, raw);
+      if (change === 'saved-bytes') {
+        const b = listBundles(output).find(b => b.manifest.session.id === parent);
+        writeFileSync(join(b.folder, 'rollout.jsonl.zst'), 'damaged');
+      }
+      if (change === 'new-generation') writeFileSync(join(f.home, 'sessions', `${parent}_00000000-0000-4000-8000-000000000055.jsonl.zst`), zstdCompressSync(raw));
+    };
+    if (change !== 'after-confirmation') mutate();
+    let calls = 0;
+    const result = await runSessions(['delete', '--exported', batch.id, '--in', output], { ...base,
+      ask: async prompt => { assert.equal(change, 'after-confirmation'); mutate(); return confirmPrompt(prompt); },
+      cli(args) {
+        if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+        calls++; return { status: 0 };
+      },
+    });
+    assert.ok([1, 3].includes(result), change); assert.equal(calls, 0, change);
+  }
+});
+
+test('unindexed archived compressed forks protect their live ancestor and malformed records block globally', { skip: process.versions.node !== '26.10.0' }, async t => {
+  const f = renderableFixture(t), output = exportParent(t), unknown = '00000000-0000-4000-8000-000000000088';
+  const { batch } = await saveBatch(f, output);
+  mkdirSync(join(f.home, 'archived_sessions'));
+  const path = join(f.home, 'archived_sessions', `${unknown}.jsonl.zst`);
+  const raw = JSON.stringify({ type: 'session_meta', payload: { id: unknown, history_mode: 'paginated',
+    history_base: { thread_id: parent, end_byte_offset: 1, end_ordinal_exclusive: 1 } } }) + '\n';
+  writeFileSync(path, zstdCompressSync(raw));
+  let plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.equal(plan.groups.length, 0);
+  assert.match(plan.skipped[0].problems.join('\n'), /Retain session/);
+  writeFileSync(path, zstdCompressSync(raw + '{invalid JSON}\n'));
+  plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.match(plan.problems.join('\n'), /Invalid JSON/);
+});
 
 test('exported deletion verifies that every owned rollout was removed after official success', async t => {
   for (const leaveExtra of [true, false]) {

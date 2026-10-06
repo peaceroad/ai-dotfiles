@@ -18,7 +18,7 @@ Examples of requests:
 
 ## Install the runtime and instructions separately
 
-The runtime requires Node.js 24 or later. From a user-selected ai-dotfiles checkout, inspect the installer and run:
+The runtime requires Node.js 24 or later; compressed Codex history requires reviewed Node.js 26.10.0. Existing v2 exports remain readable, and new v3 exports retain original plain/zstd files alongside searchable Markdown. From a user-selected ai-dotfiles checkout, inspect the installer and run:
 
 ```sh
 node scripts/install-agent.mjs --dry-run

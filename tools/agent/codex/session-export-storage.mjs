@@ -3,20 +3,15 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { rolloutChunks, rolloutCodec, ROLLOUT_POLICY, chargeRolloutBytes, regularFile, filesystemPath, reject, ExportError } from './session-rollout-io.mjs';
+
+export { regularFile, filesystemPath, reject, ExportError };
 
 export const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const ROLLOUT_FILENAME = /([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:_([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?\.jsonl(?:\.zst)?$/i;
-// Rust canonical paths on Windows may use the extended-length namespace.
-// Normalize only filesystem drive/UNC paths, never device namespaces.
-export function filesystemPath(path) {
-  if (process.platform !== 'win32' || typeof path !== 'string') return path;
-  if (/^\\\\\?\\[a-z]:\\/i.test(path)) return path.slice(4);
-  if (/^\\\\\?\\UNC\\/i.test(path)) return `\\\\${path.slice(8)}`;
-  return path;
-}
 export function rolloutIdentity(path) {
   const match = ROLLOUT_FILENAME.exec(basename(path));
   return match ? { thread: match[1].toLowerCase(), rollout: (match[2] ?? match[1]).toLowerCase() } : null;
@@ -24,11 +19,13 @@ export function rolloutIdentity(path) {
 export const FORMAT = 'ai-dotfiles/codex-session-export';
 export const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_CONFIG_BYTES = 64 * 1024;
-export class ExportError extends Error {}
-export const reject = message => { throw new ExportError(message); };
 export function exists(path) { try { lstatSync(path); return true; } catch (e) { if (e.code === 'ENOENT') return false; throw e; } }
 export const fingerprint = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export function snapshotDigest({ session, files, warnings, attachments, spawnEdges, sources, coverage }) {
+export function snapshotDigest(manifest) {
+  const { session, files, warnings, attachments, spawnEdges, sources, coverage } = manifest;
+  if (manifest.schemaVersion === 3) return fingerprint({ format: manifest.format, schemaVersion: 3,
+    session, files, warnings, attachments, spawnEdges, sources, coverage,
+    sourceArtifacts: manifest.sourceArtifacts, artifactSetDigest: manifest.artifactSetDigest, validation: manifest.validation });
   return fingerprint({ session, files, warnings, attachments, spawnEdges, sources, coverage });
 }
 export const HISTORY_TABLES = ['thread_turns', 'thread_items', 'thread_realtime_items', 'thread_history_projection_state'];
@@ -41,7 +38,7 @@ export function verifyIndexedHistory(manifest) {
   // Older v2 snapshots remain readable, but cannot authorize exported deletion.
   if (coverage === undefined) return;
   const history = manifest.files.find(file => file.file === 'history.jsonl');
-  const ownedFiles = manifest.files.filter(file => file.file === 'rollout.jsonl' || file.file.startsWith('rollouts/'));
+  const ownedFiles = manifest.files.filter(file => /^rollout\.jsonl(?:\.zst)?$/.test(file.file) || file.file.startsWith('rollouts/'));
   const ids = new Set([manifest.session.id.toLowerCase()]);
   if (!Array.isArray(manifest.sources)) reject('Invalid indexed history coverage.');
   const sources = new Map();
@@ -52,7 +49,7 @@ export function verifyIndexedHistory(manifest) {
   for (const file of ownedFiles) {
     const source = sources.get(file.file);
     if (!UUID.test(source?.id ?? '')
-      || (file.file !== 'rollout.jsonl' && file.file !== `rollouts/${source.id}.jsonl`)) reject('Invalid indexed history rollout inventory.');
+      || ![ 'rollout.jsonl', 'rollout.jsonl.zst', `rollouts/${source.id}.jsonl`, `rollouts/${source.id}.jsonl.zst` ].includes(file.file)) reject('Invalid indexed history rollout inventory.');
     ids.add(source.id.toLowerCase());
   }
   if (fingerprint(coverage) !== fingerprint(indexedHistoryCoverage([...ids].sort(), !!history))
@@ -94,22 +91,6 @@ export function writeExportDirectory(directory, path = configPath(), expected) {
   renameSync(temp, path);
   return true;
 }
-export function regularFile(path, root) {
-  path = filesystemPath(path); root = filesystemPath(root);
-  if (root) {
-    const rel = relative(root, path);
-    if (!rel || isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) reject('File escapes the expected directory.');
-    let part = root;
-    for (const name of rel.split(sep).slice(0, -1)) {
-      part = join(part, name);
-      const stat = lstatSync(part);
-      if (!stat.isDirectory() || stat.isSymbolicLink()) reject('Linked directory is unsupported.');
-    }
-  }
-  const stat = lstatSync(path);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) reject('Linked or non-regular file is unsupported.');
-  return stat;
-}
 function bundleMember(folder, name) {
   if (typeof name !== 'string' || !/^[a-zA-Z0-9_.\/-]+$/.test(name) || name.split('/').some(p => !p || p === '.' || p === '..')) reject('Unsafe bundle member name.');
   const path = resolve(folder, name);
@@ -130,18 +111,21 @@ export async function digestChunks(chunks, progress) {
 export async function writeVerifiedFile(source, path, progress) {
   const digest = createHash('sha256'); let bytes = 0;
   await pipeline(source, new Transform({ transform(chunk, encoding, callback) {
-    digest.update(chunk); bytes += chunk.length; progress?.(bytes); callback(null, chunk);
+    try {
+      chargeRolloutBytes('written', chunk.length);
+      digest.update(chunk); bytes += chunk.length; progress?.(bytes); callback(null, chunk);
+    } catch (error) { callback(error); }
   } }), createWriteStream(path, { flags: 'wx', mode: 0o600 }));
   const sha256 = digest.digest('hex');
   if (await digestFile(path, progress) !== sha256) reject('Export copy verification failed.');
   return { file: basename(path), bytes, sha256 };
 }
 // Bounded line parsing preserves byte offsets; never silently drop malformed records.
-export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, endByte, numberTokens = false, onChunk } = {}) {
+export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, endByte, numberTokens = false, onChunk, ...io } = {}) {
   let pieces = [], length = 0, offset = 0, line = 0;
   const decoder = new TextDecoder('utf-8', { fatal: true });
   let read = 0;
-  for await (const chunk of createReadStream(path, endByte === undefined ? {} : { end: endByte - 1 })) {
+  for await (const chunk of rolloutChunks(path, { ...io, endByte })) {
     onChunk?.(chunk);
     read += chunk.length; progress?.(read);
     let start = 0, end;
@@ -184,7 +168,8 @@ function readBundleAtRoot(root, key, manifestPresent = false) {
   if (!manifestPresent && !exists(path)) return null;
   if (regularFile(path, root).size > MAX_MANIFEST_BYTES) reject('Export manifest exceeds the supported size.');
   const manifest = JSON.parse(readFileSync(path, 'utf8'));
-  if (manifest.format !== FORMAT || manifest.schemaVersion !== 2 || manifest.complete !== true) return null;
+  if (manifest.format === FORMAT && Number.isInteger(manifest.schemaVersion) && manifest.schemaVersion > 3) reject('Unsupported export schema; update agent before reading this snapshot.');
+  if (manifest.format !== FORMAT || ![2, 3].includes(manifest.schemaVersion) || manifest.complete !== true) return null;
   if (!UUID.test(manifest.session?.id ?? '') || !Array.isArray(manifest.files) || !Number.isFinite(Date.parse(manifest.exportedAt))) reject('Invalid session export manifest.');
   return { folder, key, manifest };
 }
@@ -209,14 +194,17 @@ export async function verifyBundle(bundle, progress) {
     if (stat.size !== file.bytes) reject('Saved export failed integrity verification.');
     members.push({ path, file });
   }
-  if (!names.has('conversation.md') || !names.has('rollout.jsonl')) reject('Required export files are missing.');
+  if (!names.has('conversation.md') || !(names.has('rollout.jsonl') !== names.has('rollout.jsonl.zst'))) reject('Required export files are missing or ambiguous.');
+  if (bundle.manifest.schemaVersion === 2 && [...names].some(name => name.endsWith('.zst'))) reject('Compressed history requires export schema v3.');
   verifyIndexedHistory(bundle.manifest);
+  const verified = bundle.manifest.schemaVersion === 3 ? await verifyArtifacts(bundle, progress) : new Set();
   // Bound disk pressure and await both workers even if one fails. No background
   // verification can continue after this function returns or throws.
   let next = 0, failed = false;
   const worker = async () => {
     while (!failed && next < members.length) {
       const { path, file } = members[next++];
+      if (verified.has(file.file)) continue; // Decoder pass already verified physical SHA as well.
       try {
         if (await digestFile(path, read => progress?.(read, file.bytes)) !== file.sha256) reject('Saved export failed integrity verification.');
       } catch (error) { failed = true; throw error; }
@@ -225,4 +213,55 @@ export async function verifyBundle(bundle, progress) {
   const results = await Promise.allSettled(Array.from({ length: Math.min(2, members.length) }, worker));
   const error = results.find(result => result.status === 'rejected');
   if (error) throw error.reason;
+}
+
+export async function inspectRollout(path, root, progress, expectedOwner) {
+  const info = {};
+  let first = true;
+  for await (const { value } of jsonLines(path, { root, info, progress })) {
+    if (!first) continue;
+    first = false;
+    if (rolloutCodec(path) === 'zstd' && (value?.type !== 'session_meta' || !UUID.test(value.payload?.id ?? ''))) reject('Compressed history has no valid session metadata.');
+    if (expectedOwner && value?.type === 'session_meta' && value.payload?.id?.toLowerCase() !== expectedOwner.toLowerCase()) reject('Rollout metadata does not match its owner.');
+  }
+  if (first && rolloutCodec(path) === 'zstd') reject('Compressed history has no session metadata.');
+  return info;
+}
+
+export async function verifyArtifacts(bundle, progress) {
+  const m = bundle.manifest, artifacts = m.sourceArtifacts;
+  if (m.validation?.policy !== ROLLOUT_POLICY || m.validation.decoder !== 'node-zstd-strict'
+    || typeof m.validation.node !== 'string' || Object.keys(m.validation).some(key => !['policy', 'decoder', 'node'].includes(key))
+    || !Array.isArray(artifacts) || !artifacts.length || !Array.isArray(m.sources)
+    || m.artifactSetDigest !== fingerprint(artifacts)) reject('Invalid physical rollout coverage.');
+  const seen = new Set(), paths = new Set();
+  const members = new Map(m.files.map(file => [file.file, file]));
+  const sources = new Map();
+  for (const source of m.sources) {
+    if (!source || typeof source.file !== 'string' || sources.has(source.file)) reject('Invalid physical rollout source inventory.');
+    sources.set(source.file, source);
+  }
+  for (const artifact of artifacts) {
+    if (!artifact || typeof artifact !== 'object') reject('Invalid physical rollout inventory.');
+    const { retainedFile, retention, codec, storedBytes, storedSha256, decodedBytes, decodedSha256 } = artifact;
+    const member = members.get(retainedFile);
+    const source = sources.get(retainedFile);
+    if (seen.has(retainedFile) || !member || retention !== 'full-physical' || !UUID.test(artifact.rolloutId ?? '') || source?.id !== artifact.rolloutId
+      || artifact.threadId !== m.session.id || typeof artifact.sourcePath !== 'string'
+      || /[\\:\u0000-\u001f]/.test(artifact.sourcePath) || artifact.sourcePath.split('/').some(p => !p || p === '..' || p === '.')
+      || !/^(sessions|archived_sessions)\//i.test(artifact.sourcePath)
+      || !['identity', 'zstd'].includes(codec) || codec !== rolloutCodec(retainedFile)
+      || storedBytes !== member.bytes || storedSha256 !== member.sha256
+      || !Number.isSafeInteger(decodedBytes) || decodedBytes < 0 || !/^[0-9a-f]{64}$/.test(decodedSha256 ?? '')) reject('Invalid physical rollout inventory.');
+    const sourceId = rolloutIdentity(artifact.sourcePath);
+    if (sourceId?.thread !== artifact.threadId || sourceId?.rollout !== artifact.rolloutId
+      || rolloutCodec(artifact.sourcePath) !== codec || paths.has(artifact.sourcePath.toLowerCase())) reject('Invalid physical rollout identity.');
+    seen.add(retainedFile); paths.add(artifact.sourcePath.toLowerCase());
+    const decoded = await inspectRollout(bundleFile(bundle.folder, retainedFile), bundle.folder, read => progress?.(read, decodedBytes), artifact.threadId);
+    if (decoded.storedBytes !== storedBytes || decoded.storedSha256 !== storedSha256
+      || decoded.decodedBytes !== decodedBytes || decoded.decodedSha256 !== decodedSha256) reject('Saved decoded history failed integrity verification.');
+  }
+  const owned = m.files.filter(f => /^rollout\.jsonl(?:\.zst)?$/.test(f.file) || f.file.startsWith('rollouts/'));
+  if (owned.length !== seen.size || owned.some(f => !seen.has(f.file))) reject('Incomplete physical rollout inventory.');
+  return seen;
 }
