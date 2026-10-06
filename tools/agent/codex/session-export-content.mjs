@@ -5,11 +5,11 @@ import { createReadStream, mkdirSync, readdirSync, lstatSync, openSync, readSync
 import { createHash } from 'node:crypto';
 import { join, relative, isAbsolute, sep } from 'node:path';
 import { Readable } from 'node:stream';
-import { UUID, filesystemPath, rolloutIdentity, regularFile, writeVerifiedFile, jsonLines, reject, exists, digestFile, digestChunks } from './session-export-storage.mjs';
+import { UUID, filesystemPath, pathIdentity, rolloutIdentity, regularFile, writeVerifiedFile, jsonLines, reject, exists, digestFile, digestChunks } from './session-export-storage.mjs';
 const bytesHash = bytes => createHash('sha256').update(bytes).digest('hex');
 const ownedRolloutsByIndex = new WeakMap();
 
-function ownedRollouts(index, thread) {
+export function ownedRollouts(index, thread) {
   let owners = ownedRolloutsByIndex.get(index);
   if (!owners) {
     owners = new Map();
@@ -46,7 +46,7 @@ export function createRolloutIndex(home) {
     function visit(directory, depth = 0) {
       if (depth > 16) reject('History directory nesting is unsupported.');
       for (const entry of readdirSync(directory, { withFileTypes: true })) {
-        if (entry.isSymbolicLink()) continue;
+        if (entry.isSymbolicLink()) reject('Linked history entries are unsupported; the rollout inventory cannot be verified.');
         const path = join(directory, entry.name);
         if (entry.isDirectory()) visit(path, depth + 1);
         else if (entry.isFile()) {
@@ -74,15 +74,17 @@ export async function collectDependencies(folder, row, snapshot, getIndex, progr
   const files = [], checks = [], warnings = [];
   const seen = new Set([sources[0].id]);
   let meta = await metadata(sources[0].path, sources[0].file), base = meta?.history_base;
-  if (meta && meta.id !== row.id) reject('Rollout metadata does not match the selected session.');
+  if (meta && meta.id?.toLowerCase() !== row.id.toLowerCase()) reject('Rollout metadata does not match the selected session.');
   while (base) {
-    if (seen.size >= 128 || !UUID.test(base.thread_id ?? '') || seen.has(base.thread_id)) reject('Invalid or cyclic inherited history reference.');
+    if (seen.size >= 128 || !UUID.test(base.thread_id ?? '')) reject('Invalid or cyclic inherited history reference.');
+    const id = base.thread_id.toLowerCase();
+    if (seen.has(id)) reject('Invalid or cyclic inherited history reference.');
     if (!Number.isSafeInteger(base.end_byte_offset) || base.end_byte_offset <= 0 || !Number.isSafeInteger(base.end_ordinal_exclusive) || base.end_ordinal_exclusive < 1) reject('Invalid inherited history boundary.');
-    seen.add(base.thread_id);
-    const candidates = getIndex().get(base.thread_id.toLowerCase()) ?? [];
+    seen.add(id);
+    const candidates = getIndex().get(id) ?? [];
     // Do not choose an arbitrary duplicate or mislabel compressed bytes as JSONL.
     if (candidates.length !== 1 || candidates[0].endsWith('.zst')) {
-      warnings.push({ kind: 'history', reason: candidates.length === 0 ? 'missing-dependency' : candidates.length > 1 ? 'ambiguous-dependency' : 'compressed-dependency-unsupported', id: base.thread_id });
+      warnings.push({ kind: 'history', reason: candidates.length === 0 ? 'missing-dependency' : candidates.length > 1 ? 'ambiguous-dependency' : 'compressed-dependency-unsupported', id });
       break;
     }
     const source = candidates[0], stat = regularFile(source, snapshot.home);
@@ -92,13 +94,18 @@ export async function collectDependencies(folder, row, snapshot, getIndex, progr
       const last = Buffer.alloc(1);
       if (readSync(fd, last, 0, 1, base.end_byte_offset - 1) !== 1 || last[0] !== 10) reject('Inherited history boundary splits a record.');
     } finally { closeSync(fd); }
-    mkdirSync(join(folder, 'dependencies'), { recursive: true });
-    const file = `dependencies/${base.thread_id}.jsonl`, path = join(folder, file);
-    const saved = await writeVerifiedFile(createReadStream(source, { end: base.end_byte_offset - 1 }), path, progress);
-    if (saved.bytes !== base.end_byte_offset) reject('Inherited history changed while copying.');
+    // Revert can inherit an earlier rollout owned by this same session. Keep its
+    // whole file once; lineage validation still checks the requested prefix only.
+    const owned = rolloutIdentity(source).thread === row.id.toLowerCase();
+    const directory = owned ? 'rollouts' : 'dependencies';
+    const copyBytes = owned ? stat.size : base.end_byte_offset;
+    mkdirSync(join(folder, directory), { recursive: true });
+    const file = `${directory}/${id}.jsonl`, path = join(folder, file);
+    const saved = await writeVerifiedFile(createReadStream(source, { end: copyBytes - 1 }), path, progress);
+    if (saved.bytes !== copyBytes) reject('Inherited history changed while copying.');
     files.push({ ...saved, file });
     checks.push({ source, bytes: saved.bytes, sha256: saved.sha256, size: stat.size, modified: stat.mtimeMs });
-    sources.unshift({ path, file, id: base.thread_id, endOrdinalExclusive: base.end_ordinal_exclusive });
+    sources.unshift({ path, file, id });
     meta = await metadata(path, file);
     if (!meta || meta.id?.toLowerCase() !== rolloutIdentity(source)?.thread || meta.history_mode !== 'paginated') reject('Unsupported inherited session metadata.');
     if (meta.history_base && meta.history_base.end_ordinal_exclusive > base.end_ordinal_exclusive) reject('Inconsistent inherited history ordinals.');
@@ -107,8 +114,8 @@ export async function collectDependencies(folder, row, snapshot, getIndex, progr
   return { sources, files, checks, warnings };
 }
 export async function collectOwnedRollouts(folder, row, snapshot, getIndex, collected, progress) {
-  const extra = ownedRollouts(getIndex(), row.id).filter(path => path !== row.path).sort();
-  const metadataChecks = [];
+  const copied = new Set([pathIdentity(row.path), ...collected.checks.map(check => pathIdentity(check.source))]);
+  const extra = ownedRollouts(getIndex(), row.id).filter(path => !copied.has(pathIdentity(path))).sort();
   for (const source of extra) {
     if (source.endsWith('.zst')) reject('Additional compressed rollouts cannot be exported safely.');
     const id = rolloutIdentity(source).rollout, stat = regularFile(source, snapshot.home);
@@ -121,20 +128,6 @@ export async function collectOwnedRollouts(folder, row, snapshot, getIndex, coll
     collected.files.push({ ...saved, file });
     collected.sources.push({ path, file, id });
     collected.checks.push({ source, bytes: saved.bytes, sha256: saved.sha256, size: stat.size, modified: stat.mtimeMs });
-    if (meta.history_base) metadataChecks.push(meta.history_base);
-  }
-  for (const base of metadataChecks) {
-    if (!UUID.test(base.thread_id ?? '') || !Number.isSafeInteger(base.end_byte_offset) || base.end_byte_offset <= 0) reject('Invalid additional rollout history reference.');
-    const source = collected.sources.find(source => source.id === base.thread_id && regularFile(source.path).size >= base.end_byte_offset);
-    if (!source) {
-      collected.warnings.push({ kind: 'history', reason: 'additional-rollout-dependency-not-collected', id: base.thread_id });
-      continue;
-    }
-    const fd = openSync(source.path, 'r');
-    try {
-      const last = Buffer.alloc(1);
-      if (readSync(fd, last, 0, 1, base.end_byte_offset - 1) !== 1 || last[0] !== 10) reject('Additional inherited history boundary splits a record.');
-    } finally { closeSync(fd); }
   }
 }
 export async function checkDependencySources(checks, home, progress) {

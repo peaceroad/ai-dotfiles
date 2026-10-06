@@ -56,7 +56,7 @@ export const CODEX_TOOLS = [
     requirements: "Node.js 24. Archive/delete require Windows, PowerShell 7, and a Codex CLI with compatible commands and storage. Export is not an importable backup. macOS/Linux are not yet validated.",
     file: "manage-codex-sessions.mjs",
     actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview an operation plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion (period, UUID, or export batch)"], ["export", "e", "Export private session history"], ["config", "c", "Inspect/change export directories"], ["refresh-sidebar", "r", "Schedule a full app sidebar scan"]],
-    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-batches.mjs', 'manage-codex-processes.mjs', 'session-progress.mjs', 'session-sidebar-cache.mjs'],
+    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-batches.mjs', 'session-lineage.mjs', 'manage-codex-processes.mjs', 'session-progress.mjs', 'session-sidebar-cache.mjs'],
   },
   {
     name: "history", key: "h", title: "Saved session history",

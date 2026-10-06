@@ -4,15 +4,16 @@
 
 ## 課題の分類と現在の状態
 
-2026年10月6日時点の整理です。「実装済み」はこのリポジトリの実装と合成fixtureでの確認を指し、配布済みCLIへの反映や既存の保存物の完全性を保証するものではありません。
+2026年10月7日時点の整理です。「実装済み」はこのリポジトリの実装と合成fixtureでの確認を指し、配布済みCLIへの反映や既存の保存物の完全性を保証するものではありません。
 
 - **履歴DBの保存・照合範囲の不足：修正済み。** 非圧縮でも、セッションIDと所有rollout IDが異なると一部のDB行が対象から漏れました。合成fixtureで再現し、全所有IDとlegacy IDを対象にする修正を検証しました。
-- **フォーク履歴の境界検証：未実装の強化案。** 保存するbyte範囲と履歴上の位置の対応を共通処理で検証します。非圧縮にも適用しますが、現行実装の確定不具合や実データの不整合を再現したという意味ではありません。
-- **削除CLIの起動時更新：未実装の対策。** 削除用CLIが起動するbackground migration・compressionへの対処です。非圧縮の削除にも関わります。固定した公式コードから更新経路を確認していますが、配布CLIでの再現・抑止効果は未検証です。
-- **plainとzstdの共存時の検査漏れ：圧縮に関係する未実装の対策。** 保存後に追加された圧縮版を見落とすコード経路への防護です。圧縮readerより先に対応できます。詳細は[圧縮計画の混在形式の検証](ai-dotfiles-compressed-session-plan.md#混在形式の検証漏れを先に塞ぐ)で管理します。
+- **フォーク履歴の境界検証：plainの初期subsetを実装・合成fixture検証済み。** byte境界・整数token・連続ordinal・参照関係を共通処理で検査し、未対応schemaはraw保存と未検証警告、exported deletionの停止で扱います。公式の全record型への対応や実データの完全性を保証するものではありません。
+- **削除CLIの起動時更新：0.159.2用adapterを実装・隔離fixture検証済み。** daemonを再利用せず、migrationとcompressionを一回限りのoverrideで無効にします。未知版・remote環境は停止します。
+- **所有ファイルの検査・revert元の重複保存・削除後の確認不足：修正・合成fixture検証済み。** 自身の継承元は全体を一度だけ保存し、prefixを別途検証します。リンクを含む不完全な一覧は拒否し、保存中の追加はID集合だけでなく物理ファイル集合で検出します。公式delete後と同じバッチの再計画では、索引・所有ファイル・所有IDの履歴DB行の不在を確認します。
+- **plainとzstdの共存時の検査漏れ：停止ガード実装・合成fixture検証済み。** 圧縮版が一つでもあれば参照検査を停止し、plainだけを選んで検査済みと扱う経路を閉じました。圧縮readerは未対応です。詳細は[圧縮計画の混在形式の検証](ai-dotfiles-compressed-session-plan.md#混在形式の検証漏れを先に塞ぐ)で管理します。
 - **zstdの読取・manifest v3・圧縮削除：未実装の機能追加。** [圧縮対応計画](ai-dotfiles-compressed-session-plan.md)で管理します。
 
-添付metadata・アプリ固有sidecarの保全範囲と、停電を考慮した保存耐久性も圧縮専用の論点ではありません。これらは後述の契約上の検討事項として扱い、確認済みの消失不具合には数えません。
+**圧縮以外の全対応が完了した状態ではありません。** 通常のpaginated履歴でも、未対応のmetadata・event・context等を含むと境界検証が未検証になり、保存後の削除を停止します。対応schemaの拡張は非圧縮にも必要な機能上の残件です。添付metadata・アプリ固有sidecarの保全範囲と、停電を考慮した保存耐久性も共通の検討事項として残し、確認済みの消失不具合とは区別します。
 
 ## 根拠と用語
 
@@ -31,8 +32,10 @@
 各課題は独立した変更単位にし、完了状態は担当文書だけで管理します。この計画と圧縮計画は、実装修正とは別の文書コミットにまとめても構いません。未実装の計画をコミットすることと、機能を利用可能にすることは別の判断です。
 
 - [x] DB保全：非圧縮の合成fixtureで所有ID集合・4テーブルの保存・変更検出・旧v2互換を検証する。
-- [ ] 起動時更新：CLI代役による引数検査と、対応実CLI・隔離homeでの抑止効果を検証する。
-- [ ] 履歴境界：plainの境界fixture、未検証coverage、削除停止を検証する。
+- [x] 起動時更新：CLI代役による引数検査と、対応実CLI・隔離homeでの抑止効果を検証する。
+- [x] 履歴境界：plainの境界fixture、未検証coverage、削除停止を検証する。
+- [x] 保存・削除結果：revert元の一度だけの全体保存、同一IDを持つ物理ファイルの追加、リンクを含む一覧の拒否、再検査時の全体診断、削除後・再計画時の所有ファイルと4テーブルの残存検出を検証する。
+- [ ] 通常のpaginated履歴で必要なschemaを拡張する。公式payload定義に基づく合成fixtureを追加し、未知型の停止を維持しながら対応する保存・削除経路を通す。
 
 ## 圧縮とは独立した履歴DB保全の修正
 
@@ -78,9 +81,9 @@
 
 **削除CLI自身が、最後の照合後に履歴を更新し得る経路を先に閉じます。** 現行ai-dotfilesは [公式CLIのdeleteを呼び](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/manage-codex-sessions.mjs#L1166-L1172)、公式CLIは [app-serverを起動してからthread/deleteを実行](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/tui/src/session_archive_commands.rs#L82-L117)します。その初期化は、設定次第で [background migrationとcompressionを非同期に開始](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/core/src/thread_manager.rs#L456-L505)します。全クライアントを閉じる条件だけでは、この起動処理を防げません。
 
-最後のinventory・SHA照合後に起動workerがplainをzstdへ変換すると、新しい物理表現を保存しないまま削除する順序があり得ます。これは静的コードで確認した設計上の不足です。再現成功や消失事故を示すものではなく、一般的な検査後の競合とは分けて対処します。
+最後のinventory・SHA照合後に起動workerがplainをzstdへ変換すると、新しい物理表現を保存しないまま削除する順序があり得ます。この更新経路は固定した公式コードで確認し、0.159.2の隔離homeでも起動時圧縮を再現しました。実データの消失事故を確認したという意味ではありません。
 
-- CLI起動を共通adapterへ集約し、対応する実行ファイル・版、source-home、一回限りの設定上書き、接続方式を検査する。固定commitでは `features.local_thread_store_compression=false` と `features.background_paginated_rollout_migration=false` を `-c` で渡す方法が候補です。[overrideの読取経路](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/tui/src/session_archive_commands.rs#L237-L243)だけを根拠に、配布CLIでも効くと断定しない。
+- CLI起動を共通adapterへ集約し、対応する実行ファイル・版、source-home、一回限りの設定上書き、接続方式を検査する。採用した起動設定は `features.local_thread_store_compression=false` と `features.background_paginated_rollout_migration=false` を `-c` で渡す方式です。[overrideの読取経路](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/tui/src/session_archive_commands.rs#L237-L243)だけを根拠に、配布CLIでも効くと断定しない。
 
 - 新規のローカルapp-server起動を基本にし、既存daemon・remoteへの暗黙接続で設定やsource-homeが変わらないことを確認する。`--no-daemon` 等の対応状況・引数順も版別に検証する。固定commitの [daemon再利用の判定](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/tui/src/daemon_startup.rs#L90-L139)は、この二つのfeature overrideを再利用許可対象にしていません。
 
@@ -90,9 +93,17 @@
 
 - 実CLI互換の証拠を得られるまでは削除解禁条件を満たさない。DB・lineage・物理inventoryの検証を通ったことを、この未確認条件の代わりにしない。
 
+### 実装と互換試験
+
+`runOfficialCodex`が版・接続・overrideを共通管理します。[互換試験](../../tools/agent/codex/session-cli-compatibility.test.mjs)は`AGENT_TEST_CODEX_COMPAT=1`で明示実行し、通常のテストではskipします。0.159.2の合成homeで、coldなplainファイルの圧縮とlegacyからpaginatedへの移行をそれぞれONの対照条件で観測し、OFF条件で元bytesと設定の不変を確認しました。archive/deleteは存在しない合成UUIDを対象とします。短時間で終了するコマンドだけでは移行workerの抑止を証明できないため、移行試験では同じ配布CLIのlocal app-serverをinitializeして観測時間を確保しています。通常の単体試験では引数・home・未知版・remote拒否・実行途中の版変更を確認します。
+
 ## 圧縮とは独立した履歴境界の共通検証
 
-**plainとzstdに共通する検証の実装課題です。現行コードに確定した不具合や実データの不整合が見つかったという意味ではありません。** 現行の [依存元の検査](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/session-export-content.mjs#L67-L143)はbyte範囲、LF終端、metadataと一部のordinal関係を確認しています。「ordinal不整合を拒否する」という受入条件を実装できるよう、byte境界とordinalの対応規則をここで固定します。まず非圧縮経路で実装し、圧縮readerは展開後bytesを同じvalidatorへ渡します。
+**plainでは初期の共通validatorを実装済みで、対応schemaの拡張とzstdへの適用が残っています。** 比較元の [依存元の検査](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/session-export-content.mjs#L67-L143)はbyte範囲、LF終端、metadataと一部のordinal関係を確認するものでした。この節では、追加したbyte境界とordinalの対応規則、検証できない入力の扱いを定めます。実データのordinal不整合や消失事故を確認したという意味ではありません。今後の圧縮readerは展開後bytesを同じvalidatorへ渡します。
+
+実装は[`session-lineage.mjs`](../../tools/agent/codex/session-lineage.mjs)、境界fixtureは[`session-lineage.test.mjs`](../../tools/agent/codex/session-lineage.test.mjs)です。保存済みcoverageを信用するだけでなく、exported deletionの計画でも保存bytesから再計算します。policyは`plain-prefix-v1`です。旧v2は閲覧可能ですが、削除には新coverageを含む再exportが必要です。
+
+初期の既知schemaは基本metadataと`response_item`のmessage・function_callに限定します。metadataの追加field、event、context、その他のpayloadは未検証になる場合があります。対応型の拡張は公式のpayload定義とfixtureをそろえて行い、type名だけで検証済みにしません。通常の直接削除は保存証明を使わないため、このcoverage検査の適用先はexportと`delete --exported`です。
 
 ### 初期実装で検証する範囲
 
@@ -108,11 +119,11 @@
 
 5. offset・ordinalは元の数値表現を失わずに読み取る。初期対応は非負の10進整数tokenとJavaScriptの安全整数範囲に限定し、小数・指数表記・負数・範囲外を拒否する。加算前のoverflowも検査する。`JSON.parse` 後の `Number.isSafeInteger` だけではparse時の丸めを排除できないため、数値tokenを保持する処理を境界parserへ含める。
 
-6. N以降のrecordはprefixのordinal判定に使わず、保存対象にも混ぜない。zstdのcontainer終端検証は別の検査として最後まで行う。prefixの一致とsource全体の正常性を別々の結果として返す。
+6. N以降のrecordはprefixのordinal判定に使わない。外部祖先はNまでを保存し、同一セッション所有のrevert元は削除対象として全体を保存する。全体保存とprefixの検証は別々に扱う。zstdのcontainer終端検証は別の検査として最後まで行う。prefixの一致とsource全体の正常性を別々の結果として返す。
 
 ### 結果と既存機能への適用
 
-validatorは、policy版、参照rollout ID、N、E、B、prefixのbytes・SHA、検証結果を返す共通処理にします。名称は提案です。対応するrecordとpayload schemaはテストと同じ定義を使い、主たる依存prefixと所有追加rolloutのhistory_baseの両経路から呼びます。
+validatorは、policy版、参照rollout ID、N、E、B、prefixのbytes・SHA、検証結果を返します。対応するrecordとpayload schemaはテストと同じ定義を使い、主たる依存prefixと所有追加rolloutのhistory_baseの両経路から呼びます。境界検証中もbyte進捗を更新します。
 
 - `verified`：上記のbyte・ordinal・metadata・lineage条件をすべて満たす。plain/zstdで同じ結果になることを要求する。
 
@@ -146,7 +157,9 @@ DB修正は今後のexportと削除前照合を改善します。既に作成さ
 
 DBの構造検査が成功しても、削除前の全履歴が残っている証明にはなりません。exportは参照用の保存物であり、Codexへの再取り込みや完全復元を保証しないという[既存の保全契約](../notes/codex-session-management.md)を維持します。
 
-今後確定する共通事項は次の二つです。
+圧縮対応と分けて追跡する残件は次のとおりです。今回の不具合修正をコミットしても、これらの完了を意味しません。
+
+- **通常の履歴形式への対応拡張。** `plain-prefix-v1`の既知schemaを公式payload定義と合成fixtureに基づいて拡張する。正常なpaginated履歴を保存・検証・削除まで通す試験と、未知型や破損入力では削除しない試験を対にする。削除停止を解除するためだけに検査を省略しない。
 
 - **保全対象の範囲。** 現在対象外の添付membership metadataやアプリ固有sidecarをどこまで保存するか。圧縮計画の[フォーク履歴の境界と添付物](ai-dotfiles-compressed-session-plan.md#フォーク履歴の境界と添付物)に現行範囲と根拠をまとめています。外部添付payloadまで削除されると推測しないことが必要です。
-- **保存耐久性。** close・再読hash・renameに加えて、どこまでsyncを削除条件にするか。圧縮計画の[同時更新と途中失敗](ai-dotfiles-compressed-session-plan.md#同時更新と途中失敗)に検討条件をまとめています。読めることと、停電後にも残ることは同じ保証ではありません。
+- **保存耐久性。** close・再読hash・renameに加えて、どこまでsyncを削除条件にするか。対象OSと外付けdriveでのファイル・ディレクトリ同期、失敗時に削除を止める条件を確定し、障害fixtureで検証する。圧縮計画の[同時更新と途中失敗](ai-dotfiles-compressed-session-plan.md#同時更新と途中失敗)に検討条件をまとめています。読めることと、停電後にも残ることは同じ保証ではありません。

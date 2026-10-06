@@ -36,7 +36,7 @@ export function indexedHistoryCoverage(ids, present) {
   return { policy: 'owned-rollout-ids-v1', ids, tables: HISTORY_TABLES, present, member: present ? 'history.jsonl' : null };
 }
 
-function verifyIndexedHistory(manifest) {
+export function verifyIndexedHistory(manifest) {
   const coverage = manifest.coverage?.indexedHistory;
   // Older v2 snapshots remain readable, but cannot authorize exported deletion.
   if (coverage === undefined) return;
@@ -137,11 +137,12 @@ export async function writeVerifiedFile(source, path, progress) {
   return { file: basename(path), bytes, sha256 };
 }
 // Bounded line parsing preserves byte offsets; never silently drop malformed records.
-export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress } = {}) {
+export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, endByte, numberTokens = false, onChunk } = {}) {
   let pieces = [], length = 0, offset = 0, line = 0;
   const decoder = new TextDecoder('utf-8', { fatal: true });
   let read = 0;
-  for await (const chunk of createReadStream(path)) {
+  for await (const chunk of createReadStream(path, endByte === undefined ? {} : { end: endByte - 1 })) {
+    onChunk?.(chunk);
     read += chunk.length; progress?.(read);
     let start = 0, end;
     while ((end = chunk.indexOf(10, start)) !== -1) {
@@ -154,9 +155,17 @@ export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress }
       catch { reject(`Invalid UTF-8 in history record at line ${line}.`); }
       if (text) {
         // JSON.parse diagnostics can quote private record contents. Report only the location.
-        try { value = JSON.parse(text); }
+        const tokens = numberTokens ? new WeakMap() : null;
+        try { value = JSON.parse(text, tokens ? function(key, value, context) {
+          if (key === 'ordinal' || key === 'end_byte_offset' || key === 'end_ordinal_exclusive') {
+            let fields = tokens.get(this);
+            if (!fields) tokens.set(this, fields = {});
+            fields[key] = context?.source;
+          }
+          return value;
+        } : undefined); }
         catch { reject(`Invalid JSON in history record at line ${line}.`); }
-        yield { value, line, end: offset };
+        yield { value, line, end: offset, ...(tokens ? { numberTokens: tokens } : {}) };
       }
       pieces = []; length = 0;
       start = end + 1;

@@ -29,6 +29,11 @@
 - Keep ai-dotfiles-specific operating instructions and `codex-history` in `plugins/ai-dotfiles-cli/`. Keep `agent-plugin-tools` independently usable without that plugin or the CLI, including the minimal guidance needed to respect an existing manager. Do not duplicate CLI procedures in generic authoring references.
 - Keep CLI installation separate from skill installation. `scripts/install-agent.mjs` installs runtime files and schemas, not skills or user settings. Preserve existing standalone skills and local edits; any switch between standalone and plugin discovery is an explicit operation, not installer cleanup.
 
+## Codex session maintenance
+
+- Before changing session export or deletion, read the relevant acceptance conditions in `docs/plans/ai-dotfiles-session-preservation-plan.md` and the current contract in `docs/agent-codex.md`. Review selection, saved coverage, pre-operation checks, post-operation verification, and retry behavior together. Do not equate a rollout ID set with a physical file inventory, or an unreadable inventory with an empty one.
+- Keep regression and real CLI compatibility checks in disposable synthetic homes. A successful fake CLI or exit code alone does not establish startup safety or completed deletion. Record supported and unverified conditions separately; mark a plan complete only for the acceptance conditions actually verified. Reuse inventories within one inspection, and rebuild them at confirmation and mutation boundaries.
+
 ## Documentation layout and language
 
 - Put plugin usage and setup guidance in `plugins/<plugin>/README.md`. Keep individual skill roots free of `README.md`; keep each skill's entry-point instructions and reference-loading conditions in `SKILL.md`. Purpose-specific README files within assets or templates may remain with those resources.

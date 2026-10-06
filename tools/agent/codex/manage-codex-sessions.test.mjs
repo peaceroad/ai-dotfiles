@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, renameSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, renameSync, existsSync, symlinkSync, linkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { inspectSessions, inspectDeletionReferences, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
+import { inspectSessions, inspectDeletionReferences, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, inspectCliCompatibility, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
 import { listBundles, snapshotDigest, fingerprint, verifyBundle, HISTORY_TABLES } from './session-export-storage.mjs';
 import { listBatches, readBatch } from './session-export-batches.mjs';
 import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
@@ -167,7 +167,7 @@ test('list filtering, limits, help, and invalid arguments never invoke deletion'
 function deletionOptions(f) {
   return { home: f.home, platform: 'win32', interactive: true, log() {}, closed() {},
     ask: async () => `DELETE ${parent}`, cli: args => {
-      if (args[0] === '--version') return { status: 0, stdout: 'codex-cli 7.2.0\n' };
+      if (args[0] === '--version') return { status: 0, stdout: 'codex-cli 0.159.2\n' };
       assert.deepEqual(args, [args[0], '--help']);
       assert.ok(['archive', 'delete'].includes(args[0]));
       return { status: 0, stdout: `Usage: codex ${args[0]} [OPTIONS] <SESSION>\nOptions:\n      --force\n` };
@@ -263,17 +263,17 @@ test('official command wrapper fixes the home, passes arguments as data, and hid
     assert.equal(command, 'pwsh');
     assert.equal(options.cwd, 'fixture-home');
     assert.equal(options.env.CODEX_HOME, 'fixture-home');
-    assert.deepEqual(JSON.parse(options.env.AGENT_CODEX_SESSION_ARGS), args);
+    assert.deepEqual(JSON.parse(options.env.AGENT_CODEX_SESSION_ARGS), ['--no-daemon', '-c', 'features.local_thread_store_compression=false', '-c', 'features.background_paginated_rollout_migration=false', ...args]);
     assert.equal(options.windowsHide, true);
     assert.doesNotMatch(forwarded.at(-1), new RegExp(parent));
     return { status: 0 };
-  });
+  }, 'codex-cli 0.159.2');
 });
 
 test('Windows wrapper preserves single and multiple arguments through a fake Codex executable', { skip: process.platform !== 'win32' }, t => {
   const f = fixture(t);
   writeFileSync(join(f.home, 'codex.ps1'), 'ConvertTo-Json -Compress -InputObject @($args)\nexit 0\n');
-  for (const args of [['--version'], ['delete', parent, '--force']]) {
+  for (const args of [['--version'], ['delete', '--help']]) {
     const result = runOfficialCodex(args, f.home, (command, forwarded, options) => spawnSync(command, forwarded, {
       ...options, env: { ...options.env, PATH: `${f.home}${delimiter}${process.env.PATH}` },
     }));
@@ -289,13 +289,16 @@ test('Windows combined version guard starts deletion only for the reviewed CLI',
     ...options, env: { ...options.env, PATH: `${f.home}${delimiter}${process.env.PATH}` },
   });
   const args = ['delete', parent, '--force'];
-  let result = runOfficialCodex(args, f.home, launch, 'codex-cli 0.159.3');
+  assert.throws(() => runOfficialCodex(args, f.home, launch, 'codex-cli 0.159.3'), /startup safety/);
+  writeFileSync(join(f.home, 'codex.ps1'), `if($args[0] -eq '--version') { Write-Output 'codex-cli 0.159.3'; exit 0 }\nSet-Content -LiteralPath (Join-Path $env:CODEX_HOME 'called.txt') -Value 'fixture'\nexit 0\n`);
+  let result = runOfficialCodex(args, f.home, launch, 'codex-cli 0.159.2');
   assert.equal(result.status, 91);
   assert.match(result.stderr, /AGENT_CODEX_VERSION_GUARD/);
   assert.equal(existsSync(marker), false);
+  writeFileSync(join(f.home, 'codex.ps1'), `if($args[0] -eq '--version') { Write-Output 'codex-cli 0.159.2'; exit 0 }\nConvertTo-Json -Compress -InputObject @($args)\nSet-Content -LiteralPath (Join-Path $env:CODEX_HOME 'called.txt') -Value 'fixture'\nexit 0\n`);
   result = runOfficialCodex(args, f.home, launch, 'codex-cli 0.159.2');
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), args);
+  assert.deepEqual(JSON.parse(result.stdout), ['--no-daemon', '-c', 'features.local_thread_store_compression=false', '-c', 'features.background_paginated_rollout_migration=false', ...args]);
   assert.equal(existsSync(marker), true);
 });
 
@@ -552,7 +555,7 @@ function historyFixture(f) {
   }
   db.exec('CREATE TABLE thread_history_projection_state (thread_id TEXT, next_rollout_byte_offset INTEGER)');
   db.close();
-  f.update("UPDATE threads SET history_mode = 'paginated'");
+  // DB preservation also applies to legacy rollouts; paginated syntax is tested separately.
 }
 
 function rolloverHistoryFixture(t) {
@@ -856,13 +859,195 @@ test('empty bulk selections create no export directory and never prompt or invok
 function renderableFixture(t) {
   const f = fixture(t);
   for (const id of [parent, child, other]) writeFileSync(join(f.home, 'sessions', `${id}.jsonl`),
-    `${JSON.stringify({ type: 'session_meta', payload: { id, history_mode: 'legacy' } })}\n${JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Fixture conversation' }] } })}\n`);
+    `${JSON.stringify({ timestamp: '2000-01-01T00:00:00Z', ordinal: 0, type: 'session_meta', payload: { id, timestamp: '2000-01-01T00:00:00Z', cwd: 'fixture', originator: 'fixture', cli_version: '0.159.2', history_mode: 'legacy' } })}\n${JSON.stringify({ timestamp: '2000-01-01T00:00:00Z', ordinal: 1, type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Fixture conversation' }] } })}\n`);
   return f;
 }
+test('compressed siblings prevent deletion even when plain metadata is readable', async t => {
+  const f = renderableFixture(t);
+  writeFileSync(join(f.home, 'sessions', `${parent}.jsonl.zst`), 'synthetic compressed sibling');
+  const snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
+  assert.match(snapshot.deletionIssues.join('\n'), /compressed siblings/);
+  assert.ok(makePlan(snapshot, parent).problems.length);
+});
+
+test('linked and hard-linked unindexed history blocks deletion instead of being skipped', async t => {
+  for (const kind of ['junction', 'hard-link']) {
+    const f = renderableFixture(t), external = join(f.home, 'external');
+    mkdirSync(external);
+    const original = join(external, `${other}.jsonl`);
+    writeFileSync(original, readFileSync(join(f.home, 'sessions', `${other}.jsonl`)));
+    if (kind === 'junction') symlinkSync(external, join(f.home, 'sessions', 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
+    else linkSync(original, join(f.home, 'sessions', `extra-${other}.jsonl`));
+    const state = await inspectDeletionReferences(await inspectSessions(f.home));
+    assert.match(state.deletionIssues.join('\n'), /Linked/);
+    let mutations = 0;
+    const base = deletionOptions(f);
+    assert.equal(await runSessions(['delete', parent], { ...base, ask: () => assert.fail('Cannot confirm an incomplete inventory'), cli(args) {
+      if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+      mutations++; return { status: 0 };
+    } }), 1);
+    assert.equal(mutations, 0);
+  }
+});
+
+test('official success must remove indexed history for every owned ID from all four tables', async t => {
+  for (const retainedTable of [...HISTORY_TABLES, null]) {
+    const f = rolloverHistoryFixture(t), base = deletionOptions(f), logs = [], output = exportParent(t);
+    const { batch } = await saveBatch(f, output);
+    const result = await runSessions(['delete', parent], { ...base, log: line => logs.push(line), cli(args) {
+      if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+      for (const id of [parent, child]) f.update('DELETE FROM threads WHERE id=?', id);
+      f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id=?', parent);
+      rmSync(join(f.home, 'sessions', `${parent}_${f.rolloutId}.jsonl`));
+      rmSync(join(f.home, 'sessions', `${child}.jsonl`));
+      const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+      try {
+        for (const table of HISTORY_TABLES) for (const id of [parent, child, f.rolloutId]) {
+          if (table !== retainedTable || id !== f.rolloutId) db.prepare(`DELETE FROM ${table} WHERE thread_id=?`).run(id);
+        }
+      } finally { db.close(); }
+      return { status: 0 };
+    } });
+    assert.equal(result, retainedTable ? 1 : 0, logs.join('\n'));
+    assert.equal(logs.some(line => line.startsWith('Verified delete:')), !retainedTable);
+    if (retainedTable) assert.match(logs.join('\n'), /owned indexed history rows remain/);
+    const retry = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(retry.sessions.length, 0);
+    assert.equal(!!retry.skipped[0].alreadyAbsent, !retainedTable);
+    if (retainedTable) assert.match(retry.skipped[0].problems[0], /owned indexed history rows remain/);
+    else {
+      const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+      delete bundle.manifest.coverage.indexedHistory;
+      writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(bundle.manifest));
+      const changed = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+      assert.equal(!!changed.skipped[0].alreadyAbsent, false);
+      assert.match(changed.skipped[0].problems[0], /ownership metadata/);
+    }
+  }
+});
+
+test('absent-family DB inspection covers every family and refreshes between plans', async t => {
+  const f = renderableFixture(t), output = exportParent(t);
+  historyFixture(f);
+  const { batch } = await saveBatch(f, output, ['--before', '4w']);
+  f.update('DELETE FROM threads'); f.update('DELETE FROM thread_spawn_edges');
+  for (const id of [parent, child, other]) rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+  const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+  try {
+    for (const table of HISTORY_TABLES) db.prepare(`DELETE FROM ${table} WHERE thread_id != ?`).run(other);
+    const first = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(first.groups.length, 0);
+    assert.equal(first.skipped.find(group => group.root === parent).alreadyAbsent, true);
+    assert.match(first.skipped.find(group => group.root === other).problems[0], /owned indexed history rows remain/);
+    for (const table of HISTORY_TABLES) db.exec(`DELETE FROM ${table}`);
+    const next = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(next.groups.length, 0);
+    assert.equal(next.skipped.length, 2);
+    assert.ok(next.skipped.every(group => group.alreadyAbsent));
+  } finally { db.close(); }
+});
+
+test('new global inspection issues prevent successful post-operation verification', async t => {
+  const f = renderableFixture(t), base = deletionOptions(f), logs = [];
+  assert.equal(await runSessions(['delete', parent], { ...base, log: line => logs.push(line), cli(args) {
+    if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+    for (const id of [parent, child]) {
+      f.update('DELETE FROM threads WHERE id=?', id);
+      rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+    }
+    f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id=?', parent);
+    writeFileSync(join(f.home, 'config.toml'), 'sqlite_home = "fixture"\n');
+    return { status: 0 };
+  } }), 1);
+  assert.match(logs.join('\n'), /session state could not be verified/);
+  assert.equal(logs.some(line => line.startsWith('Verified delete:')), false);
+});
+
+test('startup feature settings are not mistaken for custom thread storage', async t => {
+  const f = fixture(t), path = join(f.home, 'config.toml');
+  writeFileSync(path, '[features]\nlocal_thread_store_compression = true\nbackground_paginated_rollout_migration = true\n');
+  assert.ok(!(await inspectSessions(f.home)).issues.some(issue => /Custom database/.test(issue)));
+  for (const key of ['sqlite_home', 'thread_store', 'experimental_thread_store', 'state_db']) {
+    writeFileSync(path, `${key} = "fixture"\n`);
+    assert.ok((await inspectSessions(f.home)).issues.some(issue => /Custom database/.test(issue)));
+  }
+});
+
+test('unverified lineage and older coverage never authorize exported deletion', async t => {
+  for (const legacyCoverage of [false, true]) {
+    const f = renderableFixture(t), output = exportParent(t);
+    if (!legacyCoverage) {
+      const path = join(f.home, 'sessions', `${parent}.jsonl`);
+      writeFileSync(path, readFileSync(path, 'utf8').replace('"history_mode":"legacy"', '"history_mode":"paginated"')
+        + JSON.stringify({ timestamp: '2000-01-01T00:00:00Z', ordinal: 2, type: 'future', payload: {} }) + '\n');
+    }
+    const { batch } = await saveBatch(f, output);
+    if (legacyCoverage) {
+      const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+      delete bundle.manifest.coverage.lineage;
+      bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
+      writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(bundle.manifest));
+      // Old bundles stay readable; receipt mismatch still prevents deletion.
+      await verifyBundle(bundle);
+    }
+    const base = deletionOptions(f);
+    let mutations = 0;
+    assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], { ...base,
+      ask: () => assert.fail('No deletion confirmation for unverified history'), cli(args) {
+        if (args[0] === 'delete' && args[1] !== '--help') mutations++;
+        return base.cli(args);
+      } }), 3);
+    assert.equal(mutations, 0);
+  }
+});
+
+test('remote environment cannot invoke official maintenance', () => {
+  const prior = process.env.CODEX_EXEC_SERVER_URL;
+  try {
+    process.env.CODEX_EXEC_SERVER_URL = 'http://127.0.0.1:1';
+    const calls = [];
+    assert.throws(() => inspectCliCompatibility('delete', tmpdir(), args => {
+      calls.push(args); return { status: 0, stdout: 'codex-cli 0.159.2' };
+    }), /Remote execution/);
+    assert.deepEqual(calls, [['--version']]);
+    assert.throws(() => runOfficialCodex(['delete', parent, '--force'], tmpdir(), () => assert.fail(), 'codex-cli 0.159.2'), /Remote execution/);
+  } finally {
+    if (prior === undefined) delete process.env.CODEX_EXEC_SERVER_URL;
+    else process.env.CODEX_EXEC_SERVER_URL = prior;
+  }
+});
 async function saveBatch(f, output, selection = [parent]) {
   const snapshot = await inspectSessions(f.home);
   return exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', ...selection])), output, { log() {} });
 }
+
+test('exported deletion verifies that every owned rollout was removed after official success', async t => {
+  for (const leaveExtra of [true, false]) {
+    const f = renderableFixture(t), output = exportParent(t), logs = [], base = deletionOptions(f);
+    const extra = join(f.home, 'sessions', `${parent}_00000000-0000-4000-8000-000000000004.jsonl`);
+    writeFileSync(extra, readFileSync(join(f.home, 'sessions', `${parent}.jsonl`)));
+    const { batch } = await saveBatch(f, output);
+    const result = await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...base, ask: confirmPrompt, log: line => logs.push(line), cli(args) {
+        if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+        for (const id of [parent, child]) {
+          f.update('DELETE FROM threads WHERE id=?', id);
+          rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+        }
+        f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id=?', parent);
+        if (!leaveExtra) rmSync(extra);
+        return { status: 0 };
+      },
+    });
+    assert.equal(result, leaveExtra ? 1 : 0, logs.join('\n'));
+    assert.equal(logs.some(line => line.startsWith('Verified delete:')), !leaveExtra);
+    if (leaveExtra) assert.match(logs.join('\n'), /descendant verification is incomplete/);
+    const retry = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(retry.sessions.length, 0);
+    assert.equal(!!retry.skipped[0].alreadyAbsent, !leaveExtra);
+    if (leaveExtra) assert.match(retry.skipped[0].problems[0], /owned rollout files remain/);
+  }
+});
 async function previewToken(f, args) {
   const output = [];
   assert.equal(await runSessions(['plan', ...args], { home: f.home, interactive: false, log: line => output.push(line), cli: () => assert.fail(), ask: () => assert.fail() }), 0);
@@ -891,6 +1076,8 @@ test('four-week export followed by deletion removes eligible fork and parent in 
   const lines = readFileSync(fork, 'utf8').trimEnd().split('\n');
   const meta = JSON.parse(lines[0]);
   meta.payload.history_base = { thread_id: parent, end_ordinal_exclusive: 2, end_byte_offset: Buffer.byteLength(raw) };
+  meta.ordinal = 2;
+  lines[1] = JSON.stringify({ ...JSON.parse(lines[1]), ordinal: 3 });
   lines[0] = JSON.stringify(meta);
   writeFileSync(fork, `${lines.join('\n')}\n`);
   assert.equal(await runSessions(['export', '--before', '4w', '--output', output, '--after', 'review-delete'], {
@@ -918,7 +1105,7 @@ test('incompletely exported forks also retain their otherwise fully exported par
   const path = join(f.home, 'sessions', `${parent}.jsonl`);
   const raw = readFileSync(path, 'utf8').replace('"history_mode":"legacy"', '"history_mode":"paginated"');
   writeFileSync(path, raw);
-  const meta = { type: 'session_meta', payload: { id: other, history_base: {
+  const meta = { type: 'session_meta', payload: { id: other, history_mode: 'legacy', history_base: {
     thread_id: parent, end_ordinal_exclusive: 2, end_byte_offset: Buffer.byteLength(raw),
   } } };
   writeFileSync(join(f.home, 'sessions', `${other}.jsonl`), `${JSON.stringify(meta)}\n${JSON.stringify({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'local_image', path: join(f.home, 'external.png') }] } })}\n`);
@@ -1104,6 +1291,7 @@ test('batch deletion stops when a remaining family history changes after the fir
     for (const id of [parent, child]) { f.update('DELETE FROM threads WHERE id = ?', id); rmSync(join(f.home, 'sessions', `${id}.jsonl`)); }
     f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id = ?', parent);
     const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+    for (const table of HISTORY_TABLES) for (const id of [parent, child]) db.prepare(`DELETE FROM ${table} WHERE thread_id=?`).run(id);
     db.prepare('UPDATE thread_items SET item_json = ? WHERE thread_id = ?').run('changed remaining history', other); db.close();
     return { status: 0 };
   } }), 1);

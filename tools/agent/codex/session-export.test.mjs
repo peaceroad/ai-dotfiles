@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, statSync, utimesSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -10,9 +10,9 @@ import { runHistory, parseHistoryArgs } from './manage-codex-history.mjs';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const ancestor = '00000000-0000-4000-8000-000000000002';
-const line = value => `${JSON.stringify(value)}\n`;
-const meta = (id, history_base) => ({ type: 'session_meta', payload: { id, history_mode: 'paginated', ...(history_base ? { history_base } : {}) } });
-const msg = (text, extra = []) => ({ type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text }, ...extra] } });
+const line = value => `${JSON.stringify({ timestamp: "2000-01-01T00:00:00Z", ...value })}\n`;
+const meta = (id, history_base) => ({ type: 'session_meta', ordinal: history_base?.end_ordinal_exclusive ?? 0, payload: { id, timestamp: '2000-01-01T00:00:00Z', cwd: 'fixture', originator: 'fixture', cli_version: '0.159.2', history_mode: 'paginated', ...(history_base ? { history_base } : {}) } });
+const msg = (text, extra = [], ordinal = 1) => ({ type: 'response_item', ordinal, payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text }, ...extra] } });
 function setup(t) {
   const root = mkdtempSync(join(tmpdir(), 'codex-export-fixture-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -50,7 +50,7 @@ test('inherited history resolves a rollout ID distinct from its session ID', asy
   const f = setup(t), alias = '00000000-0000-4000-8000-000000000004';
   const raw = line(meta(ancestor)) + line(msg('Inherited fixture'));
   writeFileSync(join(f.home, 'sessions', `rollout-2000-01-01T00-00-00-${ancestor}_${alias}.jsonl`), raw);
-  writeFileSync(f.path, line(meta(id, { thread_id: alias, end_ordinal_exclusive: 2, end_byte_offset: Buffer.byteLength(raw) })) + line(msg('Fork fixture')));
+  writeFileSync(f.path, line(meta(id, { thread_id: alias, end_ordinal_exclusive: 2, end_byte_offset: Buffer.byteLength(raw) })) + line(msg('Fork fixture', [], 3)));
   const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
   for (const table of ['thread_items', 'thread_turns', 'thread_realtime_items', 'thread_history_projection_state']) {
     db.prepare(`INSERT INTO ${table} VALUES (?, 1, ?)`).run(alias, 'ancestor DB history outside the owned set');
@@ -68,13 +68,65 @@ test('inherited history resolves a rollout ID distinct from its session ID', asy
   assert.equal(history.trim().split('\n').length, 4);
 });
 
-test('an owned rollout added during export prevents publication', async t => {
-  const f = setup(t), extra = '00000000-0000-4000-8000-000000000005';
-  await assert.rejects(f.save({ inspect: async () => {
-    writeFileSync(join(f.home, 'sessions', `${id}_${extra}.jsonl`), line(meta(id)));
-    return f.snapshot();
-  } }), /Owned rollout IDs changed during export/);
+test('revert history retains an owned ancestor once in full and verifies only the referenced prefix', async t => {
+  const f = setup(t), alias = 'aaaaaaaa-0000-4000-8000-000000000004';
+  const prefix = line(meta(id)) + line(msg('Inherited prefix'));
+  const full = prefix + line(msg('Retained suffix', [], 2));
+  writeFileSync(join(f.home, 'sessions', `${id}_${alias}.jsonl`), full);
+  const base = { thread_id: alias.toUpperCase(), end_ordinal_exclusive: 2, end_byte_offset: Buffer.byteLength(prefix) };
+  writeFileSync(f.path, line(meta(id, base)) + line(msg('Reverted history', [], 3)));
+  assert.equal((await f.save()).partial, false);
+  const [bundle] = listBundles(f.output);
+  await verifyBundle(bundle);
+  assert.deepEqual(bundle.manifest.sources.map(source => source.id), [alias, id]);
+  assert.equal(readFileSync(bundleFile(bundle.folder, `rollouts/${alias}.jsonl`), 'utf8'), full);
+  assert.equal(bundle.manifest.files.some(file => file.file.startsWith('dependencies/')), false);
+  assert.deepEqual(bundle.manifest.coverage.indexedHistory.ids, [id, alias].sort());
+  const lineage = bundle.manifest.coverage.lineage;
+  assert.equal(lineage.status, 'verified');
+  assert.equal(lineage.rollouts.find(rollout => rollout.id === alias).endOrdinal, 3);
+  assert.equal(lineage.boundaries[0].endByte, Buffer.byteLength(prefix));
+  assert.equal(lineage.boundaries[0].endOrdinal, 2);
+  assert.equal((readFileSync(join(bundle.folder, 'conversation.md'), 'utf8').match(/Inherited prefix/g) ?? []).length, 1);
+  assert.match(readFileSync(join(bundle.folder, 'conversation.md'), 'utf8'), /Retained suffix/);
+  writeFileSync(f.path, line(meta(id, { ...base, end_ordinal_exclusive: 3 })) + line(msg('Invalid boundary', [], 4)));
+  await assert.rejects(f.save(), /byte boundary and ordinal boundary disagree/);
+  assert.equal(listBundles(f.output).length, 1);
+});
+
+test('new physical rollouts prevent publication even when their ID already exists', async t => {
+  for (const extra of [id, '00000000-0000-4000-8000-000000000005']) {
+    const f = setup(t);
+    await assert.rejects(f.save({ inspect: async () => {
+      writeFileSync(join(f.home, 'sessions', `${id}_${extra}.jsonl`), line(meta(id)));
+      return f.snapshot();
+    } }), /Owned rollout files changed during export/);
+    assert.deepEqual(listBundles(f.output), []);
+  }
+});
+
+test('linked history directories cannot be silently omitted from an export', async t => {
+  const f = setup(t), external = join(f.root, 'external');
+  mkdirSync(external);
+  symlinkSync(external, join(f.home, 'sessions', 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(f.save(), /Linked history entries/);
   assert.deepEqual(listBundles(f.output), []);
+});
+
+test('new global inspection issues prevent publication even when selected session metadata is unchanged', async t => {
+  const f = setup(t);
+  await assert.rejects(f.save({ inspect: () => ({ ...f.snapshot(), exportIssues: ['Unknown state database version.'] }) }), /Source state could not be revalidated/);
+  assert.deepEqual(listBundles(f.output), []);
+});
+
+test('Windows path casing does not duplicate the current owned rollout', { skip: process.platform !== 'win32' }, async t => {
+  const f = setup(t), snapshot = f.snapshot();
+  snapshot.sessions[0].path = snapshot.sessions[0].path.toUpperCase();
+  await exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', id])), f.output, { inspect: () => snapshot, log() {} });
+  const [bundle] = listBundles(f.output);
+  await verifyBundle(bundle);
+  assert.equal(bundle.manifest.sources.length, 1);
+  assert.equal(bundle.manifest.sources[0].file, 'rollout.jsonl');
 });
 
 test('a fresh export inventory includes newly added rollouts without stale ownership caching', async t => {
@@ -125,7 +177,7 @@ test('empty and noncanonical embedded media preserve raw history and publish exp
   ])) + line(msg('Invalid and valid attachments', [
     { type: 'input_audio', audio_url: 'data:audio/wav;base64,Zh==' },
     { type: 'input_image', image_url: `data:image/png;base64,${data}` },
-  ]));
+  ], 2));
   writeFileSync(f.path, raw);
   const result = await f.save({ log: text => logs.push(text) });
   assert.equal(result.partial, true); assert.equal(result.batch.entries.length, 1);
@@ -152,7 +204,7 @@ test('fatal record errors identify the session, phase, relative source and line 
   const f = setup(t), logs = [];
   writeFileSync(f.path, line(meta(id)) + line(msg('Valid message')) + 'SYNTHETIC PRIVATE JSON CONTENT\n');
   await assert.rejects(f.save({ log: text => logs.push(text) }), error => {
-    assert.match(error.message, new RegExp(`session ${id}; phase render conversation and attachments; source rollout\\.jsonl`));
+    assert.match(error.message, new RegExp(`session ${id}; phase validate history boundaries; source rollout\\.jsonl`));
     assert.match(error.message, /Invalid JSON in history record at line 3/);
     assert.doesNotMatch(error.message, /SYNTHETIC PRIVATE|codex-export-fixture/);
     return true;
@@ -248,7 +300,7 @@ test('inherited history copies only the referenced byte prefix and remains porta
   const f = setup(t);
   const prefix = line(meta(ancestor)) + line(msg('inherited keyword'));
   writeFileSync(join(f.home, 'sessions', `${ancestor}.jsonl`), prefix + line(msg('PRIVATE LATER SIBLING CONTENT')));
-  writeFileSync(f.path, line(meta(id, { thread_id: ancestor, end_byte_offset: Buffer.byteLength(prefix), end_ordinal_exclusive: 2 })) + line(msg('own message')));
+  writeFileSync(f.path, line(meta(id, { thread_id: ancestor, end_byte_offset: Buffer.byteLength(prefix), end_ordinal_exclusive: 2 })) + line(msg('own message', [], 3)));
   const result = await f.save(); assert.equal(result.partial, false);
   const [bundle] = listBundles(f.output);
   const dependency = bundle.manifest.files.find(file => file.file.startsWith('dependencies/'));

@@ -65,7 +65,7 @@ export async function openHistoryReader(home, sessions) {
   const path = join(home, 'thread_history_1.sqlite');
   let db;
   try {
-    let version, queries = [];
+    let version, queries = [], rowQueries;
     if (exists(path)) {
       regularFile(path, home);
       const { DatabaseSync } = await import('node:sqlite');
@@ -88,13 +88,22 @@ export async function openHistoryReader(home, sessions) {
       });
     }
     if (sessions.some(row => !['legacy', 'paginated'].includes(row.historyMode) || (row.historyMode === 'paginated' && !db))) reject('Indexed history is required for paginated sessions; operation stopped.');
+    const selectedIds = ids => {
+      if (!Array.isArray(ids) || !ids.length || ids.some(id => !UUID.test(id))) reject('Invalid indexed history ID set.');
+      return [...new Set(ids.map(id => id.toLowerCase()))].sort();
+    };
     return { present: !!db,
       *lines(ids) {
-        if (!Array.isArray(ids) || !ids.length || ids.some(id => !UUID.test(id))) reject('Invalid indexed history ID set.');
-        const selected = [...new Set(ids.map(id => id.toLowerCase()))].sort();
+        const selected = selectedIds(ids);
         for (const [table, query] of queries) for (const id of selected) {
           for (const row of query.iterate(id)) yield `${JSON.stringify({ table, row })}\n`;
         }
+      },
+      hasRows(ids) {
+        const selected = selectedIds(ids);
+        // Absence checks need neither payload decoding nor export ordering.
+        rowQueries ??= queries.map(([table]) => db.prepare(`SELECT 1 FROM ${table} WHERE thread_id = ? LIMIT 1`));
+        return rowQueries.some(query => selected.some(id => query.get(id) !== undefined));
       },
       check() {
         if (db) {

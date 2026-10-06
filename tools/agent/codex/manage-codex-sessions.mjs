@@ -8,8 +8,9 @@ import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines } from './session-export-storage.mjs';
-import { collectDependencies, collectOwnedRollouts, ownedHistoryIds, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
+import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, regularFile, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, verifyIndexedHistory, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines } from './session-export-storage.mjs';
+import { collectDependencies, collectOwnedRollouts, ownedRollouts, ownedHistoryIds, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
+import { LINEAGE_POLICY, validateSavedLineage } from './session-lineage.mjs';
 import { writeBatch, readBatch, listBatches, sourceIdentity, openHistoryReader } from './session-export-batches.mjs';
 import { ProcessError, assertClientsClosed as checkClientsClosed } from './manage-codex-processes.mjs';
 import { createProgress } from './session-progress.mjs';
@@ -150,8 +151,10 @@ Titles can contain private information; review output before sharing it.
 Requires Node.js 24 with node:sqlite and the reviewed state_5.sqlite layout.
 CODEX_HOME is respected (default: ~/.codex). Custom SQLite locations are unsupported.
 Archive/delete require Windows, PowerShell 7, and a compatible Codex CLI.
-CLI versions are not allowlisted. Before reading history, the installed CLI must report
-its version and advertise the selected command with <SESSION> and, for delete, --force.
+Archive/delete startup is verified for codex-cli 0.159.2 only; unknown versions stop.
+The local invocation disables daemon reuse, background migration and compression without
+changing config. Remote execution environments are unsupported. The CLI must also advertise
+the selected command with <SESSION> and, for delete, --force.
 Required storage columns and protection data must remain readable; unknown formats block operations.
 Fully close all Codex/ChatGPT clients, IDE integrations, and background writers first.
 Use agent codex process status to inspect blockers; close/stop require separate terminal confirmation.
@@ -162,6 +165,8 @@ Structured references within CODEX_HOME/attachments are collected automatically.
 are not followed. External local media require --attachments-from <directory> (current bytes,
 not necessarily historical originals).
 Coverage warnings remain visible; export completion does not imply full history or attachment recovery.
+Paginated/inherited history needs verified byte/ordinal coverage before exported deletion.
+Unknown schemas are saved with a lineage warning and excluded from exported deletion.
 Warnings identify the session, reason, and first source record; manifests retain every warning.
 Preparation is shown as progress; Saved marks a published snapshot; Export batch marks its receipt.
 No project copy, network downloads, import, or restore. Use agent codex history to read saved exports.
@@ -182,8 +187,11 @@ Progress updates one line in a terminal; redirected logs report phase boundaries
 one intermediate update per 30 seconds. Warnings and completed results remain as ordinary lines.
 The output parent must exist, outside CODEX_HOME and outside Git repositories. Originals stay intact.
 No --force/--yes bypass, automatic retry, direct source-file deletion, or source database repair.
+Deletion success requires absent index entries, owned rollouts and owned indexed history rows.
+An unreadable inventory or unknown post-operation state cannot establish success. Rechecking an absent
+exported family also requires intact ownership metadata; residual data or missing evidence is reported.
 Exit codes: 0 completed/cancelled, 1 blocked/failed, 2 invalid arguments,
-3 export coverage warnings, excluded deletion families, or a sidebar refresh issue (already absent is not a warning).`);
+3 export coverage warnings, excluded deletion families, or a sidebar refresh issue (verified absence is not a warning).`);
 }
 
 export function parseSessionArgs(args, now = Date.now()) {
@@ -303,7 +311,7 @@ export async function inspectSessions(home, { progress = () => {} } = {}) {
     } catch (error) { protectionIssues.push(`Queued input protection could not be inspected (${errorTag(error)}).`); }
   }
   for (const name of ['config.toml', 'requirements.toml']) {
-    if (exists(join(home, name)) && /sqlite_home|thread_store|state_db/.test(readFileSync(join(home, name), 'utf8'))) {
+    if (exists(join(home, name)) && /\b(?:sqlite_home|(?:experimental_)?thread_store|state_db)\b/.test(readFileSync(join(home, name), 'utf8'))) {
       issues.push('Custom database configuration needs manual review.');
     }
   }
@@ -431,11 +439,11 @@ export async function inspectDeletionReferences(snapshot, { progress = () => {} 
   const owners = new Map(snapshot.sessions.map(row => [rolloutIdentity(row.path)?.rollout ?? row.id, row.id]));
   const indexedPaths = new Map(snapshot.sessions.map(row => [row.id, row.path]));
   const deletionIssuesBySession = new Map();
-  let inspectingId;
+  let inspectingId, deletionRollouts;
   try {
     // Scan both history directories, including rollouts absent from the state index.
     // history_base identifies a rollout; forked_from_id alone does not imply a dependency.
-    const rollouts = createRolloutIndex(snapshot.home)();
+    const rollouts = deletionRollouts = createRolloutIndex(snapshot.home)();
     for (const [id, paths] of rollouts) for (const path of paths) {
       const identity = rolloutIdentity(path);
       if (indexedPaths.has(identity.thread)) owners.set(id, identity.thread);
@@ -444,9 +452,9 @@ export async function inspectDeletionReferences(snapshot, { progress = () => {} 
     progress('Inspect fork history references', 0, rollouts.size);
     for (const [rolloutId, paths] of rollouts) {
       inspectingId = rolloutId;
-      const plain = paths.filter(path => path.endsWith('.jsonl'));
-      if (!plain.length) fail('Compressed fork history cannot be inspected; deletion is blocked.');
-      for (const path of plain) {
+      if (paths.some(path => !path.endsWith('.jsonl'))) fail('Compressed fork history cannot be inspected, including compressed siblings of plain files; deletion is blocked.');
+      for (const path of paths) {
+        regularFile(path, snapshot.home);
         for await (const { value } of jsonLines(path, { maxLine: 4 * 1024 * 1024 })) {
           const identity = rolloutIdentity(path);
           if (value.type === 'session_meta' && value.payload?.id?.toLowerCase() !== identity.thread) fail('Rollout metadata does not match its filename; deletion is blocked.');
@@ -471,7 +479,7 @@ export async function inspectDeletionReferences(snapshot, { progress = () => {} 
     issues.push(`Fork history references could not be inspected${inspectingId ? ` for rollout ${inspectingId}` : ''}: ${reason}; deletion is blocked.`);
   }
   references.sort((a, b) => a.target.localeCompare(b.target) || a.rollout.localeCompare(b.rollout) || a.source.localeCompare(b.source));
-  return { ...snapshot, deletionReferences: references, deletionIssues: issues, deletionIssuesBySession };
+  return { ...snapshot, deletionReferences: references, deletionIssues: issues, deletionIssuesBySession, deletionRollouts };
 }
 
 function indexSnapshot(snapshot) {
@@ -719,6 +727,11 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       progress.phase('Collect inherited history', prepared, plan.sessions.length);
       const inherited = await collectDependencies(folder, row, snapshot, getIndex, read => progress.bytes(read));
       await collectOwnedRollouts(folder, row, snapshot, getIndex, inherited, read => progress.bytes(read));
+      context.phase = 'validate history boundaries';
+      progress.phase('Validate history boundaries', prepared, plan.sessions.length);
+      const lineage = await validateSavedLineage(folder, inherited.sources, row.id, row.historyMode, (read, size) => progress.bytes(read, size));
+      if (lineage.status !== 'verified') inherited.warnings.push({ kind: 'history', reason: 'lineage-boundary-unverified',
+        message: 'Raw history is saved, but its schemas, ordinals or inherited dependencies could not be fully verified. Exported deletion is blocked.' });
       stage.checks = inherited.checks;
       context.phase = 'render conversation and attachments';
       progress.phase('Render conversation and attachments', prepared, plan.sessions.length);
@@ -747,7 +760,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       stage.manifest = { format: FORMAT, schemaVersion: 2, complete: true, restorable: false,
         exportedAt: new Date().toISOString(), session, files,
         coverage: { history: inherited.warnings.length ? 'partial' : 'collected', attachments: 'supported-inputs-only', conversation: 'record-view-not-exact-ui',
-          indexedHistory: indexedHistoryCoverage(historyIds, reader.present) },
+          indexedHistory: indexedHistoryCoverage(historyIds, reader.present), lineage },
         sources: inherited.sources.map(({ path, ...source }) => source), attachments: rendered.attachments, warnings,
         spawnEdges };
       stage.manifest.contentDigest = snapshotDigest(stage.manifest);
@@ -756,6 +769,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
     context.session = null; context.phase = 'revalidate source state';
     progress.phase('Reinspect source session metadata');
     const fresh = await inspect(snapshot.home, { progress: (label, done, total) => progress.phase(label, done, total) });
+    if ((fresh.exportIssues ?? fresh.issues).length) fail('Source state could not be revalidated; inspect storage configuration and protection diagnostics before exporting again.');
     const freshRollouts = createRolloutIndex(snapshot.home);
     reader.check();
     const index = indexSnapshot(fresh);
@@ -767,7 +781,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
     for (const stage of staged) {
       progress.phase('Reverify source exports', verified, staged.length);
       context.session = stage.manifest.session.id; context.phase = 'verify source rollout';
-      if (hash(ownedHistoryIds({ id: stage.manifest.session.id, path: stage.source.path }, freshRollouts)) !== hash(stage.manifest.coverage.indexedHistory.ids)) fail('Owned rollout IDs changed during export.');
+      if (hash(ownedRollouts(getIndex(), stage.manifest.session.id).toSorted()) !== hash(ownedRollouts(freshRollouts(), stage.manifest.session.id).toSorted())) fail('Owned rollout files changed during export.');
       if (await digestFile(stage.source.path, read => progress.bytes(read)) !== stage.source.sha256) fail('Source rollout content changed during export.');
       context.phase = 'verify inherited history';
       await checkDependencySources(stage.checks, snapshot.home, read => progress.bytes(read));
@@ -837,13 +851,16 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
   if (batch.source !== sourceIdentity(snapshot.home)) fail('Export batch belongs to a different Codex home.');
   const entries = new Map(batch.entries.map(entry => [entry.id, entry]));
   const groups = [], skipped = [];
+  let absentHistory;
   const progress = createProgress(log);
   log = progress.log;
   try {
     if (!snapshot.deletionReferences) snapshot = await inspectDeletionReferences(snapshot,
       { progress: (label, done, total) => progress.phase(label, done, total) });
     const index = indexSnapshot(snapshot);
-    const getIndex = createRolloutIndex(snapshot.home);
+    // The reference scan just built this inventory. Reuse only within this fresh
+    // snapshot; each inspection after confirmation or mutation rebuilds it.
+    const getIndex = snapshot.deletionRollouts ? () => snapshot.deletionRollouts : createRolloutIndex(snapshot.home);
     index.verifyOwnedRollouts = true;
     index.checkExternalReferences = false;
     const selected = onlyRoot ? batch.groups.filter(group => group.root === onlyRoot) : batch.groups;
@@ -851,8 +868,26 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
     progress.phase('Verify exported deletion families', 0, selected.length);
     for (const saved of selected) {
       const present = saved.ids.filter(id => index.byId.has(id));
-      if (!present.length) { skipped.push({ root: saved.root, alreadyAbsent: true, problems: ['Already absent from the local index.'] }); progress.phase('Verify exported deletion families', ++checked, selected.length); continue; }
       try {
+        if (!present.length) {
+          const remaining = saved.ids.filter(id => ownedRollouts(getIndex(), id).length);
+          if (remaining.length) fail(`Absent from the local index, but owned rollout files remain for session(s): ${remaining.join(', ')}. Review residual history; deletion is not verified.`);
+          // This branch authorizes no mutation. Digest-bound ownership metadata
+          // suffices to query residual DB rows without rehashing saved bodies.
+          const ids = saved.ids.flatMap(id => {
+            const entry = entries.get(id), bundle = readBundle(directory, entry.key);
+            if (!bundle || bundle.manifest.session.id !== id || bundle.manifest.contentDigest !== entry.digest
+              || snapshotDigest(bundle.manifest) !== entry.digest || !bundle.manifest.coverage?.indexedHistory) {
+              fail('Absent from the local index, but saved ownership metadata is unavailable or changed; indexed history absence cannot be verified.');
+            }
+            verifyIndexedHistory(bundle.manifest);
+            return bundle.manifest.coverage.indexedHistory.ids;
+          });
+          absentHistory ??= await openHistoryReader(snapshot.home, []);
+          if (absentHistory.hasRows(ids)) fail('Absent from the local index, but owned indexed history rows remain. Review residual history; deletion is not verified.');
+          skipped.push({ root: saved.root, alreadyAbsent: true, problems: ['Already absent from the local index; no owned rollout files or indexed history rows remain.'] });
+          continue;
+        }
         const exported = makePlan(snapshot, saved.root, 'export', index);
         if (exported.fingerprint !== saved.fingerprint) fail('Source session metadata or descendant membership changed after export.');
         const group = makePlan(snapshot, saved.root, 'delete', index);
@@ -873,7 +908,13 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
             for (const warning of warnings) if (warning.reason === 'local-reference-missing-at-export') {
               if (typeof warning.source !== 'string' || !isAbsolute(warning.source) || exists(warning.source)) fail('A previously absent attachment is now present or its absence evidence is invalid; export again before deletion.');
             }
+            const savedLineage = bundle.manifest.coverage?.lineage;
+            // Missing/unsupported coverage can only reject a candidate. Eligible candidates
+            // still require all file hashes and a fresh semantic boundary calculation.
+            if (savedLineage?.policy !== LINEAGE_POLICY || savedLineage.status !== 'verified') fail('Export lacks verified history boundary coverage; export again with supported history records before deletion.');
             await verifyBundle(bundle, (read, size) => progress.bytes(read, size));
+            const lineage = await validateSavedLineage(bundle.folder, bundle.manifest.sources, row.id, row.historyMode, (read, size) => progress.bytes(read, size));
+            if (hash(lineage) !== hash(savedLineage)) fail('Saved history boundary coverage does not match the saved records; export again before deletion.');
             for (const source of snapshot.deletionIssuesBySession?.get(row.id) ?? []) {
               const file = bundle.manifest.files.find(file => file.file === `rollouts/${rolloutIdentity(source).rollout}.jsonl`);
               if (!file || await digestFile(source, read => progress.bytes(read, file.bytes)) !== file.sha256) fail('Additional rollout is missing from the export or changed after export.');
@@ -888,16 +929,16 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
         groups.push(group);
       } catch (error) {
         skipped.push({ root: saved.root, problems: [error instanceof SessionError || error instanceof ExportError ? error.message : 'Export verification failed; inspect saved files and source state.'] });
-      }
-      progress.phase('Verify exported deletion families', ++checked, selected.length);
+      } finally { progress.phase('Verify exported deletion families', ++checked, selected.length); }
     }
+    absentHistory?.check();
     groups.splice(0, groups.length, ...orderDeletionGroups(snapshot, groups, skipped));
     const sessions = groups.flatMap(group => group.sessions), problems = [...snapshot.issues, ...(snapshot.deletionIssues ?? [])];
     if (new Set(sessions.map(row => row.id)).size !== sessions.length) problems.push('Overlapping descendant groups.');
     return { operation: 'delete', groups, sessions, problems, skipped, batchDigest: batch.digest,
       size: groups.reduce((sum, group) => sum + group.size, 0),
       fingerprint: hash({ batch: batch.digest, groups: groups.map(group => group.fingerprint), skipped, problems }) };
-  } finally { progress.clear(); }
+  } finally { absentHistory?.close(); progress.clear(); }
 }
 
 // Only the reviewed Windows process check and CLI invocation are enabled for archive/delete.
@@ -907,9 +948,14 @@ export function assertClientsClosed({ platform = process.platform, spawn = spawn
 }
 
 export function runOfficialCodex(args, home, spawn = spawnSync, expectedVersion) {
+  if (['archive', 'delete'].includes(args[0]) && args[1] !== '--help') {
+    assertMaintenanceCli(expectedVersion);
+    args = ['--no-daemon', '-c', 'features.local_thread_store_compression=false',
+      '-c', 'features.background_paginated_rollout_migration=false', ...args];
+  }
   // Fixed command name and validated UUID only; no user strings are interpolated into shell code.
   return spawn('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
-    "$ErrorActionPreference='Stop'; $arguments=@(ConvertFrom-Json $env:AGENT_CODEX_SESSION_ARGS); if($env:AGENT_CODEX_EXPECTED_VERSION) { $version=(& codex --version | Out-String).Trim(); if($LASTEXITCODE -ne 0 -or $version -cne $env:AGENT_CODEX_EXPECTED_VERSION) { [Console]::Error.WriteLine('AGENT_CODEX_VERSION_GUARD'); exit 91 } }; & codex @arguments; exit $LASTEXITCODE"],
+    "$ErrorActionPreference='Stop'; $arguments=@(ConvertFrom-Json $env:AGENT_CODEX_SESSION_ARGS); $command=Get-Command codex -ErrorAction Stop; if($env:AGENT_CODEX_EXPECTED_VERSION) { $version=(& $command --version | Out-String).Trim(); if($LASTEXITCODE -ne 0 -or $version -cne $env:AGENT_CODEX_EXPECTED_VERSION) { [Console]::Error.WriteLine('AGENT_CODEX_VERSION_GUARD'); exit 91 } }; & $command @arguments; exit $LASTEXITCODE"],
   { cwd: home, env: { ...process.env, CODEX_HOME: home, AGENT_CODEX_SESSION_ARGS: JSON.stringify(args), AGENT_CODEX_EXPECTED_VERSION: expectedVersion ?? '' }, encoding: 'utf8', timeout: expectedVersion ? 120000 : 60000, windowsHide: true });
 }
 
@@ -955,10 +1001,18 @@ function cliVersion(home, cli) {
   return version;
 }
 
+function assertMaintenanceCli(version) {
+  // Startup override propagation and local connection tested with disposable homes.
+  // Add versions only after the opt-in session-cli-compatibility test passes.
+  if (version !== 'codex-cli 0.159.2') fail('Codex CLI startup safety is not verified for this version. Archive/delete are blocked; use a runtime with a verified maintenance profile. Export and saved-history reading remain available.');
+  if (process.env.CODEX_EXEC_SERVER_URL) fail('Remote execution environments are unsupported for session maintenance; use a local terminal.');
+}
+
 export function inspectCliCompatibility(action, home, cli = runOfficialCodex, log = () => {}) {
   if (!['archive', 'delete'].includes(action)) fail('Unsupported CLI compatibility operation.');
   const version = cliVersion(home, cli);
   log(`Codex CLI detected: ${version}`);
+  assertMaintenanceCli(version);
   const result = cliProbe([action, '--help'], home, cli, `${action} capability check (${version})`);
   const text = typeof result.stdout === 'string' ? result.stdout : '';
   // Match the selected command's own usage and an option declaration, not prose or global help.
@@ -967,7 +1021,7 @@ export function inspectCliCompatibility(action, home, cli = runOfficialCodex, lo
   if (!usage.test(text.replaceAll('\r\n', '\n')) || (action === 'delete' && !force.test(text))) {
     fail(`Codex CLI ${version} does not advertise the required interface: codex ${action} <SESSION>${action === 'delete' ? ' --force' : ''}. The next archive/delete operation was not started.`);
   }
-  log(`Codex CLI compatibility: ${action} command available; version is informational.`);
+  log(`Codex CLI compatibility: ${action} command available; verified local startup profile, migration and compression disabled for this invocation.`);
   return version;
 }
 
@@ -1170,6 +1224,8 @@ export async function runSessions(args, {
         check = exported.groups[0];
       } else check = makePlan(current, group.root, options.action);
       if (check.fingerprint !== group.fingerprint || check.problems.length) fail('A remaining family changed. Stopped; inspect a new plan.');
+      const deletedHistoryIds = options.action === 'delete'
+        ? group.sessions.flatMap(row => ownedHistoryIds(row, () => current.deletionRollouts)) : [];
       closed();
       if (cli !== runOfficialCodex) {
         const currentCliVersion = cliVersion(snapshot.home, cli);
@@ -1192,12 +1248,21 @@ export async function runSessions(args, {
       }
       progress.phase('Verify session state after official operation');
       current = await inspectState();
+      if (current.issues.length) fail('Official operation returned success but session state could not be verified. Inspect storage and protection diagnostics; no retry was attempted.');
       const byId = new Map(current.sessions.map(row => [row.id, row]));
-      const incomplete = group.sessions.some(row => options.action === 'delete'
-        ? byId.has(row.id) || exists(row.path)
+      if (options.action === 'delete' && (!current.deletionRollouts || current.deletionIssues.length)) fail('Deletion returned success but the remaining rollout inventory could not be verified. No retry was attempted.');
+      const incomplete = group.sessions.find(row => options.action === 'delete'
+        ? byId.has(row.id) || exists(row.path) || ownedRollouts(current.deletionRollouts, row.id).length
         : !byId.get(row.id)?.archived || byId.get(row.id)?.size !== row.size || byId.get(row.id)?.size === null ||
           relative(snapshot.home, byId.get(row.id).path).split(sep)[0] !== 'archived_sessions' || (!row.archived && exists(row.path)));
-      if (incomplete) fail('Official operation returned success but descendant verification is incomplete. No retry was attempted.');
+      if (incomplete) fail(`Official operation returned success but descendant verification is incomplete for session ${incomplete.id}. No retry was attempted.`);
+      if (options.action === 'delete') {
+        const reader = await openHistoryReader(current.home, []);
+        try {
+          if (reader.hasRows(deletedHistoryIds)) fail('Official deletion returned success but owned indexed history rows remain. No retry was attempted.');
+          reader.check();
+        } finally { reader.close(); }
+      }
       completed.push(group.root);
       log(`Verified ${options.action}: ${group.root}`);
       if (options.action === 'delete' && !sidebarRefreshAttempted) {

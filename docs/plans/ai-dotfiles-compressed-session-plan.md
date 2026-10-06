@@ -20,7 +20,7 @@
 
 4. 元ファイルのSHA-256と、展開後のJSONLバイト列のSHA-256を別々に保持する。削除では物理ファイル一覧と元バイト列の一致を必須にし、再圧縮・新規ファイル・更新を検出したら保存し直す。
 
-5. フォークの依存元は、展開後の指定バイト境界までだけを保存する。親ログ全体を余分に持ち出さない。
+5. 別セッションに属するフォークの依存元は、展開後の指定バイト境界までだけを保存する。同一セッション所有のrevert元は全体保存の対象とし、参照prefixの境界検証と分ける。
 
 6. 削除は公式CLIへ委ね、保存内容の検証、全参照元の検査、利用者の確認、直前再検査を通った対象だけに限定する。
 
@@ -238,9 +238,9 @@ batch receiptは既存schema v1を読み続け、v3の全物理inventoryへ結�
 
 ### 混在形式の検証漏れを先に塞ぐ
 
-現行の [inspectDeletionReferences](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/manage-codex-sessions.mjs#L442-L463)は、同じrollout IDにplain候補があると圧縮側を調べません。[exported deletionの照合](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/manage-codex-sessions.mjs#L848-L874)と組み合わせると、plainを保存した後に圧縮siblingだけが追加され、主ファイルとmetadataが不変である場合、その追加物を保存・検証しない経路が残ります。
+修正前の [inspectDeletionReferences](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/manage-codex-sessions.mjs#L442-L463)は、同じrollout IDにplain候補があると圧縮側を調べません。[exported deletionの照合](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/manage-codex-sessions.mjs#L848-L874)と組み合わせると、plainを保存した後に圧縮siblingだけが追加され、主ファイルとmetadataが不変である場合、その追加物を保存・検証しない経路が残ります。
 
-[公式deleteは両形式を削除する](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/thread-store/src/local/delete_thread.rs)ため、圧縮側の未検証を許してよいとは言えません。これは静的なコード経路から導いたリスクで、実データの消失事故や再現試験の報告ではありません。最初の修正は、decoder導入前でも「plainと共存するものを含む未検証 `.zst` があるなら削除停止」とできます。初期の圧縮対応版でも、両形式共存を安全に処理できるまで共存自体を止める選択肢があります。
+[公式deleteは両形式を削除する](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/thread-store/src/local/delete_thread.rs)ため、圧縮側の未検証を許してよいとは言えません。これは静的なコード経路から導いたリスクで、実データの消失事故や再現試験の報告ではありません。先行修正として「plainと共存するものを含む未検証 `.zst` があるなら削除停止」を実装し、合成fixtureで停止を確認しました。初期の圧縮対応版でも、両形式共存を安全に処理できるまで共存自体を止める選択肢があります。
 
 ### 失敗後に戻せるとは説明しない
 
@@ -302,7 +302,7 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 ## 変更対象と実装単位
 
-以下は共通計画を含む変更箇所の対応表です。DB対象ID集合の保存・再照合は実装済みで、残る圧縮・境界検証・起動時更新の変更を同じ箇所へ統合します。
+以下は共通計画を含む変更箇所の対応表です。DB対象ID集合の保存・再照合、plain境界検証の初期subset、CLI起動時更新の抑止は実装済みです。圧縮readerはこれらへ統合します。
 
 | 対象 | 主な変更 |
 | --- | --- |
@@ -395,7 +395,7 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 ## 段階的な導入順
 
-**共通課題の順序と完了状態は[保全・削除の改善計画](ai-dotfiles-session-preservation-plan.md#作業順と完了条件)に従います。** DB保全の非圧縮修正は検証済みです。履歴境界検証とCLI起動時更新の対策は未実装であり、圧縮削除の有効化までに受入条件を満たす必要があります。
+**共通課題の順序と完了状態は[保全・削除の改善計画](ai-dotfiles-session-preservation-plan.md#作業順と完了条件)に従います。** DB保全の非圧縮修正は検証済みです。plain境界検証の初期subsetとCLI起動時更新の対策も実装・検証済みですが、圧縮入力への適用は圧縮削除の受入試験で別途確認します。
 
 **第0段階は削除の防護強化。** plainと共存する圧縮版も含め、未検証の物理ファイルがある場合は削除を止めます。CLIの安全な起動設定を証明できない版・接続形態も止めます。実zstdを読む前に適用できる防護です。
 
@@ -409,7 +409,7 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 ### 作業ごとの完了条件
 
-- [ ] 第0段階：plainと共存する未検証zstdも検出し、削除CLIを呼ばずに停止する。
+- [x] 第0段階：plainと共存する未検証zstdも検出し、削除CLIを呼ばずに停止する。
 
 - [ ] 圧縮readerとmanifest v3を実装し、plain/zstd同値性、破損終端、版別digest、同契約dedup、保存物単独での閲覧を通す。
 
@@ -439,7 +439,7 @@ app-serverを読み取りのために新規起動しても、設定に応じてm
 
 - 添付membership metadataやアプリ固有sidecarを将来どこまで保全するか。現在の参照用exportを完全復元backupと呼ばないこと。
 
-DB保全の修正を引き継ぎ、未実装の共通検証は保全・削除計画に沿って進めます。圧縮側はNode.js 26.10.0を基準にします。**読めたこと、保存できたこと、削除で消える全対象を保全できたことを別々に証明する**方針を維持します。版別digest、全物理inventory、全所有IDのDB照合、安全なCLI起動を含む受入試験を通るまで、圧縮削除を解禁しません。
+DB保全と初期の境界検証を引き継ぎ、共通validatorの対応schema拡張や保全契約の残件は保全・削除計画に沿って進めます。圧縮側はNode.js 26.10.0を基準にします。**読めたこと、保存できたこと、削除で消える全対象を保全できたことを別々に証明する**方針を維持します。版別digest、全物理inventory、全所有IDのDB照合、安全なCLI起動を含む受入試験を通るまで、圧縮削除を解禁しません。
 
 ## 参考：圧縮機能の導入履歴
 
