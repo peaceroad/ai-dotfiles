@@ -6,6 +6,7 @@
     "plugin-creator-agent-plugins": "~/git/github.com/ai-dotfiles/plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins",
     "prompt-design": "~/git/github.com/ai-dotfiles/plugins/agent-design-tools/skills/prompt-design",
     "ai-dotfiles-cli": "~/git/github.com/ai-dotfiles/plugins/ai-dotfiles-cli/skills/ai-dotfiles-cli",
-    "codex-history": "~/git/github.com/ai-dotfiles/plugins/ai-dotfiles-cli/skills/codex-history"
+    "codex-history": "~/git/github.com/ai-dotfiles/plugins/ai-dotfiles-cli/skills/codex-history",
+    "agent-improve": "~/git/github.com/ai-dotfiles/plugins/agent-eval-tools/skills/agent-improve"
   }
 }
