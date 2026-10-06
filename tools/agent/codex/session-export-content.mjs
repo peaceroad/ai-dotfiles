@@ -24,6 +24,11 @@ function ownedRollouts(index, thread) {
   return owners.get(thread.toLowerCase()) ?? [];
 }
 
+export function ownedHistoryIds(row, getIndex) {
+  return [...new Set([row.id.toLowerCase(), ...[row.path, ...ownedRollouts(getIndex(), row.id)]
+    .map(path => rolloutIdentity(path).rollout)])].sort();
+}
+
 async function metadata(path, file) {
   try {
     for await (const { value } of jsonLines(path)) return value.type === 'session_meta' ? value.payload : null;

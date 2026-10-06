@@ -7,9 +7,10 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { inspectSessions, inspectDeletionReferences, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
-import { listBundles } from './session-export-storage.mjs';
+import { listBundles, snapshotDigest, fingerprint, verifyBundle, HISTORY_TABLES } from './session-export-storage.mjs';
 import { listBatches, readBatch } from './session-export-batches.mjs';
 import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
+import { runHistory } from './manage-codex-history.mjs';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -553,6 +554,145 @@ function historyFixture(f) {
   db.close();
   f.update("UPDATE threads SET history_mode = 'paginated'");
 }
+
+function rolloverHistoryFixture(t) {
+  const f = renderableFixture(t);
+  historyFixture(f);
+  const rolloutId = '00000000-0000-4000-8000-000000000004';
+  const path = join(f.home, 'sessions', `${parent}_${rolloutId}.jsonl`);
+  renameSync(join(f.home, 'sessions', `${parent}.jsonl`), path);
+  f.update('UPDATE threads SET rollout_path = ? WHERE id = ?', path, parent);
+  const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+  for (const table of ['thread_turns', 'thread_items', 'thread_realtime_items']) {
+    db.prepare(`UPDATE ${table} SET thread_id = ? WHERE thread_id = ?`).run(rolloutId, parent);
+  }
+  db.prepare('INSERT INTO thread_history_projection_state VALUES (?, 123)').run(rolloutId);
+  db.close();
+  return { ...f, rolloutId };
+}
+
+test('export preserves all four indexed history tables keyed by a distinct rollout ID', async t => {
+  const f = rolloverHistoryFixture(t), output = exportParent(t);
+  await saveBatch(f, output);
+  const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+  const rows = readFileSync(join(bundle.folder, 'history.jsonl'), 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+  assert.deepEqual(rows.map(value => value.table).sort(), ['thread_history_projection_state', 'thread_items', 'thread_realtime_items', 'thread_turns']);
+  assert.ok(rows.every(value => value.row.thread_id === f.rolloutId));
+});
+
+test('changes only to rollout-keyed DB rows block deletion for all four tables', async t => {
+  for (const table of HISTORY_TABLES) for (const mutation of ['insert', 'update', 'delete']) {
+    const f = rolloverHistoryFixture(t), output = exportParent(t);
+    const { batch } = await saveBatch(f, output);
+    const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+    if (mutation === 'insert') db.prepare(`INSERT INTO ${table} SELECT * FROM ${table} WHERE thread_id = ?`).run(f.rolloutId);
+    else if (mutation === 'delete') db.prepare(`DELETE FROM ${table} WHERE thread_id = ?`).run(f.rolloutId);
+    else db.prepare(`UPDATE ${table} SET ${table === 'thread_history_projection_state' ? 'next_rollout_byte_offset = 456' : "item_json = 'changed history'"} WHERE thread_id = ?`).run(f.rolloutId);
+    db.close();
+    const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(plan.groups.length, 0, `${table}/${mutation}`);
+    assert.match(plan.skipped[0].problems[0], /Indexed history changed/);
+    const base = deletionOptions(f);
+    let calls = 0;
+    assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], { ...base, ask: () => assert.fail('No deletion confirmation'), cli(args) {
+      if (args[0] === 'delete' && args[1] !== '--help') { calls++; return { status: 1 }; }
+      return base.cli(args);
+    } }), 3);
+    assert.equal(calls, 0);
+  }
+});
+
+test('multiple owned rollout generations and legacy DB rows are saved once in deterministic order', async t => {
+  const f = rolloverHistoryFixture(t), output = exportParent(t);
+  const extraId = '00000000-0000-4000-8000-000000000005';
+  const extra = join(f.home, 'sessions', `${parent}_${extraId}.jsonl`);
+  writeFileSync(extra, `${JSON.stringify({ type: 'session_meta', payload: { id: parent } })}\n`);
+  const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+  for (const table of HISTORY_TABLES) for (const id of [extraId, parent]) {
+    db.prepare(`INSERT INTO ${table} SELECT ?, ${table === 'thread_history_projection_state' ? 'next_rollout_byte_offset' : 'rollout_ordinal, item_json'} FROM ${table} WHERE thread_id = ?`).run(id, f.rolloutId);
+  }
+  db.close();
+  const { batch } = await saveBatch(f, output);
+  const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+  const rows = readFileSync(join(bundle.folder, 'history.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(rows.length, 12);
+  assert.deepEqual(rows.map(({ row }) => row.thread_id), HISTORY_TABLES.flatMap(() => [parent, f.rolloutId, extraId]));
+  assert.deepEqual(bundle.manifest.coverage.indexedHistory.ids, [parent, f.rolloutId, extraId]);
+  await verifyBundle(bundle);
+  assert.equal((await saveBatch(f, output)).skipped.length, 2);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).groups.length, 1);
+  rmSync(extra);
+  const removed = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.equal(removed.groups.length, 0);
+  assert.match(removed.skipped[0].problems[0], /owned rollout IDs changed/);
+});
+
+test('old v2 snapshots stay readable but require a new export before deletion', async t => {
+  const f = renderableFixture(t), output = exportParent(t), { batch } = await saveBatch(f, output);
+  const bundles = listBundles(output);
+  for (const bundle of bundles) {
+    delete bundle.manifest.coverage.indexedHistory;
+    bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
+    writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(bundle.manifest));
+    batch.entries.find(entry => entry.key === bundle.key).digest = bundle.manifest.contentDigest;
+    await verifyBundle(bundle);
+    const outputLines = [];
+    assert.equal(await runHistory(['read', bundle.key, '--in', output], { log: line => outputLines.push(line) }), 0);
+    assert.match(outputLines.join('\n'), /Fixture conversation/);
+  }
+  const { digest, ...body } = batch;
+  writeFileSync(join(output, 'batches', `${batch.id}.json`), JSON.stringify({ ...body, digest: fingerprint(body) }));
+  const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.equal(plan.groups.length, 0);
+  assert.match(plan.skipped[0].problems[0], /lacks owned-rollout indexed history coverage; export again/);
+  const fresh = await saveBatch(f, output);
+  assert.equal(fresh.folders.length, 2);
+  assert.equal(fresh.skipped.length, 0);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, fresh.batch.id)).groups.length, 1);
+});
+
+test('indexed history ordering is stable for non-null, nullable, and differently collated primary keys', async t => {
+  for (const mode of ['non-null', 'nullable', 'collated-key']) {
+    const nonNull = mode !== 'nullable';
+    const f = renderableFixture(t), output = exportParent(t);
+    historyFixture(f);
+    const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+    db.exec(`DROP TABLE thread_items;
+      CREATE TABLE thread_items (thread_id TEXT NOT NULL, rollout_ordinal INTEGER NOT NULL,
+        item_json TEXT, item_key TEXT ${mode === 'collated-key' ? 'COLLATE NOCASE' : ''} ${nonNull ? 'NOT NULL' : ''}, PRIMARY KEY (thread_id, item_key COLLATE BINARY));`);
+    const insert = db.prepare('INSERT INTO thread_items VALUES (?, 1, ?, ?)');
+    const values = mode === 'collated-key' ? [['A', 'a'], ['Z', 'A']] : [['A', nonNull ? 'b' : null], ['Z', nonNull ? 'a' : null]];
+    for (const [text, key] of values) insert.run(parent, text, key);
+    db.close();
+    await saveBatch(f, output);
+    const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+    const rows = readFileSync(join(bundle.folder, 'history.jsonl'), 'utf8').trim().split('\n').map(JSON.parse).filter(value => value.table === 'thread_items');
+    assert.deepEqual(rows.map(value => value.row.item_json), nonNull ? ['Z', 'A'] : ['A', 'Z']);
+    const writer = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+    writer.exec('DELETE FROM thread_items');
+    for (const [text, key] of [...values].reverse()) writer.prepare('INSERT INTO thread_items VALUES (?, 1, ?, ?)').run(parent, text, key);
+    writer.close();
+    assert.equal((await saveBatch(f, output)).skipped.length, 2);
+  }
+});
+
+test('indexed history coverage tampering fails integrity and semantic verification', async t => {
+  const f = rolloverHistoryFixture(t), output = exportParent(t);
+  await saveBatch(f, output);
+  const original = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+  for (const change of [coverage => { coverage.ids = [parent]; }, coverage => { coverage.policy = 'unknown'; },
+    coverage => { coverage.member = 'rollout.jsonl'; }, coverage => { coverage.present = false; }]) {
+    const bundle = structuredClone(original);
+    change(bundle.manifest.coverage.indexedHistory);
+    await assert.rejects(verifyBundle(bundle), /metadata failed integrity/);
+    bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
+    await assert.rejects(verifyBundle(bundle), /Invalid indexed history coverage/);
+  }
+  const duplicate = structuredClone(original);
+  duplicate.manifest.sources.push({ ...duplicate.manifest.sources[0] });
+  duplicate.manifest.contentDigest = snapshotDigest(duplicate.manifest);
+  await assert.rejects(verifyBundle(duplicate), /Invalid indexed history rollout inventory/);
+});
 
 test('export preserves raw and indexed history with verified hashes, without unrelated threads or source changes', async t => {
   const f = fixture(t), output = exportParent(t);

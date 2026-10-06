@@ -31,6 +31,33 @@ export const fingerprint = value => createHash('sha256').update(JSON.stringify(v
 export function snapshotDigest({ session, files, warnings, attachments, spawnEdges, sources, coverage }) {
   return fingerprint({ session, files, warnings, attachments, spawnEdges, sources, coverage });
 }
+export const HISTORY_TABLES = ['thread_turns', 'thread_items', 'thread_realtime_items', 'thread_history_projection_state'];
+export function indexedHistoryCoverage(ids, present) {
+  return { policy: 'owned-rollout-ids-v1', ids, tables: HISTORY_TABLES, present, member: present ? 'history.jsonl' : null };
+}
+
+function verifyIndexedHistory(manifest) {
+  const coverage = manifest.coverage?.indexedHistory;
+  // Older v2 snapshots remain readable, but cannot authorize exported deletion.
+  if (coverage === undefined) return;
+  const history = manifest.files.find(file => file.file === 'history.jsonl');
+  const ownedFiles = manifest.files.filter(file => file.file === 'rollout.jsonl' || file.file.startsWith('rollouts/'));
+  const ids = new Set([manifest.session.id.toLowerCase()]);
+  if (!Array.isArray(manifest.sources)) reject('Invalid indexed history coverage.');
+  const sources = new Map();
+  for (const source of manifest.sources) {
+    if (!source || typeof source.file !== 'string' || sources.has(source.file)) reject('Invalid indexed history rollout inventory.');
+    sources.set(source.file, source);
+  }
+  for (const file of ownedFiles) {
+    const source = sources.get(file.file);
+    if (!UUID.test(source?.id ?? '')
+      || (file.file !== 'rollout.jsonl' && file.file !== `rollouts/${source.id}.jsonl`)) reject('Invalid indexed history rollout inventory.');
+    ids.add(source.id.toLowerCase());
+  }
+  if (fingerprint(coverage) !== fingerprint(indexedHistoryCoverage([...ids].sort(), !!history))
+    || (history && (!Number.isSafeInteger(history.records) || history.records < 0))) reject('Invalid indexed history coverage; export again before deletion.');
+}
 export const configPath = () => resolve(process.env.AGENT_CODEX_EXPORT_CONFIG || join(homedir(), '.agents', 'ai-dotfiles', 'codex-session-export.json'));
 export function safeText(value) {
   return String(value).replaceAll(homedir(), '~').replaceAll(homedir().replaceAll('\\', '/'), '~')
@@ -174,6 +201,7 @@ export async function verifyBundle(bundle, progress) {
     members.push({ path, file });
   }
   if (!names.has('conversation.md') || !names.has('rollout.jsonl')) reject('Required export files are missing.');
+  verifyIndexedHistory(bundle.manifest);
   // Bound disk pressure and await both workers even if one fails. No background
   // verification can continue after this function returns or throws.
   let next = 0, failed = false;

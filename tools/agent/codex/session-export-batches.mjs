@@ -3,7 +3,7 @@
 import { mkdirSync, lstatSync, readdirSync, readFileSync, realpathSync, writeFileSync, renameSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { exists, regularFile, fingerprint, pathIdentity, UUID, MAX_MANIFEST_BYTES, reject } from './session-export-storage.mjs';
+import { exists, regularFile, fingerprint, pathIdentity, UUID, MAX_MANIFEST_BYTES, HISTORY_TABLES, reject } from './session-export-storage.mjs';
 
 const FORMAT = 'ai-dotfiles/codex-export-batch';
 const HEX = /^[0-9a-f]{64}$/;
@@ -60,7 +60,6 @@ export function listBatches(directory) {
     .map(name => readBatchAtRoot(root, name.slice(0, -5))).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
 }
 
-const historyTables = ['thread_turns', 'thread_items', 'thread_realtime_items', 'thread_history_projection_state'];
 export async function openHistoryReader(home, sessions) {
   if (readdirSync(home).some(name => /^thread_history_\d+\.sqlite$/.test(name) && name !== 'thread_history_1.sqlite')) reject('Unknown indexed history database version.');
   const path = join(home, 'thread_history_1.sqlite');
@@ -74,12 +73,29 @@ export async function openHistoryReader(home, sessions) {
       version = db.prepare('PRAGMA data_version').get().data_version;
       db.exec('BEGIN');
       const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name);
-      if (tables.some(name => name.startsWith('thread_') && !historyTables.includes(name)) || historyTables.some(name => !tables.includes(name))) reject('Unsupported indexed history schema.');
-      queries = historyTables.map(table => [table, db.prepare(`SELECT * FROM ${table} WHERE thread_id = ? ORDER BY ${table === 'thread_history_projection_state' ? 'thread_id' : 'rollout_ordinal'}`)]);
+      if (tables.some(name => name.startsWith('thread_') && !HISTORY_TABLES.includes(name)) || HISTORY_TABLES.some(name => !tables.includes(name))) reject('Unsupported indexed history schema.');
+      queries = HISTORY_TABLES.map(table => {
+        const first = table === 'thread_history_projection_state' ? 'thread_id' : 'rollout_ordinal';
+        const info = db.prepare(`PRAGMA table_info(${table})`).all();
+        const columns = info.map(column => column.name);
+        if (!columns.includes('thread_id') || !columns.includes(first)) reject('Unsupported indexed history columns.');
+        // A non-null primary key resolves ordinal ties without sorting payloads.
+        // SQLite permits nullable keys in some schemas; retain full-row ordering there.
+        const key = info.filter(column => column.pk).sort((a, b) => a.pk - b.pk);
+        const ties = key.length && key.every(column => column.notnull) ? key.map(column => column.name) : columns;
+        const order = [first, ...ties.filter(column => column !== first)].map(column => `"${column.replaceAll('"', '""')}" COLLATE BINARY`).join(', ');
+        return [table, db.prepare(`SELECT * FROM ${table} WHERE thread_id = ? ORDER BY ${order}`)];
+      });
     }
     if (sessions.some(row => !['legacy', 'paginated'].includes(row.historyMode) || (row.historyMode === 'paginated' && !db))) reject('Indexed history is required for paginated sessions; operation stopped.');
     return { present: !!db,
-      *lines(id) { for (const [table, query] of queries) for (const row of query.iterate(id)) yield `${JSON.stringify({ table, row })}\n`; },
+      *lines(ids) {
+        if (!Array.isArray(ids) || !ids.length || ids.some(id => !UUID.test(id))) reject('Invalid indexed history ID set.');
+        const selected = [...new Set(ids.map(id => id.toLowerCase()))].sort();
+        for (const [table, query] of queries) for (const id of selected) {
+          for (const row of query.iterate(id)) yield `${JSON.stringify({ table, row })}\n`;
+        }
+      },
       check() {
         if (db) {
           db.exec('COMMIT');

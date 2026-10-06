@@ -51,11 +51,30 @@ test('inherited history resolves a rollout ID distinct from its session ID', asy
   const raw = line(meta(ancestor)) + line(msg('Inherited fixture'));
   writeFileSync(join(f.home, 'sessions', `rollout-2000-01-01T00-00-00-${ancestor}_${alias}.jsonl`), raw);
   writeFileSync(f.path, line(meta(id, { thread_id: alias, end_ordinal_exclusive: 2, end_byte_offset: Buffer.byteLength(raw) })) + line(msg('Fork fixture')));
+  const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+  for (const table of ['thread_items', 'thread_turns', 'thread_realtime_items', 'thread_history_projection_state']) {
+    db.prepare(`INSERT INTO ${table} VALUES (?, 1, ?)`).run(alias, 'ancestor DB history outside the owned set');
+    db.prepare(`INSERT INTO ${table} VALUES (?, 1, ?)`).run(id, 'owned DB history');
+  }
+  db.close();
   await f.save();
   const [bundle] = listBundles(f.output);
   await verifyBundle(bundle);
   assert.equal(readFileSync(bundleFile(bundle.folder, `dependencies/${alias}.jsonl`), 'utf8'), raw);
   assert.equal(bundle.manifest.warnings.some(w => w.kind === 'history'), false);
+  assert.deepEqual(bundle.manifest.coverage.indexedHistory.ids, [id]);
+  const history = readFileSync(bundleFile(bundle.folder, 'history.jsonl'), 'utf8');
+  assert.doesNotMatch(history, /ancestor DB history/);
+  assert.equal(history.trim().split('\n').length, 4);
+});
+
+test('an owned rollout added during export prevents publication', async t => {
+  const f = setup(t), extra = '00000000-0000-4000-8000-000000000005';
+  await assert.rejects(f.save({ inspect: async () => {
+    writeFileSync(join(f.home, 'sessions', `${id}_${extra}.jsonl`), line(meta(id)));
+    return f.snapshot();
+  } }), /Owned rollout IDs changed during export/);
+  assert.deepEqual(listBundles(f.output), []);
 });
 
 test('a fresh export inventory includes newly added rollouts without stale ownership caching', async t => {

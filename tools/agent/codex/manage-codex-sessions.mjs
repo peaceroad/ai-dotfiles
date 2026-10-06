@@ -8,8 +8,8 @@ import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, exists, fingerprint as hash, snapshotDigest, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines } from './session-export-storage.mjs';
-import { collectDependencies, collectOwnedRollouts, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
+import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines } from './session-export-storage.mjs';
+import { collectDependencies, collectOwnedRollouts, ownedHistoryIds, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
 import { writeBatch, readBatch, listBatches, sourceIdentity, openHistoryReader } from './session-export-batches.mjs';
 import { ProcessError, assertClientsClosed as checkClientsClosed } from './manage-codex-processes.mjs';
 import { createProgress } from './session-progress.mjs';
@@ -71,6 +71,7 @@ Eligible referencing forks are deleted before their ancestors within the same re
 References outside the eligible deletion set retain the ancestor; referencing session IDs are shown.
 Unreadable or compressed-only reference metadata blocks deletion before execution.
 Verified deletion schedules a full local app sidebar scan on its next startup when the cache is supported.
+Exported deletion requires owned-rollout indexed history coverage; older snapshots must be exported again.
 Protected, changed, or incompletely exported families remain excluded; exit 3 reports exclusions or sidebar refresh issues.`,
   archive: `Usage: agent codex session archive <UUID | --before DATE|Nw> [--confirm <token>]
 Example: agent codex session archive --before 4w
@@ -172,6 +173,8 @@ Batch deletion excludes changed/protected families, missing snapshots, unresolve
 and existing uncollected external attachments. Verified raw history permits rendering/media warnings;
 attachments absent at export must remain absent. Unknown warning types exclude the family.
 Both saved and live bytes are rechecked. Receipts do not authorize deletion or guarantee restoration.
+Indexed history includes every owned rollout ID and the legacy session ID. Older v2 snapshots
+remain readable, but require a fresh export with this coverage before exported deletion.
 After verified deletion, a compatible app sidebar cache is scheduled for a full scan on next startup.
 Use refresh-sidebar to schedule the same scan for already deleted sessions. Unsupported caches
 remain unchanged and are reported separately; this does not undo completed deletion.
@@ -696,6 +699,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       progress.phase('Copy and verify rollout', prepared, plan.sessions.length);
       const rollout = await writeVerifiedFile(createReadStream(row.path), join(folder, 'rollout.jsonl'), read => progress.bytes(read, row.size));
       if (rollout.bytes !== row.size) fail('Source rollout size changed during export. The bundle is incomplete; no source data was removed.');
+      const historyIds = ownedHistoryIds(row, getIndex);
       let history = null;
       if (reader.present) {
         context.phase = 'copy indexed history';
@@ -703,7 +707,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
         const historyFile = 'history.jsonl';
         let records = 0;
         function* lines() {
-          for (const line of reader.lines(row.id)) {
+          for (const line of reader.lines(historyIds)) {
             records++;
             yield line;
           }
@@ -742,7 +746,8 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
       const spawnEdges = edgesBySession.get(row.id);
       stage.manifest = { format: FORMAT, schemaVersion: 2, complete: true, restorable: false,
         exportedAt: new Date().toISOString(), session, files,
-        coverage: { history: inherited.warnings.length ? 'partial' : 'collected', attachments: 'supported-inputs-only', conversation: 'record-view-not-exact-ui' },
+        coverage: { history: inherited.warnings.length ? 'partial' : 'collected', attachments: 'supported-inputs-only', conversation: 'record-view-not-exact-ui',
+          indexedHistory: indexedHistoryCoverage(historyIds, reader.present) },
         sources: inherited.sources.map(({ path, ...source }) => source), attachments: rendered.attachments, warnings,
         spawnEdges };
       stage.manifest.contentDigest = snapshotDigest(stage.manifest);
@@ -751,6 +756,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
     context.session = null; context.phase = 'revalidate source state';
     progress.phase('Reinspect source session metadata');
     const fresh = await inspect(snapshot.home, { progress: (label, done, total) => progress.phase(label, done, total) });
+    const freshRollouts = createRolloutIndex(snapshot.home);
     reader.check();
     const index = indexSnapshot(fresh);
     for (const group of plan.groups) {
@@ -761,6 +767,7 @@ export async function exportSessions(snapshot, plan, output, { inspect = inspect
     for (const stage of staged) {
       progress.phase('Reverify source exports', verified, staged.length);
       context.session = stage.manifest.session.id; context.phase = 'verify source rollout';
+      if (hash(ownedHistoryIds({ id: stage.manifest.session.id, path: stage.source.path }, freshRollouts)) !== hash(stage.manifest.coverage.indexedHistory.ids)) fail('Owned rollout IDs changed during export.');
       if (await digestFile(stage.source.path, read => progress.bytes(read)) !== stage.source.sha256) fail('Source rollout content changed during export.');
       context.phase = 'verify inherited history';
       await checkDependencySources(stage.checks, snapshot.home, read => progress.bytes(read));
@@ -836,6 +843,7 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
     if (!snapshot.deletionReferences) snapshot = await inspectDeletionReferences(snapshot,
       { progress: (label, done, total) => progress.phase(label, done, total) });
     const index = indexSnapshot(snapshot);
+    const getIndex = createRolloutIndex(snapshot.home);
     index.verifyOwnedRollouts = true;
     index.checkExternalReferences = false;
     const selected = onlyRoot ? batch.groups.filter(group => group.root === onlyRoot) : batch.groups;
@@ -854,6 +862,10 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
           for (const row of group.sessions) {
             const entry = entries.get(row.id), bundle = entry && readBundle(directory, entry.key);
             if (!bundle || bundle.manifest.session.id !== row.id || bundle.manifest.contentDigest !== entry.digest) fail('Required exported snapshot is missing or changed.');
+            const historyIds = ownedHistoryIds(row, getIndex);
+            const savedHistory = bundle.manifest.coverage?.indexedHistory;
+            if (!savedHistory) fail('Export lacks owned-rollout indexed history coverage; export again before deletion.');
+            if (hash(savedHistory) !== hash(indexedHistoryCoverage(historyIds, reader.present))) fail('Indexed history coverage or owned rollout IDs changed; export again before deletion.');
             const warnings = bundle.manifest.warnings;
             // Rendering limitations and bytes already absent from embedded media do
             // not lose additional data when the exact raw history is retained.
@@ -869,7 +881,7 @@ export async function planExportedDeletion(snapshot, directory, batchId, onlyRoo
             const rollout = bundle.manifest.files.find(file => file.file === 'rollout.jsonl');
             const history = bundle.manifest.files.find(file => file.file === 'history.jsonl');
             if (await digestFile(row.path, read => progress.bytes(read, row.size)) !== rollout.sha256) fail('Source rollout content changed after export.');
-            if (reader.present !== !!history || (history && await digestChunks(reader.lines(row.id), read => progress.bytes(read, history.bytes)) !== history.sha256)) fail('Indexed history changed after export.');
+            if (reader.present !== !!history || (history && await digestChunks(reader.lines(historyIds), read => progress.bytes(read, history.bytes)) !== history.sha256)) fail('Indexed history changed after export.');
           }
           reader.check();
         } finally { reader.close(); }
