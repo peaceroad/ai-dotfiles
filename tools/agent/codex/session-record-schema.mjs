@@ -108,8 +108,18 @@ const passthrough = shape({}, { turn_id: text, create_time: number, cell_id: tex
   content_item_kinds: json, executed_tool_calls: json,
 });
 const responseCommon = { id: text, internal_chat_message_metadata_passthrough: passthrough };
+// Hosted web-search uses snake_case action tags; the extension uses camelCase.
+const webAction = (openPage, findInPage) => tagged({ search: [{}, { query: text, queries: strings }],
+  [openPage]: [{}, { url: text }], [findInPage]: [{}, { url: text, pattern: text }], other: [{}] });
 const responseVariants = {
   message: [{ role: text, content: array(checkedContent) }, { ...responseCommon, phase, end_turn: bool }],
+  agent_message: [{ author: text, recipient: text, content: array(tagged({ input_text: [{ text }],
+    encrypted_content: [{ encrypted_content: text }] })) }, responseCommon],
+  local_shell_call: [{ status: choice('completed', 'in_progress', 'incomplete'), action: tagged({ exec: [{ command: strings },
+    { timeout_ms: uint, working_directory: text, env: dictionary(text, text), user: text }] }) }, { ...responseCommon, call_id: text }],
+  web_search_call: [{}, { ...responseCommon, status: text, action: webAction('open_page', 'find_in_page') }],
+  image_generation_call: [{ status: text, result: text }, { ...responseCommon, revised_prompt: text }],
+  configuration_update: [{ reasoning: shape({ effort }) }],
   reasoning: [{ summary: array(tagged({ summary_text: [{ text }] })) }, { ...responseCommon,
     content: array(tagged({ reasoning_text: [{ text }], text: [{ text }] })), encrypted_content: text }],
   function_call: [{ call_id: text, name: text, arguments: text }, { ...responseCommon, namespace: text, encrypted_function_args: strings }],
@@ -144,15 +154,14 @@ const duration = shape({ secs: uint, nanos: integer(0, 999999999) });
 // Codex's CallToolResult deliberately uses opaque JSON content, including future
 // MCP content kinds. Only its typed envelope is constrained; nothing is executed.
 const mcpResult = shape({ content: array(json) }, { structuredContent: json, isError: bool, _meta: json });
-// Hosted web-search uses snake_case action tags; the extension uses camelCase.
-const webAction = (openPage, findInPage) => tagged({ search: [{}, { query: text, queries: strings }],
-  [openPage]: [{}, { url: text }], [findInPage]: [{}, { url: text, pattern: text }], other: [{}] });
+const imageFailure = tagged({ usageLimitExceeded: [{ limitId: text }, { resetsAt: int }] });
+const mcpUi = shape({ resourceUri: text, preferredModelDisplayMode: choice('inline', 'fullscreen') });
 const extensionType = choice('Extension');
 const extension = tagged({
   'clock.sleep': [{ type: extensionType, id: text, durationMs: uint }],
   'web.search': [{ type: extensionType, id: text, query: text }, { results: array(json), action: webAction('openPage', 'findInPage') }],
   'image_gen.generation': [{ type: extensionType, id: text, status: text, result: text }, { revisedPrompt: text, transparentBackground: bool,
-    savedPath: absolute, failure: tagged({ usageLimitExceeded: [{ limitId: text }, { resetsAt: int }] }) }],
+    savedPath: absolute, failure: imageFailure }],
 }, 'kind');
 const parsedCommand = tagged({ read: [{ cmd: text, name: text, path: text }], list_files: [{ cmd: text }, { path: text }],
   search: [{ cmd: text }, { query: text, path: text }], unknown: [{ cmd: text }] });
@@ -192,7 +201,7 @@ const turnItem = tagged({
   ExitedReviewMode: [{ id: text }, { review_output: reviewOutput }],
   FileChange: [{ id: text, changes: fileChanges }, { status: choice('completed', 'failed', 'declined'), auto_approved: bool, stdout: text, stderr: text }],
   McpToolCall: [{ id: text, server: text, tool: text, arguments: json, status: choice('inProgress', 'completed', 'failed') }, {
-    connectorId: text, mcpAppResourceUri: text, mcpAppUi: shape({ resourceUri: text, preferredModelDisplayMode: choice('inline', 'fullscreen') }),
+    connectorId: text, mcpAppResourceUri: text, mcpAppUi: mcpUi,
     linkId: text, appName: text, actionName: text, pluginId: text, readOnlyHint: bool, result: mcpResult, error: shape({ message: text }), duration,
   }],
   ContextCompaction: [{ id: text }],
@@ -238,6 +247,19 @@ const rateLimits = shape({}, { limit_id: text, limit_name: text, normal_model_sl
 const terminal = { last_agent_message: text, started_at: int, completed_at: int, duration_ms: int, time_to_first_token_ms: int };
 const started = [{ turn_id: text }, { root_turn_id: text, trace_id: text, started_at: int, model_context_window: int }, { collaboration_mode_kind: mode }];
 const events = tagged({
+  thread_goal_updated: [{ threadId: uuid, goal: shape({ threadId: uuid, objective: text,
+    status: choice('active', 'paused', 'blocked', 'usageLimited', 'budgetLimited', 'complete'),
+    tokensUsed: int, timeUsedSeconds: int, createdAt: int, updatedAt: int }, { tokenBudget: int }) }, { turnId: text }],
+  entered_review_mode: [{ target: reviewTarget }, { user_facing_hint: text }],
+  exited_review_mode: [{}, { turn_id: text, item_id: text, review_output: reviewOutput }],
+  patch_apply_end: [{ call_id: text, stdout: text, stderr: text, success: bool, status: choice('completed', 'failed', 'declined') },
+    {}, { turn_id: text, changes: fileChanges }],
+  mcp_tool_call_end: [{ call_id: text, invocation: shape({ server: text, tool: text }, { arguments: json }), duration,
+    result: external({ Ok: mcpResult, Err: text }) }, { connector_id: text, mcp_app_resource_uri: text, mcp_app_ui: mcpUi,
+    link_id: text, app_name: text, action_name: text, plugin_id: text, read_only_hint: bool }, { turn_id: text }],
+  web_search_end: [{ call_id: text, query: text, action: webAction('open_page', 'find_in_page') }, { results: array(json) }],
+  image_generation_end: [{ call_id: text, status: text, result: text }, { revised_prompt: text, transparent_background: bool,
+    failure: imageFailure, saved_path: absolute }],
   task_started: started, turn_started: started, task_complete: [{ turn_id: text }, terminal], turn_complete: [{ turn_id: text }, terminal],
   token_count: [{}, { info: shape({ total_token_usage: usage, last_token_usage: usage }, { model_context_window: int }), rate_limits: rateLimits }],
   item_completed: [{ thread_id: uuid, turn_id: text, item: turnItem }, { started_at_ms: int }, { completed_at_ms: int }],
@@ -270,7 +292,25 @@ const sessionMeta = shape({ id: uuid, timestamp: text, cwd: text, originator: te
   git: shape({}, { commit_hash: text, branch: text, repository_url: text }),
 }, { session_id: uuid, source: sessionSource, history_mode: choice('legacy', 'paginated'),
   selected_capability_roots: array(shape({ id: text, location: tagged({ environment: [{ environmentId: text, path: either(absolute, fileUri) }] }) })) });
+// Conservative RFC3339 subset for chrono::DateTime<Utc>. Date.parse alone also
+// accepts normalized invalid dates (e.g. February 30); those cannot prove decode.
+const dateTime = v => {
+  if (!text(v) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(v)) return false;
+  const local = new Date(v.slice(0, 19) + 'Z');
+  return Number.isFinite(local.getTime()) && local.toISOString().slice(0, 19) === v.slice(0, 19);
+};
+const realtimeCommon = { id: text, realtime_session_id: text };
+const realtime = tagged({
+  realtime_session_started: [realtimeCommon],
+  transcript_segment: [{ ...realtimeCommon, role: choice('user', 'assistant'), text }],
+  bem_item_promoted: [{ ...realtimeCommon, turn_id: text, item_id: text, presentation: tagged({
+    whole_item: [{}], inline_markdown: [{}], inline_visualization: [{ index: uint32 }] }) }],
+  realtime_session_closed: [{ ...realtimeCommon, outcome: choice('ended', 'failed') }],
+});
 const record = tagged({
+  realtime_item: [{ timestamp: text, payload: realtime }, { ordinal: uint }],
+  security_risk_score: [{ timestamp: text, payload: shape({ scores: dictionary(text, number) },
+    { call_id: text, action: json, sampled_at: dateTime }) }, { ordinal: uint }],
   session_meta: [{ timestamp: text, payload: sessionMeta }, { ordinal: uint }],
   response_item: [{ timestamp: text, payload: response }, { ordinal: uint, metadata: harness }],
   turn_context: [{ timestamp: text, payload: turnContext }, { ordinal: uint }],

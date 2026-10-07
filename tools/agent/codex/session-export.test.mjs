@@ -1,12 +1,13 @@
+import { supportsZstdRuntime } from './session-rollout-io.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { zstdCompressSync } from 'node:zlib';
 import { exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
-import { FORMAT, listBundles, verifyBundle, readExportDirectory, readExportSettings, writeExportDirectory, bundleFile, jsonLines, snapshotDigest, fingerprint } from './session-export-storage.mjs';
+import { FORMAT, listBundles, verifyBundle, syncExportBundle, readExportDirectory, readExportSettings, writeExportDirectory, bundleFile, jsonLines, snapshotDigest, fingerprint } from './session-export-storage.mjs';
 import { runHistory, parseHistoryArgs } from './manage-codex-history.mjs';
 
 const id = '00000000-0000-4000-8000-000000000001';
@@ -20,6 +21,8 @@ function setup(t) {
   const home = join(root, 'source'), output = join(root, 'saved');
   mkdirSync(join(home, 'sessions'), { recursive: true }); mkdirSync(output);
   const path = join(home, 'sessions', `${id}.jsonl`);
+  const state = new DatabaseSync(join(home, 'state_5.sqlite'));
+  state.exec('CREATE TABLE threads (id TEXT PRIMARY KEY)'); state.close();
   const db = new DatabaseSync(join(home, 'thread_history_1.sqlite'));
   for (const name of ['thread_items', 'thread_turns', 'thread_realtime_items', 'thread_history_projection_state']) db.exec(`CREATE TABLE ${name} (thread_id TEXT, rollout_ordinal INTEGER, item_json TEXT)`);
   db.close();
@@ -34,7 +37,19 @@ function setup(t) {
   return { root, home, output, path, snapshot, save };
 }
 
-test('v3 exports compressed primary, owned generations and external decoded prefixes without suffix leakage', { skip: process.versions.node !== '26.10.0' }, async t => {
+test('bundle synchronization normalizes its root, preserves bytes and rejects escaping members', async t => {
+  const f = setup(t); await f.save();
+  const bundle = listBundles(f.output)[0];
+  const before = bundle.manifest.files.map(file => readFileSync(bundleFile(bundle.folder, file.file)));
+  syncExportBundle({ ...bundle, folder: relative(process.cwd(), bundle.folder) });
+  for (const [index, file] of bundle.manifest.files.entries()) {
+    assert.deepEqual(readFileSync(bundleFile(bundle.folder, file.file)), before[index]);
+  }
+  await verifyBundle(bundle);
+  assert.throws(() => syncExportBundle({ ...bundle, manifest: { files: [{ file: '../outside' }] } }), /Unsafe bundle member/);
+});
+
+test('v3 exports compressed primary, owned generations and external decoded prefixes without suffix leakage', { skip: !supportsZstdRuntime() }, async t => {
   const f = setup(t), alias = '00000000-0000-4000-8000-000000000005';
   const prefix = line(meta(ancestor)) + line(msg('Inherited 日本語'));
   const ancestorBytes = zstdCompressSync(prefix + line(msg('Private ancestor suffix', [], 2)));
@@ -77,7 +92,7 @@ test('v3 exports compressed primary, owned generations and external decoded pref
   }
 });
 
-test('corrupt compressed ancestor suffix prevents publishing an otherwise valid prefix', { skip: process.versions.node !== '26.10.0' }, async t => {
+test('corrupt compressed ancestor suffix prevents publishing an otherwise valid prefix', { skip: !supportsZstdRuntime() }, async t => {
   const f = setup(t), prefix = line(meta(ancestor));
   writeFileSync(join(f.home, 'sessions', `${ancestor}.jsonl.zst`), Buffer.concat([zstdCompressSync(prefix), Buffer.from('junk')]));
   writeFileSync(f.path, line(meta(id, { thread_id: ancestor, end_byte_offset: Buffer.byteLength(prefix), end_ordinal_exclusive: 1 })) + line(msg('Child', [], 2)));
@@ -85,7 +100,7 @@ test('corrupt compressed ancestor suffix prevents publishing an otherwise valid 
   assert.equal(listBundles(f.output).length, 0);
 });
 
-test('metadata-only discovery cannot publish a compressed primary with a corrupt suffix', { skip: process.versions.node !== '26.10.0' }, async t => {
+test('metadata-only discovery cannot publish a compressed primary with a corrupt suffix', { skip: !supportsZstdRuntime() }, async t => {
   for (const historyMode of ['legacy', 'paginated']) {
     const f = setup(t), snapshot = f.snapshot(), path = `${f.path}.zst`;
     const metadata = meta(id); metadata.payload.history_mode = historyMode;

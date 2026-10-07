@@ -1,3 +1,4 @@
+import { supportsZstdRuntime } from './session-rollout-io.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
@@ -8,6 +9,7 @@ import { validateHistoryPrefix, validateSavedLineage } from './session-lineage.m
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 import { compactedTurn } from './fixtures/compacted-turn.mjs';
 import { developmentTurn } from './fixtures/development-turn.mjs';
+import { persistedTurn } from './fixtures/persisted-turn.mjs';
 import { zstdCompressSync } from 'node:zlib';
 
 const id = '00000000-0000-4000-8000-000000000001';
@@ -26,6 +28,42 @@ function fixture(t) {
     return validateHistoryPrefix(path, { owner: id, endByte, ...(endOrdinal === undefined ? {} : { endOrdinal }) });
   } };
 }
+
+test('remaining persisted variants validate nested payloads in plain and zstd', async t => {
+  const f = fixture(t), records = persistedTurn(), raw = encodeTurn(records);
+  assert.equal((await f.check(raw, records.length)).status, 'verified');
+  if (supportsZstdRuntime()) {
+    const path = f.path + '.zst'; writeFileSync(path, zstdCompressSync(raw));
+    assert.equal((await validateHistoryPrefix(path, { owner: id, endByte: Buffer.byteLength(raw), endOrdinal: records.length })).status, 'verified');
+  }
+  for (const [type, change] of [
+    ['agent_message', p => p.content[0].type = 'future'],
+    ['local_shell_call', p => p.action.env.FIXTURE = 1],
+    ['local_shell_call', p => p.action.timeout_ms = -1],
+    ['web_search_call', p => p.action.type = 'openPage'],
+    ['image_generation_call', p => delete p.result],
+    ['configuration_update', p => p.reasoning.effort = 'future'],
+    ['thread_goal_updated', p => p.goal.status = 'usage_limited'],
+    ['thread_goal_updated', p => p.goal.tokensUsed = 0.5],
+    ['entered_review_mode', p => p.target.future = true],
+    ['exited_review_mode', p => p.review_output = {}],
+    ['patch_apply_end', p => p.changes['fixture.js'].content = null],
+    ['mcp_tool_call_end', p => p.result.Ok.content = {}],
+    ['mcp_tool_call_end', p => p.result.Err = 'conflicting result'],
+    ['web_search_end', p => p.action.queries = [null]],
+    ['image_generation_end', p => p.failure.resetsAt = 0.5],
+    ['transcript_segment', p => p.role = 'tool'],
+    ['bem_item_promoted', p => p.presentation = { type: 'inline_visualization', index: 2 ** 32 }],
+    ['realtime_session_closed', p => p.outcome = 'future'],
+  ]) {
+    const invalid = persistedTurn(); change(invalid.find(r => r.payload.type === type).payload);
+    assert.equal((await f.check(encodeTurn(invalid), invalid.length)).status, 'unverified', type);
+  }
+  for (const sampled_at of ['2000-02-30T00:00:00Z', '2000-01-01T24:00:00Z', '2000-01-01', '2000-01-01T00:00:00+24:00']) {
+    const invalid = persistedTurn(); invalid.find(r => r.type === 'security_risk_score').payload.sampled_at = sampled_at;
+    assert.equal((await f.check(encodeTurn(invalid), invalid.length)).status, 'unverified', sampled_at);
+  }
+});
 
 test('plain prefixes bind exact bytes to metadata and contiguous ordinals', async t => {
   const f = fixture(t), raw = lines([meta(), msg(1), msg(2)]);
@@ -116,7 +154,7 @@ test('ordinary paginated turns validate metadata, events, context, tool results 
   const f = fixture(t), records = paginatedTurn(), raw = encodeTurn(records);
   const result = await f.check(raw, records.length);
   assert.equal(result.status, 'verified', JSON.stringify(result));
-  if (process.versions.node === '26.10.0') {
+  if (supportsZstdRuntime()) {
     const compressed = `${f.path}.zst`; writeFileSync(compressed, zstdCompressSync(raw));
     assert.deepEqual(await validateHistoryPrefix(compressed, { owner: id, endByte: Buffer.byteLength(raw), endOrdinal: records.length }), result);
   }
@@ -233,7 +271,7 @@ test('compaction checkpoints, MCP and known extensions preserve plain/zstd ordin
     assert.equal((await f.check(raw, end, Buffer.byteLength(prefix))).status, 'verified');
   }
   await assert.rejects(f.check(raw, records.length + 1), /disagree/);
-  if (process.versions.node === '26.10.0') {
+  if (supportsZstdRuntime()) {
     const compressed = `${f.path}.zst`; writeFileSync(compressed, zstdCompressSync(raw));
     assert.deepEqual(await validateHistoryPrefix(compressed, { owner: id, endByte: Buffer.byteLength(raw), endOrdinal: records.length }), result);
   }
@@ -302,7 +340,7 @@ test('development and agent records bind plain/zstd boundaries without following
   for (const end of [messageIndex, messageIndex + 1, messageIndex + 2]) {
     assert.equal((await f.check(raw, end, Buffer.byteLength(encodeTurn(records.slice(0, end))))).status, 'verified');
   }
-  if (process.versions.node === '26.10.0') {
+  if (supportsZstdRuntime()) {
     const compressed = `${f.path}.zst`; writeFileSync(compressed, zstdCompressSync(raw));
     assert.deepEqual(await validateHistoryPrefix(compressed, { owner: id, endByte: Buffer.byteLength(raw), endOrdinal: records.length }), result);
   }

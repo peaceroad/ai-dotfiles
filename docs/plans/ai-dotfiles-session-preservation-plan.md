@@ -7,14 +7,14 @@
 2026年10月7日時点の整理です。「実装済み」はこのリポジトリの実装と合成fixtureでの確認を指し、配布済みCLIへの反映や既存の保存物の完全性を保証するものではありません。
 
 - **履歴DBの保存・照合範囲の不足：修正済み。** 非圧縮でも、セッションIDと所有rollout IDが異なると一部のDB行が対象から漏れました。合成fixtureで再現し、全所有IDとlegacy IDを対象にする修正を検証しました。
-- **フォーク履歴の境界検証：通常のターンとcompactionを含むsubsetを実装・合成fixture検証済み。** byte境界・整数token・連続ordinal・参照関係を共通処理で検査します。policy v2でmetadata・event・context・ツール結果に加え、compactionのcheckpoint、MCPと既知の拡張項目へ対応範囲を広げ、公式CLIの移行・履歴取得・export後削除とも照合しました。未対応schemaはraw保存と未検証警告、exported deletionの停止で扱い、全record型への対応や実データの完全性を保証するものではありません。
+- **フォーク履歴の境界検証：通常のターンとcompactionを含むsubsetを実装・合成fixture検証済み。** byte境界・整数token・連続ordinal・参照関係を共通処理で検査します。policy v2でmetadata・event・context・ツール結果に加え、compactionのcheckpoint、MCPと既知の拡張項目へ対応範囲を広げ、公式CLIの移行・履歴取得・export後削除とも照合しました。未対応schemaはraw保存と未検証警告、exported deletionの停止で扱い、固定版の保存対象variantへ対応を追加しています。全値域・パス表現や実データの完全性を保証するものではありません。
 - **削除CLIの起動時更新：0.159.2用adapterを実装・隔離fixture検証済み。** daemonを再利用せず、migrationとcompressionを一回限りのoverrideで無効にします。未知版・remote環境は停止します。
 - **所有ファイルの検査・revert元の重複保存・削除後の確認不足：修正・合成fixture検証済み。** 自身の継承元は全体を一度だけ保存し、prefixを別途検証します。リンクを含む不完全な一覧は拒否し、保存中の追加はID集合だけでなく物理ファイル集合で検出します。公式delete後と同じバッチの再計画では、索引・所有ファイル・所有IDの履歴DB行の不在を確認します。
 - **plainとzstdの共存時の検査漏れ：停止ガード実装・合成fixture検証済み。** 同じrolloutの両形式共存や重複配置では停止します。単独の圧縮版はstrict readerで終端まで検証し、plainだけを選んで検査済みと扱う経路は設けません。詳細は[圧縮計画の混在形式の検証](ai-dotfiles-compressed-session-plan.md#混在形式の検証漏れを先に塞ぐ)で管理します。
 - **zstdの読取・manifest v3・圧縮削除：初期対応を実装。** Node 26.10.0／Windowsの合成fixtureとCLI 0.159.2の隔離homeで検証しました。未知lineage schemaの削除停止と両形式共存の停止を維持します。 [圧縮対応計画](ai-dotfiles-compressed-session-plan.md)で管理します。
 - **エージェント用メッセージボードの保全不足：保存・照合・削除後確認を実装・合成fixture検証済み。** 対象IDが所有する別DBの情報を保存し、`delete --exported`で元データと照合します。公式0.159.2でもplain/zstdの保存後削除と、無関係なボードの保持を確認しました。実環境での利用状況や過去の消失を確認したものではありません。
 
-**圧縮以外の全対応が完了した状態ではありません。** 通常のpaginated履歴でも、未対応のmetadata・event・context等を含むと境界検証が未検証になり、保存後の削除を停止します。対応schemaの拡張は非圧縮にも必要な機能上の残件です。添付metadata・アプリ固有sidecarの保全範囲と、停電を考慮した保存耐久性も共通の検討事項として残し、確認済みの消失不具合とは区別します。
+**固定版を対象とする共通実装の追加項目は検証済みですが、すべての環境・保存条件の受入が完了した状態ではありません。** 通常のpaginated履歴でも、未対応のmetadata・event・context等を含むと境界検証が未検証になり、保存後の削除を停止します。この制約は圧縮の有無に関係なく適用し、将来版や未対応表現の追加は個別の互換性作業として扱います。添付membership metadataは保存・照合へ追加し、保存ファイルのOS同期も実装しました。アプリの完全復元と物理的な停電耐久性は保証範囲に含めません。未実施の受入試験は末尾に残し、確認済みの消失不具合とは区別します。
 
 ## 根拠と用語
 
@@ -41,7 +41,9 @@
 - [x] ファイル変更・レビュー・hook・サブエージェント・hosted Web検索と画像処理の完了項目、エージェント間通信を追加する。辞書・状態・別名の入れ子検証、plain/zstdの保存・検索・削除計画と、公式CLIの投影・export後削除を合成fixtureで照合する。
 - [x] 未保存のメッセージボードを持つ対象の削除を停止する。所有root、破損・未知schema、確認後の追加、索引消去後にボードだけが残るケースを合成fixtureで確認する。
 - [x] ボードの投稿・チャンネル・購読情報をexport・保存済みcoverage・削除前照合・削除後確認へ統合する。未知DBでの停止、無関係なボードの除外、同時更新検出、旧保存物との互換を維持する。
-- [ ] 残るschemaを段階的に拡張する。realtimeや未対応のresponse item・event・新しい拡張型などを、nested payloadと公式側の読取を含めて検証する。上記の合成ターンの成功を全形式への対応とみなさない。
+- [x] 固定版0.159.2の永続化policyで保存する残りのvariantを実装し、入れ子の拒否と公式側の読取を検証する。新しい版や任意の将来の拡張型への対応は、その都度の保守とする。
+- [x] 添付membership metadataの保存・削除前照合・削除後確認を、合成fixtureと公式CLIで検証する。
+- [x] 保存物のOS同期を公開・再利用・exported deletionへ組み込み、同期失敗時の停止を合成fixtureで検証する。物理的な停電試験とは区別する。
 
 ## 圧縮とは独立した履歴DB保全の修正
 
@@ -117,6 +119,8 @@ compactionの追加根拠は、同じ版の[rollout payload](https://github.com/
 
 開発作業の追加schemaは、同じ版のprotocolとturn itemsを根拠にします。ファイル変更の辞書は各変更内容、レビューは対象variant・結果・行範囲、エージェント操作は送受信ID・状態・役割の別名を検査します。hosted Web検索と拡張Web検索はactionのtagが異なり、両者を混同しません。エージェント間通信は送信元・宛先のpathと必須booleanを検査します。これらのpathや通信内容を使った追加の読取・操作は行わず、保存・削除の対象範囲は既存の親子グループ・所有者・継承履歴規則に従います。`development-turn.mjs`の合成fixtureは既存のcompaction fixtureを含め、混在したターンでも検証します。
 
+`persisted-turn.mjs`では[永続化policy](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/rollout/src/policy.rs)を基準に、残るresponse variant、目標更新、旧形式の完了event、[realtime記録](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/protocol/src/realtime.rs)、[安全性分類スコア](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/protocol/src/security_risk.rs)を追加しました。公式migration後もresponse/realtime/scoreが保持されること、`thread/timeline/list`にrealtime項目が現れることを確認し、plain/zstdのexportと公式削除まで通しています。安全性分類スコアは会話表示に混ぜず、文字起こしのみ表示します。
+
 合成ターンではplain/zstdの同値性、保存済み検索、削除計画、未対応payloadや不整合checkpointで削除呼出しが0回になることを確認します。実CLI互換試験では公式migrationが作るpaginated履歴を`thread/turns/list`で読み、ユーザーメッセージ・応答・コマンド実行と、compaction・MCP・既知の拡張項目を確認してからexportと公式削除を行います。これにより、こちらのvalidatorだけが受け付けるfixtureではないことを照合します。全variantを公式decoderで個別検証したという意味ではありません。
 
 未検証の理由はmetadata未対応、record schema未対応、ordinal欠落、ordinal不連続を区別し、理由ごとの最初の行番号だけを記録します。ログ内容を診断文字列へ展開せず、警告表示を一定量に保ちます。scalarの判定とobjectの許可fieldは起動時に組み立てて共有し、recordごとのschema再構築や外部依存は追加しません。
@@ -179,6 +183,14 @@ ordinal免除はlegacyかつhistory_baseがない既存セッションだけに�
 
 旧保存物は読み続けます。ボードcoverageがなければ、最新のtransactionで未保存のボード情報がないことを確認できる場合だけ削除可能です。新coverageがある場合はDBの有無と対象行の一致を要求します。削除後と索引消去済みの再計画では投稿・チャンネル・購読情報の残存を検出し、tombstoneだけなら完了を妨げません。公式CLIの合成fixtureでも、対象ボードの削除と無関係なボードの保持を検証しました。
 
+### 添付membership metadataと保存同期
+
+公式0.159.2の[`0051_thread_artifacts.sql`](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/state/migrations/0051_thread_artifacts.sql)はthread所有の関連情報を定義し、[`0055_thread_attachments.sql`](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/state/migrations/0055_thread_attachments.sql)で現在の名前へ移行します。thread削除によるcascadeの対象です。`session-attachment-metadata.mjs`は現在の列・型・所有外部キーを検査し、対象IDの行を順序固定で保存します。64bit整数・UTF-8本文を保持し、JSON payloadやパスをたどりません。旧table名・未知構造・同時更新は停止します。
+
+`coverage.attachmentMetadata`に`thread-attachments-v1`を記録し、保存後の変更・確認後の追加・削除後の残存を検査します。旧保存物は現在の対象に未保存の添付情報がない場合だけ削除に使えます。添付先の物理データ、アプリ固有の設定・sidecar、project/worktreeの完全復元はこの保存契約の対象外です。独立したtranscript sidecarの存在を仮定しません。
+
+公開前に全保存memberとmanifestを同期し、再利用する保存物にも同じ同期を行います。バッチも同期してから公開します。exported deletionは確認後の照合を通った保存物とバッチをもう一度同期し、失敗すれば公式CLIを呼びません。POSIXではディレクトリも同期します。WindowsではNodeからディレクトリ同期を要求できないため、ファイルの同期だけを保証範囲にします。OSが同期要求を受理したことは、機器の内部キャッシュや突然の切断・停電に対する保証ではありません。
+
 ### 既存bundleの扱い
 
 DB修正は今後のexportと削除前照合を改善します。既に作成されたbundleへ欠けたDB行を追記したり、削除済みの元データを復元したりするものではありません。元セッションが残っている場合は新しいexportを作り、削除計画を再検証します。元セッションを削除済みの場合は、保存済みのraw rollout・追加rollout・DB行・coverageを読み取り専用で確認し、証明できる保存範囲を区別します。確認前に旧bundleを削除・上書きしません。
@@ -187,7 +199,7 @@ DBの構造検査が成功しても、削除前の全履歴が残っている証
 
 圧縮対応と分けて追跡する残件は次のとおりです。今回の不具合修正をコミットしても、これらの完了を意味しません。
 
-- **残る履歴形式への対応拡張。** `rollout-prefix-v2`の既知schemaを、realtime・未対応のresponse itemやevent・新しい拡張型へ段階的に広げる。公式payload定義と合成fixtureを根拠に、正常な履歴を保存・検証・削除まで通す試験と、未知型や破損入力では削除しない試験を対にする。削除停止を解除するためだけに検査を省略しない。
+- **型の保守範囲。** [0.159.2の永続化policy](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/rollout/src/policy.rs)を基準とし、realtime・response item・eventの保存variantを検証する。将来版や新しい拡張型は追加レビューを必要とする。公式payload定義と合成fixtureを根拠に、正常な履歴を保存・検証・削除まで通す試験と、未知型や破損入力では削除しない試験を対にする。削除停止を解除するためだけに検査を省略しない。
 
-- **保全対象の範囲。** 現在対象外の添付membership metadataやアプリ固有sidecarをどこまで保存するか。圧縮計画の[フォーク履歴の境界と添付物](ai-dotfiles-compressed-session-plan.md#フォーク履歴の境界と添付物)に現行範囲と根拠をまとめています。外部添付payloadまで削除されると推測しないことが必要です。
-- **保存耐久性。** close・再読hash・renameに加えて、どこまでsyncを削除条件にするか。対象OSと外付けdriveでのファイル・ディレクトリ同期、失敗時に削除を止める条件を確定し、障害fixtureで検証する。圧縮計画の[同時更新と途中失敗](ai-dotfiles-compressed-session-plan.md#同時更新と途中失敗)に検討条件をまとめています。読めることと、停電後にも残ることは同じ保証ではありません。
+- **保全対象の範囲。** 添付membership metadataは実装済み。アプリ固有sidecarの完全復元は対象外とする。圧縮計画の[フォーク履歴の境界と添付物](ai-dotfiles-compressed-session-plan.md#フォーク履歴の境界と添付物)に現行範囲と根拠をまとめています。外部添付payloadまで削除されると推測しないことが必要です。
+- **保存耐久性の外部検証。** ファイル同期と失敗時の削除停止は実装済み。Windowsのディレクトリ同期、外付けdrive・OS・機器ごとの突然の切断や停電後の保持は未検証。圧縮計画の[同時更新と途中失敗](ai-dotfiles-compressed-session-plan.md#同時更新と途中失敗)に検討条件をまとめています。読めることと、停電後にも残ることは同じ保証ではありません。

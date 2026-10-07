@@ -3,7 +3,7 @@
 import { mkdirSync, lstatSync, readdirSync, readFileSync, realpathSync, writeFileSync, renameSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { exists, regularFile, fingerprint, pathIdentity, UUID, MAX_MANIFEST_BYTES, HISTORY_TABLES, reject } from './session-export-storage.mjs';
+import { exists, regularFile, fingerprint, pathIdentity, UUID, MAX_MANIFEST_BYTES, HISTORY_TABLES, reject, syncExportDirectory } from './session-export-storage.mjs';
 import { ROLLOUT_POLICY } from './session-rollout-io.mjs';
 
 const FORMAT = 'ai-dotfiles/codex-export-batch';
@@ -22,8 +22,9 @@ export function writeBatch(directory, snapshot, plan, entries, selection) {
   const text = `${JSON.stringify(receipt, null, 2)}\n`;
   if (Buffer.byteLength(text) > MAX_MANIFEST_BYTES) reject('Export batch exceeds the supported size.');
   const temp = join(folder, `.${id}.tmp`);
-  writeFileSync(temp, text, { flag: 'wx', mode: 0o600 });
+  writeFileSync(temp, text, { flag: 'wx', mode: 0o600, flush: true });
   renameSync(temp, join(folder, `${id}.json`));
+  syncExportDirectory(folder); syncExportDirectory(directory);
   return receipt;
 }
 export function readBatch(directory, id) {

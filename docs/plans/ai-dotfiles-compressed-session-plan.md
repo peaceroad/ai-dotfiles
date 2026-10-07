@@ -6,13 +6,13 @@
 
 ### 初期実装で確定した範囲
 
-- `session-rollout-io.mjs`に通常ファイルのopen、identity再確認、strict zstd、資源上限とstream終了処理を集約しました。圧縮runtimeは26.10.0に限定し、非圧縮の入口はNode 24以降を維持します。
+- `session-rollout-io.mjs`に通常ファイルのopen、identity再確認、strict zstd、資源上限とstream終了処理を集約しました。圧縮runtimeは安定版26.10.0以上を受け付け、非圧縮の入口はNode 24以降を維持します。最低要件と実機検証済みの版は区別します。
 - 主ログ・所有追加ログは元の物理bytesを保存します。外部祖先は展開後prefixだけを保存し、圧縮containerは残りも終端まで検証します。DBが指すplainがない場合は同じ名前のzstd siblingだけを解決します。
 - 新規exportはすべてmanifest v3とbatch v2です。v2のdigestと閲覧互換、batch v1の読込を維持します。v3は物理inventory・codec・retention・物理／展開後hash・検証policyと既存coverageを結び付けます。
 - 圧縮削除はv3／batch v2による`delete --exported`だけです。通常の保護・family・参照・履歴DB・CLI起動抑止・実行後確認を適用します。同じrolloutのplain/zstd共存と別directory重複は停止します。
 - 上限は物理8GiB／展開32GiB／1読取10分、展開窓・行長128MiBです。export・削除計画・単独のフォーク参照検査では、共通readerの累積物理64GiB／展開256GiBを適用し、再読回数も数えます。exportのstream出力は累積64GiBです。利用者向けの上限変更は未提供です。
 - 展開時に物理hashも確認し、保存物の検証では同じ所有ファイルを別途hashする読取を省きます。元ログの再照合でもreaderが計算したhashを再利用し、二重計算しません。依存関係の発見では先頭metadataだけを読み、公開前の全体検証と役割を分けます。共有DBを変更する削除は直列のままです。
-- paginated schemaは、共通計画でターン開始・終了、設定、ツール結果、compactionのcheckpoint・保持文脈、MCPと既知の拡張項目、開発作業・サブエージェントの完了項目とエージェント間通信のsubsetへ拡張しました。全schemaへの対応、macOS／Linuxの実機検証、停電後の耐久性、保全対象の追加検討は未完了です。未知schemaを含む正常なJSONLは警告付きでraw保存できても、削除は止まる場合があります。
+- paginated schemaは、共通計画でターン開始・終了、設定、ツール結果、compactionのcheckpoint・保持文脈、MCPと既知の拡張項目、開発作業・サブエージェントの完了項目とエージェント間通信のsubsetへ拡張しました。固定版の保存対象variant、添付metadata保全、ファイル同期をさらに追加しています。全schemaの値域への対応、macOS／Linuxの実機検証、停電後の耐久性は未完了です。未知schemaを含む正常なJSONLは警告付きでraw保存できても、削除は止まる場合があります。
 
 ## 共通計画との関係
 
@@ -34,7 +34,7 @@
 
 6. 削除は公式CLIへ委ね、保存内容の検証、全参照元の検査、利用者の確認、直前再検査を通った対象だけに限定する。
 
-**初期decoderはNode.js 26.10.0の標準zstdです。** 途中切れ・連結frameの修正を取り込み、`rejectGarbageAfterEnd: true` と受入試験を組み合わせます。既存の非圧縮JSONLとv2エクスポートの互換性を維持し、旧Node 24での非圧縮機能を残すかは配布時の互換方針として扱います。
+**初期decoderはNode.js 26.10.0の標準zstdです。** 途中切れ・連結frameの修正を取り込み、`rejectGarbageAfterEnd: true` と受入試験を組み合わせます。既存の非圧縮JSONLとv2エクスポートの互換性を維持し、Node 24以降の非圧縮機能も維持します。
 
 ## 基準版が圧縮を止めている箇所
 
@@ -119,7 +119,7 @@ Node公式の [途中切れを受理する問題 #64592](https://github.com/node
 
 確認した [Node 24.21.0のdecoder](https://github.com/nodejs/node/blob/v24.21.0/src/node_zlib.cc#L1785-L1816)からは、連結frameについて26.10.0と同じ修正を確認できません。採用基準とする [Node 26.10.0は2026年9月22日公開](https://nodejs.org/en/blog/release/v26.10.0)のCurrentリリースです。2026年10月6日時点の [公式リリース計画](https://github.com/nodejs/Release/blob/main/schedule.json)では、26系のLTS開始は2026年10月28日予定です。LTSへ移る際は、その時点の対応patchと回帰試験を確認します。
 
-採用方針は、**Node.js 26.10.0を基準に標準zstdを使い、`rejectGarbageAfterEnd: true` と受入fixtureで確認する方式**です。将来の版も数字だけで自動的に信頼せず、対応表と回帰テストを更新します。旧runtimeを残す場合も、圧縮の読み取り・削除は対応条件を満たさなければ説明付きで止めます。小さな自己診断fixtureは既知の回帰を検出する補助であり、すべての不正入力に対する安全証明ではありません。
+採用方針は、**Node.js 26.10.0を基準に標準zstdを使い、`rejectGarbageAfterEnd: true` と受入fixtureで確認する方式**です。圧縮の最低要件は安定版26.10.0以上とし、後続のpatch・minor・major更新を完全一致判定で拒否しません。プレリリース版は対象外です。実機受入の記録は26.10.0についてのものであり、将来版の検証結果へ読み替えません。テストの実行条件も同じ最低要件を使い、新版で圧縮回帰が黙ってskipされることを防ぎます。旧runtimeを残す場合も、圧縮の読み取り・削除は対応条件を満たさなければ説明付きで止めます。小さな自己診断fixtureは既知の回帰を検出する補助であり、すべての不正入力に対する安全証明ではありません。
 
 | 選択肢 | 利点 | 条件と弱点 |
 | --- | --- | --- |
@@ -212,7 +212,7 @@ batch receiptは既存schema v1を読み続け、v3の全物理inventoryへ結�
 
 展開後の会話生成では [既存の添付収集ルール](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/session-export-content.mjs#L171-L260)をそのまま使います。対応する埋込画像・音声と、明示的に許可されたroot内の構造化参照だけを扱い、本文やtool output中のパス・URLを追跡しません。圧縮されていたことを理由に、添付物の収集範囲や48MiB上限を広げない方針です。
 
-現在のexportは4種類の履歴DBテーブルを扱い、[thread_attachmentsのmembership metadata](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/state/migrations/0051_thread_artifacts.sql#L1-L9)まで網羅するものではありません。公式削除でそのmetadataがcascadeされることと、リンク先の添付payloadが消されることは別です。v3ではcoverageの不足を表示し、必要なら別途対応します。外部添付物が削除されるという未確認の前提で規則を増やさないようにします。
+現在のexportは4種類の履歴DBテーブルに加え、添付membership metadataを`attachment-metadata.jsonl`へ保存します。[元のtable定義](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/state/migrations/0051_thread_artifacts.sql)と、[thread_attachmentsへの改名](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/state/migrations/0055_thread_attachments.sql)を根拠に、対象IDの行とcoverageを照合します。公式削除でそのmetadataがcascadeされることと、リンク先の添付payloadが消されることは別です。外部添付物が削除されるという未確認の前提で規則を増やさないようにします。
 
 同様に、[hookのtranscript_path](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/core/src/session/mod.rs#L5012-L5023)はcurrent rolloutを指すため、独立した `.transcript.jsonl` が常にあると仮定しません。アプリ固有のsidecarを対応範囲へ追加する場合は、実際の保存仕様と削除範囲を先に確認します。
 
@@ -266,7 +266,7 @@ exportは、まず主ログ・所有追加ログの物理コピーをstagingに�
 
 stagingのコピー、展開、会話・添付生成、再読hash、source再検査がすべて成功してからmanifestを完成させ、最後に通常のsnapshot名へ公開します。容量不足、decoder error、DB変更、source消失、取消では `.incomplete-…` の扱いを維持し、batchへ成功エントリーを追加しません。途中まで公開された別snapshotがある場合は、その件数を明示します。
 
-削除直前の保存耐久性まで要求するなら、通常のclose・再読hash・renameに加え、保存ファイル、manifest、receiptのsyncとディレクトリ公開順序を検討します。再読できることと、停電後にも保存済みであることは同じ保証ではありません。OS・ファイルシステム・外付けdriveによる差を受入試験に含め、同期できない状態を隠して削除可能にしない設計にします。
+通常のclose・再読hash・renameに加え、保存ファイル・manifest・receiptのOS同期を実装しました。公開前・再利用時・exported deletion直前に同期し、失敗すれば削除を停止します。POSIXではディレクトリも同期し、Windowsのディレクトリ同期は保証対象外です。再読できることと、停電後にも保存済みであることは同じ保証ではありません。OS・ファイルシステム・外付けdriveによる差を受入試験に含め、同期できない状態を隠して削除可能にしない設計にします。
 
 ## 容量と処理時間の制御
 
@@ -298,15 +298,14 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 - 途中失敗：完了したsnapshotまたはfamilyと、未完了の範囲を表示。
 
-**圧縮機能の実装・検証基準はNode.js 26.10.0にします。** 26系全体を一括で対応扱いにせず、strict decoderと保存・削除設計を組み合わせます。DB保全と履歴境界の独立修正は既存の非圧縮runtimeでも検証し、26.10.0への移行待ちにしません。旧Node 24で独立修正を検証することと、圧縮対応版をNode 24でも配布することは別の判断です。後者は未決定で、以下の旧24の非圧縮対応は互換を維持する配布構成を採用した場合の案です。Nodeの対応表は機能単位で持ちます。
+**圧縮の最低要件はNode.js 26.10.0以上の安定版、実機検証の基準版は26.10.0です。** strict decoderと保存・削除時の保全確認を維持します。非圧縮機能はNode 24以降を引き続き受け付け、Windows／24.19.0で回帰試験を行いました。後続版を受け付ける条件と、実際に試験した版・OSの記録を分けます。
 
-| Node版 | 初期設計での扱い |
+| Node版 | 圧縮機能の扱い |
 | --- | --- |
-| 24.0.0等の旧24 | 互換を維持する配布構成の場合のみ非圧縮を提供。圧縮を拒否 |
-| 24.20.0と確認した24.21.0 | 途中切れ修正だけで十分とせず、圧縮の正式対応から除外 |
-| 26.9.x以前の26系 | 26というメジャー番号だけで対応判定しない |
-| 26.10.0 | 採用する実装・検証基準。strict設定と受入試験を実施 |
-| 以後の版 | 公式変更と回帰試験で対応表を更新 |
+| 26.10.0未満 | 圧縮を拒否。Node 24以降の非圧縮機能は維持 |
+| 26.10.0 | 最低要件であり、実機受入を実施した基準版 |
+| 26.10.1以降の安定版 | patch・minor・major更新を受け付ける。各版の実機検証済みとは扱わない |
+| プレリリース版 | 圧縮を拒否 |
 
 既存の [OS別の範囲](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/docs/agent-codex.md#L16-L21)も変えません。list・plan・exportは全OS向けですがmacOS/Linuxは実機未検証、archive/deleteはWindows限定です。zstdが読めるようになるだけで、削除のOS制約がなくなるわけではありません。
 
@@ -399,7 +398,7 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 4. 対応する実CLI版の起動互換を隔離homeで検証し、`npm run check` による集約検査を通す。
 
-5. 独立修正は既存のNode 24系で非圧縮回帰を行う。圧縮対応版は26.10.0と採用patchで圧縮試験を行い、旧Node 24互換を残す配布構成を採用した場合は、その成果物でも非圧縮回帰を行う。Windows x64・Linux x64・macOS arm64の読取・export fixture試験を行う。実CLIによる削除互換試験は既存のWindows限定範囲で行う。
+5. 独立修正は既存のNode 24系で非圧縮回帰を行う。圧縮対応版は26.10.0と採用patchで圧縮試験を行い、配布成果物でもNode 24の非圧縮回帰を行う。Windows x64・Linux x64・macOS arm64の読取・export fixture試験を行う。実CLIによる削除互換試験は既存のWindows限定範囲で行う。
 
 [package.jsonのcheck定義](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/package.json)にはrepository独自のexport dry-runも含まれるため、検証環境は実ホームを参照しないように設定します。正常例に加え、危険入力・未検証条件・保存後の変更では削除呼出しが0回になることを必須とします。実CLI互換試験も使い捨てhomeだけを対象にし、対応版・引数・接続方式・結果を記録します。未実施の試験は成功扱いにしません。
 
@@ -427,7 +426,39 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 - [x] readerの追加障害検証：低速sink、模擬ENOSPC、読取中の追記と同内容ファイルへの差し替えで、終了処理と未完了の扱いを検証した。実driveの容量枯渇・停電試験の代わりにはしない。
 
-- [ ] 配布範囲全体の受入：呼出元・supportFiles・helpは更新済み。Linux／macOS、旧Node 24での再検証、資源上限付近の大容量fixture、実ストレージ障害・保存耐久性は未検証であり、全受入条件の完了とはしない。
+- [x] Node 24互換：Windows／Node 24.19.0でセッション・export・境界・readerの非圧縮回帰を検証した。圧縮は対応runtime以外で停止する。
+
+- [x] 行長境界：`AGENT_TEST_LARGE_ROLLOUT=1`で128MiB行長と1byte超過をplain/zstdで検証した。fixtureは一つずつ削除する。
+
+- [x] 展開byte境界：Windows／Node 26.10.0で32GiBと1byte超過、および大容量入力の期限停止・handle解放を検証した。小さな圧縮入力から実際に32GiBをstreamで読み、全量をメモリやディスクへ展開しない。
+
+- [ ] 物理byte境界：8GiBと1byte超過を試すopt-in fixtureを追加した。実サイズ試験は未実施。一時保存先に8.5GiB以上の空き容量を必要とし、不足時は成功扱いにせずskipする。
+
+- [ ] OS全体の受入：呼出元・supportFiles・helpは更新済み。Linux x64／macOS arm64で読取・export・同期・失敗処理を検証する。Windowsでの成功を代用しない。
+
+- [ ] 実ストレージ障害：ファイル同期失敗で削除を停止する合成fixtureは検証済み。外付け機器の突然の切断・停電後の保持、Windowsのディレクトリ公開耐久性は未検証。
+
+
+### 残る受入試験の実施方法
+
+大容量試験は使い捨てfixtureだけを使います。Windowsでは子プロセスの`TEMP`と`TMP`、POSIXでは`TMPDIR`を、十分な空き容量のある専用一時フォルダーに設定します。既存のexport保存先を試験用フォルダーにしません。リポジトリ直下で`AGENT_TEST_LARGE_ROLLOUT=1`を設定して、次を実行します。
+
+```sh
+node --test --test-name-pattern='default .* limit' tools/agent/codex/session-rollout-io.test.mjs
+```
+
+容量不足によるskipは合格に数えません。この試験はreaderの実サイズ境界を確認するもので、32GiBのexport全工程や任意のストレージ速度を保証するものではありません。期限切れの停止は短い期限を注入して確認し、10分間待つこと自体を試験の目的にはしません。
+
+Linuxの追加受入には既存のWSL環境を利用できます。WSL内のNodeで`node --version`を確認し、26.10.0以上の安定版から、以下の読取・export・境界fixtureを実行します。Windows側のNodeによる成功をLinux実行へ読み替えず、WSLで使ったfilesystemの条件も検証時に区別します。macOS arm64の受入は別環境が必要です。
+
+```sh
+node --test --test-concurrency=1 tools/agent/codex/session-rollout-io.test.mjs tools/agent/codex/session-export.test.mjs tools/agent/codex/session-lineage.test.mjs
+node --test --test-name-pattern="failed file synchronization" tools/agent/codex/manage-codex-sessions.test.mjs
+```
+
+**コミット可能な実装範囲と、全環境の受入完了を分けます。** Windowsで検証した範囲の実装・不具合修正はコミットできますが、未実施のOS受入を完了に変更しません。archive/deleteのWindows限定条件も維持します。
+
+突然切断や停電後の保持は機器・filesystemごとの外部認定課題です。通常の保存物があるdriveで破壊的な電源断試験を行うことを、今回の実装コミットの前提にはしません。同期失敗時の削除停止と保存物のhash照合をソフトウェア側の受入とし、機器の耐久性を保証する場合だけ専用機器・使い捨てデータで別途試験します。正常な取り外し後の再接続・hash照合が成功しても、突然切断・停電への耐久性を証明したとは扱いません。
 
 ## 公式APIを使う案との比較
 
@@ -439,19 +470,19 @@ app-serverを読み取りのために新規起動しても、設定に応じてm
 
 ## 実装時に確定する事項
 
-- Node.js 26.10.0を基準にし、配布時の対応patchと旧Node 24の非圧縮互換範囲を確定する。
+- 圧縮の最低要件は安定版Node.js 26.10.0以上、非圧縮はNode 24以降。検証記録には実行した版とOSを明記する。
 
 - 両形式共存は初期版で停止する。将来対応する場合は、内容一致と全物理保存の試験を追加する。
 
 - 資源上限は冒頭の値を適用する。上限付近の大容量試験と明示変更オプションは今後検討する。
 
-- 削除直前に要求する保存耐久性と、外付けdrive等での同期失敗の扱い。
+- 削除直前のファイル同期と同期失敗時の停止は実装済み。POSIXのディレクトリ同期は実機未検証、Windowsのディレクトリ同期と外付け機器の停電耐久性は未保証。
 
 - installed Codex CLIの対応版、対象homeへの接続方式、一回限りの設定上書きによる起動時更新抑止。公開mainとの静的比較だけで削除を有効化せず、隔離homeの実CLI互換試験を必須にする。
 
-- 添付membership metadataやアプリ固有sidecarを将来どこまで保全するか。現在の参照用exportを完全復元backupと呼ばないこと。
+- 添付membership metadataは共通保全へ追加済み。アプリ固有sidecarの完全復元は対象外とし、参照用exportを完全復元backupと呼ばない。
 
-DB保全と初期の境界検証を引き継ぎ、共通validatorの対応schema拡張や保全契約の残件は保全・削除計画に沿って進めます。圧縮側はNode.js 26.10.0を基準にします。**読めたこと、保存できたこと、削除で消える全対象を保全できたことを別々に証明する**方針を維持します。初期の圧縮削除は、版別digest、全物理inventory、全所有IDのDB照合、安全なCLI起動を含む試験を通した条件に限定しています。対応OS・runtime・schemaを広げる場合は、その条件で受入試験を追加してから有効化します。
+DB保全と初期の境界検証を引き継ぎ、共通validatorの対応schema拡張や保全契約の残件は保全・削除計画に沿って進めます。圧縮側はNode.js 26.10.0を基準にします。**読めたこと、保存できたこと、削除で消える全対象を保全できたことを別々に証明する**方針を維持します。初期の圧縮削除は、版別digest、全物理inventory、全所有IDのDB照合、安全なCLI起動を含む試験を通した条件に限定しています。schemaや削除のOS範囲を広げる場合は、その条件で受入試験を追加してから有効化します。Nodeの後続安定版は最低要件で受け付け、実機検証の記録を別に追加します。
 
 ## 参考：圧縮機能の導入履歴
 

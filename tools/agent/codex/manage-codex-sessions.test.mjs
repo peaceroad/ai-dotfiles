@@ -12,12 +12,17 @@ import { listBundles, snapshotDigest, fingerprint, verifyBundle, HISTORY_TABLES 
 import { listBatches, readBatch } from './session-export-batches.mjs';
 import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
 import { runHistory } from './manage-codex-history.mjs';
-import { chargeRolloutBytes } from './session-rollout-io.mjs';
+import { supportsZstdRuntime, chargeRolloutBytes } from './session-rollout-io.mjs';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 import { compactedTurn } from './fixtures/compacted-turn.mjs';
 import { boardFixture } from './fixtures/message-board.mjs';
 import { openBoardReader } from './session-message-board.mjs';
 import { developmentTurn } from './fixtures/development-turn.mjs';
+import { persistedTurn } from './fixtures/persisted-turn.mjs';
+import { attachmentMetadataFixture } from './fixtures/attachment-metadata.mjs';
+import { openAttachmentMetadataReader } from './session-attachment-metadata.mjs';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -43,6 +48,99 @@ function fixture(t) {
   db.close();
   return { home, update(sql, ...args) { const db = new DatabaseSync(path); try { db.prepare(sql).run(...args); } finally { db.close(); } } };
 }
+
+test('attachment metadata export scopes exact rows, rechecks changes and protects direct deletion', async t => {
+  const f = renderableFixture(t), output = exportParent(t), metadata = attachmentMetadataFixture(f.home);
+  metadata.put(parent); metadata.put(other);
+  const snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
+  assert.match(makePlan(snapshot, parent).problems.join('\n'), /attachment metadata/);
+  assert.deepEqual(makePlan(snapshot, child).problems, []);
+  const { batch } = await saveBatch(f, output);
+  const bundle = listBundles(output).find(b => b.manifest.session.id === parent);
+  await verifyBundle(bundle);
+  const rows = readFileSync(join(bundle.folder, 'attachment-metadata.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(rows.length, 1); assert.equal(rows[0].row.thread_id, parent);
+  assert.deepEqual(rows[0].row.created_at, { $integer: '9223372036854775807' });
+  assert.equal(rows[0].row.payload, '\ufeffopaque synthetic payload\0');
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  metadata.run('UPDATE thread_attachments SET payload=? WHERE thread_id=?', 'changed', parent);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 0);
+  for (const id of [parent, child]) { f.update('DELETE FROM threads WHERE id=?', id); rmSync(join(f.home, 'sessions', `${id}.jsonl`)); }
+  f.update('DELETE FROM thread_spawn_edges');
+  const orphan = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+  try {
+    orphan.exec('PRAGMA foreign_keys=OFF');
+    orphan.prepare('INSERT INTO thread_attachments VALUES (?, ?, ?, ?, ?, ?)').run('orphan', parent, 'fixture', 'orphan', 'residual', 0);
+  } finally { orphan.close(); }
+  const absent = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.match(absent.skipped[0].problems.join('\n'), /attachment metadata remains/);
+});
+
+test('attachment metadata readers reject concurrent changes, unknown schemas and malformed values', async t => {
+  for (const change of [
+    m => m.run('ALTER TABLE thread_attachments ADD COLUMN future TEXT'),
+    m => m.run("UPDATE thread_attachments SET payload=CAST(x'ff' AS TEXT)"),
+    m => m.run('UPDATE thread_attachments SET created_at=0.5'),
+  ]) {
+    const f = fixture(t), metadata = attachmentMetadataFixture(f.home); metadata.put(parent); change(metadata);
+    await assert.rejects(async () => { const reader = await openAttachmentMetadataReader(f.home);
+      try { [...reader.lines(parent)]; reader.check(); } finally { reader.close(); } });
+  }
+  const f = fixture(t), metadata = attachmentMetadataFixture(f.home); metadata.put(parent);
+  metadata.run('PRAGMA journal_mode=WAL');
+  const reader = await openAttachmentMetadataReader(f.home);
+  try {
+    [...reader.lines(parent)]; metadata.run('UPDATE thread_attachments SET payload=?', 'changed');
+    assert.throws(() => reader.check(), /changed during operation/);
+  } finally { reader.close(); }
+});
+
+test('failed file synchronization publishes no snapshot and stops before official deletion', async t => {
+  const f = renderableFixture(t), output = exportParent(t);
+  const original = fs.fsyncSync;
+  const failSync = () => { throw Object.assign(new Error('synthetic sync failure'), { code: 'EIO' }); };
+  fs.fsyncSync = failSync; syncBuiltinESMExports();
+  try { await assert.rejects(saveBatch(f, output), /EIO/); }
+  finally { fs.fsyncSync = original; syncBuiltinESMExports(); }
+  assert.equal(listBundles(output).length, 0); assert.equal(listBatches(output).length, 0);
+  const { batch } = await saveBatch(f, output), base = deletionOptions(f), calls = [];
+  fs.fsyncSync = failSync; syncBuiltinESMExports();
+  try {
+    assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...base, ask: confirmPrompt, cli: args => {
+        if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+        calls.push(args); return { status: 0 };
+      },
+    }), 1);
+  } finally { fs.fsyncSync = original; syncBuiltinESMExports(); }
+  assert.deepEqual(calls, []);
+  assert.equal((await inspectSessions(f.home)).sessions.length, 3);
+});
+
+test('attachment metadata added at confirmation or left by official deletion cannot pass', async t => {
+  for (const mode of ['confirmation', 'residual']) {
+    const f = renderableFixture(t), output = exportParent(t), metadata = attachmentMetadataFixture(f.home);
+    const { batch } = await saveBatch(f, output), base = deletionOptions(f), calls = [];
+    const code = await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...base, ask: async prompt => { if (mode === 'confirmation') metadata.put(parent); return confirmPrompt(prompt); },
+      cli: args => {
+        if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+        calls.push(args);
+        const db = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+        try {
+          db.exec('PRAGMA foreign_keys=OFF');
+          for (const id of [parent, child]) {
+            db.prepare('DELETE FROM threads WHERE id=?').run(id); rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+          }
+          db.exec('DELETE FROM thread_spawn_edges');
+          db.prepare('INSERT INTO thread_attachments VALUES (?, ?, ?, ?, ?, ?)').run('residual', parent, 'fixture', 'residual', '', 0);
+        } finally { db.close(); }
+        return { status: 0 };
+      },
+    });
+    assert.equal(code, 1, mode); assert.equal(calls.length, mode === 'confirmation' ? 0 : 1);
+  }
+});
 
 test('read-only inventory reads metadata, includes descendants, and does not change rollouts or database', async t => {
   const f = fixture(t);
@@ -154,25 +252,28 @@ test('board changes and legacy exports without board coverage never authorize da
       }), 3);
     }
   }
-  const f = renderableFixture(t), output = exportParent(t);
-  const { batch } = await saveBatch(f, output);
-  // Simulate an old, otherwise valid receipt and snapshot, without board coverage.
-  for (const entry of batch.entries) {
-    const bundle = listBundles(output).find(bundle => bundle.key === entry.key);
-    delete bundle.manifest.coverage.messageBoard;
-    bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
-    entry.digest = bundle.manifest.contentDigest;
-    writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(bundle.manifest));
-    await verifyBundle(bundle);
+  for (const kind of ['messageBoard', 'attachmentMetadata']) {
+    const f = renderableFixture(t), output = exportParent(t);
+    const { batch } = await saveBatch(f, output);
+    // An old, otherwise valid receipt lacks the newer metadata coverage.
+    for (const entry of batch.entries) {
+      const bundle = listBundles(output).find(bundle => bundle.key === entry.key);
+      delete bundle.manifest.coverage[kind];
+      bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
+      entry.digest = bundle.manifest.contentDigest;
+      writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(bundle.manifest));
+      await verifyBundle(bundle);
+    }
+    const { digest, ...body } = batch; batch.digest = fingerprint(body);
+    writeFileSync(join(output, 'batches', `${batch.id}.json`), JSON.stringify(batch));
+    assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+    const earlier = await inspectDeletionReferences(await inspectSessions(f.home));
+    if (kind === 'messageBoard') boardFixture(f.home).put('posts', parent);
+    else attachmentMetadataFixture(f.home).put(parent);
+    const plan = await planExportedDeletion(earlier, output, batch.id);
+    assert.equal(plan.sessions.length, 0);
+    assert.match(plan.skipped[0].problems.join(' '), /lacks .* coverage/);
   }
-  const { digest, ...body } = batch; batch.digest = fingerprint(body);
-  writeFileSync(join(output, 'batches', `${batch.id}.json`), JSON.stringify(batch));
-  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
-  const earlier = await inspectDeletionReferences(await inspectSessions(f.home));
-  const board = boardFixture(f.home); board.put('posts', parent);
-  const plan = await planExportedDeletion(earlier, output, batch.id);
-  assert.equal(plan.sessions.length, 0);
-  assert.match(plan.skipped[0].problems.join(' '), /lacks agent message-board coverage/);
 });
 
 test('board readers detect concurrent commits, replacement, appearance and unknown versions', async t => {
@@ -296,7 +397,7 @@ test('exported deletion verifies every additional rollout owned by the session',
 });
 
 test('reviewed paginated plain and compressed turns export, search and authorize verified deletion', async t => {
-  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn]) for (const compressed of [false, ...(process.versions.node === '26.10.0' ? [true] : [])]) {
+  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn, persistedTurn]) for (const compressed of [false, ...(supportsZstdRuntime() ? [true] : [])]) {
     const f = fixture(t), output = exportParent(t);
     for (const id of [parent, child]) {
       const raw = encodeTurn(makeTurn(id)), path = join(f.home, 'sessions', `${id}.jsonl`);
@@ -754,7 +855,8 @@ test('unreadable or compressed-only reference metadata blocks deletion globally'
   rmSync(path);
   writeFileSync(`${path}.zst`, 'compressed fixture');
   snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
-  assert.match(makePlan(snapshot, parent, 'delete').problems.join('\n'), /ZSTD_INVALID/);
+  assert.match(makePlan(snapshot, parent, 'delete').problems.join('\n'),
+    supportsZstdRuntime() ? /ZSTD_INVALID/ : /ZSTD_RUNTIME_UNSUPPORTED/);
 });
 
 test('bulk deletion calls only roots once, verifies each family, and leaves excluded sessions intact', async t => {
@@ -1073,6 +1175,7 @@ test('export refuses missing indexed history and unsafe destinations before crea
 
 test('failed revalidation leaves an explicitly incomplete export, with no completed manifest', async t => {
   const f = fixture(t), output = exportParent(t);
+  f.update('PRAGMA journal_mode=WAL');
   const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
   await assert.rejects(exportSessions(snapshot, plan, output, { log() {}, inspect: async () => {
     f.update('UPDATE threads SET updated_at_ms = updated_at_ms + 1 WHERE id = ?', child);
@@ -1300,7 +1403,7 @@ async function saveBatch(f, output, selection = [parent]) {
   return exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', ...selection])), output, { log() {} });
 }
 
-test('compressed exports bind physical inventory, reject direct deletion, and recheck changes before CLI', { skip: process.versions.node !== '26.10.0' }, async t => {
+test('compressed exports bind physical inventory, reject direct deletion, and recheck changes before CLI', { skip: !supportsZstdRuntime() }, async t => {
   for (const change of ['recompress', 'plain-sibling', 'saved-bytes', 'new-generation', 'after-confirmation']) {
     const f = renderableFixture(t), output = exportParent(t), base = deletionOptions(f);
     const path = join(f.home, 'sessions', `${parent}.jsonl`), raw = readFileSync(path);
@@ -1333,7 +1436,7 @@ test('compressed exports bind physical inventory, reject direct deletion, and re
   }
 });
 
-test('owned paginated generations can mix plain and compressed files while preserving the inherited boundary', { skip: process.versions.node !== '26.10.0' }, async t => {
+test('owned paginated generations can mix plain and compressed files while preserving the inherited boundary', { skip: !supportsZstdRuntime() }, async t => {
   for (const currentCompressed of [false, true]) {
     const f = renderableFixture(t), output = exportParent(t), alias = '00000000-0000-4000-8000-000000000055';
     historyFixture(f);
@@ -1361,7 +1464,7 @@ test('owned paginated generations can mix plain and compressed files while prese
   }
 });
 
-test('compression after export or deletion confirmation requires a fresh snapshot and never calls deletion', { skip: process.versions.node !== '26.10.0' }, async t => {
+test('compression after export or deletion confirmation requires a fresh snapshot and never calls deletion', { skip: !supportsZstdRuntime() }, async t => {
   for (const afterConfirmation of [false, true]) {
     const f = renderableFixture(t), output = exportParent(t), base = deletionOptions(f);
     const plain = join(f.home, 'sessions', `${parent}.jsonl`), raw = readFileSync(plain);
@@ -1386,7 +1489,7 @@ test('compression after export or deletion confirmation requires a fresh snapsho
   }
 });
 
-test('unindexed archived compressed forks protect their live ancestor and malformed records block globally', { skip: process.versions.node !== '26.10.0' }, async t => {
+test('unindexed archived compressed forks protect their live ancestor and malformed records block globally', { skip: !supportsZstdRuntime() }, async t => {
   const f = renderableFixture(t), output = exportParent(t), unknown = '00000000-0000-4000-8000-000000000088';
   const { batch } = await saveBatch(f, output);
   mkdirSync(join(f.home, 'archived_sessions'));

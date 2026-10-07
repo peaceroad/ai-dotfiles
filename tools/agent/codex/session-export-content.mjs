@@ -145,6 +145,9 @@ function message(value) {
   const p = value.payload ?? value;
   const item = p.type === 'item_completed' ? p.item : p;
   if (!item) return null;
+  if (value.type === 'realtime_item' && item.type === 'transcript_segment' && ['user', 'assistant'].includes(item.role)) {
+    return { role: item.role, content: [{ type: 'text', text: item.text }], event: true };
+  }
   if (['user_message', 'userMessage', 'UserMessage'].includes(item.type)) return { role: 'user', content: item.content ?? [
     { type: 'text', text: item.message ?? '' },
     ...(item.images ?? []).map(image_url => ({ type: 'image', image_url })),

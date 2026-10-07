@@ -18,7 +18,7 @@ Examples of requests:
 
 ## Install the runtime and instructions separately
 
-The runtime requires Node.js 24 or later; compressed Codex history requires reviewed Node.js 26.10.0. Existing v2 exports remain readable, and new v3 exports retain original plain/zstd files alongside searchable Markdown. From a user-selected ai-dotfiles checkout, inspect the installer and run:
+The runtime requires Node.js 24 or later; compressed Codex history requires Node.js 26.10.0 or later (stable release); acceptance tests have been run on 26.10.0. Existing v2 exports remain readable, and new v3 exports retain original plain/zstd files alongside searchable Markdown. From a user-selected ai-dotfiles checkout, inspect the installer and run:
 
 ```sh
 node scripts/install-agent.mjs --dry-run
@@ -107,7 +107,7 @@ the distinction between configuration layers, app selections, and recorded permi
 
 Installed command help is the authority for syntax and supported features. Check the actual entrypoint: another executable named `agent` is not the ai-dotfiles CLI. Update this plugin and the CLI separately when needed; do not bypass a version, ownership, integrity, or permission refusal to match an example.
 
-Session export/archive/delete remain experimental and fixture-tested. Export is a private reference copy, not a restorable backup; deletion requires separate authorization and confirmation. Some operations require Codex clients to be closed and must be handed off to an external terminal. This plugin does not expand sandbox permissions or turn a confirmation token into user authorization.
+Session export/archive/delete remain experimental because they depend on internal Codex storage formats. Synthetic regression tests and isolated Codex CLI 0.159.2 compatibility checks cover the documented subset; unverified formats block deletion. Export is a private reference copy, not a restorable backup; deletion requires separate authorization and confirmation. Some operations require Codex clients to be closed and must be handed off to an external terminal. This plugin does not expand sandbox permissions or turn a confirmation token into user authorization.
 
 For command details and validation limits, see [Codex maintenance](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-codex.md) and [session-management notes](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-session-management.md). These human-facing guides are not required reading for every skill invocation; execution guidance is bundled in the relevant skill references.
 

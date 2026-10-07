@@ -7,13 +7,15 @@ import { join } from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runOfficialCodex, inspectSessions, exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
-import { rolloutChunks } from './session-rollout-io.mjs';
+import { supportsZstdRuntime, rolloutChunks } from './session-rollout-io.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { createInterface } from 'node:readline';
 import { zstdCompressSync } from 'node:zlib';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 import { compactedTurn } from './fixtures/compacted-turn.mjs';
 import { developmentTurn } from './fixtures/development-turn.mjs';
+import { persistedTurn } from './fixtures/persisted-turn.mjs';
+import { attachmentMetadataFixture } from './fixtures/attachment-metadata.mjs';
 import { boardFixture } from './fixtures/message-board.mjs';
 import { listBundles, verifyBundle } from './session-export-storage.mjs';
 
@@ -124,7 +126,7 @@ test('official maintenance startup overrides suppress synthetic history rewrites
 });
 
 test('official projection reads reviewed paginated fixtures before verified export and deletion', {
-  skip: process.platform !== 'win32' || process.env.AGENT_TEST_CODEX_COMPAT !== '1' || process.versions.node !== '26.10.0',
+  skip: process.platform !== 'win32' || process.env.AGENT_TEST_CODEX_COMPAT !== '1' || !supportsZstdRuntime(),
 }, async t => {
   assert.ok(!process.env.CODEX_EXEC_SERVER_URL && !process.env.CODEX_SQLITE_HOME);
   const root = mkdtempSync(join(tmpdir(), 'agent-paginated-compat-'));
@@ -132,7 +134,7 @@ test('official projection reads reviewed paginated fixtures before verified expo
   const version = runOfficialCodex(['--version'], root).stdout?.trim();
   assert.equal(version, 'codex-cli 0.159.2');
   const id = '00000000-0000-4000-8000-000000000101', missing = '00000000-0000-4000-8000-000000000199';
-  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn]) for (const compressed of [false, true]) {
+  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn, persistedTurn]) for (const compressed of [false, true]) {
     const variant = `${makeTurn.name}-${compressed ? 'zstd' : 'plain'}`;
     const home = join(root, variant), output = join(root, `saved-${variant}`);
     mkdirSync(join(home, 'sessions'), { recursive: true }); mkdirSync(output);
@@ -146,7 +148,8 @@ test('official projection reads reviewed paginated fixtures before verified expo
     writeFileSync(plain, encodeTurn(records)); indexSyntheticThread(home, plain, id);
     const server = runOfficialCodex(['--no-daemon', '-c', 'features.local_thread_store_compression=false',
       '-c', 'features.background_paginated_rollout_migration=true', 'app-server'], home, spawn);
-    server.stderr.on('data', () => {});
+    let stderr = '';
+    server.stderr.on('data', data => { stderr = (stderr + data).slice(-4000); });
     const closed = new Promise((resolve, reject) => { server.once('error', reject); server.once('exit', resolve); });
     const reader = createInterface({ input: server.stdout }), pending = new Map();
     reader.on('line', line => {
@@ -156,7 +159,9 @@ test('official projection reads reviewed paginated fixtures before verified expo
     let next = 0;
     const request = (method, params) => new Promise((resolve, reject) => {
       const id = ++next;
-      const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Fixture RPC timed out: ${method}`)); }, 10000);
+      // initialize includes the PowerShell launcher and server cold start. Other
+      // RPCs keep the shorter deadline; this is compatibility, not a startup benchmark.
+      const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Fixture RPC timed out: ${variant} ${method}; ${stderr}`)); }, method === 'initialize' ? 30000 : 10000);
       pending.set(id, message => { clearTimeout(timer); pending.delete(id); message.error ? reject(new Error(JSON.stringify(message.error))) : resolve(message.result); });
       server.stdin.write(JSON.stringify({ id, method, params }) + '\n');
     });
@@ -168,6 +173,18 @@ test('official projection reads reviewed paginated fixtures before verified expo
         await delay(200);
       }
       assert.equal(JSON.parse(readFileSync(plain, 'utf8').split('\n')[0]).payload.history_mode, 'paginated');
+      if (makeTurn === persistedTurn) {
+        const migrated = readFileSync(plain, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+        for (const original of records.filter(record => ['realtime_item', 'security_risk_score'].includes(record.type)
+          || record.type === 'response_item' && ['agent_message', 'local_shell_call', 'web_search_call', 'image_generation_call', 'configuration_update'].includes(record.payload.type))) {
+          const decoded = migrated.find(record => record.type === original.type && record.payload.type === original.payload.type
+            && record.payload.id === original.payload.id);
+          assert.ok(decoded, `Official migration must retain ${original.payload.type ?? original.type}`);
+          for (const [key, value] of Object.entries(original.payload)) assert.deepEqual(decoded.payload[key], value, `${original.type}.${key}`);
+        }
+        const timeline = await request('thread/timeline/list', { threadId: id, limit: 100 });
+        assert.equal(timeline.data.filter(entry => entry.type === 'realtime').length, 7);
+      }
       const page = await request('thread/turns/list', { threadId: id, itemsView: 'full', limit: 10 });
       assert.equal(page.data.length, 1, 'Official typed projection must recover the synthetic turn');
       const items = page.data[0].items;
@@ -181,6 +198,7 @@ test('official projection reads reviewed paginated fixtures before verified expo
     } finally { reader.close(); server.stdin.end(); await closed; }
     if (compressed) { writeFileSync(path, zstdCompressSync(readFileSync(plain))); rmSync(plain); }
     const bytes = readFileSync(path);
+    if (makeTurn === persistedTurn) attachmentMetadataFixture(home).put(id);
     let board;
     if (makeTurn === developmentTurn) {
       board = boardFixture(home);

@@ -1,7 +1,8 @@
 // @ai-dotfiles agent-dev-runtime managed
 // Shared file-only storage contract. No Codex process or source database is opened here.
 import { createHash } from 'node:crypto';
-import { createReadStream, createWriteStream, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync, readdirSync } from 'node:fs';
+import { createReadStream, createWriteStream, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync, readdirSync,
+  openSync, closeSync, fsyncSync, fstatSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { Transform } from 'node:stream';
@@ -38,6 +39,15 @@ export function verifyBoardCoverage(manifest) {
   const file = manifest.files.find(file => file.file === 'message-board.jsonl');
   if (fingerprint(coverage) !== fingerprint(boardCoverage(manifest.session.id, !!file))
     || (file && (!Number.isSafeInteger(file.records) || file.records < 0))) reject('Invalid agent message-board coverage.');
+}
+export const attachmentMetadataCoverage = (id, present) => ({ policy: 'thread-attachments-v1', id,
+  tables: ['thread_attachments'], integers: 'tagged-decimal', present, member: present ? 'attachment-metadata.jsonl' : null });
+export function verifyAttachmentMetadataCoverage(manifest) {
+  const coverage = manifest.coverage?.attachmentMetadata;
+  if (coverage === undefined) return;
+  const file = manifest.files.find(file => file.file === 'attachment-metadata.jsonl');
+  if (fingerprint(coverage) !== fingerprint(attachmentMetadataCoverage(manifest.session.id, !!file))
+    || (file && (!Number.isSafeInteger(file.records) || file.records < 0))) reject('Invalid attachment metadata coverage.');
 }
 export function indexedHistoryCoverage(ids, present) {
   return { policy: 'owned-rollout-ids-v1', ids, tables: HISTORY_TABLES, present, member: present ? 'history.jsonl' : null };
@@ -107,6 +117,44 @@ function bundleMember(folder, name) {
   return { path, stat: regularFile(path, folder) };
 }
 export const bundleFile = (folder, name) => bundleMember(folder, name).path;
+export function syncExportFile(path, root) {
+  syncCheckedExportFile(path, regularFile(path, root));
+}
+function syncCheckedExportFile(path, before) {
+  // Windows FlushFileBuffers requires a writable handle, without changing bytes.
+  const fd = openSync(path, 'r+');
+  try {
+    const opened = fstatSync(fd);
+    if (opened.dev !== before.dev || opened.ino !== before.ino || opened.size !== before.size
+      || opened.mtimeMs !== before.mtimeMs || opened.ctimeMs !== before.ctimeMs || opened.nlink !== 1
+      || !opened.isFile()) reject('Saved export changed before synchronization.');
+    fsyncSync(fd);
+  } finally { closeSync(fd); }
+}
+export function syncExportDirectory(path) {
+  // Node cannot open Windows directory handles for FlushFileBuffers. File flush
+  // is still required there; directory/drive power-loss durability is not claimed.
+  if (process.platform === 'win32') return;
+  const fd = openSync(path, 'r');
+  try { fsyncSync(fd); } finally { closeSync(fd); }
+}
+export function syncExportBundle(bundle) {
+  const folder = resolve(bundle.folder);
+  const directories = process.platform === 'win32' ? null : new Set([folder]);
+  for (const name of [...bundle.manifest.files.map(file => file.file), 'manifest.json',
+    ...(exists(join(folder, 'README.txt')) ? ['README.txt'] : [])]) {
+    const { path, stat } = bundleMember(folder, name);
+    syncCheckedExportFile(path, stat);
+    if (directories) {
+      let directory = dirname(path);
+      while (directory !== folder) { directories.add(directory); directory = dirname(directory); }
+    }
+  }
+  if (directories) {
+    for (const directory of [...directories].sort((a, b) => b.length - a.length)) syncExportDirectory(directory);
+    syncExportDirectory(dirname(folder));
+  }
+}
 export async function digestFile(path, progress) {
   return digestChunks(createReadStream(path), progress);
 }
@@ -212,6 +260,7 @@ export async function verifyBundle(bundle, progress) {
   if (bundle.manifest.schemaVersion === 2 && [...names].some(name => name.endsWith('.zst'))) reject('Compressed history requires export schema v3.');
   verifyIndexedHistory(bundle.manifest);
   verifyBoardCoverage(bundle.manifest);
+  verifyAttachmentMetadataCoverage(bundle.manifest);
   const verified = bundle.manifest.schemaVersion === 3 ? await verifyArtifacts(bundle, progress) : new Set();
   // Bound disk pressure and await both workers even if one fails. No background
   // verification can continue after this function returns or throws.

@@ -39,7 +39,13 @@ export function regularFile(path, root) {
 
 
 export const ROLLOUT_POLICY = 'physical-rollout-v1';
-export const ZSTD_NODE_VERSIONS = ['26.10.0'];
+// Minimum release containing the required concatenated-frame decoder fix.
+// Keep runtime eligibility separate from versions exercised by acceptance tests.
+export function supportsZstdRuntime(version = process.versions.node) {
+  if (typeof version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) return false;
+  const [major, minor, patch] = version.split('.').map(Number);
+  return [major, minor, patch].every(Number.isSafeInteger) && (major > 26 || (major === 26 && minor >= 10));
+}
 export const ROLLOUT_LIMITS = Object.freeze({ stored: 8 * 1024 ** 3, decoded: 32 * 1024 ** 3, timeout: 600_000 });
 const operationBudget = new AsyncLocalStorage();
 const totals = Object.freeze({ stored: 64 * 1024 ** 3, decoded: 256 * 1024 ** 3, written: 64 * 1024 ** 3 });
@@ -51,7 +57,7 @@ export function chargeRolloutBytes(kind, bytes) {
 }
 export const rolloutCodec = path => /\.jsonl\.zst$/i.test(path) ? 'zstd' : 'identity';
 export function assertZstdRuntime(version = process.versions.node) {
-  if (!ZSTD_NODE_VERSIONS.includes(version)) reject('ZSTD_RUNTIME_UNSUPPORTED: compressed history requires reviewed Node.js 26.10.0.');
+  if (!supportsZstdRuntime(version)) reject('ZSTD_RUNTIME_UNSUPPORTED: compressed history requires Node.js 26.10.0 or later (stable release).');
 }
 const identity = stat => [stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs, stat.nlink].join(':');
 

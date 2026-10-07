@@ -33,6 +33,7 @@
 
 - Before changing session export or deletion, read the relevant acceptance conditions in `docs/plans/ai-dotfiles-session-preservation-plan.md` and the current contract in `docs/agent-codex.md`. Review selection, saved coverage, pre-operation checks, post-operation verification, and retry behavior together. Do not equate a rollout ID set with a physical file inventory, or an unreadable inventory with an empty one.
 - Keep regression and real CLI compatibility checks in disposable synthetic homes. A successful fake CLI or exit code alone does not establish startup safety or completed deletion. Record supported and unverified conditions separately; mark a plan complete only for the acceptance conditions actually verified. Reuse inventories within one inspection, and rebuild them at confirmation and mutation boundaries.
+- Preserve thread-owned message boards and attachment membership rows across export, pre-delete comparison, completion checks, and retry. Keep referenced paths opaque. Test failed synchronization before deletion separately from hash integrity; OS flush acceptance is not proof of device power-loss durability.
 
 ## Documentation layout and language
 
