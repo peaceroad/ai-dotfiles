@@ -12,7 +12,7 @@
 - 圧縮削除はv3／batch v2による`delete --exported`だけです。通常の保護・family・参照・履歴DB・CLI起動抑止・実行後確認を適用します。同じrolloutのplain/zstd共存と別directory重複は停止します。
 - 上限は物理8GiB／展開32GiB／1読取10分、展開窓・行長128MiBです。export・削除計画・単独のフォーク参照検査では、共通readerの累積物理64GiB／展開256GiBを適用し、再読回数も数えます。exportのstream出力は累積64GiBです。利用者向けの上限変更は未提供です。
 - 展開時に物理hashも確認し、保存物の検証では同じ所有ファイルを別途hashする読取を省きます。元ログの再照合でもreaderが計算したhashを再利用し、二重計算しません。依存関係の発見では先頭metadataだけを読み、公開前の全体検証と役割を分けます。共有DBを変更する削除は直列のままです。
-- 通常のpaginated schemaは、共通計画でターン開始・終了、設定、ツール結果などのsubsetへ拡張しました。全schemaへの対応、macOS／Linuxの実機検証、停電後の耐久性、保全対象の追加検討は未完了です。未知schemaを含む正常なJSONLは警告付きでraw保存できても、削除は止まる場合があります。
+- paginated schemaは、共通計画でターン開始・終了、設定、ツール結果、compactionのcheckpoint・保持文脈、MCPと既知の拡張項目のsubsetへ拡張しました。全schemaへの対応、macOS／Linuxの実機検証、停電後の耐久性、保全対象の追加検討は未完了です。未知schemaを含む正常なJSONLは警告付きでraw保存できても、削除は止まる場合があります。
 
 ## 共通計画との関係
 

@@ -1,6 +1,7 @@
 // @ai-dotfiles agent-dev-runtime managed
 // Reviewed subset of openai/codex rust-v0.159.2: protocol/src/{protocol,models,
-// items,permissions,config_types,user_input,dynamic_tools}.rs and history/src/lib.rs.
+// items,permissions,config_types,user_input,dynamic_tools,mcp}.rs, history/src/
+// {lib,rollout_payload,retained_context,guardian_history}.rs and ext/items/src/.
 // Closed objects deliberately reject new fields/variants instead of guessing how
 // the official typed rollout decoder counts them. No archived settings are applied.
 import { UUID } from './session-export-storage.mjs';
@@ -11,10 +12,8 @@ const bool = v => typeof v === 'boolean';
 const json = v => v !== undefined; // Explicit JSON values or documented decoder-ignored fields.
 const number = v => typeof v === 'number' && Number.isFinite(v);
 const uuid = v => text(v) && UUID.test(v);
-const empty = v => Array.isArray(v) && v.length === 0;
 const choice = (...values) => { const set = new Set(values); return v => set.has(v); };
 const maybe = check => (v, tokens, parent, key) => v == null || check(v, tokens, parent, key);
-const defaulted = check => (v, tokens, parent, key) => v === undefined || check(v, tokens, parent, key);
 const array = check => (v, tokens) => Array.isArray(v) && v.every((item, i) => check(item, tokens, v, String(i)));
 const either = (...checks) => (v, tokens, parent, key) => checks.some(check => check(v, tokens, parent, key));
 // Decimal lexemes avoid accepting rounded/fractional JSON numbers as Rust integers.
@@ -25,7 +24,7 @@ const integer = (min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER) =
 const int = integer(), uint = integer(0), positive = integer(1), int32 = integer(-(2 ** 31), 2 ** 31 - 1), uint32 = integer(0, 2 ** 32 - 1);
 function shape(required = {}, optional = {}, defaults = {}) {
   const fields = new Map([...Object.entries(required), ...Object.entries(optional).map(([k, v]) => [k, maybe(v)]),
-    ...Object.entries(defaults).map(([k, v]) => [k, defaulted(v)])]);
+    ...Object.entries(defaults)]);
   const requiredKeys = Object.keys(required);
   // Parsed JSON has own data properties. Missing optional/default fields need no
   // validator call, while present nulls and unknown keys must still be checked.
@@ -33,8 +32,11 @@ function shape(required = {}, optional = {}, defaults = {}) {
     && Object.keys(v).every(key => fields.get(key)?.(v[key], tokens, v, key) ?? false);
 }
 function tagged(variants, tag = 'type') {
-  const checks = new Map(Object.entries(variants).map(([name, [required, optional, defaults]]) =>
-    [name, shape({ [tag]: choice(name), ...required }, optional, defaults)]));
+  const checks = new Map(Object.entries(variants).map(([name, rule]) => {
+    if (typeof rule === 'function') return [name, rule];
+    const [required, optional, defaults] = rule;
+    return [name, shape({ [tag]: choice(name), ...required }, optional, defaults)];
+  }));
   return (v, tokens) => object(v) && (checks.get(v[tag])?.(v, tokens) ?? false);
 }
 const external = variants => {
@@ -59,6 +61,7 @@ const network = choice('restricted', 'enabled');
 const mode = choice('plan', 'default', 'code', 'pair_programming', 'execute', 'custom');
 const effort = choice('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra', 'persistent');
 const multiAgent = choice('disabled', 'v1', 'v2');
+const cyberProgram = choice('standard', 'daybreak_blue', 'daybreak_red');
 const summary = choice('auto', 'concise', 'detailed', 'none');
 const personality = choice('none', 'friendly', 'pragmatic');
 const reviewer = choice('user', 'auto_review', 'guardian_subagent');
@@ -83,7 +86,7 @@ const turnContext = shape({ cwd: absolute, approval_policy: approval, sandbox_po
   approvals_reviewer: reviewer, permission_profile: permissions, active_permission_profile: activeProfile,
   network: shape({ allowed_domains: strings, denied_domains: strings }), file_system_sandbox_policy: rawFs,
   comp_hash: text, personality, collaboration_mode: collaboration, multi_agent_version: multiAgent,
-  multi_agent_mode: choice('explicit_request_only', 'proactive'), realtime_active: bool, effort,
+  multi_agent_mode: choice('explicit_request_only', 'proactive'), realtime_active: bool, cyber_access_program: cyberProgram, effort,
 });
 const threadSettings = shape({ model: text, model_provider_id: text, approval_policy: approval, approvals_reviewer: reviewer,
   permission_profile: permissions, cwd: absolute, collaboration_mode: collaboration }, {
@@ -101,7 +104,7 @@ const passthrough = shape({}, { turn_id: text, create_time: number, cell_id: tex
   content_item_kinds: json, executed_tool_calls: json,
 });
 const responseCommon = { id: text, internal_chat_message_metadata_passthrough: passthrough };
-const response = tagged({
+const responseVariants = {
   message: [{ role: text, content: array(checkedContent) }, { ...responseCommon, phase, end_turn: bool }],
   reasoning: [{ summary: array(tagged({ summary_text: [{ text }] })) }, { ...responseCommon,
     content: array(tagged({ reasoning_text: [{ text }], text: [{ text }] })), encrypted_content: text }],
@@ -111,10 +114,21 @@ const response = tagged({
   custom_tool_call_output: [{ call_id: text, output }, { ...responseCommon, name: text }],
   tool_search_call: [{ execution: text, arguments: json }, { ...responseCommon, call_id: text, status: text }],
   tool_search_output: [{ status: text, execution: text, tools: array(json) }, { ...responseCommon, call_id: text }],
-});
+  compaction: [{ encrypted_content: text }, responseCommon],
+  compaction_summary: [{ encrypted_content: text }, responseCommon],
+  context_compaction: [{}, { ...responseCommon, encrypted_content: text }],
+};
+const response = tagged(responseVariants);
+const retainedSource = shape({ id: shape({ message_id: text, turn_id: text, role: choice('user', 'assistant') }), revision: text, complete: bool });
+const senderFields = { receiver_turn_id: text, receiver_message_id: text, text };
 const harness = shape({}, { fallback_token_limit_override: uint, delivered_assistant_message: text, compaction_model_hash: text,
-  user_input_order: uint }, { client_authored: bool, guardian_source_order_guidance: bool, guardian_sources: empty,
+  user_input_order: uint, retained_source: retainedSource, sender_user_messages: shape(senderFields),
+  // The official checkpoint decoder maps invalid JSON values to an error checkpoint.
+  // Retain those bytes without interpreting them as provenance or authorization.
+  mcp_attribution: json }, { client_authored: bool, guardian_source_order_guidance: bool, guardian_sources: array(retainedSource),
   harness_authored_configuration: bool, compaction_output: bool, inherited_user_message: bool });
+const guardianEntry = tagged(Object.fromEntries(Object.entries(responseVariants).map(([name, [required, optional, defaults]]) =>
+  [name, [required, { ...optional, guardian_metadata: harness }, defaults]])));
 
 const textElements = array(shape({ byte_range: shape({ start: uint, end: uint }) }, { placeholder: text }));
 const userInput = tagged({ text: [{ text }, {}, { text_elements: textElements }], image: [{}, imageFields],
@@ -123,6 +137,18 @@ const userInput = tagged({ text: [{ text }, {}, { text_elements: textElements }]
 const memoryCitation = shape({ entries: array(shape({ path: text, line_start: uint32, line_end: uint32, note: text })), rollout_ids: strings });
 const agentOptional = { phase, memory_citation: memoryCitation, delivery: choice('async'), questions: array(shape({ title: text }, { options: strings })) };
 const duration = shape({ secs: uint, nanos: integer(0, 999999999) });
+// Codex's CallToolResult deliberately uses opaque JSON content, including future
+// MCP content kinds. Only its typed envelope is constrained; nothing is executed.
+const mcpResult = shape({ content: array(json) }, { structuredContent: json, isError: bool, _meta: json });
+const extensionType = choice('Extension');
+const extension = tagged({
+  'clock.sleep': [{ type: extensionType, id: text, durationMs: uint }],
+  'web.search': [{ type: extensionType, id: text, query: text }, { results: array(json), action: tagged({
+    search: [{}, { query: text, queries: strings }], openPage: [{}, { url: text }], findInPage: [{}, { url: text, pattern: text }], other: [{}],
+  }) }],
+  'image_gen.generation': [{ type: extensionType, id: text, status: text, result: text }, { revisedPrompt: text, transparentBackground: bool,
+    savedPath: absolute, failure: tagged({ usageLimitExceeded: [{ limitId: text }, { resetsAt: int }] }) }],
+}, 'kind');
 const parsedCommand = tagged({ read: [{ cmd: text, name: text, path: text }], list_files: [{ cmd: text }, { path: text }],
   search: [{ cmd: text }, { query: text, path: text }], unknown: [{ cmd: text }] });
 const turnItem = tagged({
@@ -137,11 +163,42 @@ const turnItem = tagged({
   DynamicToolCall: [{ id: text, tool: text, arguments: json, status: choice('in_progress', 'completed', 'failed') },
   { namespace: text, content_items: array(tagged({ inputText: [{ text }], inputImage: [{ imageUrl: text }], inputAudio: [{ audioUrl: text }] })),
     success: bool, error: text, duration }],
+  McpToolCall: [{ id: text, server: text, tool: text, arguments: json, status: choice('inProgress', 'completed', 'failed') }, {
+    connectorId: text, mcpAppResourceUri: text, mcpAppUi: shape({ resourceUri: text, preferredModelDisplayMode: choice('inline', 'fullscreen') }),
+    linkId: text, appName: text, actionName: text, pluginId: text, readOnlyHint: bool, result: mcpResult, error: shape({ message: text }), duration,
+  }],
+  ContextCompaction: [{ id: text }],
+  Extension: extension,
 });
 const usage = shape({ input_tokens: int, cached_input_tokens: int, output_tokens: int, reasoning_output_tokens: int, total_tokens: int },
   { codex_rollout_budget_units: number }, { cache_write_input_tokens: int });
 const usageRecord = shape({ thread_id: uuid, turn_id: text, session_id: uuid, root_turn_id: text, response_id: text,
   usage, turn_token_usage: usage, thread_token_usage: usage });
+const answerFields = { turn_id: text, call_id: text, questions: array(shape({ question: text, answer: text })) };
+const retainedMessageFields = { turn_id: text, text, complete: bool };
+const retainedMessageOptions = { message_id: text, phase };
+const retainedMessageDefaults = { origin: choice('user', 'heartbeat') };
+const ordered = (required, optional = {}, defaults = {}) => shape(required, { ...optional, revision: text }, { ...defaults, inherited: bool, order: uint });
+const retainedMessages = array(ordered(retainedMessageFields, retainedMessageOptions, retainedMessageDefaults));
+const retainedContext = shape({ verified_answers: array(ordered(answerFields)), incomplete: bool }, {}, {
+  user_messages: retainedMessages, user_messages_incomplete: bool,
+  assistant_messages: retainedMessages, assistant_messages_incomplete: bool,
+  sender_deliveries: array(ordered(senderFields)), next_order: uint,
+});
+const retainedEvent = tagged({
+  verified_answer: [answerFields, { acceptance_order: uint }],
+  delivered_assistant_message: [{ ...retainedMessageFields, acceptance_order: uint }, retainedMessageOptions, retainedMessageDefaults],
+});
+const compacted = shape({ message: text }, {
+  replacement_history: array(response), replacement_history_metadata: array(harness), guardian_history: array(guardianEntry), retained_context: retainedContext,
+  mcp_resource_origins: shape({ origins: array(shape({ call_id: text, tool: text, connector_id: text, uri: text },
+    { turn_id: text, link_id: text }, { ambiguous_account: bool })), turns: strings }, { current_turn_id: text }),
+  window_number: uint, first_window_id: text, previous_window_id: text, window_id: either(text, uint), compaction_response_id: text,
+  latest_token_usage_record: usageRecord, resume_metadata: shape({}, { multi_agent_version: multiAgent, last_started_turn_id: text,
+    previous_turn_settings: shape({ model: text }, { cyber_access_program: cyberProgram, comp_hash: text, realtime_active: bool }) }),
+});
+const checkedCompacted = (v, tokens) => compacted(v, tokens) && (v.replacement_history_metadata == null
+  || (Array.isArray(v.replacement_history) && v.replacement_history.length === v.replacement_history_metadata.length));
 const window = shape({ used_percent: number }, { window_minutes: int, resets_at: int });
 const rateLimits = shape({}, { limit_id: text, limit_name: text, normal_model_slug: text, primary: window, secondary: window,
   credits: shape({ has_credits: bool, unlimited: bool }, { balance: text }),
@@ -163,6 +220,7 @@ const events = tagged({
   user_message: [{ message: text }, { client_id: text, images: strings, file_ids: strings, audio: strings },
     { local_images: strings, local_audio: strings, text_elements: textElements, image_details: array(maybe(detail)),
       file_id_details: array(maybe(detail)), local_image_details: array(maybe(detail)), image_order: array(choice('inline', 'file')) }],
+  context_compacted: [{}],
 });
 
 const subagent = either(choice('review', 'compact', 'memory_consolidation'), external({ other: text,
@@ -190,8 +248,10 @@ const record = tagged({
   event_msg: [{ timestamp: text, payload: events }, { ordinal: uint }],
   token_usage_record: [{ timestamp: text, payload: usageRecord }, { ordinal: uint }],
   world_state: [{ timestamp: text, payload: shape({ full: bool, state: object }) }, { ordinal: uint }],
+  compacted: [{ timestamp: text, payload: checkedCompacted }, { ordinal: uint }],
+  retained_context: [{ timestamp: text, payload: retainedEvent }, { ordinal: uint }],
 });
-export const knownHistoryRecord = ({ value, numberTokens }) => record(value, numberTokens)
+export const knownHistoryRecord = ({ value, numberTokens, scalarStrings }) => scalarStrings !== false && record(value, numberTokens)
   && !(value.type === 'session_meta' && Object.hasOwn(value.payload, 'agent_role') && Object.hasOwn(value.payload, 'agent_type'))
   && !(value.type === 'session_meta' && object(value.payload.source?.subagent?.thread_spawn)
     && Object.hasOwn(value.payload.source.subagent.thread_spawn, 'agent_role') && Object.hasOwn(value.payload.source.subagent.thread_spawn, 'agent_type'));

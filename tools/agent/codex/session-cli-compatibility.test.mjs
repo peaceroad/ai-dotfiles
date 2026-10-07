@@ -12,6 +12,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createInterface } from 'node:readline';
 import { zstdCompressSync } from 'node:zlib';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
+import { compactedTurn } from './fixtures/compacted-turn.mjs';
 
 function indexSyntheticThread(home, path, id) {
   const db = new DatabaseSync(join(home, 'state_5.sqlite'));
@@ -36,7 +37,7 @@ test('official maintenance startup overrides suppress synthetic history rewrites
   assert.ok(!process.env.CODEX_EXEC_SERVER_URL, 'Run this fixture in a local environment');
   assert.ok(!process.env.CODEX_SQLITE_HOME, 'The fixture must not use an external database');
   const root = mkdtempSync(join(tmpdir(), 'agent-cli-compat-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   const version = runOfficialCodex(['--version'], root).stdout?.trim();
   assert.equal(version, 'codex-cli 0.159.2', 'Review the startup profile before testing another version');
   const id = '00000000-0000-4000-8000-000000000101';
@@ -60,8 +61,9 @@ test('official maintenance startup overrides suppress synthetic history rewrites
       indexSyntheticThread(home, path, id);
       if (feature === 'background_paginated_rollout_migration') {
         // The short-lived delete/archive error can exit before migration's first await.
-        // Keep a separately initialized local app-server alive to exercise that worker.
-        const serverArgs = ['-c', 'features.local_thread_store_compression=false',
+        // Keep an isolated app-server alive to exercise that worker without
+        // relying on a reusable daemon for the disposable fixture.
+        const serverArgs = ['--no-daemon', '-c', 'features.local_thread_store_compression=false',
           '-c', `features.background_paginated_rollout_migration=${!suppressed}`, 'app-server'];
         const server = runOfficialCodex(serverArgs, home, spawn);
         server.stdout.on('data', () => {}); server.stderr.on('data', () => {});
@@ -118,27 +120,28 @@ test('official maintenance startup overrides suppress synthetic history rewrites
   }
 });
 
-test('official projection reads ordinary paginated fixtures before verified export and deletion', {
+test('official projection reads reviewed paginated fixtures before verified export and deletion', {
   skip: process.platform !== 'win32' || process.env.AGENT_TEST_CODEX_COMPAT !== '1' || process.versions.node !== '26.10.0',
 }, async t => {
   assert.ok(!process.env.CODEX_EXEC_SERVER_URL && !process.env.CODEX_SQLITE_HOME);
   const root = mkdtempSync(join(tmpdir(), 'agent-paginated-compat-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   const version = runOfficialCodex(['--version'], root).stdout?.trim();
   assert.equal(version, 'codex-cli 0.159.2');
   const id = '00000000-0000-4000-8000-000000000101', missing = '00000000-0000-4000-8000-000000000199';
-  for (const compressed of [false, true]) {
-    const home = join(root, compressed ? 'zstd' : 'plain'), output = join(root, compressed ? 'saved-zstd' : 'saved-plain');
+  for (const makeTurn of [paginatedTurn, compactedTurn]) for (const compressed of [false, true]) {
+    const variant = `${makeTurn.name}-${compressed ? 'zstd' : 'plain'}`;
+    const home = join(root, variant), output = join(root, `saved-${variant}`);
     mkdirSync(join(home, 'sessions'), { recursive: true }); mkdirSync(output);
     assert.equal(runOfficialCodex(['delete', missing, '--force'], home, spawnSync, version).status, 1);
     const plain = join(home, 'sessions', `rollout-2000-01-01T00-00-00-${id}.jsonl`), path = `${plain}${compressed ? '.zst' : ''}`;
     // Let the official migration build both the paginated file and its projection.
     // An empty manually created projection is not a valid paginated fixture.
-    const records = paginatedTurn(id, home);
+    const records = makeTurn(id, home);
     records[0].payload.history_mode = 'legacy';
     for (const record of records) delete record.ordinal;
     writeFileSync(plain, encodeTurn(records)); indexSyntheticThread(home, plain, id);
-    const server = runOfficialCodex(['-c', 'features.local_thread_store_compression=false',
+    const server = runOfficialCodex(['--no-daemon', '-c', 'features.local_thread_store_compression=false',
       '-c', 'features.background_paginated_rollout_migration=true', 'app-server'], home, spawn);
     server.stderr.on('data', () => {});
     const closed = new Promise((resolve, reject) => { server.once('error', reject); server.once('exit', resolve); });
@@ -166,6 +169,9 @@ test('official projection reads ordinary paginated fixtures before verified expo
       assert.equal(page.data.length, 1, 'Official typed projection must recover the synthetic turn');
       const items = page.data[0].items;
       for (const type of ['userMessage', 'agentMessage', 'commandExecution']) assert.ok(items.some(item => item.type === type), `Missing projected ${type}`);
+      if (makeTurn === compactedTurn) for (const type of ['mcpToolCall', 'sleep', 'webSearch', 'imageGeneration', 'contextCompaction']) {
+        assert.ok(items.some(item => item.type === type), `Missing projected ${type}`);
+      }
     } finally { reader.close(); server.stdin.end(); await closed; }
     if (compressed) { writeFileSync(path, zstdCompressSync(readFileSync(plain))); rmSync(plain); }
     const bytes = readFileSync(path);

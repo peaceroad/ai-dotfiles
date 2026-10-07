@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateHistoryPrefix, validateSavedLineage } from './session-lineage.mjs';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
+import { compactedTurn } from './fixtures/compacted-turn.mjs';
 import { zstdCompressSync } from 'node:zlib';
 
 const id = '00000000-0000-4000-8000-000000000001';
@@ -177,6 +178,10 @@ test('reviewed nested variants share the closed schema and reject added fields',
     ['response_item', { type: 'tool_search_call', execution: 'client', arguments: { query: 'fixture' } }],
     ['response_item', { type: 'tool_search_output', status: 'completed', execution: 'client', tools: [] }],
     ['response_item', { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'fixture' }], phase: 'partial_answer' }],
+    ['response_item', { type: 'compaction', encrypted_content: 'fixture' }],
+    ['response_item', { type: 'context_compaction' }],
+    ['compacted', { message: 'fixture' }],
+    ['retained_context', { type: 'delivered_assistant_message', turn_id: 'turn', acceptance_order: 1, text: 'fixture', complete: true }],
     ...[
       { type: 'Plan', id: 'plan', text: 'fixture' },
       { type: 'Reasoning', id: 'reasoning', summary_text: ['fixture'] },
@@ -188,6 +193,7 @@ test('reviewed nested variants share the closed schema and reject added fields',
     ['event_msg', { type: 'turn_complete', turn_id: 'turn' }],
     ['event_msg', { type: 'turn_aborted', reason: 'interrupted' }],
     ['event_msg', { type: 'thread_rolled_back', num_turns: 1 }],
+    ['event_msg', { type: 'context_compacted' }],
   ];
   for (const [type, payload] of variants) {
     const record = { timestamp: stamp, ordinal: 1, type, payload };
@@ -213,5 +219,75 @@ test('reviewed nested variants share the closed schema and reject added fields',
   ]) {
     const first = meta(); change(first);
     assert.equal((await f.check(lines([first]), 1)).status, 'unverified');
+  }
+});
+
+test('compaction checkpoints, MCP and known extensions preserve plain/zstd ordinal boundaries', async t => {
+  const f = fixture(t), records = compactedTurn(), raw = encodeTurn(records);
+  const result = await f.check(raw, records.length);
+  assert.equal(result.status, 'verified', JSON.stringify(result));
+  const position = records.findIndex(record => record.type === 'compacted');
+  for (const end of [position, position + 1]) {
+    const prefix = encodeTurn(records.slice(0, end));
+    assert.equal((await f.check(raw, end, Buffer.byteLength(prefix))).status, 'verified');
+  }
+  await assert.rejects(f.check(raw, records.length + 1), /disagree/);
+  if (process.versions.node === '26.10.0') {
+    const compressed = `${f.path}.zst`; writeFileSync(compressed, zstdCompressSync(raw));
+    assert.deepEqual(await validateHistoryPrefix(compressed, { owner: id, endByte: Buffer.byteLength(raw), endOrdinal: records.length }), result);
+  }
+  const checkpoint = records.find(record => record.type === 'compacted').payload;
+  checkpoint.window_id = 1; // Historical numeric form, decoded as a window number.
+  checkpoint.replacement_history[0].type = 'compaction_summary';
+  assert.equal((await f.check(encodeTurn(records))).status, 'verified');
+  checkpoint.replacement_history_metadata = null;
+  checkpoint.retained_context.assistant_messages = [{ turn_id: 'turn', text: 'Synthetic reply', complete: true }];
+  checkpoint.retained_context.user_messages = [{ turn_id: 'turn', text: 'Synthetic question', complete: true }];
+  assert.equal((await f.check(encodeTurn(records))).status, 'verified');
+});
+
+test('compaction consistency and nested MCP/extension schemas fail closed', async t => {
+  const f = fixture(t);
+  for (const change of [
+    p => p.replacement_history_metadata.pop(),
+    p => { p.replacement_history = null; },
+    p => p.replacement_history[0].encrypted_content = 1,
+    p => p.replacement_history_metadata[0].compaction_output = null,
+    p => p.guardian_history[0].guardian_metadata.guardian_sources[0].id.role = 'future',
+    p => p.retained_context.user_messages[0].order = -1,
+    p => p.retained_context.user_messages[0].origin = 'future',
+    p => p.retained_context.user_messages[0].origin = null,
+    p => p.retained_context.assistant_messages = [{ turn_id: 'turn', text: 'fixture', complete: true, inherited: null }],
+    p => delete p.retained_context.incomplete,
+    p => p.mcp_resource_origins.origins[0].ambiguous_account = null,
+    p => p.resume_metadata.previous_turn_settings.model = false,
+    p => p.window_id = 1.5,
+  ]) {
+    const records = compactedTurn(); change(records.find(record => record.type === 'compacted').payload);
+    assert.equal((await f.check(encodeTurn(records))).status, 'unverified');
+  }
+  for (const [type, change] of [
+    ['McpToolCall', p => p.result.isError = 'false'],
+    ['McpToolCall', p => p.result.content = {}],
+    ['McpToolCall', p => p.mcpAppUi.preferredModelDisplayMode = 'future'],
+    ['McpToolCall', p => p.duration.nanos = 1000000000],
+    ['McpToolCall', p => p.status = 'in_progress'],
+    ['Extension', p => p.kind = 'future.extension'],
+    ['Extension', p => p.durationMs = -1],
+    ['ContextCompaction', p => delete p.id],
+  ]) {
+    const records = compactedTurn(); change(records.find(record => record.payload.item?.type === type).payload.item);
+    assert.equal((await f.check(encodeTurn(records))).status, 'unverified');
+  }
+  const records = compactedTurn();
+  records.find(r => r.payload.item?.type === 'McpToolCall').payload.item.result.content.push({ type: 'future-mcp-content', nested: { fixture: true, '\ud83d\ude00': '\ud83d\ude00' } });
+  assert.equal((await f.check(encodeTurn(records))).status, 'verified', 'MCP content is officially opaque JSON');
+  for (const token of ['1e0', '1.00000000000000001', '9007199254740992']) {
+    assert.equal((await f.check(encodeTurn(records).replace('"window_number":1', `"window_number":${token}`))).status, 'unverified');
+  }
+  for (const value of [{ text: '\ud800' }, { '\udfff': 'value' }]) {
+    const invalid = compactedTurn();
+    invalid.find(r => r.payload.item?.type === 'McpToolCall').payload.item.result.content.push(value);
+    assert.equal((await f.check(encodeTurn(invalid))).status, 'unverified', 'Opaque JSON must still contain valid Unicode scalar strings');
   }
 });

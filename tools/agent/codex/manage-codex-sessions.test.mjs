@@ -14,6 +14,7 @@ import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
 import { runHistory } from './manage-codex-history.mjs';
 import { chargeRolloutBytes } from './session-rollout-io.mjs';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
+import { compactedTurn } from './fixtures/compacted-turn.mjs';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -100,11 +101,11 @@ test('exported deletion verifies every additional rollout owned by the session',
   assert.match(changed.skipped[0].problems[0], /physical rollout content changed/);
 });
 
-test('ordinary paginated plain and compressed turns export, search and authorize verified deletion', async t => {
-  for (const compressed of [false, ...(process.versions.node === '26.10.0' ? [true] : [])]) {
+test('reviewed paginated plain and compressed turns export, search and authorize verified deletion', async t => {
+  for (const makeTurn of [paginatedTurn, compactedTurn]) for (const compressed of [false, ...(process.versions.node === '26.10.0' ? [true] : [])]) {
     const f = fixture(t), output = exportParent(t);
     for (const id of [parent, child]) {
-      const raw = encodeTurn(paginatedTurn(id)), path = join(f.home, 'sessions', `${id}.jsonl`);
+      const raw = encodeTurn(makeTurn(id)), path = join(f.home, 'sessions', `${id}.jsonl`);
       if (compressed) { writeFileSync(`${path}.zst`, zstdCompressSync(raw)); rmSync(path); }
       else writeFileSync(path, raw);
       f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", id);
@@ -119,6 +120,9 @@ test('ordinary paginated plain and compressed turns export, search and authorize
     assert.equal(await runHistory(['search', 'Synthetic answer', '--in', output], { log: line => logs.push(line) }), 0);
     assert.match(logs.join('\n'), /Synthetic answer/);
     const [bundle] = listBundles(output);
+    const reused = await saveBatch(f, output);
+    assert.equal(reused.batch.entries.find(entry => entry.id === bundle.manifest.session.id).key, bundle.key,
+      'Reviewed v2 snapshots remain reusable without a policy bump');
     const old = structuredClone(bundle.manifest);
     old.coverage.lineage.policy = 'plain-prefix-v1'; old.contentDigest = snapshotDigest(old);
     await verifyBundle({ ...bundle, manifest: old }); // Viewing old coverage remains supported.
@@ -136,24 +140,31 @@ test('ordinary paginated plain and compressed turns export, search and authorize
   }
 });
 
-test('unknown paginated payloads remain saved with a precise warning and never call deletion', async t => {
-  const f = fixture(t), output = exportParent(t), records = paginatedTurn(parent);
-  records[8].payload.item.duration.nanos = 1000000000;
-  writeFileSync(join(f.home, 'sessions', `${parent}.jsonl`), encodeTurn(records));
-  f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", parent);
-  historyFixture(f);
-  const { batch } = await saveBatch(f, output);
-  const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
-  const warning = bundle.manifest.warnings.find(w => w.reason === 'lineage-boundary-unverified');
-  assert.equal(warning.origin, 'rollout.jsonl:9');
-  assert.match(warning.message, /unsupported-record-schema/);
-  const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
-  assert.equal(plan.sessions.length, 0);
-  const base = deletionOptions(f), logs = [];
-  assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
-    ...base, ask: confirmPrompt, log: line => logs.push(line),
-    // This mock accepts only version/help; any mutation fails the test.
-  }), 3, logs.join('\n'));
+test('unsupported paginated payloads and inconsistent checkpoints never call deletion', async t => {
+  for (const scenario of ['duration', 'checkpoint', 'extension']) {
+    const f = fixture(t), output = exportParent(t), records = compactedTurn(parent);
+    const index = scenario === 'duration' ? 8 : records.findIndex(r => scenario === 'checkpoint'
+      ? r.type === 'compacted' : r.payload.item?.type === 'Extension');
+    if (scenario === 'duration') records[index].payload.item.duration.nanos = 1000000000;
+    else if (scenario === 'checkpoint') records[index].payload.replacement_history_metadata.pop();
+    else records[index].payload.item.kind = 'future.extension';
+    writeFileSync(join(f.home, 'sessions', `${parent}.jsonl`), encodeTurn(records));
+    f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", parent);
+    historyFixture(f);
+    const { batch } = await saveBatch(f, output);
+    const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+    assert.equal(readFileSync(join(bundle.folder, 'rollout.jsonl'), 'utf8'), encodeTurn(records));
+    const warning = bundle.manifest.warnings.find(w => w.reason === 'lineage-boundary-unverified');
+    assert.equal(warning.origin, `rollout.jsonl:${index + 1}`);
+    assert.match(warning.message, /unsupported-record-schema/);
+    const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(plan.sessions.length, 0);
+    const base = deletionOptions(f), logs = [];
+    assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...base, ask: confirmPrompt, log: line => logs.push(line),
+      // This mock accepts only version/help; any mutation fails the test.
+    }), 3, logs.join('\n'));
+  }
 });
 
 test('pinned and sectioned descendants protect the parent plan', async t => {
@@ -1127,7 +1138,7 @@ test('owned paginated generations can mix plain and compressed files while prese
   for (const currentCompressed of [false, true]) {
     const f = renderableFixture(t), output = exportParent(t), alias = '00000000-0000-4000-8000-000000000055';
     historyFixture(f);
-    const older = paginatedTurn(parent), prefix = encodeTurn(older);
+    const older = compactedTurn(parent), prefix = encodeTurn(older);
     const current = paginatedTurn(parent);
     current[0].payload.history_base = { thread_id: alias, end_byte_offset: Buffer.byteLength(prefix), end_ordinal_exclusive: older.length };
     for (const record of current) record.ordinal += older.length;

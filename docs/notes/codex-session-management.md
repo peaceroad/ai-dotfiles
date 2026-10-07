@@ -74,7 +74,9 @@ agent codex session plan delete --before 2026-07-01
 
 `coverage.lineage`は展開後JSONLのbyte境界・ordinal・参照関係を`rollout-prefix-v2`で記録します。既知schemaと連続ordinalで検証できた範囲だけをverifiedとし、未知recordやordinal欠落・gap・重複はunverifiedとしてrawを保存し、exported deletionを停止します。不正UTF-8・JSON・境界に使う整数token・検証可能な境界の不一致はexport自体を失敗させます。追加の所有rolloutにも同じ検査を適用します。legacyかつbaseなしの履歴はordinal検査の対象外です。完全な公式parser互換を意味せず、対応payloadは`session-record-schema.mjs`の保守的な部分集合です。旧`plain-prefix-v1`の保存物は閲覧できますが、削除の根拠には再exportが必要です。
 
-v2 policyは通常のターン開始・終了、ターン設定、推論・ツール呼出しと戻り値、対応する完了項目、トークン使用量などを追加しました。型名だけでなく、入れ子のvariant、必須項目、nullの可否、整数の元token、パス型を検査します。たとえば`CommandExecution.cwd`には`file:` URI、`turn_context.cwd`にはnative絶対パスを要求します。未知項目を無視してordinalを進めず、未検証になった最初の理由と行番号を保存します。compaction・realtime・MCP・拡張機能など、未対応の型は引き続き削除停止の対象です。
+v2 policyは通常のターン開始・終了、ターン設定、推論・ツール呼出しと戻り値、対応する完了項目、トークン使用量などを追加しました。型名だけでなく、入れ子のvariant、必須項目、nullの可否、整数の元token、パス型を検査します。たとえば`CommandExecution.cwd`には`file:` URI、`turn_context.cwd`にはnative絶対パスを要求します。未知項目を無視してordinalを進めず、未検証になった最初の理由と行番号を保存します。
+
+同じpolicyの対応範囲を、compactionのcheckpoint・保持文脈、MCPの完了項目、待機・Web検索・画像生成の既知の拡張項目へ広げました。checkpointの置換履歴とmetadataは件数も照合し、保持文脈とguardian履歴は入れ子の型を検査します。MCPの結果は公式定義に合わせて外枠を検査し、任意のJSONと定義された内容はrawで保持します。JSONの文字列やkeyに孤立サロゲートを含むものは公式の文字列表現と一致しないため未検証にします。これらの追加項目を`conversation.md`へすべて表示する変更ではありません。realtime、エージェント間通信、未知の拡張項目などは引き続き削除停止の対象です。同じpolicyの検証済み保存物は再照合で利用でき、未検証の警告が残る保存物は再exportが必要です。
 
 `complete: true`は書き出し処理の完了を表し、収集範囲の完全性とは分けます。入力ログに埋め込まれた対応形式の画像・音声を取り出しますが、それが添付時の原本とは限りません。構造化されたローカル参照は、Codexホームの`attachments/`内を自動収集し、それ以外は`--attachments-from`で許可したフォルダー内だけを読みます。収集したものは現在のファイルであることを記録します。本文上の添付表示だけのPDF・ソースコードなどの回収は未対応です。任意のパスやURLを本文から拾って収集せず、プロジェクトやworktreeもコピーしません。[確認対象のユーザー入力形式](https://github.com/openai/codex/blob/rust-v0.153.4/codex-rs/protocol/src/user_input.rs)
 

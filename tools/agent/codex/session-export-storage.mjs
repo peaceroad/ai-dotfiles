@@ -140,7 +140,11 @@ export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, 
       if (text) {
         // JSON.parse diagnostics can quote private record contents. Report only the location.
         const tokens = numberTokens ? new WeakMap() : null;
+        let scalarStrings = true;
         try { value = JSON.parse(text, tokens ? function(key, value, context) {
+          // JSON.parse accepts lone UTF-16 surrogate escapes; Rust strings do not.
+          // Include opaque JSON values and keys without a second tree traversal.
+          if (scalarStrings && (!key.isWellFormed() || (typeof value === 'string' && !value.isWellFormed()))) scalarStrings = false;
           if (typeof value === 'number') {
             let fields = tokens.get(this);
             if (!fields) tokens.set(this, fields = {});
@@ -149,7 +153,7 @@ export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, 
           return value;
         } : undefined); }
         catch { reject(`Invalid JSON in history record at line ${line}.`); }
-        yield { value, line, end: offset, ...(tokens ? { numberTokens: tokens } : {}) };
+        yield { value, line, end: offset, ...(tokens ? { numberTokens: tokens, scalarStrings } : {}) };
       }
       pieces = []; length = 0;
       start = end + 1;
