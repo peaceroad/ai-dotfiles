@@ -29,6 +29,16 @@ export function snapshotDigest(manifest) {
   return fingerprint({ session, files, warnings, attachments, spawnEdges, sources, coverage });
 }
 export const HISTORY_TABLES = ['thread_turns', 'thread_items', 'thread_realtime_items', 'thread_history_projection_state'];
+export const BOARD_TABLES = ['channels', 'posts', 'subscriptions', 'subscription_opt_outs', 'deleted_boards'];
+export const boardCoverage = (id, present) => ({ policy: 'root-board-v1', id, tables: BOARD_TABLES,
+  integers: 'tagged-decimal', present, member: present ? 'message-board.jsonl' : null });
+export function verifyBoardCoverage(manifest) {
+  const coverage = manifest.coverage?.messageBoard;
+  if (coverage === undefined) return; // Legacy exports remain readable.
+  const file = manifest.files.find(file => file.file === 'message-board.jsonl');
+  if (fingerprint(coverage) !== fingerprint(boardCoverage(manifest.session.id, !!file))
+    || (file && (!Number.isSafeInteger(file.records) || file.records < 0))) reject('Invalid agent message-board coverage.');
+}
 export function indexedHistoryCoverage(ids, present) {
   return { policy: 'owned-rollout-ids-v1', ids, tables: HISTORY_TABLES, present, member: present ? 'history.jsonl' : null };
 }
@@ -201,6 +211,7 @@ export async function verifyBundle(bundle, progress) {
   if (!names.has('conversation.md') || !(names.has('rollout.jsonl') !== names.has('rollout.jsonl.zst'))) reject('Required export files are missing or ambiguous.');
   if (bundle.manifest.schemaVersion === 2 && [...names].some(name => name.endsWith('.zst'))) reject('Compressed history requires export schema v3.');
   verifyIndexedHistory(bundle.manifest);
+  verifyBoardCoverage(bundle.manifest);
   const verified = bundle.manifest.schemaVersion === 3 ? await verifyArtifacts(bundle, progress) : new Set();
   // Bound disk pressure and await both workers even if one fails. No background
   // verification can continue after this function returns or throws.

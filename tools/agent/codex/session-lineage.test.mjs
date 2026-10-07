@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { validateHistoryPrefix, validateSavedLineage } from './session-lineage.mjs';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 import { compactedTurn } from './fixtures/compacted-turn.mjs';
+import { developmentTurn } from './fixtures/development-turn.mjs';
 import { zstdCompressSync } from 'node:zlib';
 
 const id = '00000000-0000-4000-8000-000000000001';
@@ -289,5 +290,73 @@ test('compaction consistency and nested MCP/extension schemas fail closed', asyn
     const invalid = compactedTurn();
     invalid.find(r => r.payload.item?.type === 'McpToolCall').payload.item.result.content.push(value);
     assert.equal((await f.check(encodeTurn(invalid))).status, 'unverified', 'Opaque JSON must still contain valid Unicode scalar strings');
+  }
+});
+
+test('development and agent records bind plain/zstd boundaries without following paths or messages', async t => {
+  const f = fixture(t), records = developmentTurn(), raw = encodeTurn(records);
+  const result = await f.check(raw, records.length);
+  assert.equal(result.status, 'verified', JSON.stringify(result));
+  const messageIndex = records.findIndex(r => r.type === 'inter_agent_communication');
+  assert.ok(messageIndex > 0);
+  for (const end of [messageIndex, messageIndex + 1, messageIndex + 2]) {
+    assert.equal((await f.check(raw, end, Buffer.byteLength(encodeTurn(records.slice(0, end))))).status, 'verified');
+  }
+  if (process.versions.node === '26.10.0') {
+    const compressed = `${f.path}.zst`; writeFileSync(compressed, zstdCompressSync(raw));
+    assert.deepEqual(await validateHistoryPrefix(compressed, { owner: id, endByte: Buffer.byteLength(raw), endOrdinal: records.length }), result);
+  }
+  for (const [type, change] of [
+    ['HookPrompt', p => p.fragments[0].hookRunId = 1],
+    ['FileChange', p => p.changes['changed.js'].move_path = 3],
+    ['FileChange', p => p.changes['new.js'].type = 'future'],
+    ['FileChange', p => p.changes = []],
+    ['FileChange', p => p.status = 'future'],
+    ['EnteredReviewMode', p => p.target = { type: 'commit' }],
+    ['ExitedReviewMode', p => p.review_output.findings[0].code_location.line_range.end = -1],
+    ['ExitedReviewMode', p => p.review_output.overall_confidence_score = 1e100],
+    ['WebSearch', p => p.action.type = 'openPage'],
+    ['ImageView', p => p.path = 'relative.png'],
+    ['ImageGeneration', p => p.saved_path = 'relative.png'],
+    ['CollabAgentToolCall', p => p.receiver_agents[0].agent_type = 'duplicate alias'],
+    ['CollabAgentToolCall', p => p.agents_states = { invalid_uuid: 'running' }],
+    ['CollabAgentToolCall', p => p.agents_states[Object.keys(p.agents_states)[0]] = { completed: 1 }],
+    ['CollabAgentToolCall', p => p.receiver_thread_ids = null],
+    ['SubAgentActivity', p => p.agent_path = '/root/root'],
+    ['SubAgentActivity', p => p.kind = 'future'],
+  ]) {
+    const invalid = developmentTurn(); change(invalid.find(r => r.payload.item?.type === type).payload.item);
+    assert.equal((await f.check(encodeTurn(invalid))).status, 'unverified', type);
+  }
+  for (const change of [p => p.recipient = '/root/root', p => p.other_recipients = null,
+    p => delete p.trigger_turn, p => p.trigger_turn = 'false', p => p.future = true]) {
+    const invalid = developmentTurn(); change(invalid.find(r => r.type === 'inter_agent_communication').payload);
+    assert.equal((await f.check(encodeTurn(invalid))).status, 'unverified');
+  }
+  for (const token of ['2e0', '2.00000000000000001', '4294967296']) {
+    assert.equal((await f.check(raw.replace('"end":2', `"end":${token}`))).status, 'unverified');
+  }
+});
+
+test('development schema aliases, defaults and dictionary entries remain closed', async t => {
+  const f = fixture(t), completed = item => ({ timestamp: stamp, ordinal: 1, type: 'event_msg',
+    payload: { type: 'item_completed', thread_id: id, turn_id: 'turn', item } });
+  const variants = [
+    ...['pending_init', 'running', 'interrupted', 'shutdown', 'not_found', { completed: null }, { errored: 'fixture' }]
+      .map(state => ({ type: 'CollabAgentToolCall', id: 'agent', tool: 'send_message', status: 'completed', sender_thread_id: id,
+        receiver_agents: [{ thread_id: ancestor, agent_type: 'fixture' }], agents_states: { [ancestor]: state } })),
+    { type: 'CollabAgentToolCall', id: 'agent', tool: 'list_agents', status: 'completed', sender_thread_id: id },
+    ...[{ type: 'uncommittedChanges' }, { type: 'commit', sha: 'fixture' }, { type: 'custom', instructions: 'fixture' }]
+      .map(target => ({ type: 'EnteredReviewMode', id: 'review', target, user_facing_hint: 'fixture' })),
+    { type: 'ExitedReviewMode', id: 'review', review_output: null },
+    { type: 'FileChange', id: 'patch', changes: Object.fromEntries(['__proto__', 'constructor'].map(key => [key, { type: 'update', unified_diff: 'fixture' }])) },
+    { type: 'WebSearch', id: 'web', query: 'fixture', action: { type: 'find_in_page', pattern: 'fixture' } },
+  ];
+  for (const item of variants) {
+    assert.equal((await f.check(lines([meta(), completed(item)]), 2)).status, 'verified', item.type);
+    assert.equal((await f.check(lines([meta(), completed({ ...item, future: true })]), 2)).status, 'unverified', item.type);
+  }
+  for (const payload of [{}, { trigger_turn: null }, { trigger_turn: false, future: true }]) {
+    assert.equal((await f.check(lines([meta(), { timestamp: stamp, ordinal: 1, type: 'inter_agent_communication_metadata', payload }]), 2)).status, 'unverified');
   }
 });

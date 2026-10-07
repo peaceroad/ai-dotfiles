@@ -15,6 +15,9 @@ import { runHistory } from './manage-codex-history.mjs';
 import { chargeRolloutBytes } from './session-rollout-io.mjs';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 import { compactedTurn } from './fixtures/compacted-turn.mjs';
+import { boardFixture } from './fixtures/message-board.mjs';
+import { openBoardReader } from './session-message-board.mjs';
+import { developmentTurn } from './fixtures/development-turn.mjs';
 
 const parent = '00000000-0000-4000-8000-000000000001';
 const child = '00000000-0000-4000-8000-000000000002';
@@ -64,6 +67,197 @@ test('standalone fork inspection bounds cumulative reads and blocks deletion on 
   assert.deepEqual(fresh.deletionIssues, [], 'a new inspection receives a fresh budget');
 });
 
+test('message boards require verified export only for their owning deletion family', async t => {
+  const f = renderableFixture(t), output = exportParent(t), board = boardFixture(f.home);
+  board.put('posts', parent, 'Synthetic private board post');
+  const before = readFileSync(board.path);
+  let snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
+  assert.match(makePlan(snapshot, parent).problems.join('\n'), /use verified exported deletion/);
+  assert.deepEqual(makePlan(snapshot, other).problems, []);
+  assert.deepEqual(makePlan(snapshot, parent, 'archive').problems, []);
+  const { batch } = await saveBatch(f, output);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  assert.deepEqual(readFileSync(board.path), before);
+  board.run('DELETE FROM posts');
+  board.put('deleted_boards', parent, 'Synthetic tombstone');
+  snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
+  assert.deepEqual(makePlan(snapshot, parent).problems, [], 'Deletion tombstones contain no board content');
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 0, 'Board changed since export');
+  for (const table of ['channels', 'subscriptions', 'subscription_opt_outs']) {
+    board.put(table, child, 'Synthetic metadata');
+    snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
+    assert.match(makePlan(snapshot, parent).problems.join('\n'), /use verified exported deletion/);
+    board.run(`DELETE FROM ${table}`);
+  }
+});
+
+test('unknown, corrupt and altered board schemas cannot establish deletion safety', async t => {
+  for (const change of [
+    board => board.run('DROP TABLE posts'),
+    board => board.run('CREATE TABLE future_data (board TEXT)'),
+    board => board.run('CREATE TRIGGER future_delete AFTER DELETE ON posts BEGIN DELETE FROM channels; END'),
+    board => board.put('posts', 'invalid-owner'),
+    board => writeFileSync(board.path, 'not a database'),
+    board => renameSync(board.path, board.path.replace('_1.sqlite', '_2.sqlite')),
+  ]) {
+    const f = fixture(t), board = boardFixture(f.home); change(board);
+    const snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
+    assert.match(makePlan(snapshot, parent).problems.join('\n'), /message-board/);
+  }
+});
+
+test('board exports retain scoped rows and exact integers, verify coverage, and reuse unchanged copies', async t => {
+  const f = renderableFixture(t), output = exportParent(t), board = boardFixture(f.home);
+  for (const table of ['channels', 'posts', 'subscriptions', 'subscription_opt_outs']) {
+    board.put(table, parent); board.put(table, other, 'Unrelated synthetic post');
+  }
+  board.put('deleted_boards', child);
+  board.run('UPDATE posts SET timestamp=? WHERE board=?', 9223372036854775807n, parent);
+  const { batch } = await saveBatch(f, output);
+  const bundle = listBundles(output).find(b => b.manifest.session.id === parent);
+  const rows = readFileSync(join(bundle.folder, 'message-board.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(rows.length, 4);
+  assert.ok(rows.every(record => record.row.board === parent));
+  assert.deepEqual(rows.find(record => record.table === 'posts').row.timestamp, { $integer: '9223372036854775807' });
+  await verifyBundle(bundle);
+  const count = listBundles(output).length;
+  await saveBatch(f, output);
+  assert.equal(listBundles(output).length, count);
+  board.run('UPDATE posts SET payload=? WHERE board=?', 'Unrelated change', other);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  const coverage = bundle.manifest.coverage.messageBoard;
+  for (const change of [{ id: other }, { member: 'history.jsonl' }, { tables: ['posts'] }, { present: false }, { integers: 'number' }]) {
+    bundle.manifest.coverage.messageBoard = { ...coverage, ...change };
+    bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
+    await assert.rejects(verifyBundle(bundle), /message-board coverage/);
+  }
+  bundle.manifest.coverage.messageBoard = coverage;
+  bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
+  writeFileSync(join(bundle.folder, 'message-board.jsonl'), 'corrupt');
+  await assert.rejects(verifyBundle(bundle), /integrity verification/);
+});
+
+test('board changes and legacy exports without board coverage never authorize data loss', async t => {
+  for (const table of ['channels', 'posts', 'subscriptions', 'subscription_opt_outs', 'deleted_boards']) {
+    for (const action of ['insert', 'update', 'delete']) {
+      const f = renderableFixture(t), output = exportParent(t), board = boardFixture(f.home);
+      if (action !== 'insert') board.put(table, parent);
+      const { batch } = await saveBatch(f, output);
+      if (action === 'insert') board.put(table, parent);
+      else if (action === 'delete') board.run(`DELETE FROM ${table} WHERE board=?`, parent);
+      else board.run(`UPDATE ${table} SET board=? WHERE board=?`, child, parent);
+      const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+      assert.equal(plan.sessions.length, 0);
+      assert.match(plan.skipped[0].problems.join(' '), /message-board changed/);
+      assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+        ...deletionOptions(f), ask: () => assert.fail('No deletion confirmation for changed data'),
+      }), 3);
+    }
+  }
+  const f = renderableFixture(t), output = exportParent(t);
+  const { batch } = await saveBatch(f, output);
+  // Simulate an old, otherwise valid receipt and snapshot, without board coverage.
+  for (const entry of batch.entries) {
+    const bundle = listBundles(output).find(bundle => bundle.key === entry.key);
+    delete bundle.manifest.coverage.messageBoard;
+    bundle.manifest.contentDigest = snapshotDigest(bundle.manifest);
+    entry.digest = bundle.manifest.contentDigest;
+    writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(bundle.manifest));
+    await verifyBundle(bundle);
+  }
+  const { digest, ...body } = batch; batch.digest = fingerprint(body);
+  writeFileSync(join(output, 'batches', `${batch.id}.json`), JSON.stringify(batch));
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  const earlier = await inspectDeletionReferences(await inspectSessions(f.home));
+  const board = boardFixture(f.home); board.put('posts', parent);
+  const plan = await planExportedDeletion(earlier, output, batch.id);
+  assert.equal(plan.sessions.length, 0);
+  assert.match(plan.skipped[0].problems.join(' '), /lacks agent message-board coverage/);
+});
+
+test('board readers detect concurrent commits, replacement, appearance and unknown versions', async t => {
+  for (const kind of ['commit', 'replace', 'appear', 'version']) {
+    const f = fixture(t), board = kind === 'appear' ? null : boardFixture(f.home);
+    if (board) board.run('PRAGMA journal_mode=WAL');
+    const reader = await openBoardReader(f.home);
+    try {
+      if (kind === 'commit') board.put('posts', parent);
+      if (kind === 'replace') {
+        if (process.platform === 'win32') {
+          assert.throws(() => renameSync(board.path, `${board.path}.old`), { code: 'EBUSY' });
+          reader.check(); // Windows prevents replacing an open SQLite database.
+          continue;
+        }
+        renameSync(board.path, `${board.path}.old`); boardFixture(f.home);
+      }
+      if (kind === 'appear') boardFixture(f.home);
+      if (kind === 'version') writeFileSync(join(f.home, 'agent_message_board_2.sqlite'), 'synthetic');
+      assert.throws(() => reader.check(), /message-board/);
+    } finally { reader.close(); }
+  }
+});
+
+test('board updates during export leave no completed snapshot', async t => {
+  const f = renderableFixture(t), output = exportParent(t), board = boardFixture(f.home);
+  board.run('PRAGMA journal_mode=WAL');
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  await assert.rejects(exportSessions(snapshot, plan, output, { log(line) {
+    if (line === 'Progress: Reinspect source session metadata') board.put('posts', parent);
+  } }), /message-board changed during operation/);
+  assert.equal(listBundles(output).length, 0);
+});
+
+test('board text preserves BOM and NUL while invalid UTF-8 and value types stop export', async t => {
+  const f = renderableFixture(t), board = boardFixture(f.home);
+  board.put('posts', parent);
+  board.run('UPDATE posts SET payload=?', '\uFEFFsynthetic\u0000text');
+  let reader = await openBoardReader(f.home);
+  try { assert.equal(JSON.parse([...reader.lines(parent)][0]).row.payload, '\uFEFFsynthetic\u0000text'); }
+  finally { reader.close(); }
+  for (const sql of ["UPDATE posts SET payload=CAST(x'ff' AS TEXT)", "UPDATE posts SET payload=x'00'", 'UPDATE posts SET timestamp=1.5']) {
+    board.run("UPDATE posts SET payload='synthetic', timestamp=1");
+    board.run(sql);
+    reader = await openBoardReader(f.home);
+    try { assert.throws(() => [...reader.lines(parent)], /Invalid UTF-8|value type/); }
+    finally { reader.close(); }
+    const output = exportParent(t);
+    await assert.rejects(saveBatch(f, output), /Invalid UTF-8|value type/);
+    assert.equal(listBundles(output).length, 0);
+  }
+});
+
+test('board changes after confirmation stop deletion and residual boards prevent already-absent success', async t => {
+  const f = renderableFixture(t), output = exportParent(t), board = boardFixture(f.home);
+  const { batch } = await saveBatch(f, output);
+  const logs = [];
+  assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+    ...deletionOptions(f), log: line => logs.push(line), ask(prompt) {
+      board.put('posts', parent, 'Synthetic late post');
+      return confirmPrompt(prompt);
+    },
+  }), 1, logs.join('\n'));
+  assert.ok(existsSync(join(f.home, 'sessions', `${parent}.jsonl`)));
+  f.update('DELETE FROM threads WHERE id IN (?, ?)', parent, child);
+  for (const id of [parent, child]) rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+  const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.equal(plan.skipped[0].alreadyAbsent, undefined);
+  assert.match(plan.skipped[0].problems.join('\n'), /message-board data remains/);
+});
+
+test('official success with residual board content is not verified as complete deletion', async t => {
+  const f = renderableFixture(t), board = boardFixture(f.home), base = deletionOptions(f), logs = [];
+  assert.equal(await runSessions(['delete', parent], { ...base, log: line => logs.push(line), cli(args) {
+    if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+    f.update('DELETE FROM threads WHERE id IN (?, ?)', parent, child);
+    f.update('DELETE FROM thread_spawn_edges WHERE parent_thread_id=?', parent);
+    for (const id of [parent, child]) rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+    board.put('posts', child, 'Synthetic residual post');
+    return { status: 0 };
+  } }), 1, logs.join('\n'));
+  assert.match(logs.join('\n'), /descendant verification is incomplete/);
+  assert.equal(logs.some(line => line.startsWith('Verified delete:')), false);
+});
+
 test('extended Windows paths use the same guarded session file', { skip: process.platform !== 'win32' }, async t => {
   const f = fixture(t);
   f.update('UPDATE threads SET rollout_path = ? WHERE id = ?', `\\\\?\\${join(f.home, 'sessions', `${parent}.jsonl`)}`, parent);
@@ -102,7 +296,7 @@ test('exported deletion verifies every additional rollout owned by the session',
 });
 
 test('reviewed paginated plain and compressed turns export, search and authorize verified deletion', async t => {
-  for (const makeTurn of [paginatedTurn, compactedTurn]) for (const compressed of [false, ...(process.versions.node === '26.10.0' ? [true] : [])]) {
+  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn]) for (const compressed of [false, ...(process.versions.node === '26.10.0' ? [true] : [])]) {
     const f = fixture(t), output = exportParent(t);
     for (const id of [parent, child]) {
       const raw = encodeTurn(makeTurn(id)), path = join(f.home, 'sessions', `${id}.jsonl`);
@@ -141,13 +335,18 @@ test('reviewed paginated plain and compressed turns export, search and authorize
 });
 
 test('unsupported paginated payloads and inconsistent checkpoints never call deletion', async t => {
-  for (const scenario of ['duration', 'checkpoint', 'extension']) {
-    const f = fixture(t), output = exportParent(t), records = compactedTurn(parent);
-    const index = scenario === 'duration' ? 8 : records.findIndex(r => scenario === 'checkpoint'
-      ? r.type === 'compacted' : r.payload.item?.type === 'Extension');
-    if (scenario === 'duration') records[index].payload.item.duration.nanos = 1000000000;
-    else if (scenario === 'checkpoint') records[index].payload.replacement_history_metadata.pop();
-    else records[index].payload.item.kind = 'future.extension';
+  for (const [type, change] of [
+    ['CommandExecution', p => p.duration.nanos = 1000000000],
+    ['compacted', p => p.replacement_history_metadata.pop()],
+    ['Extension', p => p.kind = 'future.extension'],
+    ['FileChange', p => p.changes['new.js'].content = null],
+    ['CollabAgentToolCall', p => p.agents_states = { invalid_uuid: 'running' }],
+    ['inter_agent_communication', p => p.trigger_turn = 'false'],
+  ]) {
+    const f = fixture(t), output = exportParent(t), records = developmentTurn(parent);
+    const index = records.findIndex(r => r.type === type || r.payload.item?.type === type);
+    assert.ok(index > 0, type);
+    change(records[index].payload.item ?? records[index].payload);
     writeFileSync(join(f.home, 'sessions', `${parent}.jsonl`), encodeTurn(records));
     f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", parent);
     historyFixture(f);

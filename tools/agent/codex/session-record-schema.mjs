@@ -11,11 +11,15 @@ const text = v => typeof v === 'string';
 const bool = v => typeof v === 'boolean';
 const json = v => v !== undefined; // Explicit JSON values or documented decoder-ignored fields.
 const number = v => typeof v === 'number' && Number.isFinite(v);
+const float32 = v => number(v) && Number.isFinite(Math.fround(v));
 const uuid = v => text(v) && UUID.test(v);
 const choice = (...values) => { const set = new Set(values); return v => set.has(v); };
 const maybe = check => (v, tokens, parent, key) => v == null || check(v, tokens, parent, key);
 const array = check => (v, tokens) => Array.isArray(v) && v.every((item, i) => check(item, tokens, v, String(i)));
 const either = (...checks) => (v, tokens, parent, key) => checks.some(check => check(v, tokens, parent, key));
+const dictionary = (keyCheck, valueCheck) => (v, tokens) => object(v)
+  && Object.keys(v).every(key => keyCheck(key) && valueCheck(v[key], tokens, v, key));
+const noRoleAliasConflict = v => !object(v) || !(Object.hasOwn(v, 'agent_role') && Object.hasOwn(v, 'agent_type'));
 // Decimal lexemes avoid accepting rounded/fractional JSON numbers as Rust integers.
 const integer = (min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER) => {
   const lexeme = min >= 0 ? /^(0|[1-9]\d*)$/ : /^-?(0|[1-9]\d*)$/;
@@ -140,19 +144,33 @@ const duration = shape({ secs: uint, nanos: integer(0, 999999999) });
 // Codex's CallToolResult deliberately uses opaque JSON content, including future
 // MCP content kinds. Only its typed envelope is constrained; nothing is executed.
 const mcpResult = shape({ content: array(json) }, { structuredContent: json, isError: bool, _meta: json });
+// Hosted web-search uses snake_case action tags; the extension uses camelCase.
+const webAction = (openPage, findInPage) => tagged({ search: [{}, { query: text, queries: strings }],
+  [openPage]: [{}, { url: text }], [findInPage]: [{}, { url: text, pattern: text }], other: [{}] });
 const extensionType = choice('Extension');
 const extension = tagged({
   'clock.sleep': [{ type: extensionType, id: text, durationMs: uint }],
-  'web.search': [{ type: extensionType, id: text, query: text }, { results: array(json), action: tagged({
-    search: [{}, { query: text, queries: strings }], openPage: [{}, { url: text }], findInPage: [{}, { url: text, pattern: text }], other: [{}],
-  }) }],
+  'web.search': [{ type: extensionType, id: text, query: text }, { results: array(json), action: webAction('openPage', 'findInPage') }],
   'image_gen.generation': [{ type: extensionType, id: text, status: text, result: text }, { revisedPrompt: text, transparentBackground: bool,
     savedPath: absolute, failure: tagged({ usageLimitExceeded: [{ limitId: text }, { resetsAt: int }] }) }],
 }, 'kind');
 const parsedCommand = tagged({ read: [{ cmd: text, name: text, path: text }], list_files: [{ cmd: text }, { path: text }],
   search: [{ cmd: text }, { query: text, path: text }], unknown: [{ cmd: text }] });
+const agentRef = shape({ thread_id: uuid }, { agent_nickname: text, agent_role: text, agent_type: text });
+const checkedAgentRef = (v, tokens) => agentRef(v, tokens) && noRoleAliasConflict(v);
+const agentStatus = either(choice('pending_init', 'running', 'interrupted', 'shutdown', 'not_found'),
+  external({ completed: maybe(text), errored: text }));
+const activity = choice('started', 'interacted', 'interrupted', 'completed');
+const fileChanges = dictionary(text, tagged({ add: [{ content: text }], delete: [{ content: text }],
+  update: [{ unified_diff: text }, { move_path: text }] }));
+const reviewTarget = tagged({ uncommittedChanges: [{}], baseBranch: [{ branch: text }], commit: [{ sha: text }, { title: text }],
+  custom: [{ instructions: text }] });
+const reviewOutput = shape({ findings: array(shape({ title: text, body: text, confidence_score: float32, priority: int32,
+  code_location: shape({ absolute_file_path: text, line_range: shape({ start: uint32, end: uint32 }) }) })),
+  overall_correctness: text, overall_explanation: text, overall_confidence_score: float32 });
 const turnItem = tagged({
   UserMessage: [{ id: text, content: array((v, tokens) => userInput(v, tokens) && (v.type !== 'image' || text(v.image_url) || text(v.file_id))) }, { client_id: text }],
+  HookPrompt: [{ id: text, fragments: array(shape({ text, hookRunId: text })) }],
   AgentMessage: [{ id: text, content: array(tagged({ Text: [{ text }] })) }, agentOptional],
   FunctionCallOutput: [{ id: text, name: text, output }, { namespace: text }],
   Plan: [{ id: text, text }], Reasoning: [{ id: text, summary_text: strings }, {}, { raw_content: strings }],
@@ -163,6 +181,16 @@ const turnItem = tagged({
   DynamicToolCall: [{ id: text, tool: text, arguments: json, status: choice('in_progress', 'completed', 'failed') },
   { namespace: text, content_items: array(tagged({ inputText: [{ text }], inputImage: [{ imageUrl: text }], inputAudio: [{ audioUrl: text }] })),
     success: bool, error: text, duration }],
+  CollabAgentToolCall: [{ id: text, tool: choice('spawn_agent', 'send_input', 'resume_agent', 'wait', 'close_agent', 'send_message', 'followup_task', 'interrupt_agent', 'list_agents'),
+    status: choice('in_progress', 'completed', 'failed', 'interrupted'), sender_thread_id: uuid },
+    { prompt: text, model: text, reasoning_effort: effort }, { receiver_thread_ids: array(uuid), receiver_agents: array(checkedAgentRef), agents_states: dictionary(uuid, agentStatus) }],
+  SubAgentActivity: [{ id: text, kind: activity, agent_thread_id: uuid, agent_path: agentPath }],
+  WebSearch: [{ id: text, query: text, action: webAction('open_page', 'find_in_page') }, { results: array(json) }],
+  ImageView: [{ id: text, path: fileUri }],
+  ImageGeneration: [{ id: text, status: text, result: text }, { revised_prompt: text, saved_path: absolute }],
+  EnteredReviewMode: [{ id: text, target: reviewTarget, user_facing_hint: text }],
+  ExitedReviewMode: [{ id: text }, { review_output: reviewOutput }],
+  FileChange: [{ id: text, changes: fileChanges }, { status: choice('completed', 'failed', 'declined'), auto_approved: bool, stdout: text, stderr: text }],
   McpToolCall: [{ id: text, server: text, tool: text, arguments: json, status: choice('inProgress', 'completed', 'failed') }, {
     connectorId: text, mcpAppResourceUri: text, mcpAppUi: shape({ resourceUri: text, preferredModelDisplayMode: choice('inline', 'fullscreen') }),
     linkId: text, appName: text, actionName: text, pluginId: text, readOnlyHint: bool, result: mcpResult, error: shape({ message: text }), duration,
@@ -221,6 +249,7 @@ const events = tagged({
     { local_images: strings, local_audio: strings, text_elements: textElements, image_details: array(maybe(detail)),
       file_id_details: array(maybe(detail)), local_image_details: array(maybe(detail)), image_order: array(choice('inline', 'file')) }],
   context_compacted: [{}],
+  sub_agent_activity: [{ event_id: text, agent_thread_id: uuid, agent_path: agentPath, kind: activity }, {}, { occurred_at_ms: int }],
 });
 
 const subagent = either(choice('review', 'compact', 'memory_consolidation'), external({ other: text,
@@ -250,8 +279,9 @@ const record = tagged({
   world_state: [{ timestamp: text, payload: shape({ full: bool, state: object }) }, { ordinal: uint }],
   compacted: [{ timestamp: text, payload: checkedCompacted }, { ordinal: uint }],
   retained_context: [{ timestamp: text, payload: retainedEvent }, { ordinal: uint }],
+  inter_agent_communication: [{ timestamp: text, payload: shape({ author: agentPath, recipient: agentPath, content: text, trigger_turn: bool },
+    { ...responseCommon, encrypted_content: text }, { other_recipients: array(agentPath) }) }, { ordinal: uint }],
+  inter_agent_communication_metadata: [{ timestamp: text, payload: shape({ trigger_turn: bool }) }, { ordinal: uint }],
 });
 export const knownHistoryRecord = ({ value, numberTokens, scalarStrings }) => scalarStrings !== false && record(value, numberTokens)
-  && !(value.type === 'session_meta' && Object.hasOwn(value.payload, 'agent_role') && Object.hasOwn(value.payload, 'agent_type'))
-  && !(value.type === 'session_meta' && object(value.payload.source?.subagent?.thread_spawn)
-    && Object.hasOwn(value.payload.source.subagent.thread_spawn, 'agent_role') && Object.hasOwn(value.payload.source.subagent.thread_spawn, 'agent_type'));
+  && (value.type !== 'session_meta' || (noRoleAliasConflict(value.payload) && noRoleAliasConflict(value.payload.source?.subagent?.thread_spawn)));

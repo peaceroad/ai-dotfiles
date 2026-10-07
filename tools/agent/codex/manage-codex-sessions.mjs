@@ -8,10 +8,11 @@ import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, regularFile, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, verifyIndexedHistory, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines, inspectRollout, pathIdentity } from './session-export-storage.mjs';
+import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, regularFile, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, verifyIndexedHistory, boardCoverage, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines, inspectRollout, pathIdentity } from './session-export-storage.mjs';
 import { collectDependencies, collectOwnedRollouts, ownedRollouts, ownedHistoryIds, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
 import { LINEAGE_POLICY, validateSavedLineage } from './session-lineage.mjs';
 import { ROLLOUT_POLICY, rolloutChunks, rolloutCodec, digestRollout, assertZstdRuntime, withRolloutBudget } from './session-rollout-io.mjs';
+import { openBoardReader } from './session-message-board.mjs';
 import { writeBatch, readBatch, listBatches, sourceIdentity, openHistoryReader } from './session-export-batches.mjs';
 import { ProcessError, assertClientsClosed as checkClientsClosed } from './manage-codex-processes.mjs';
 import { createProgress } from './session-progress.mjs';
@@ -50,6 +51,7 @@ The confirmation token binds the selected state, operation, and destination.`,
 Example: agent codex session export --before 4w --output <directory> --after keep
 Save private reference copies; originals remain. This is not an importable backup.
 New exports use v3: original .jsonl or .jsonl.zst bytes plus readable conversation.md.
+Root-owned agent message boards are saved separately as message-board.jsonl.
 Compressed history requires reviewed Node.js 26.10.0; old v2 snapshots remain readable.
 Unknown paginated schemas retain raw bytes with warnings and block exported deletion.
 The output parent must exist, outside Codex storage and Git repositories.
@@ -78,6 +80,7 @@ Unreadable/corrupt reference metadata or coexisting plain/zstd variants block de
 Compressed history requires v3 export and a v2 batch receipt; direct archive/delete is unsupported.
 Verified deletion schedules a full local app sidebar scan on its next startup when the cache is supported.
 Exported deletion requires owned-rollout indexed history coverage; older snapshots must be exported again.
+Roots with message-board content require a matching board export; direct deletion is blocked.
 Protected, changed, or incompletely exported families remain excluded; exit 3 reports exclusions or sidebar refresh issues.`,
   archive: `Usage: agent codex session archive <UUID | --before DATE|Nw> [--confirm <token>]
 Example: agent codex session archive --before 4w
@@ -201,7 +204,9 @@ Progress updates one line in a terminal; redirected logs report phase boundaries
 one intermediate update per 30 seconds. Warnings and completed results remain as ordinary lines.
 The output parent must exist, outside CODEX_HOME and outside Git repositories. Originals stay intact.
 No --force/--yes bypass, automatic retry, direct source-file deletion, or source database repair.
-Deletion success requires absent index entries, owned rollouts and owned indexed history rows.
+Deletion success requires absent index entries, owned rollouts, owned indexed history rows and board content.
+Board exports retain root-owned channels, posts, subscriptions and tombstones with exact tagged integers.
+Old snapshots without board coverage require re-export if the source still has board content.
 An unreadable inventory or unknown post-operation state cannot establish success. Rechecking an absent
 exported family also requires intact ownership metadata; residual data or missing evidence is reported.
 Exit codes: 0 completed/cancelled, 1 blocked/failed, 2 invalid arguments,
@@ -453,6 +458,15 @@ export async function inspectSessions(home, { progress = () => {} } = {}) {
 export const inspectDeletionReferences = (...args) => withRolloutBudget(() => inspectDeletionReferencesWithinBudget(...args));
 async function inspectDeletionReferencesWithinBudget(snapshot, { progress = () => {} } = {}) {
   const references = [], issues = [];
+  let boardOwners;
+  try {
+    const reader = await openBoardReader(snapshot.home);
+    try { boardOwners = reader.owners(); reader.check(); } finally { reader.close(); }
+  }
+  catch (error) {
+    const reason = error instanceof SessionError || error instanceof ExportError ? error.message : errorTag(error);
+    issues.push(`Agent message-board data could not be inspected: ${reason}; deletion is blocked.`);
+  }
   const owners = new Map(snapshot.sessions.map(row => [rolloutIdentity(row.path)?.rollout ?? row.id, row.id]));
   const indexedPaths = new Map(snapshot.sessions.map(row => [row.id, row.path]));
   const deletionIssuesBySession = new Map();
@@ -503,7 +517,7 @@ async function inspectDeletionReferencesWithinBudget(snapshot, { progress = () =
     issues.push(`Fork history references could not be inspected${inspectingId ? ` for rollout ${inspectingId}` : ''}: ${reason}; deletion is blocked.`);
   }
   references.sort((a, b) => a.target.localeCompare(b.target) || a.rollout.localeCompare(b.rollout) || a.source.localeCompare(b.source));
-  return { ...snapshot, deletionReferences: references, deletionIssues: issues, deletionIssuesBySession, deletionRollouts };
+  return { ...snapshot, deletionReferences: references, deletionIssues: issues, deletionIssuesBySession, deletionRollouts, boardOwners };
 }
 
 function indexSnapshot(snapshot) {
@@ -538,6 +552,7 @@ export function makePlan(snapshot, root, operation = 'delete', index = indexSnap
   visit(root);
   if (operation === 'delete') {
     problems.push(...snapshot.deletionIssues ?? []);
+    if (!index.verifyOwnedRollouts) for (const id of selected) if (snapshot.boardOwners?.has(id)) problems.push(`Session ${id} owns agent message-board data; use verified exported deletion to preserve and compare it.`);
     if (!index.verifyOwnedRollouts) for (const id of selected) if (snapshot.deletionIssuesBySession?.has(id)) problems.push('Additional rollout files belong to this session; use verified exported deletion to cover all files deleted by Codex.');
     for (const id of selected) for (const reference of index.checkExternalReferences === false ? [] : referencesByTarget.get(id) ?? []) {
       if (!selected.has(reference.rollout)) {
@@ -679,6 +694,12 @@ function printExclusions(plan, log) {
   for (const [reason, count] of reasons) log(`  ${count} family(s): ${displayText(reason)}`);
 }
 
+async function writeCountedLines(input, path, progress) {
+  let records = 0;
+  function* lines() { for (const line of input) { records++; yield line; } }
+  return { ...await writeVerifiedFile(Readable.from(lines(), { objectMode: false }), path, progress), records };
+}
+
 export const exportSessions = (...args) => withRolloutBudget(() => exportSessionsWithinBudget(...args));
 async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = inspectSessions, log = console.log, attachmentRoots = [], selection = null } = {}) {
   if (plan.operation !== 'export' || plan.problems.length || !plan.sessions.length) fail('Export requires a nonempty, unblocked export plan.');
@@ -693,7 +714,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
   }
   const space = statfsSync(destination, { bigint: true });
   if (space.bavail * space.bsize < BigInt(plan.size) + 64n * 1024n ** 2n) fail('Insufficient export space for measured rollouts and 64 MiB headroom. Indexed history needs additional space.');
-  let reader;
+  let reader, boards;
   const staged = [], folders = [], skipped = [], entries = [];
   const warningSessionsByReason = new Map();
   let warningSessions = 0;
@@ -724,6 +745,9 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
     context.phase = 'read indexed history';
     progress.phase('Read indexed history');
     reader = await openHistoryReader(snapshot.home, plan.sessions);
+    context.phase = 'read agent message boards';
+    progress.phase('Read agent message boards');
+    boards = await openBoardReader(snapshot.home);
     let prepared = 0;
     for (const row of plan.sessions) {
       progress.phase('Prepare session exports', prepared, plan.sessions.length);
@@ -742,16 +766,13 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
       if (reader.present) {
         context.phase = 'copy indexed history';
         progress.phase('Copy and verify indexed history', prepared, plan.sessions.length);
-        const historyFile = 'history.jsonl';
-        let records = 0;
-        function* lines() {
-          for (const line of reader.lines(historyIds)) {
-            records++;
-            yield line;
-          }
-        }
-        const saved = await writeVerifiedFile(Readable.from(lines(), { objectMode: false }), join(folder, historyFile), read => progress.bytes(read));
-        history = { ...saved, records };
+        history = await writeCountedLines(reader.lines(historyIds), join(folder, 'history.jsonl'), read => progress.bytes(read));
+      }
+      let messageBoard = null;
+      if (boards.present) {
+        context.phase = 'copy agent message board';
+        progress.phase('Copy and verify agent message board', prepared, plan.sessions.length);
+        messageBoard = await writeCountedLines(boards.lines(row.id), join(folder, 'message-board.jsonl'), read => progress.bytes(read));
       }
       context.phase = 'collect inherited history';
       progress.phase('Collect inherited history', prepared, plan.sessions.length);
@@ -790,7 +811,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
         warningSessionsByReason.set(reason, (warningSessionsByReason.get(reason) ?? 0) + 1);
         log(`Warning: session ${row.id}; ${warning.kind}/${warning.reason}; count ${count}${warning.origin ? `; first source ${warning.origin}` : ''}${warning.message ? `; ${warning.message}` : ''}`);
       }
-      const files = [rollout, ...(history ? [history] : []), ...inherited.files, ...rendered.files];
+      const files = [rollout, ...(history ? [history] : []), ...(messageBoard ? [messageBoard] : []), ...inherited.files, ...rendered.files];
       const session = { id: row.id, title: row.title, updated: row.updated, archived: row.archived,
         historyMode: row.historyMode, project: row.project ?? null, cwd: row.cwd ?? null };
       const spawnEdges = edgesBySession.get(row.id);
@@ -808,7 +829,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
       stage.manifest = { format: FORMAT, schemaVersion: 3, complete: true, restorable: false,
         exportedAt: new Date().toISOString(), session, files,
         coverage: { history: inherited.warnings.length ? 'partial' : 'collected', attachments: 'supported-inputs-only', conversation: 'record-view-not-exact-ui',
-          indexedHistory: indexedHistoryCoverage(historyIds, reader.present), lineage },
+          indexedHistory: indexedHistoryCoverage(historyIds, reader.present), messageBoard: boardCoverage(row.id, boards.present), lineage },
         sources: inherited.sources.map(({ path, ...source }) => source), attachments: rendered.attachments, warnings,
         spawnEdges, sourceArtifacts, artifactSetDigest: hash(sourceArtifacts),
         validation: { policy: ROLLOUT_POLICY, decoder: 'node-zstd-strict', node: process.versions.node } };
@@ -841,6 +862,8 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
       await checkAttachmentSources(stage.attachments, read => progress.bytes(read));
       progress.phase('Reverify source exports', ++verified, staged.length);
     }
+    context.session = null; context.phase = 'revalidate agent message boards';
+    boards.check();
     let published = 0;
     for (const stage of staged) {
       progress.phase('Publish verified exports', published, staged.length);
@@ -889,7 +912,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
     const reason = error instanceof SessionError || error instanceof ExportError ? error.message
       : `Storage operation failed (${errorTag(error)}). ${hint}`;
     throw new ExportError(`Export failed (${context.session ? `session ${context.session}; ` : ''}phase ${context.phase}${error?.exportSource ? `; source ${error.exportSource}` : ''}): ${reason}`, { cause: error });
-  } finally { progress.clear(); reader?.close(); }
+  } finally { progress.clear(); reader?.close(); boards?.close(); }
 }
 
 // Tokens bind the selected data and destination, not a moving relative cutoff.
@@ -906,7 +929,7 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
   if (batch.source !== sourceIdentity(snapshot.home)) fail('Export batch belongs to a different Codex home.');
   const entries = new Map(batch.entries.map(entry => [entry.id, entry]));
   const groups = [], skipped = [];
-  let absentHistory;
+  let absentHistory, boards;
   const progress = createProgress(log);
   log = progress.log;
   try {
@@ -917,6 +940,8 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
     // snapshot; each inspection after confirmation or mutation rebuilds it.
     const getIndex = snapshot.deletionRollouts ? () => snapshot.deletionRollouts : createRolloutIndex(snapshot.home);
     index.verifyOwnedRollouts = true;
+    boards = await openBoardReader(snapshot.home);
+    const currentBoardOwners = boards.owners();
     index.checkExternalReferences = false;
     const selected = onlyRoot ? batch.groups.filter(group => group.root === onlyRoot) : batch.groups;
     let checked = 0;
@@ -925,6 +950,7 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
       const present = saved.ids.filter(id => index.byId.has(id));
       try {
         if (!present.length) {
+          if (saved.ids.some(id => currentBoardOwners.has(id))) fail('Absent from the local index, but agent message-board data remains; deletion is not verified.');
           const remaining = saved.ids.filter(id => ownedRollouts(getIndex(), id).length);
           if (remaining.length) fail(`Absent from the local index, but owned rollout files remain for session(s): ${remaining.join(', ')}. Review residual history; deletion is not verified.`);
           // This branch authorizes no mutation. Digest-bound ownership metadata
@@ -956,6 +982,10 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
             const savedHistory = bundle.manifest.coverage?.indexedHistory;
             if (!savedHistory) fail('Export lacks owned-rollout indexed history coverage; export again before deletion.');
             if (hash(savedHistory) !== hash(indexedHistoryCoverage(historyIds, reader.present))) fail('Indexed history coverage or owned rollout IDs changed; export again before deletion.');
+            const savedBoard = bundle.manifest.coverage?.messageBoard;
+            if (savedBoard) {
+              if (hash(savedBoard) !== hash(boardCoverage(row.id, boards.present))) fail('Agent message-board coverage changed; export again before deletion.');
+            } else if (currentBoardOwners.has(row.id)) fail('Export lacks agent message-board coverage; export again before deletion.');
             const warnings = bundle.manifest.warnings;
             // Rendering limitations and bytes already absent from embedded media do
             // not lose additional data when the exact raw history is retained.
@@ -992,6 +1022,10 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
             }
             const history = bundle.manifest.files.find(file => file.file === 'history.jsonl');
             if (reader.present !== !!history || (history && await digestChunks(reader.lines(historyIds), read => progress.bytes(read, history.bytes)) !== history.sha256)) fail('Indexed history changed after export.');
+            if (savedBoard && boards.present) {
+              const file = bundle.manifest.files.find(file => file.file === 'message-board.jsonl');
+              if (await digestChunks(boards.lines(row.id), read => progress.bytes(read, file.bytes)) !== file.sha256) fail('Agent message-board changed after export; export again before deletion.');
+            }
           }
           reader.check();
         } finally { reader.close(); }
@@ -1000,14 +1034,14 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
         skipped.push({ root: saved.root, problems: [error instanceof SessionError || error instanceof ExportError ? error.message : 'Export verification failed; inspect saved files and source state.'] });
       } finally { progress.phase('Verify exported deletion families', ++checked, selected.length); }
     }
-    absentHistory?.check();
+    absentHistory?.check(); boards.check();
     groups.splice(0, groups.length, ...orderDeletionGroups(snapshot, groups, skipped));
     const sessions = groups.flatMap(group => group.sessions), problems = [...snapshot.issues, ...(snapshot.deletionIssues ?? [])];
     if (new Set(sessions.map(row => row.id)).size !== sessions.length) problems.push('Overlapping descendant groups.');
     return { operation: 'delete', groups, sessions, problems, skipped, batchDigest: batch.digest,
       size: groups.reduce((sum, group) => sum + group.size, 0),
       fingerprint: hash({ batch: batch.digest, groups: groups.map(group => group.fingerprint), skipped, problems }) };
-  } finally { absentHistory?.close(); progress.clear(); }
+  } finally { absentHistory?.close(); boards?.close(); progress.clear(); }
 }
 
 // Only the reviewed Windows process check and CLI invocation are enabled for archive/delete.
@@ -1319,9 +1353,9 @@ export async function runSessions(args, {
       current = await inspectState();
       if (current.issues.length) fail('Official operation returned success but session state could not be verified. Inspect storage and protection diagnostics; no retry was attempted.');
       const byId = new Map(current.sessions.map(row => [row.id, row]));
-      if (options.action === 'delete' && (!current.deletionRollouts || current.deletionIssues.length)) fail('Deletion returned success but the remaining rollout inventory could not be verified. No retry was attempted.');
+      if (options.action === 'delete' && (!current.deletionRollouts || current.deletionIssues.length)) fail(`Deletion returned success but remaining storage could not be verified. ${current.deletionIssues.join(' ')} No retry was attempted.`);
       const incomplete = group.sessions.find(row => options.action === 'delete'
-        ? byId.has(row.id) || exists(row.path) || ownedRollouts(current.deletionRollouts, row.id).length
+        ? byId.has(row.id) || exists(row.path) || ownedRollouts(current.deletionRollouts, row.id).length || current.boardOwners?.has(row.id)
         : !byId.get(row.id)?.archived || byId.get(row.id)?.size !== row.size || byId.get(row.id)?.size === null ||
           relative(snapshot.home, byId.get(row.id).path).split(sep)[0] !== 'archived_sessions' || (!row.archived && exists(row.path)));
       if (incomplete) fail(`Official operation returned success but descendant verification is incomplete for session ${incomplete.id}. No retry was attempted.`);

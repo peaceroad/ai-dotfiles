@@ -13,6 +13,9 @@ import { createInterface } from 'node:readline';
 import { zstdCompressSync } from 'node:zlib';
 import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 import { compactedTurn } from './fixtures/compacted-turn.mjs';
+import { developmentTurn } from './fixtures/development-turn.mjs';
+import { boardFixture } from './fixtures/message-board.mjs';
+import { listBundles, verifyBundle } from './session-export-storage.mjs';
 
 function indexSyntheticThread(home, path, id) {
   const db = new DatabaseSync(join(home, 'state_5.sqlite'));
@@ -129,7 +132,7 @@ test('official projection reads reviewed paginated fixtures before verified expo
   const version = runOfficialCodex(['--version'], root).stdout?.trim();
   assert.equal(version, 'codex-cli 0.159.2');
   const id = '00000000-0000-4000-8000-000000000101', missing = '00000000-0000-4000-8000-000000000199';
-  for (const makeTurn of [paginatedTurn, compactedTurn]) for (const compressed of [false, true]) {
+  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn]) for (const compressed of [false, true]) {
     const variant = `${makeTurn.name}-${compressed ? 'zstd' : 'plain'}`;
     const home = join(root, variant), output = join(root, `saved-${variant}`);
     mkdirSync(join(home, 'sessions'), { recursive: true }); mkdirSync(output);
@@ -169,21 +172,46 @@ test('official projection reads reviewed paginated fixtures before verified expo
       assert.equal(page.data.length, 1, 'Official typed projection must recover the synthetic turn');
       const items = page.data[0].items;
       for (const type of ['userMessage', 'agentMessage', 'commandExecution']) assert.ok(items.some(item => item.type === type), `Missing projected ${type}`);
-      if (makeTurn === compactedTurn) for (const type of ['mcpToolCall', 'sleep', 'webSearch', 'imageGeneration', 'contextCompaction']) {
+      if (makeTurn !== paginatedTurn) for (const type of ['mcpToolCall', 'sleep', 'webSearch', 'imageGeneration', 'contextCompaction']) {
+        assert.ok(items.some(item => item.type === type), `Missing projected ${type}`);
+      }
+      if (makeTurn === developmentTurn) for (const type of ['fileChange', 'enteredReviewMode', 'exitedReviewMode', 'collabAgentToolCall', 'subAgentActivity', 'imageView']) {
         assert.ok(items.some(item => item.type === type), `Missing projected ${type}`);
       }
     } finally { reader.close(); server.stdin.end(); await closed; }
     if (compressed) { writeFileSync(path, zstdCompressSync(readFileSync(plain))); rmSync(plain); }
     const bytes = readFileSync(path);
+    let board;
+    if (makeTurn === developmentTurn) {
+      board = boardFixture(home);
+      for (const table of ['channels', 'posts', 'subscriptions', 'subscription_opt_outs']) {
+        board.put(table, id); board.put(table, missing, 'Unrelated synthetic board');
+      }
+    }
     const snapshot = await inspectSessions(home);
     const exported = await exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', id])), output, { log() {} });
     assert.equal(exported.partial, false);
     assert.deepEqual(readFileSync(path), bytes, 'Export must preserve original rollout bytes');
+    if (board) {
+      const [bundle] = listBundles(output);
+      await verifyBundle(bundle);
+      assert.equal(bundle.manifest.files.find(file => file.file === 'message-board.jsonl').records, 4);
+    }
     const logs = [];
     assert.equal(await runSessions(['delete', '--exported', exported.batch.id, '--in', output], {
       home, interactive: true, log: line => logs.push(line), closed() {}, ask: async prompt => /^Type (.+) to /.exec(prompt)?.[1] ?? '',
     }), 0, logs.join('\n'));
     assert.equal(existsSync(path), false);
     assert.equal((await inspectSessions(home)).sessions.length, 0);
+    if (board) {
+      const db = new DatabaseSync(board.path, { readOnly: true });
+      try {
+        for (const table of ['channels', 'posts', 'subscriptions', 'subscription_opt_outs']) {
+          assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table} WHERE board=?`).get(id).n, 0);
+          assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table} WHERE board=?`).get(missing).n, 1);
+        }
+        assert.equal(db.prepare('SELECT count(*) AS n FROM deleted_boards WHERE board=?').get(id).n, 1);
+      } finally { db.close(); }
+    }
   }
 });
