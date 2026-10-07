@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { inspectSessions, inspectDeletionReferences, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, inspectCliCompatibility, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
+import { MAINTENANCE_CLI_VERSIONS, inspectSessions, inspectDeletionReferences, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, inspectCliCompatibility, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
 import { listBundles, snapshotDigest, fingerprint, verifyBundle, HISTORY_TABLES } from './session-export-storage.mjs';
 import { listBatches, readBatch } from './session-export-batches.mjs';
 import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
@@ -650,6 +650,30 @@ test('official command wrapper fixes the home, passes arguments as data, and hid
   }, 'codex-cli 0.159.2');
 });
 
+test('every registered maintenance profile checks the interface and keeps startup overrides', () => {
+  for (const version of MAINTENANCE_CLI_VERSIONS) for (const action of ['archive', 'delete']) {
+    const label = `codex-cli ${version}`, calls = [];
+    assert.equal(inspectCliCompatibility(action, 'fixture-home', args => {
+      calls.push(args);
+      return { status: 0, stdout: args[0] === '--version' ? label : `Usage: codex ${action} [OPTIONS] <SESSION>\n  --force\n` };
+    }), label);
+    assert.deepEqual(calls, [['--version'], [action, '--help']]);
+    runOfficialCodex([action, parent], 'fixture-home', (_command, _args, options) => {
+      assert.equal(options.env.AGENT_CODEX_EXPECTED_VERSION, label);
+      assert.deepEqual(JSON.parse(options.env.AGENT_CODEX_SESSION_ARGS), ['--no-daemon', '-c',
+        'features.local_thread_store_compression=false', '-c', 'features.background_paginated_rollout_migration=false', action, parent]);
+      return { status: 0 };
+    }, label);
+  }
+  for (const version of ['0.159.1', '0.159.3', '0.160.1-alpha.1', '0.999.0', '1.0.0']) {
+    const calls = [];
+    assert.throws(() => inspectCliCompatibility('delete', 'fixture-home', args => {
+      calls.push(args); return { status: 0, stdout: `codex-cli ${version}` };
+    }), /startup safety/);
+    assert.deepEqual(calls, [['--version']]);
+  }
+});
+
 test('Windows wrapper preserves single and multiple arguments through a fake Codex executable', { skip: process.platform !== 'win32' }, t => {
   const f = fixture(t);
   writeFileSync(join(f.home, 'codex.ps1'), 'ConvertTo-Json -Compress -InputObject @($args)\nexit 0\n');
@@ -670,7 +694,7 @@ test('Windows combined version guard starts deletion only for the reviewed CLI',
   });
   const args = ['delete', parent, '--force'];
   assert.throws(() => runOfficialCodex(args, f.home, launch, 'codex-cli 0.159.3'), /startup safety/);
-  writeFileSync(join(f.home, 'codex.ps1'), `if($args[0] -eq '--version') { Write-Output 'codex-cli 0.159.3'; exit 0 }\nSet-Content -LiteralPath (Join-Path $env:CODEX_HOME 'called.txt') -Value 'fixture'\nexit 0\n`);
+  writeFileSync(join(f.home, 'codex.ps1'), `if($args[0] -eq '--version') { Write-Output 'codex-cli 0.160.1'; exit 0 }\nSet-Content -LiteralPath (Join-Path $env:CODEX_HOME 'called.txt') -Value 'fixture'\nexit 0\n`);
   let result = runOfficialCodex(args, f.home, launch, 'codex-cli 0.159.2');
   assert.equal(result.status, 91);
   assert.match(result.stderr, /AGENT_CODEX_VERSION_GUARD/);

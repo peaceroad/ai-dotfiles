@@ -18,7 +18,7 @@ agent codex --help
 - `git-acl`、`disk-pressure`、`marketplace-staging`、`app`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
 - `skill-validator-utf8`は、Pythonの既定文字コードがUTF-8である環境では通常不要なため、macOS／Linuxの通常表示から外しています。必要な場合は、`agent codex skill-validator-utf8`で専用メニューを開くか、操作を直接指定できます。単体スクリプトもOSで制限しません。
 - `log-policy`はOS固有APIに依存しませんが、macOS／Linuxでは実機未検証です。その旨を表示し、既存のDB・スキーマ・変更確認の検査は維持します。
-- `session`の`list`・`plan`・`export`は全OSで利用できますが、macOS／Linuxでは実機未検証です。`archive`と`delete`はWindowsに限定しています。
+- `session`の`list`・`plan`・`export`は全OS向けです。Linuxでは読取・export・境界・同期失敗の合成試験の成功を確認しています。macOSと各OSの実履歴全体の運用は未検証です。`archive`と`delete`はWindowsに限定しています。
 
 メニューを使わず、操作を直接指定することもできます。次はWindowsでの状態確認例です。
 
@@ -130,7 +130,7 @@ agent codex process close
 
 [スクリプトを表示](../tools/agent/codex/manage-codex-sessions.mjs) · [期間指定・保護処理・エクスポートの設計ノート](notes/codex-session-management.md)
 
-**実験的な機能です。Codexの内部保存形式に依存するため、互換性の検査だけで将来の形式や動作まで保証するものではありません。合成データによる回帰試験に加え、隔離した試験用ホームでCodex CLI 0.159.2の履歴読取・保存後削除を検証しています。未対応形式では削除を停止します。** Node.js 24以降と、対応する`state_5.sqlite`の保存形式が必要です。`CODEX_HOME`が指定されていればその場所、未指定なら`~/.codex`を参照します。SQLiteの保存先を個別に変更した構成には対応しません。
+**実験的な機能です。Codexの内部保存形式に依存するため、互換性の検査だけで将来の形式や動作まで保証するものではありません。合成データによる回帰試験に加え、隔離した試験用ホームでCodex CLI 0.159.2と0.160.1の履歴読取・保存後削除を検証しています。未対応形式では削除を停止します。** Node.js 24以降と、対応する`state_5.sqlite`の保存形式が必要です。`CODEX_HOME`が指定されていればその場所、未指定なら`~/.codex`を参照します。SQLiteの保存先を個別に変更した構成には対応しません。
 
 まず、保存済みセッションを容量の大きい順に確認します。次は、`agent`のインストール後に端末から実行する例です。
 
@@ -153,7 +153,7 @@ agent codex session plan export --before 2026-07-01
 
 アーカイブ・削除を実行する前に、表示された親子セッションがすべて対象でよいことを確認してください。**削除後の復元機能はありません。アーカイブは同じCodexホーム内へ履歴を移す操作なので、履歴ファイル分の容量は減りません。** どちらもWindows、PowerShell 7、対応する操作と保存形式を備えたCodex CLIが必要です。Codex／ChatGPTのアプリ、CLI、IDE連携、自動実行などを終了し、処理が完了するまで再起動しないでください。共有ストレージへの別PCからの書き込みや、検査と同時に開始する処理には対応しません。
 
-アーカイブ・削除は、起動時の更新抑止を確認したCodex CLI 0.159.2に限定しています。操作ごとに`--no-daemon`と一回限りの設定上書きを渡し、background migrationとcompressionを無効にします。利用者の設定ファイルは変更しません。未知の版やremote接続環境は停止します。操作別のヘルプ、保存形式、保護情報も検査し、各グループの操作直前に同じCLIコマンドの版を再確認します。実行途中の更新、保存内容の不一致、操作後の検証失敗も停止条件です。exportと保存済み履歴の閲覧は、このCLI版の制限を受けません。
+アーカイブ・削除は、起動時の更新抑止を確認したCodex CLI 0.159.2と0.160.1に対応しています。0.159.2以降の全版を無条件に許可する設定ではありません。操作ごとに`--no-daemon`と一回限りの設定上書きを渡し、background migrationとcompressionを無効にします。利用者の設定ファイルは変更しません。未知の版やremote接続環境は停止します。操作別のヘルプ、保存形式、保護情報も検査し、各グループの操作直前に同じCLIコマンドの版を再確認します。実行途中の更新、保存内容の不一致、操作後の検証失敗も停止条件です。exportと保存済み履歴の閲覧は、このCLI版の制限を受けません。
 
 履歴のアーカイブとは別に、アプリには関連する管理対象worktreeを自動整理する仕組みがあります。必要な作業内容は、アーカイブ前に通常の作業場所などへ保全してください。このスクリプトはworktreeを直接削除しませんが、アプリ側の整理や復元を代行・保証するものではありません。[公式のworktree整理仕様](https://learn.chatgpt.com/docs/environments/git-worktrees#worktree-cleanup)
 
@@ -210,11 +210,11 @@ DBの保存範囲は、manifestの`coverage.indexedHistory`に`owned-rollout-ids
 
 新しいv3は、所有する全物理ログの一覧・元バイト数とSHA-256・展開後バイト数とSHA-256を記録します。新規バッチはv2です。既存のv2保存物とv1バッチも読み続けますが、新規v3の重複排除には流用せず、必要なら新しいスナップショットを作ります。古い保存物は消さずに残してください。保存後の再圧縮・ファイル追加・内容変更があれば再exportが必要です。同じrolloutのplainとzstdの共存や別ディレクトリへの重複配置は、初期対応では停止します。
 
-圧縮された元履歴の削除は、v3保存物とv2バッチを検証した`delete --exported`に限定します。Nodeの対応条件に加え、Windows・Codex CLI 0.159.2・書き込み元の終了と、既存の保護・参照・DB照合が必要です。圧縮された対象の直接削除・アーカイブには対応しません。未知のpaginated schemaによる`lineage-boundary-unverified`も、引き続き削除停止の理由になります。保存・検索できることと、削除を許可できることは別です。
+圧縮された元履歴の削除は、v3保存物とv2バッチを検証した`delete --exported`に限定します。Nodeの対応条件に加え、Windows・検証済みCodex CLI（0.159.2／0.160.1）・書き込み元の終了と、既存の保護・参照・DB照合が必要です。圧縮された対象の直接削除・アーカイブには対応しません。未知のpaginated schemaによる`lineage-boundary-unverified`も、引き続き削除停止の理由になります。保存・検索できることと、削除を許可できることは別です。
 
 読取は逐次処理し、1ファイルにつき物理入力8GiB、展開後32GiB、展開窓と1レコード128MiB、1回の読取10分を上限にします。export・削除計画・フォーク参照検査では、共通の履歴readerで再読回数を含む累積入力64GiB・展開256GiBでも停止します。exportのstream出力は累積64GiBが上限です。上限を変更する利用者向けオプションはありません。上限超過では未完了出力を削除の根拠にしません。exportの対象範囲は分割できますが、削除に必要な参照検査は両履歴ディレクトリの全体を調べるため、対象を減らしても上限を超える場合があります。保存先には展開した依存prefix、Markdown、添付物の分も必要です。空き容量の事前表示だけでは全出力量を予測できません。
 
-Windowsの合成fixtureと隔離homeの公式CLIで圧縮・export・削除を検証しています。macOS／Linuxの実機確認、停電後の保存耐久性、全paginated schemaへの対応は未完了です。
+Windowsの合成fixtureと隔離homeの公式CLIで圧縮・export・削除を検証しています。Linuxでも読取・export・境界・同期失敗の合成試験の成功を確認しています。macOSの受入、停電後の保存耐久性、全paginated schemaへの対応は未完了です。
 
 #### エクスポートした組をまとめて削除する
 
@@ -494,4 +494,4 @@ CodexアプリまたはCLIを更新した後は、設定が維持されている
 - `manage-skill-validator-utf8-patch.mjs`：Node.js 18以降。`apply`による実検証には、PyYAMLを読み込める`python`コマンド
 - `manage-sqlite-trace-log-suppression.mjs`：組み込みの`node:sqlite`を利用できるNode.js 22.5以降
 - `manage-codex-sessions.mjs`：Node.js 24以降。`archive`と`delete`にはWindows、PowerShell 7、対応する操作と保存形式を備えたCodex CLIも必要
-- `manage-codex-history.mjs`：Node.js 24以降。全OS向けですが、macOS／Linuxでは実機未検証
+- `manage-codex-history.mjs`：Node.js 24以降。全OS向け。Linuxでは保存済み履歴の参照を含む合成試験の成功を確認済み。macOSは未検証

@@ -2,7 +2,7 @@
 
 この文書は、ai-dotfilesで圧縮済みのCodex履歴を読み取り、元形式を保持してexportし、検証済みの保存物を根拠に削除できるようにする設計案です。対象はローカル履歴の可逆圧縮（`.jsonl` → `.jsonl.zst`）で、LLMの会話コンテキストを短縮するcompactionとは別の処理です。
 
-**初期の圧縮reader・v3 export／閲覧・検証済みexportによる削除を実装しました。** Node.js 26.10.0・Windowsで合成fixtureを検証し、Codex CLI 0.159.2自身が圧縮した架空の履歴の読取、export、公式削除と削除後確認も通しています。以下には設計時の選択肢と今後の受入条件を残しており、すべての条件を完了したという意味ではありません。
+**初期の圧縮reader・v3 export／閲覧・検証済みexportによる削除を実装しました。** Node.js 26.10.0・Windowsで合成fixtureを検証し、Codex CLI 0.159.2自身が圧縮した架空の履歴の読取、export、公式削除と削除後確認も通しています。 後続の0.160.1についても隔離homeの互換試験を通し、[共通計画の対応版](ai-dotfiles-session-preservation-plan.md#cli対応版の追加)へ追加しました。以下には設計時の選択肢と今後の受入条件を残しており、すべての条件を完了したという意味ではありません。
 
 ### 初期実装で確定した範囲
 
@@ -12,7 +12,7 @@
 - 圧縮削除はv3／batch v2による`delete --exported`だけです。通常の保護・family・参照・履歴DB・CLI起動抑止・実行後確認を適用します。同じrolloutのplain/zstd共存と別directory重複は停止します。
 - 上限は物理8GiB／展開32GiB／1読取10分、展開窓・行長128MiBです。export・削除計画・単独のフォーク参照検査では、共通readerの累積物理64GiB／展開256GiBを適用し、再読回数も数えます。exportのstream出力は累積64GiBです。利用者向けの上限変更は未提供です。
 - 展開時に物理hashも確認し、保存物の検証では同じ所有ファイルを別途hashする読取を省きます。元ログの再照合でもreaderが計算したhashを再利用し、二重計算しません。依存関係の発見では先頭metadataだけを読み、公開前の全体検証と役割を分けます。共有DBを変更する削除は直列のままです。
-- paginated schemaは、共通計画でターン開始・終了、設定、ツール結果、compactionのcheckpoint・保持文脈、MCPと既知の拡張項目、開発作業・サブエージェントの完了項目とエージェント間通信のsubsetへ拡張しました。固定版の保存対象variant、添付metadata保全、ファイル同期をさらに追加しています。全schemaの値域への対応、macOS／Linuxの実機検証、停電後の耐久性は未完了です。未知schemaを含む正常なJSONLは警告付きでraw保存できても、削除は止まる場合があります。
+- paginated schemaは、共通計画でターン開始・終了、設定、ツール結果、compactionのcheckpoint・保持文脈、MCPと既知の拡張項目、開発作業・サブエージェントの完了項目とエージェント間通信のsubsetへ拡張しました。固定版の保存対象variant、添付metadata保全、ファイル同期をさらに追加しています。Linuxの読取・export・境界・同期失敗の合成試験は、利用者提供の実行結果で成功を確認しました。全schemaの値域への対応、macOSの受入、停電後の耐久性は未完了です。未知schemaを含む正常なJSONLは警告付きでraw保存できても、削除は止まる場合があります。
 
 ## 共通計画との関係
 
@@ -307,7 +307,7 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 | 26.10.1以降の安定版 | patch・minor・major更新を受け付ける。各版の実機検証済みとは扱わない |
 | プレリリース版 | 圧縮を拒否 |
 
-既存の [OS別の範囲](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/docs/agent-codex.md#L16-L21)も変えません。list・plan・exportは全OS向けですがmacOS/Linuxは実機未検証、archive/deleteはWindows限定です。zstdが読めるようになるだけで、削除のOS制約がなくなるわけではありません。
+既存の [OS別の範囲](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/docs/agent-codex.md#L16-L21)も変えません。list・plan・exportは全OS向けです。Linuxの読取・export関連の合成試験は成功を確認し、macOSは未検証です。archive/deleteはWindows限定です。zstdが読めるようになるだけで、削除のOS制約がなくなるわけではありません。
 
 ## 変更対象と実装単位
 
@@ -432,9 +432,11 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 - [x] 展開byte境界：Windows／Node 26.10.0で32GiBと1byte超過、および大容量入力の期限停止・handle解放を検証した。小さな圧縮入力から実際に32GiBをstreamで読み、全量をメモリやディスクへ展開しない。
 
-- [ ] 物理byte境界：8GiBと1byte超過を試すopt-in fixtureを追加した。実サイズ試験は未実施。一時保存先に8.5GiB以上の空き容量を必要とし、不足時は成功扱いにせずskipする。
+- [x] 物理byte境界：利用者提供の実行結果から、実サイズ8GiBの読取成功と1byte超過の拒否を確認した。opt-in fixtureは一時保存先に8.5GiB以上の空き容量を必要とし、不足時のskipは成功扱いにしない。
 
-- [ ] OS全体の受入：呼出元・supportFiles・helpは更新済み。Linux x64／macOS arm64で読取・export・同期・失敗処理を検証する。Windowsでの成功を代用しない。
+- [x] Linuxの合成試験：利用者提供の実行結果から、reader・export・lineageと同期失敗時の停止の成功を確認した。Windows専用試験と任意実行の大容量試験のskipは合格に含めない。全filesystem・実履歴の運用検証を意味しない。
+
+- [ ] macOS arm64の受入：読取・export・同期・失敗処理を検証する。Windows／Linuxでの成功を代用しない。
 
 - [ ] 実ストレージ障害：ファイル同期失敗で削除を停止する合成fixtureは検証済み。外付け機器の突然の切断・停電後の保持、Windowsのディレクトリ公開耐久性は未検証。
 

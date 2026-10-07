@@ -8,7 +8,7 @@
 
 - **履歴DBの保存・照合範囲の不足：修正済み。** 非圧縮でも、セッションIDと所有rollout IDが異なると一部のDB行が対象から漏れました。合成fixtureで再現し、全所有IDとlegacy IDを対象にする修正を検証しました。
 - **フォーク履歴の境界検証：通常のターンとcompactionを含むsubsetを実装・合成fixture検証済み。** byte境界・整数token・連続ordinal・参照関係を共通処理で検査します。policy v2でmetadata・event・context・ツール結果に加え、compactionのcheckpoint、MCPと既知の拡張項目へ対応範囲を広げ、公式CLIの移行・履歴取得・export後削除とも照合しました。未対応schemaはraw保存と未検証警告、exported deletionの停止で扱い、固定版の保存対象variantへ対応を追加しています。全値域・パス表現や実データの完全性を保証するものではありません。
-- **削除CLIの起動時更新：0.159.2用adapterを実装・隔離fixture検証済み。** daemonを再利用せず、migrationとcompressionを一回限りのoverrideで無効にします。未知版・remote環境は停止します。
+- **削除CLIの起動時更新：0.159.2と0.160.1のadapterを隔離fixture検証済み。** daemonを再利用せず、migrationとcompressionを一回限りのoverrideで無効にします。未知版・remote環境は停止します。
 - **所有ファイルの検査・revert元の重複保存・削除後の確認不足：修正・合成fixture検証済み。** 自身の継承元は全体を一度だけ保存し、prefixを別途検証します。リンクを含む不完全な一覧は拒否し、保存中の追加はID集合だけでなく物理ファイル集合で検出します。公式delete後と同じバッチの再計画では、索引・所有ファイル・所有IDの履歴DB行の不在を確認します。
 - **plainとzstdの共存時の検査漏れ：停止ガード実装・合成fixture検証済み。** 同じrolloutの両形式共存や重複配置では停止します。単独の圧縮版はstrict readerで終端まで検証し、plainだけを選んで検査済みと扱う経路は設けません。詳細は[圧縮計画の混在形式の検証](ai-dotfiles-compressed-session-plan.md#混在形式の検証漏れを先に塞ぐ)で管理します。
 - **zstdの読取・manifest v3・圧縮削除：初期対応を実装。** Node 26.10.0／Windowsの合成fixtureとCLI 0.159.2の隔離homeで検証しました。未知lineage schemaの削除停止と両形式共存の停止を維持します。 [圧縮対応計画](ai-dotfiles-compressed-session-plan.md)で管理します。
@@ -104,6 +104,21 @@
 ### 実装と互換試験
 
 `runOfficialCodex`が版・接続・overrideを共通管理します。[互換試験](../../tools/agent/codex/session-cli-compatibility.test.mjs)は`AGENT_TEST_CODEX_COMPAT=1`で明示実行し、通常のテストではskipします。0.159.2の合成homeで、coldなplainファイルの圧縮とlegacyからpaginatedへの移行をそれぞれONの対照条件で観測し、OFF条件で元bytesと設定の不変を確認しました。archive/deleteは存在しない合成UUIDを対象とします。短時間で終了するコマンドだけでは移行workerの抑止を証明できないため、移行試験では同じ配布CLIのlocal app-serverをinitializeして観測時間を確保しています。通常の単体試験では引数・home・未知版・remote拒否・実行途中の版変更を確認します。
+
+
+### CLI対応版の追加
+
+対応版は`manage-codex-sessions.mjs`の`MAINTENANCE_CLI_VERSIONS`に集約し、help・実行時判定・互換試験が同じ一覧を使います。0.159.2以降の未検証版を、版番号だけで削除に使うことはありません。Nodeの最低版判定とは別の契約です。
+
+0.160.1では、公式配布物のdigestを照合したCLIを使い、起動時の圧縮・移行のON/OFF対照試験と、4種の履歴fixtureそれぞれのplain/zstd読取・export・公式削除・残存確認を通しました。0.159.2からの主要な起動・削除・圧縮経路に変更がないことも公式ソースで照合しています。追加された[SQLite回収worker](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/state/src/runtime/reclamation.rs)は、[DB別設定](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/state/src/sqlite.rs)でログDBだけが有効であり、履歴・状態・キュー等のDBは対象外です。CLIの版が新しいことだけでは起動時挙動を判断できない例として区別します。
+
+後続版への更新は次の順に行います。
+
+1. 公式配布物と起動・削除・保存形式・背景workerの変更を確認し、作業中のcheckoutの一覧へ候補版を追加する。合格する前に配布・インストールしない。
+2. その版のCLIを試験プロセスのPATHで選び、Windows／圧縮対応Nodeから`AGENT_TEST_CODEX_COMPAT=1`を設定して`node --test --test-concurrency=1 tools/agent/codex/session-cli-compatibility.test.mjs`を実行する。合成homeだけを対象にし、通常のCLIインストールや実履歴を変更しない。
+3. 対照条件・起動抑止・保存・削除後確認が通ることを確認し、単体回帰と対応版の説明を更新してから配布する。未知のDB・payload・接続方式の停止条件を緩めて合格扱いにしない。
+
+対応版同士でも、操作途中にCLIの版が変わったら停止します。明示的な版登録は、既存のファイル・DB・参照保護を省略するものではありません。
 
 ## 圧縮とは独立した履歴境界の共通検証
 

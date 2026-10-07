@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { runOfficialCodex, inspectSessions, exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
+import { MAINTENANCE_CLI_VERSIONS, runOfficialCodex, inspectSessions, exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
 import { supportsZstdRuntime, rolloutChunks } from './session-rollout-io.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { createInterface } from 'node:readline';
@@ -44,7 +44,8 @@ test('official maintenance startup overrides suppress synthetic history rewrites
   const root = mkdtempSync(join(tmpdir(), 'agent-cli-compat-'));
   t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   const version = runOfficialCodex(['--version'], root).stdout?.trim();
-  assert.equal(version, 'codex-cli 0.159.2', 'Review the startup profile before testing another version');
+  assert.ok(MAINTENANCE_CLI_VERSIONS.some(candidate => version === `codex-cli ${candidate}`), 'Review and register the candidate startup profile before acceptance testing');
+  t.diagnostic(`Official CLI under test: ${version}`);
   const id = '00000000-0000-4000-8000-000000000101';
   const missing = '00000000-0000-4000-8000-000000000199';
   for (const action of ['delete', 'archive']) for (const feature of ['local_thread_store_compression', 'background_paginated_rollout_migration']) {
@@ -132,7 +133,8 @@ test('official projection reads reviewed paginated fixtures before verified expo
   const root = mkdtempSync(join(tmpdir(), 'agent-paginated-compat-'));
   t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   const version = runOfficialCodex(['--version'], root).stdout?.trim();
-  assert.equal(version, 'codex-cli 0.159.2');
+  assert.ok(MAINTENANCE_CLI_VERSIONS.some(candidate => version === `codex-cli ${candidate}`), 'Review and register the candidate startup profile before acceptance testing');
+  t.diagnostic(`Official CLI under test: ${version}`);
   const id = '00000000-0000-4000-8000-000000000101', missing = '00000000-0000-4000-8000-000000000199';
   for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn, persistedTurn]) for (const compressed of [false, true]) {
     const variant = `${makeTurn.name}-${compressed ? 'zstd' : 'plain'}`;

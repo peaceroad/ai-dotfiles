@@ -22,6 +22,8 @@ import { SidebarCacheError, inspectSidebarRefresh, requestSidebarRefresh, sideba
 const bytes = value => `${(value / 1024 ** 2).toFixed(2)} MiB`;
 class SessionError extends Error {}
 const fail = message => { throw new SessionError(message); };
+// Extend only after source review and isolated startup/deletion acceptance tests.
+export const MAINTENANCE_CLI_VERSIONS = Object.freeze(['0.159.2', '0.160.1']);
 const RETAINED_RAW_WARNINGS = new Set([
   'rendering/multiple-record-representations', 'rendering/unsupported-content-part',
   'rendering/unsupported-message-content', 'rendering/no-supported-messages',
@@ -172,7 +174,7 @@ Coexisting plain/zstd variants are not supported. Re-export changed physical his
 Unknown paginated schemas warn and exclude exported deletion for either codec.
 CODEX_HOME is respected (default: ~/.codex). Custom SQLite locations are unsupported.
 Archive/delete require Windows, PowerShell 7, and a compatible Codex CLI.
-Archive/delete startup is verified for codex-cli 0.159.2 only; unknown versions stop.
+Archive/delete startup profiles: codex-cli ${MAINTENANCE_CLI_VERSIONS.join(', ')}; unverified versions stop.
 The local invocation disables daemon reuse, background migration and compression without
 changing config. Remote execution environments are unsupported. The CLI must also advertise
 the selected command with <SESSION> and, for delete, --force.
@@ -1147,7 +1149,7 @@ function cliVersion(home, cli) {
 function assertMaintenanceCli(version) {
   // Startup override propagation and local connection tested with disposable homes.
   // Add versions only after the opt-in session-cli-compatibility test passes.
-  if (version !== 'codex-cli 0.159.2') fail('Codex CLI startup safety is not verified for this version. Archive/delete are blocked; use a runtime with a verified maintenance profile. Export and saved-history reading remain available.');
+  if (!MAINTENANCE_CLI_VERSIONS.some(candidate => version === `codex-cli ${candidate}`)) fail(`Codex CLI startup safety is not verified for this version. Archive/delete are blocked. Verified versions: ${MAINTENANCE_CLI_VERSIONS.join(', ')}. Update agent for additional verified profiles; export and saved-history reading remain available.`);
   if (process.env.CODEX_EXEC_SERVER_URL) fail('Remote execution environments are unsupported for session maintenance; use a local terminal.');
 }
 
