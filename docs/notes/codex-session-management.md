@@ -120,7 +120,7 @@ v2 policyは通常のターン開始・終了、ターン設定、推論・ツ�
 
 [自動テスト](../../tools/agent/codex/manage-codex-sessions.test.mjs)では、試験用のSQLite DBとログファイルを作成し、期間境界、親子の重複、保護対象、確認後の変更、部分成功、エクスポート内容とハッシュを検査しています。大きなUTF-8ログ、多数のDB行、空の履歴ファイル、ログのサイズ変化、履歴DBだけの並行更新も対象です。公式コマンドを呼ぶ部分は代替処理で検証し、Windowsの引数引き渡しも偽の実行コマンドで確認しています。
 
-テストはリポジトリのルートで実行できます。通常の`npm run check`にも組み込んであります。
+テストはリポジトリのルートで実行できます。通常の`npm run check`にも組み込んであります。試験用の保存先もGit内への書き出し防止に従うため、`os.tmpdir()`が返す一時領域は、書き込み可能で、自身と祖先に`.git`がない場所にしてください。必要なら`TMPDIR`（Linux／macOS）または`TEMP`／`TMP`（Windows）で権限のある別の一時領域を指定します。安全な場所を用意できない場合は検証不可として報告し、保護を外したりテストを成功扱いにしたりしません。
 
 ```powershell
 node --test tools/agent/codex/manage-codex-sessions.test.mjs tools/agent/codex/session-export.test.mjs tools/agent/codex/session-lineage.test.mjs tools/agent/codex/session-progress.test.mjs tools/agent/codex/codex.test.mjs

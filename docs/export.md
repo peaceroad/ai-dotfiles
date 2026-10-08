@@ -2,7 +2,7 @@
 
 `export.js`は、ホームディレクトリにあるファイルを、公開用ファイルとして同じ相対パスでこのリポジトリの`home/`へ同期するためのスクリプトです。外部パッケージには依存しません。
 
-このガイドの手順には、リポジトリの検証要件に合わせてNode.js 24以降を使います。`npm run check`はエクスポート以外の検証も実行するため、WindowsではPowerShell 7（`pwsh`）も必要です。
+このガイドの手順には、リポジトリの検証要件に合わせてNode.js 24以降を使います。`npm run check:export`は、実際のホームを対象に公開用エクスポートを検査します。リポジトリ全体の`npm run check`ではエクスポートを合成ホームで検証し、ほかのテストも実行するため、WindowsではPowerShell 7（`pwsh`）も必要です。
 
 ## コピー対象を設定する
 
@@ -50,7 +50,7 @@ paths:
 リポジトリのルートで、最初にドライランを実行します。コピー予定、削除予定、検査結果が表示され、ファイルは変更されません。
 
 ```powershell
-npm run check
+npm run check:export
 ```
 
 問題がなければ、ファイルを書き出します。`npm run build`でも変更前に同じ検査を実行し、問題が見つかった場合はコピーも削除も行いません。削除対象は、`export.yaml`で指定されたコピー先ディレクトリの内部に限定されます。コピー元のファイルは変更しません。
@@ -91,6 +91,6 @@ Windowsの`Desktop.ini`、macOSの`.DS_Store`、Windowsの`Thumbs.db`など、�
 スキップされたパスを確認する場合は、次のように`--verbose`を指定します。
 
 ```powershell
-npm run check -- --verbose
+npm run check:export -- --verbose
 npm run build -- --verbose
 ```

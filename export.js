@@ -190,7 +190,7 @@ function redactDisplayPaths(text) {
 
 function usage() {
   console.log(`Usage:
-  npm run check             Show the export plan and scan source files
+  npm run check:export      Show the export plan and scan source files
   npm run build             Scan and copy source files into this repository's home/ mirror
 
 Direct usage:
@@ -1162,7 +1162,7 @@ async function main() {
     }
     console.error(
       styledError(
-        `Fix the finding(s) above and rerun "${write ? "npm run build" : "npm run check"}".`,
+        `Fix the finding(s) above and rerun "${write ? "npm run build" : "npm run check:export"}".`,
         ANSI.yellow,
       ),
     );
