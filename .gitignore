@@ -34,3 +34,14 @@ Desktop.ini
 
 # Local temporary work
 /.tmp/
+
+# Private dot inputs and local runtime records
+/dot/*-private.md
+/dot/.codex/
+/dot/.agents/
+/dot/INDEX.md
+/dot/skills-manifest.json
+/dot/receipts/
+/dot/restoration/
+/dot/backups/
+/plugins/dot-toolkit/*.zip

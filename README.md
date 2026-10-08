@@ -21,6 +21,8 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 - **[ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)**：このリポジトリのCLI操作をAIへ案内するプラグイン。
   - [ai-dotfiles-cli](plugins/ai-dotfiles-cli/skills/ai-dotfiles-cli/SKILL.md)：`agent`で管理しているスキルリンクやプラグインの状態を調べるとき、自分の担当分を共有Marketplaceへ同期するとき、Codexの保守やセッション整理を行うときに使います。導入済みCLIのコマンドと確認手順を選び、操作結果を確かめます。CLI自体の開発や汎用的なプラグイン作成は対象外です。
   - [codex-history](plugins/ai-dotfiles-cli/skills/codex-history/SKILL.md)：以前にエクスポートした会話から、過去の決定理由を探したり、複数のセッションにまたがる経緯を確認したりするときに使う、実験的なスキルです。保存済みファイルを検索・参照し、根拠の場所と記録の不足を示します。進行中の会話の取得や、エクスポート・削除・復元は行いません。
+- **[dot-toolkit](plugins/dot-toolkit/README.md)**：dot自身のクラウドにある共通指示と、作業に必要な指示・スキルを読み込むプラグイン。
+  - [dot-guidelines](plugins/dot-toolkit/skills/dot-guidelines/SKILL.md)：継続的なメインのdot会話で使う薄いローダーです。通常のCodexタスク、委任先のタスク、サブエージェントには適用しません。
 - **[agentコマンド](#agentコマンド)**：スキルとは別に実行する管理用CLI。
   - [`agent dev`](docs/agent-development.md)：開発対象の確認・同期、共有Marketplaceの設定・配布。
   - [`agent marketplace`](docs/agent-development.md#別マシンで単体skillを利用する)：プラグインに含めず個別に配布されたスキルの一覧表示・導入・更新・削除。
@@ -52,6 +54,15 @@ Codexへ渡す共通指示の例です。回答の詳しさ、待機中の進め
 - [~/.codex/AGENTS.md](home/.codex/AGENTS.md)：共通指示の本文。
 - [指示の日本語訳と設計理由](docs/notes/codex-agents-md-instruction-rationale.md)
 - [変更時の評価方針と確認範囲](docs/notes/codex-agents-md-evaluation.md)
+
+## dot向けの共通指示と構築手順
+
+[dot-toolkitのREADME](plugins/dot-toolkit/README.md)に、プラグインの構成、必要なクラウド内配置、導入時の注意点をまとめています。公開テンプレートは次の2つです。
+
+- [dot/AGENTS.md](dot/AGENTS.md)：共通指示。採用先はdot自身のクラウドの`/workspace/AGENTS.md`です。
+- [dot/dot-setup.md](dot/dot-setup.md)：構築・更新・固定版再現の手順。採用先は`/workspace/.codex/dot-setup.md`です。
+
+リポジトリの`dot/`は編集・配布用の置き場所です。非公開の指示と構築入力は利用者が別途用意して`/workspace/.codex/`に配置し、管理するスキルは`/workspace/.agents/skills/`に置きます。既存ファイルとの差分を確認し、依頼した範囲だけを反映します。プラグインの導入、実行時のファイル配置、自動読み込みの確認は別々の作業です。
 
 ## スキル
 
@@ -123,6 +134,7 @@ Codexの保守には操作ごとのOS・バージョン制限があります。`
 
 - [`home/`](home/)：ホームから取り込んだ公開用の設定・スクリプト。
 - [`plugins/`](plugins/)：スキル・プラグインのソース。
+- [`dot/`](dot/)：dot自身のクラウドへ配置する公開用の共通指示と構築手順。
 - [`tools/agent/`](tools/agent/)：CLIのソース。利用環境への反映にはインストーラーを再実行します。
 - [`scripts/`](scripts/)：CLIのインストーラーとリポジトリの検証用スクリプト。
 - [`docs/`](docs/)：利用ガイド、設計理由、検証・評価の説明。

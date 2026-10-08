@@ -1,6 +1,10 @@
-These are shared instructions for everyday work. Build, update, and reproduction procedures belong in `dot-setup.md`; installation sources and selected skills belong in `dot-setup-private.md`. Document names refer to content supplied for the current task or documents in the same configuration folder.
+# Common dot instructions
 
-If `AGENTS-private.md` is supplied for the current task or exists in the same configuration folder, read it completely before work that depends on it, and apply only the additional instructions relevant to the current task. If it is absent, proceed with these shared instructions. If an existing document cannot be read, do not treat it as absent: pause only the work that needs its instructions and report what is missing.
+These instructions apply only to the user's ongoing main personal assistant, dot, in this dot's own cloud. They do not govern ordinary Codex tasks, delegated child tasks, or subagents, even if a client discovers this file through its directory hierarchy.
+
+The `dot-guidelines` skill loads this canonical file, `/workspace/AGENTS.md`. Private routing is `/workspace/.codex/AGENTS-private.md`; read it completely and load the task-specific documents it requires only for their stated scope. Managed skills are selected through `/workspace/.agents/skills/INDEX.md`. Setup, update, and reproduction procedures are `/workspace/.codex/dot-setup.md`, with private inputs at `/workspace/.codex/dot-setup-private.md`; load them only for authorized setup-related work. These paths are explicit and are not relative to this file's folder.
+
+If a required file is missing or unreadable, report the missing input and pause only dependent work. Do not search alternative configuration locations or create replacement configuration automatically.
 
 ## Scope and permissions
 
@@ -20,8 +24,6 @@ If `AGENTS-private.md` is supplied for the current task or exists in the same co
 
 ## Complete skill and reference loading
 
-At task start and when the task type or relevant requirements change, select applicable skills from their descriptions, including skills explicitly requested by the user. Use descriptions already available in the runtime catalog. For managed skills, use INDEX.md at the verified managed-skills location to locate candidates, then read their SKILL.md descriptions when not already available. If INDEX is unavailable, inspect only skill-entry metadata at that location. Reuse loaded descriptions while the task and available guidance remain unchanged; refresh them after relevant skill changes. Read the selected skills and required references according to the rules below before dependent work, rather than loading every skill body.
-
 - Read each selected `SKILL.md` and each reference required for the current task completely before doing work that depends on it.
 
 - Return each instruction file's content in a separate, bounded tool result. Do not combine those contents or other large outputs in a shared wrapper response. Metadata may be collected together.
@@ -34,7 +36,7 @@ At task start and when the task type or relevant requirements change, select app
 
 ## Cloud workspace layout
 
-This layout applies to dot's own cloud environment, not the user's computer or another development environment. Verify the actual locations and access scope of `shared` and the currently assigned working directory.
+Use this layout only in dot's own cloud. Here, `shared` means `/workspace/shared/`. Verify that location, its access scope, and the currently assigned working directory before using them; do not infer persistence solely from the directory name.
 
 - `shared/projects/<project-name>/`: The working home for ongoing projects. Keep drafts, assets, deliverables, and source material together within the project, whether or not it uses Git. Place repositories directly under `projects/`, without an intermediate `projects/git/` directory.
 
@@ -42,7 +44,7 @@ This layout applies to dot's own cloud environment, not the user's computer or a
 
 - `shared/tools/`: User-managed tools, runtimes, and their supporting libraries. Separate by tool and version when useful.
 
-- `shared/skills/`: Managed copies of skills used in everyday work.
+- `/workspace/.agents/skills/`: Complete managed copies of skills used in everyday work, with `INDEX.md` and `skills-manifest.json` at that root.
 
 - `shared/outputs/<project-name>/`: Verified final deliverables retained from temporary work. Deliverables from an ongoing project may remain within that project.
 
@@ -54,6 +56,8 @@ Verify that files worth retaining have been saved before cleaning up individual 
 
 ## Canonical copy and updates
 
-Designate one canonical `AGENTS.md` and verify its location and loading method during setup. Make any necessary copies from that canonical version; do not edit copies independently or automatically write their changes back. Keep skill source material separate from managed copies, and handle updates, differences, and conflicts according to `dot-setup.md`.
+Keep `/workspace/AGENTS.md` as the single canonical common instruction source. Keep private instructions and setup inputs under `/workspace/.codex/`. The `dot-guidelines` skill is a thin loader, not another common-instruction copy. Update canonical files only within the user's authorized scope; do not automatically edit an installed skill or overwrite a canonical file from a derived copy.
 
-Keep environment-specific observations and history out of general procedures. Use `INDEX.md` for skill purposes and loading locations, and `skills-manifest.json` for adopted versions and information needed to compare their contents. Keep private information and project-specific conditions out of public shared instructions.
+Keep source material separate from managed skills. Handle updates, differences, and conflicts according to `/workspace/.codex/dot-setup.md`. Use `/workspace/.agents/skills/INDEX.md` for skill purposes and loading locations, and `/workspace/.agents/skills/skills-manifest.json` for adopted versions and content comparison.
+
+Keep environment-specific observations and history out of general procedures. Keep private information and project-specific conditions out of public shared instructions. Stored files, successful comparisons, and skill installation alone do not prove automatic loading or authorize actions, code execution, monitoring, or automated replies.
