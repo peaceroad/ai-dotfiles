@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +28,7 @@ function assertLocalDocumentation(root) {
   }
 }
 
-for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli', 'agent-eval-tools']) {
+for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli', 'agent-eval-tools', 'dot-toolkit']) {
   test(`${name} keeps local documentation dependencies inside its isolated package`, t => {
     const root = mkdtempSync(join(tmpdir(), 'agent-package-test-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -55,7 +55,10 @@ for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli
       const tests = spawnSync(process.execPath, ['--test', '--test-reporter=tap', join(dirname(script), 'agent-eval.test.mjs'), join(dirname(script), 'comparison.test.mjs')], { cwd: root, encoding: 'utf8', env: testEnvironment });
       assert.equal(tests.status, 0, tests.stdout + tests.stderr);
       assert.match(tests.stdout, /^# tests [1-9][0-9]*$/m, 'The isolated package must execute its controller tests.');
-    } else {
+    } else if (name === 'dot-toolkit') {
+      assert.deepEqual(readdirSync(join(plugin, 'skills')), ['dot-guidelines']);
+      assert.ok(lstatSync(join(plugin, 'skills', 'dot-guidelines', 'SKILL.md')).isFile(), 'dot-guidelines must include a regular skill entry point.');
+    } else if (name === 'agent-design-tools') {
       assert.deepEqual(readdirSync(join(plugin, 'skills')).sort(), ['agent-workflow-design', 'prompt-design', 'prompt-gemini-reference']);
     }
   });
