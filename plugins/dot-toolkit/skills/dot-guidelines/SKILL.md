@@ -15,9 +15,9 @@ After setup, report which parts were verified, which private inputs or skill cho
 
 ## Normal loading
 
-1. Read `/workspace/AGENTS.md` completely for the canonical common instructions.
-2. Read `/workspace/.codex/AGENTS-private.md` completely to identify applicable private instructions. Follow its conditions to load referenced task-specific documents completely before dependent work. If it records pending private inputs, preserve that status and continue only work independent of them; do not treat pending as none or repeat the setup question during unrelated work.
-3. Read `/workspace/.agents/skills/INDEX.md`. Select only skills relevant to the current task, then read each selected `SKILL.md` and its required references completely before dependent work.
+1. Read `/workspace/AGENTS.md` completely for canonical common standing guidance.
+2. Read `/workspace/.codex/AGENTS-private.md` completely. Apply its directly written instructions where relevant and follow its conditions to load referenced task-specific documents completely before dependent work. It can contain direct instructions, conditional references, or both. If it records pending private inputs, preserve that status and continue only work independent of them; do not treat pending as none or repeat the setup question during unrelated work.
+3. Read `/workspace/.agents/skills/INDEX.md` and use its purpose summaries, together with available skill descriptions, to select only skills relevant to the current task. Then read each selected `SKILL.md` and its required references completely before dependent work.
 4. For authorized setup, updates, or reproduction only, read `/workspace/.codex/dot-setup.md` and its required inputs. Do not load setup procedures for unrelated everyday work.
 
 Read instruction files in separate bounded results and retrieve any truncated portions through EOF. If a required file is missing or unreadable, report the missing input and pause only dependent work. Outside the explicit setup entry above, do not search alternate configuration locations or provision, restore, install, or activate anything automatically. File loading does not authorize actions or expand the current task's scope.

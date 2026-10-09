@@ -12,7 +12,7 @@ Unless the user specifies another common-instruction source, retrieve the comple
 
 - Repository: `https://github.com/peaceroad/ai-dotfiles`
 - Repository path: `dot/AGENTS.md`
-- Commit: `1faca49d7b563094804330d4fe16595161345b82`
+- Commit: `8162755a562568b13f96bc418e78b22e1861b57e`
 
 Verify the repository, path, and commit through the source, and read the retrieved document completely before adopting it. The repository's `dot/AGENTS.md` is deployed as `/workspace/AGENTS.md`; distribution paths are not alternate runtime paths. This fixed configuration source works independently of whether the file has reached the default branch. If it cannot be retrieved or verified, pause the affected placement and ask for the common document or a supported source; do not guess another branch or search historical configuration locations.
 
@@ -20,18 +20,18 @@ The configuration commit above pins only the common instructions. Skill versions
 
 ## Private inputs now or later
 
-Private instruction routing and additional skill candidates can be supplied with setup or later. If either is missing and its status is not already known, ask once in the same exchange whether each will be supplied now, later, or is unnecessary for this setup. For example: “非公開の個別指示と追加スキル候補は、今渡す・後で渡す・今回はなしのどれにしますか？ それぞれ別に選べます。” Continue independent common setup while awaiting the answer or files. A no-additions choice concerns only additional skill candidates; it does not establish that no private instructions apply.
+Private instructions and additional skill candidates can be supplied with setup or later. `AGENTS-private.md` may contain directly written private instructions, conditional references to separate documents, or both; a separate document is not required for every private instruction. If private instructions or additional candidates are missing and their status is not already known, ask once in the same exchange whether each will be supplied now, later, or is unnecessary for this setup. For example: “非公開の個別指示と追加スキル候補は、今渡す・後で渡す・今回はなしのどれにしますか？ それぞれ別に選べます。” Continue independent common setup while awaiting the answer or files. A no-additions choice concerns only additional skill candidates; it does not establish that no private instructions apply.
 
 During authorized initial setup, create only the missing minimal private records needed to preserve the actual status:
 
-- `/workspace/.codex/AGENTS-private.md`: preserve supplied routing and its loading conditions. If private instructions are missing or deferred, record that they are pending, that none have been supplied yet, and that only work independent of them may proceed. Do not fabricate their contents or describe them as unnecessary. Only an explicit no-private-instructions choice permits a routing file stating that no private conditions apply for this setup; dot creates this statement rather than asking the user to author an empty file.
+- `/workspace/.codex/AGENTS-private.md`: preserve supplied direct instructions, conditional references, and their scopes and loading conditions. If private instructions are missing or deferred, record that they are pending, that none have been supplied yet, and that only work independent of them may proceed. Do not fabricate their contents or describe them as unnecessary. Only an explicit no-private-instructions choice permits a private instruction file stating that no private conditions apply for this setup; dot creates this statement rather than asking the user to author an empty file.
 - `/workspace/.codex/dot-setup-private.md`: retain supplied additional candidates, or record their current pending/deferred/no-additions status. This does not approve installation or updates. Keep private candidates and current decisions out of the public procedure and out of the adopted-skill manifest; do not accumulate history in the candidate list.
 
 Do not overwrite existing private documents with minimal records. Read saved records back. Missing, deferred, explicitly none, and supplied inputs are different states; silence is not a decision. Do not repeatedly ask an already-answered or still-pending setup question unless a specific task now depends on that input. While private instructions are pending, use common instructions for independent work, explain a material dependency when one arises, and never claim full private setup completion.
 
 When the user later supplies private files and asks to apply them, review differences and apply only the authorized private changes. Preserve existing common configuration and adopted skills; do not repeat common setup, refetch its source, or reset prior decisions. Additional skill additions and updates still require their own selection approval. Attachment alone does not authorize applying private files.
 
-Save supplied task-specific private documents under `/workspace/.codex/`, preserving the filenames and loading conditions in the private routing. Keep their filenames, purposes, and contents in private inputs rather than public shared instructions. Read them back and check their explicit references. Saving these files does not change external-service settings or enable automations.
+Save supplied task-specific private documents under `/workspace/.codex/`, preserving the filenames and loading conditions in `AGENTS-private.md`. Keep their filenames, purposes, and contents in private inputs rather than public shared instructions. Read them back and check their explicit references. Saving these files does not change external-service settings or enable automations.
 
 ## Inputs and version selection
 
@@ -76,7 +76,7 @@ Following the common instructions selected above, create or reuse project, downl
 
 ## 2. Establish the canonical shared instructions
 
-For initial setup, adopt the verified common instructions selected above and save them as `/workspace/AGENTS.md`, the canonical common instruction file. Save the supplied procedure as `/workspace/.codex/dot-setup.md`. Save private routing and setup inputs, or their honest minimal status records, as described under “Private inputs now or later.” Place only the supplied task-specific private documents referenced by the routing under `/workspace/.codex/`, preserving their filenames and conditions. Use explicit absolute references between these locations; do not assume the files share a directory.
+For initial setup, adopt the verified common instructions selected above and save them as `/workspace/AGENTS.md`, the canonical common instruction file. Save the supplied procedure as `/workspace/.codex/dot-setup.md`. Save private instructions and setup inputs, or their honest minimal status records, as described under “Private inputs now or later.” Place only the supplied task-specific private documents referenced by `AGENTS-private.md` under `/workspace/.codex/`, preserving their filenames and conditions. Use explicit absolute references between these locations; do not assume the files share a directory.
 
 The `dot-guidelines` skill in `dot-toolkit` is only a loader for these files. Editing or placing runtime files does not install or activate that plugin, replace an existing installed skill, or authorize duplicate skill discovery. Handle plugin installation or replacement only as separately requested and verify client support and effective discovery then.
 

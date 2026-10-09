@@ -13,14 +13,14 @@ The skill applies only to the main ongoing dot conversation. It does not govern 
 
 Setup prepares the following files in this dot's own cloud. They are not bundled in this plugin and are not paths on the user's computer:
 
-- `/workspace/AGENTS.md`: canonical common instructions
-- `/workspace/.codex/AGENTS-private.md`: private instruction routing, or an explicit pending/none status recorded during authorized setup
+- `/workspace/AGENTS.md`: canonical common standing guidance
+- `/workspace/.codex/AGENTS-private.md`: directly written private instructions, conditional references to separate documents, or both; it may instead record an explicit pending/none status during authorized setup
 - `/workspace/.codex/dot-setup.md`: authorized setup, update, and reproduction procedure
 - `/workspace/.codex/dot-setup-private.md`: supplied additional candidates or their current pending/deferred/no-additions status
 - `/workspace/.agents/skills/INDEX.md` and `/workspace/.agents/skills/skills-manifest.json`: managed skill discovery and inventory
 - `/workspace/.agents/skills/<skill-name>/`: complete managed skill folders
 
-Task-specific private documents are loaded only under the conditions defined in `AGENTS-private.md`.
+Read `AGENTS-private.md` completely and apply relevant instructions written there; load referenced documents only under their stated conditions. Select task skills using INDEX purpose summaries and available descriptions, then read the selected `SKILL.md` and required references completely. Selection summaries are not a substitute for the selected instructions.
 
 For an explicitly requested initial setup with a supplied `dot-setup.md`, the loader starts from that procedure before requiring files setup will create. During ordinary work it reads only task-relevant guidance and never provisions missing files, searches alternative configuration locations, or installs tools. Loading a file does not authorize actions. Missing required inputs pause only dependent work, and pending private inputs are never treated as none.
 
