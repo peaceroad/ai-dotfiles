@@ -1,124 +1,102 @@
-This procedure prepares shared instructions and required skills in dot's own cloud environment. Attaching, viewing, or reviewing documents does not authorize execution. Proceed only for the targets and scope requested by the user.
+This procedure governs authorized setup, updates, and reproduction in dot's own `/workspace` cloud. A file attachment or review request alone does not authorize execution. Stay within the requested scope and current permissions. Complete step 1 before saving files or proposing changes.
 
-This file is the authoritative setup and manifest contract for the explicit `/workspace` runtime layout. It is a procedure, not an installer. Reading it does not perform setup or grant additional permissions.
-
-The English examples below illustrate wording, not a required response language. Use the user’s conversational language for questions, progress updates, and results.
+File placement is separate from running bundled code, installing runtimes or plugins, enabling discovery, changing external-service settings, or starting automations. Handle those effects only as separately authorized. Use the user's conversational language; the English examples below do not prescribe the language of replies.
 
 ## Start with this file
 
-With `dot-toolkit` installed, attach only this `dot-setup.md` and explicitly ask dot to set up its own cloud, for example: “Set up your cloud using this procedure.” Attaching the file alone is not a setup request. This authorizes the common configuration work described here, not installation of every skill candidate, plugin replacement, or external-service changes.
+With `dot-toolkit` installed, attach this `dot-setup.md` and explicitly ask: “Set up your cloud using this procedure.” Read the supplied procedure completely before requiring files setup will create. It governs initial setup; do not silently replace it with a newer repository copy. Keep it and any specified edited-source identity available for resumption.
 
-For an explicit initial setup request, read the supplied procedure before requiring runtime files that setup will create. Use this attachment's contents as the procedure and save them as `/workspace/.codex/dot-setup.md`; do not silently replace them with a newer repository copy. If the user explicitly supplies edited common instructions or another source, honor that source within the requested scope and review existing-file differences. Ask only about material incompatibility, unresolved conflicts, or missing authority.
-
-Unless the user specifies another common-instruction source, retrieve the complete public `AGENTS.md` from this source:
+Unless the user supplies or specifies another common-instruction source, obtain the complete `AGENTS.md` from:
 
 - Repository: `https://github.com/peaceroad/ai-dotfiles`
 - Repository path: `dot/AGENTS.md`
-- Commit: `8162755a562568b13f96bc418e78b22e1861b57e`
+- Commit: `221c7e47f3e54ed02937d7a60117ce708a25e360`
 
-Verify the repository, path, and commit through the source, and read the retrieved document completely before adopting it. The repository's `dot/AGENTS.md` is deployed as `/workspace/AGENTS.md`; distribution paths are not alternate runtime paths. This fixed configuration source works independently of whether the file has reached the default branch. If it cannot be retrieved or verified, pause the affected placement and ask for the common document or a supported source; do not guess another branch or search historical configuration locations.
+Verify the repository, path, and commit, and read the document completely before adoption. This pin does not depend on default-branch contents. It selects common instructions only; skill versions are selected separately below. If the user specifies another branch or tag for common instructions, resolve it once to a commit, record that resolution with the current private setup records, and reuse it on retry. If verification fails, request the document or a supported source rather than guessing another ref.
 
-The configuration commit above pins only the common instructions. Skill versions follow the separate selection rules below; this pin neither selects older skills nor authorizes updates. If a user specifies a different branch or tag for the common instructions, resolve it to a commit once, record that resolution with the setup's current private records, and reuse it on retry. Keep the supplied procedure and any edited-source identity available for resumption.
-
-## Private inputs now or later
-
-Private instructions and additional skill candidates can be supplied with setup or later. `AGENTS-private.md` may contain directly written private instructions, conditional references to separate documents, or both; a separate document is not required for every private instruction. If private instructions or additional candidates are missing and their status is not already known, ask once in the same exchange whether each will be supplied now, later, or is unnecessary for this setup. For example: “For private instructions and additional skill candidates, would you like to provide them now, later, or use none for this setup? You can choose separately for each.” Continue independent common setup while awaiting the answer or files. A no-additions choice concerns only additional skill candidates; it does not establish that no private instructions apply.
-
-During authorized initial setup, create only the missing minimal private records needed to preserve the actual status:
-
-- `/workspace/.codex/AGENTS-private.md`: preserve supplied direct instructions, conditional references, and their scopes and loading conditions. If private instructions are missing or deferred, record that they are pending, that none have been supplied yet, and that only work independent of them may proceed. Do not fabricate their contents or describe them as unnecessary. Only an explicit no-private-instructions choice permits a private instruction file stating that no private conditions apply for this setup; dot creates this statement rather than asking the user to author an empty file.
-- `/workspace/.codex/dot-setup-private.md`: retain supplied additional candidates, or record their current pending/deferred/no-additions status. This does not approve installation or updates. Keep private candidates and current decisions out of the public procedure and out of the adopted-skill manifest; do not accumulate history in the candidate list.
-
-Do not overwrite existing private documents with minimal records. Read saved records back. Missing, deferred, explicitly none, and supplied inputs are different states; silence is not a decision. Do not repeatedly ask an already-answered or still-pending setup question unless a specific task now depends on that input. While private instructions are pending, use common instructions for independent work, explain a material dependency when one arises, and never claim full private setup completion.
-
-When the user later supplies private files and asks to apply them, review differences and apply only the authorized private changes. Preserve existing common configuration and adopted skills; do not repeat common setup, refetch its source, or reset prior decisions. Additional skill additions and updates still require their own selection approval. Attachment alone does not authorize applying private files.
-
-Save supplied task-specific private documents under `/workspace/.codex/`, preserving the filenames and loading conditions in `AGENTS-private.md`. Keep their filenames, purposes, and contents in private inputs rather than public shared instructions. Read them back and check their explicit references. Saving these files does not change external-service settings or enable automations.
-
-## Inputs and version selection
-
-For initial setup, the supplied `dot-setup.md` governs; obtain the common instructions from its verified source and handle private inputs as above. In an established runtime, use `/workspace/AGENTS.md`, `/workspace/.codex/dot-setup.md`, the applicable private records under `/workspace/.codex/`, and `/workspace/.agents/skills/` for managed skills. These are the only runtime locations for this layout. Do not assume access to content that was not supplied or verified as accessible. If a required input is missing, request only that input and pause only dependent work. To reproduce the same skill versions and contents, also take skills-manifest.json and the necessary restoration materials as inputs.
-
-- New skill placement or upstream skill update: Resolve the latest HEAD of the specified branch at acquisition time to a commit once per repository, and use that version consistently across the selected skills from it. This skill-source resolution is separate from the common-instruction pin above. A specified commit takes precedence. A tag, release, or source archive is supported only when its source contents can be verified against a pinned Git commit. Otherwise pause the affected work and ask for a supported source; do not invent a commit or extend the manifest format. Normally use main when no ref is specified; if it does not exist, do not choose a substitute without asking.
-
-- Applying edited sources: Use the specified local sources and scope. Do not fetch the latest upstream version again.
-
-- Reproducing identical contents, rerunning, repairing, or resuming interrupted work: Use the versions and intended changes in the supplied manifest, existing manifest, or interim records. Do not switch to the latest version merely because of a retry.
-
-Ask only about ambiguous targets or missing permissions, and pause the dependent steps. Handle private sources only within the scope authorized for this task. Do not silently replace unreadable material with another source. Do not bypass an access denial through another route.
-
-## Skill candidates and selection
-
-Keep two groups: **common candidates** listed here, and **additional candidates** supplied through private setup inputs. The groups identify where the selection is proposed, not whether a source repository is public or private; additional candidates may also have public sources. Do not copy private candidates or decisions into public documents, PRs, or logs.
-
-The common candidates come from [peaceroad/ai-dotfiles](https://github.com/peaceroad/ai-dotfiles), normally branch `main`. Source paths below identify whole skill folders; verify the entry points and task-specific requirements at the selected version before placement.
-
-- `agent-workflow-design`: `plugins/agent-design-tools/skills/agent-workflow-design`. Designs recurring or long-running workflows, including tool roles, waiting, recovery, and evaluation. Uses `prompt-design` for model-facing instructions and `skill-creator` for skill creation or structural changes.
-- `prompt-design`: `plugins/agent-design-tools/skills/prompt-design`. Designs, reviews, and revises prompts and other model-facing instructions. Requires the references applicable to the target; skill creation or structural changes use `skill-creator` first.
-- `agent-improve`: `plugins/agent-eval-tools/skills/agent-improve`. Evaluates skills and plugins, compares versions, and runs evidence-based improvement experiments. Actual evaluation requires an appropriate harness, available execution capabilities, and an agreed scope and budget; placement does not install or authenticate a runner.
-- `plugin-creator-agent-plugins`: `plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins`. Authors, validates, migrates, and packages portable Agent Plugins v1. Check runtime requirements before using bundled tools; standalone workflows do not require the `agent` CLI or `ai-dotfiles-cli` plugin.
-
-A candidate list or a request to revise setup documents is not permission to install or update its contents. Before placement, inspect existing state and present the two groups separately. For each candidate, show its purpose, source/path, proposed version, relevant use requirements, whether it is already installed, and the proposed action: unchanged, add, update, conflict, or skip. Distinguish a retained installed version from a proposed upstream update.
-
-Obtain explicit approval for the selected additions and updates in each group separately; approval of the common group never approves the additional group. Reuse clear authorization already given for the exact operation, targets, source/version scope, and destination instead of asking again, while honoring any action-time approval required by the current tool or policy. Either group can be skipped or have no additions. Treat no additions as no new placements, not permission to update existing skills; updates must also be expressly selected. If one group is undecided or inaccessible, pause only its dependent work.
-
-When approval is missing, name the targets and actions in a short list, then ask about each group in the user’s language; a table is optional. For example: “For the common candidates, may I proceed with [skill names and proposed additions or updates]?” and, separately, “For the additional candidates, may I proceed with [skill names and proposed additions or updates]?” Replace the placeholders with the reviewed proposal and make clear that either group can be skipped. Do not repeat these questions for already-authorized operations.
-
-Deduplicate the same repository, source path, and resolved commit across groups into one placement. If the same skill name or destination has different sources or versions, or repository-wide version requirements conflict, ask about that conflict before changing the affected skills. Do not let one group silently override another. Preserve installed skills omitted from a candidate list or selection; removal requires its own authorization. Do not automatically add newly discovered upstream skills, install dependency skills, or install runtimes. If a selected skill needs an unavailable dependency, explain it and pause only dependent work until an authorized resolution is available.
-
-Keep candidate lists, proposed actions, and selection/approval records separate from the manifest. The manifest records only the currently adopted state, including intentional changes and unresolved verification status; regrouping candidates does not change adopted versions or contents. Keep unfinished placement or update records outside it until they can be reconciled with actual state. Editing only these procedures or candidate lists leaves managed skills, INDEX, and the manifest unchanged.
+In an established runtime, use the canonical files at the paths below and apply only the requested changes. For identical skill reproduction, also obtain the adopted manifest and required restoration materials.
 
 ## 1. Inspect the environment and existing state
 
-Check the current working directory, the actual location of shared, writable scope, required commands, and available capacity. Read any existing shared instructions, sources, managed copies, INDEX, and manifest; identify conflicts with same-named files, links, or skills and any local changes. In an authorized initial setup, absent files are creation targets, not prerequisites for starting; an existing but unreadable file must not be treated as absent.
+Check the working directory, `/workspace/shared/`, writable scope, required commands, and capacity. Read existing instructions, sources, managed copies, INDEX, and manifest; identify same-named files, links, skills, local edits, and incomplete operations. During authorized initial setup, absent files are creation targets; unreadable existing files are not absent.
 
-Reuse identical contents. Compare additions, modifications, deletions, and extra files, distinguishing upstream deletions from user additions. Preserve user edits when differences exist, and ask only about conflicts that cannot be resolved within the request's scope. Do not force consistency by deleting or overwriting existing configuration. Do not restore app custom rules or connection permissions from documents.
+Compare additions, modifications, deletions, and extra files, distinguishing upstream deletions from user additions. Reuse identical contents and preserve unrelated edits. Use only supplied or verified-accessible inputs. Resolve missing information, incompatible sources, ambiguous scope, conflicts, or missing authority before dependent work; ask only when they cannot be resolved within the request. Pause only that dependent work. Do not replace unreadable sources, restore app custom rules or connection permissions from documents, or bypass an access denial through another route.
 
-Following the common instructions selected above, create or reuse project, download, tool, and output directories under `/workspace/shared/` only as needed. Runtime instructions belong at `/workspace/AGENTS.md` and under `/workspace/.codex/`; managed skills belong under `/workspace/.agents/skills/`. Check the actual writable scope. If a runtime write needs sandbox approval, use the supported approval flow; stop the affected action on denial. Do not substitute a different runtime path or infer persistence from a directory name.
+Use these exact runtime locations: `/workspace/AGENTS.md` for common instructions, `/workspace/.codex/` for setup and private documents, and `/workspace/.agents/skills/` for managed skills. Repository publication paths are not runtime alternatives. Create project, download, tool, and output directories under `/workspace/shared/` only as needed, following the common instructions. Use the supported approval flow for restricted writes; on denial, stop the affected action without substituting a path, changing permissions, or placing links in protected locations. Do not infer persistence from directory names.
 
-## 2. Establish the canonical shared instructions
+## 2. Establish the canonical instructions
 
-For initial setup, adopt the verified common instructions selected above and save them as `/workspace/AGENTS.md`, the canonical common instruction file. Save the supplied procedure as `/workspace/.codex/dot-setup.md`. Save private instructions and setup inputs, or their honest minimal status records, as described under “Private inputs now or later.” Place only the supplied task-specific private documents referenced by `AGENTS-private.md` under `/workspace/.codex/`, preserving their filenames and conditions. Use explicit absolute references between these locations; do not assume the files share a directory.
+For initial setup, save the verified common instructions as `/workspace/AGENTS.md` and the supplied procedure as `/workspace/.codex/dot-setup.md`. Use explicit absolute references between runtime locations. For updates, compare existing files under step 1 before adopting changes; do not import another environment's configuration paths.
 
-The `dot-guidelines` skill in `dot-toolkit` is only a loader for these files. Editing or placing runtime files does not install or activate that plugin, replace an existing installed skill, or authorize duplicate skill discovery. Handle plugin installation or replacement only as separately requested and verify client support and effective discovery then.
+`dot-guidelines` loads the canonical files; it is not another common-instruction copy. Installing or replacing that plugin is separate from placing these files. When plugin work is requested, verify client support and effective discovery and resolve duplicate discovery explicitly.
 
-If a canonical file already exists, review differences before changing it. Preserve unrelated user edits and unresolved conflicts. Do not carry configuration paths from a different environment into this layout.
+Export additional common-instruction copies only when the operating environment requires them. Derive them from the canonical copy, record the version or date/time and content match, and never edit or overwrite copies independently without reviewing differences. The skill manifest holds only a reference to the canonical file.
 
-Read the canonical contents back and report the storage location and loading method. Record only a reference to the canonical copy in the skills manifest. Export additional copies from it only when required by the operating environment, and record the version or date/time and confirmation that the contents match. Do not edit copies independently or overwrite them without reviewing differences.
+### Private inputs now or later
 
-Saving a file and loading it automatically are separate matters. If the supported location and applicability cannot be verified in the current environment, explicitly identify and read the canonical copy at the start of work. Do not bypass restrictions by placing files or links in protected locations or changing permissions.
+`/workspace/.codex/AGENTS-private.md` may contain direct private instructions, conditional references, or both. Separate documents are optional. `/workspace/.codex/dot-setup-private.md` holds additional skill candidates or their current status.
 
-## 3. Place the selected skills
+For missing inputs whose status is unknown, ask once whether each will be supplied now, later, or is unnecessary: “For private instructions and additional skill candidates, would you like to provide them now, later, or use none for this setup? You can choose separately for each.” Continue independent common work. A no-additions choice concerns only candidates, not whether private instructions apply.
 
-Place only the additions and updates authorized through “Skill candidates and selection” as managed copies in `/workspace/.agents/skills/<skill-name>/`, and explicitly read them when needed. Treat catalog registration or automatic discovery as separate work, based on the environment's specifications, required approvals, and actual verification results.
+During authorized initial setup, create only missing records:
 
-1. Select the version or specified source according to “Inputs and version selection,” and record it in interim records too. Use the same commit for all selected skill material acquired from the same repository.
+- Preserve supplied private instructions, references, scopes, and loading conditions. If instructions are missing or deferred, record them as pending in `AGENTS-private.md`, without inventing their contents or claiming none apply. An explicit no-private-instructions choice permits dot to write that declaration; the user need not supply an empty file.
+- Preserve supplied additional candidates in `dot-setup-private.md`, or record their pending, deferred, or no-additions status. Listing candidates does not approve their installation.
 
-2. Acquire each selected skill's entire folder and the dependency files required for placement and use. Do not default to acquiring the entire repository; state the necessary acquisition scope. Put sources retained for ongoing reference or editing in projects, and retained copies of retrieved material in downloads. Runtime files must be contained within the selected managed skill directories. References between selected skills are supported only when their relative paths remain valid after placement. If a required runtime file would live outside those directories, pause the affected placement and ask for a self-contained source or an explicitly agreed packaging change; do not copy untracked dependencies. License and setup reference material may be retained separately for consultation. For a Git checkout, acquire upstream files from the pinned commit tree, excluding Git metadata such as `.git`; include uncommitted additions or edits only as intentional changes with restoration materials.
+Never overwrite existing private documents with minimal records. Missing, deferred, explicitly none, and supplied inputs remain distinct. Silence is not a decision; do not repeat an answered or pending question unless a specific task now depends on it. While instructions are pending, proceed only with independent work and report any material dependency.
 
-3. Read each SKILL.md and all materials needed for placement and verification completely. Check terms of use, dependencies, bundled code, and conflicts with same-named skills. Retrieve materials individually and obtain any omitted portions before using them.
+Save supplied referenced private documents under `/workspace/.codex/`, retaining their filenames and conditions, and verify their explicit references. Keep private filenames, purposes, contents, candidates, and decisions out of public documents, PRs, and logs.
 
-4. Preserve the relative structure, including references, assets, scripts, and templates. Do not extract paths or links that would write outside the extraction destination. Handle missing dependencies within the approved scope and the selection rules above.
+Later private files require an apply request. Compare and apply only that private scope, preserving existing common configuration, adopted skills, and prior decisions. Do not refetch or redo common setup; skill additions and updates still follow the separate selection process below.
 
-5. Compare the adopted source contents with the managed copies, and check for missing internal references. Do not determine equality from counts alone. Mark completion only when the placed contents and management records are consistent.
+## 3. Select and place skills
 
-Distinguish acquisition scope and omissions from whether Git history is present. For supported source archives, verify their contents against the recorded commit and retain the artifact hash in an acquisition record; do not infer a commit merely from an archive name. Resume unfinished parts of interrupted updates from the same resolved version. Keep update targets incomplete until verification succeeds, and do not use mixed-version managed copies for everyday work. If an operation's outcome is unknown, inspect the actual state before retrying.
+### Inputs and version selection
 
-Copying files does not authorize running installers or bundled code. Runtime and package installation are not part of initial placement; handle them separately after checking the actual use case and execution permissions. Do not automatically synchronize source updates into managed copies.
+- New placements or upstream updates: use the specified commit, or resolve the specified branch's latest HEAD once per repository at acquisition time. Use that commit consistently across selected skills from the repository. Default to `main` only when no ref is specified; ask if it does not exist. Tags, releases, and archives require contents verifiable against a pinned Git commit. Otherwise request a supported source; do not invent a commit or extend the manifest format.
+- Edited sources: use the specified local sources and scope without fetching newer upstream contents.
+- Reproduction, repair, retry, or interrupted work: use the manifest or interim records' versions and intended changes, not the latest upstream version.
 
-## 4. Management files and completion checks
+### Skill candidates and selection
 
-Use `/workspace/.agents/skills/INDEX.md` as the entry point for everyday use, and `/workspace/.agents/skills/skills-manifest.json` as the record of currently adopted versions and the basis for content comparison. INDEX points explicitly to `/workspace/AGENTS.md` and `/workspace/.codex/dot-setup.md`; its skill links remain relative to the managed skill root.
+Keep **common candidates** listed here separate from **additional candidates** in private inputs. These groups describe selection provenance, not repository visibility; additional candidates may come from public sources.
 
-- INDEX.md: Skill names, purposes, relative links to each SKILL.md, and a pointer to the manifest.
+Common candidates come from [peaceroad/ai-dotfiles](https://github.com/peaceroad/ai-dotfiles), normally `main`. Paths identify whole skill folders; verify their entry points and requirements at the proposed version.
 
-- skills-manifest.json: The current adopted configuration recorded in the format defined below. Do not include unadopted candidates, selection/approval records, operation history, or reading logs.
+- `agent-workflow-design`: `plugins/agent-design-tools/skills/agent-workflow-design`. Designs recurring or long-running workflows, including tool roles, waiting, recovery, and evaluation. Uses `prompt-design` for model-facing instructions and `skill-creator` for skill creation or structural changes.
+- `prompt-design`: `plugins/agent-design-tools/skills/prompt-design`. Designs, reviews, and revises model-facing instructions. Requires applicable target references; skill creation or structural changes use `skill-creator` first.
+- `agent-improve`: `plugins/agent-eval-tools/skills/agent-improve`. Evaluates skills and plugins, compares versions, and runs evidence-based improvement experiments. Evaluation needs a suitable harness, available execution capabilities, and an agreed scope and budget; placement does not install or authenticate a runner.
+- `plugin-creator-agent-plugins`: `plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins`. Authors, validates, migrates, and packages Agent Plugins v1. Check runtime requirements before using bundled tools; standalone workflows do not require the `agent` CLI or `ai-dotfiles-cli` plugin.
 
-If detailed acquisition records are needed, retain only a reference to them in the manifest.
+Present each group separately before placement. For each candidate, show purpose, source/path, proposed version, use requirements, installed status, and action: unchanged, add, update, conflict, or skip. Distinguish retained versions from proposed upstream updates.
 
-Read the saved files back. Verify and report the canonical copy, all adopted skills, content comparisons, and consistency between INDEX and manifest, distinguishing this operation’s changes from unchanged skills. Separately identify unverified areas such as automatic loading, script behavior, or external links. If any target steps remain unresolved, report partial completion and specify the inputs needed to resume. Distinguish common configuration, each skill group, and private inputs: for example, “Common setup is complete. Private settings can be applied later. Skill additions and updates that have not been approved are on hold.” Use only the statuses actually established; skipped or explicitly unnecessary work is not pending.
+Obtain explicit approval for each group's selected additions and updates; common-group approval does not approve the additional group. Reuse clear authorization for the exact operation, targets, version scope, and destination, while honoring current action-time approval requirements. Either group may be skipped; no additions does not authorize updates or removals. Ask about missing approval with the reviewed targets and actions, for example: “For the [common/additional] group, may I proceed with [names and proposed additions or updates]?” Keep the two decisions separate and pause only dependent work when one remains unresolved or inaccessible.
 
-Preserve the existing INDEX and manifest when the adopted set, source revisions and contents, and management references are unchanged, unless an explicitly performed verification needs to be recorded. Updating existing skills still requires updating the corresponding source, file, hash, and verification records after comparison, even when no new skill is added. Preserve unrelated records and user edits. For an empty initial setup with no installed skills and no selected placements, write “No adopted skills” in a newly created INDEX and use empty arrays for sources, skills, and files in the manifest. This describes the empty adopted inventory, not a decision to decline pending candidates. Do not relabel existing inventories just to match the examples’ language. A skipped group or a no-additions decision does not clear existing records. If materials needed to repair the existing state are unavailable, ask rather than replacing it with an upstream version.
+Deduplicate identical repository, source path, and resolved commit into one authorized placement without approving the other group's selection. Resolve conflicting proposed placements or conflicts with installed skills, including differing sources or versions for the same name/destination and repository-wide version requirements, before changing the affected skills. Merely listing an unselected candidate does not block an approved placement. Preserve installed skills omitted from selection; removal needs its own authorization. Do not automatically add new upstream skills or dependency skills. Explain missing dependencies and pause affected work until an authorized resolution is available.
+
+### Placement and recovery
+
+Place approved managed copies at `/workspace/.agents/skills/<skill-name>/`. Record resolved versions in interim records; catalog registration and automatic discovery require their own authorized work and verification.
+
+1. Acquire each selected skill's entire folder and required dependency files; state the acquisition scope rather than defaulting to a full repository. Retain active sources in projects and retrieved snapshots in downloads. For Git checkouts, use the pinned commit tree without `.git`; uncommitted edits or additions require intentional-change restoration materials.
+2. Read each `SKILL.md` and all placement/verification materials completely, retrieving omitted portions individually. Check terms of use, dependencies, bundled code, and name conflicts.
+3. Preserve references, assets, scripts, and templates. Reject extraction paths or links escaping the destination. Runtime files must stay inside selected managed skill directories, and cross-skill relative references must remain valid. For dependencies outside those directories, request a self-contained source or explicitly agreed packaging change; do not copy untracked dependencies. License and setup reference material may be retained separately.
+4. Compare adopted source contents with managed copies and check internal references. Counts alone do not establish equality. Keep incomplete updates out of everyday use until placed contents and records agree; do not use mixed-version copies.
+
+For supported archives, verify contents against the pinned commit and retain the artifact hash in an acquisition record; the archive name does not establish the commit. Distinguish acquisition scope and omissions from Git-history presence. If an operation's outcome is unknown, inspect actual state before retrying. Resume only unfinished authorized work using the recorded versions. Do not automatically synchronize source edits into managed copies.
+
+## 4. Management files and completion
+
+- `/workspace/.agents/skills/INDEX.md`: skill names, purposes, relative `SKILL.md` links, and a manifest pointer. It also points explicitly to `/workspace/AGENTS.md` and `/workspace/.codex/dot-setup.md`.
+- `/workspace/.agents/skills/skills-manifest.json`: currently adopted versions and contents, using the format below. Keep candidates, selection/approval decisions, operation history, and reading logs outside it. Detailed acquisition records may be referenced rather than copied into it. Retain unfinished work separately until reconciled with actual state; do not accumulate history in candidate lists.
+
+Preserve INDEX and manifest when the adopted set, source revisions, contents, and management references are unchanged, unless an actual verification must be recorded. Skill updates require corresponding source, file, hash, and verification records after comparison, even with no new skills. Preserve unrelated records and edits. Procedure-only or candidate-list edits do not change managed skills, INDEX, or manifest.
+
+For an empty initial setup with no installed skills and no selected placements, a new INDEX may say “No adopted skills”; use empty `sources`, `skills`, and `files` arrays. This records an empty adopted inventory, not rejection of pending candidates. Do not relabel existing inventories to match an example, or clear records for skipped/no-additions groups. If repair materials are missing, request them rather than substituting an upstream version.
+
+Read saved files back and verify the canonical instructions, private-document references, adopted skills, content comparisons, and INDEX/manifest consistency. Report storage locations and loading method, changed versus unchanged skills, and the actual status of common configuration, each skill group, and private inputs. Unresolved targets mean partial completion with the inputs needed to resume; skipped or explicitly unnecessary work is not pending.
+
+Report unverified automatic loading, script behavior, external links, or persistence separately. File comparisons do not establish those properties. If supported automatic loading cannot be verified, explicitly identify and read the canonical guidance at the start of work.
 
 ## 5. Manifest format and verification
 
