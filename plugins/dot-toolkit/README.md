@@ -6,7 +6,7 @@ The plugin is the entry point; common and private instructions live separately i
 
 Skills and plugins may also be installed through supported Web-client features when available. The cloud-file workflow described here is separate from app installation: placing managed copies does not register them with the app or call for duplicating or migrating existing installations. The cloud INDEX and skill manifest describe only those managed copies.
 
-The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/55700e13c64ed313ad3691d271a0aa604f97efe0/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
+The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/ebc736e5fba921f38aa298a10101047eaa1d75c3/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
 
 ## First setup
 
@@ -50,6 +50,14 @@ The package contains three files:
 There is no skill-level `agents/openai.yaml` in this package. It bundles no private instructions, managed skills, MCP server, or hooks. Do not commit private inputs, actual inventories, acquisition records, restoration materials, or generated ZIPs to the public source. The private-by-default skill inventory is distinct from the Agent Plugins manifest.
 
 Use a client supporting [Agent Plugins v1](https://agent-plugins.org/specification) and [Agent Skills](https://agentskills.io/specification). Resolve any existing installation exposing `dot-guidelines` before activation. Source validation and cloud file placement do not establish client discovery, activation, or persistence; installation is a separate action.
+
+## Official resources
+
+For product setup, features, and safety controls, see OpenAI's documentation below. This repository's `/workspace` paths, loading rules, and setup procedure are `dot-toolkit` conventions, not built-in dot behavior.
+
+- [Getting started with your dot](https://help.openai.com/en/articles/20001530-getting-started-with-your-dot)
+- [Dots privacy, security, and safety FAQs](https://help.openai.com/en/articles/20001529-dots-privacy-security-and-safety-faqs)
+- [Meet dots — ChatGPT Learn](https://learn.chatgpt.com/docs/dots)
 
 ## Background
 
