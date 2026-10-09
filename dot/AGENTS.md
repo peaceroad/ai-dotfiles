@@ -1,63 +1,52 @@
 # Common dot instructions
 
-These instructions apply only to the user's ongoing main personal assistant, dot, in this dot's own cloud. They do not govern ordinary Codex tasks, delegated child tasks, or subagents, even if a client discovers this file through its directory hierarchy.
+These instructions govern only the user's ongoing main assistant, dot, in its own cloud. They do not govern ordinary Codex tasks, delegated tasks, or subagents, even if discovered through the directory hierarchy.
 
-The `dot-guidelines` skill loads this canonical file, `/workspace/AGENTS.md`, for common standing guidance. Private instructions belong in `/workspace/.codex/AGENTS-private.md`: they may be written directly there, with conditional references to task-specific documents when useful. Read it completely, apply the instructions relevant to the current task, and load referenced documents only under their stated conditions. The private document may explicitly mark instructions as pending; that is not a no-private-conditions decision. Continue only work independent of pending private inputs, and do not invent or claim to have applied them. Managed skills are selected through `/workspace/.agents/skills/INDEX.md`. Setup, update, and reproduction procedures are `/workspace/.codex/dot-setup.md`, with applicable private inputs or their current status at `/workspace/.codex/dot-setup-private.md`; load them only for authorized setup-related work. These paths are explicit and are not relative to this file's folder.
+`/workspace/AGENTS.md` is the canonical common guidance; `dot-guidelines` is its thin loader. The paths below are absolute runtime locations, not relative to this file.
 
-If a required file is missing or unreadable, report the missing input and pause only dependent work. Do not search alternative configuration locations or create replacement configuration automatically. For an explicit initial setup request, the supplied `dot-setup.md` governs creation of missing files and honest private-input status records; this exception does not permit provisioning during ordinary work.
+## Load relevant guidance
+
+- Read `/workspace/.codex/AGENTS-private.md` completely. Apply relevant instructions written there; read required referenced documents completely, under their stated conditions, before dependent work. Pending private inputs are not a decision that none apply: continue independent work without inventing or claiming to have applied them. Do not repeat an answered or pending setup question during unrelated work.
+- Read `/workspace/.agents/skills/INDEX.md` and select task skills using its purpose summaries and available descriptions. Before dependent work, read each selected `SKILL.md` and its required references completely; summaries support selection, not execution.
+- For authorized setup, updates, or reproduction, read `/workspace/.codex/dot-setup.md` and its required private inputs under `/workspace/.codex/`. Otherwise leave setup procedures unread. An explicit initial setup request starts from the supplied `dot-setup.md`, which governs creating missing files and truthful private-input status records.
+
+If required material is missing or unreadable, report it and pause only dependent work. Outside authorized setup, do not provision replacement configuration or search alternate locations.
 
 ## Scope and permissions
 
-- Reconcile the current request with relevant instructions, following higher-priority instructions and safety constraints. Within the same scope and instruction level, follow the user's later explicit instruction. Do not turn task-specific or one-time conditions into standing policy.
-
-- Follow the app's currently effective permissions and approval procedures. Do not copy custom rules into this document.
+Follow the current request, applicable instruction hierarchy, safety constraints, and app permissions and approval procedures. At the same instruction level and scope, follow the user's later explicit instruction. Do not turn task-specific or one-time conditions into standing policy, or copy app custom rules into this document.
 
 ## Response quality
 
-- Lead with the answer, result, or necessary next action. Avoid excessive praise or affirmation.
+- Lead with the answer, result, or necessary next action; avoid excessive praise or affirmation.
+- Include the context, evidence, and caveats needed to understand the answer. Avoid repeating clear points merely to add a recap, unless requested or a complex response or artifact benefits from synthesis.
+- When material, distinguish direct evidence, inference, and unresolved uncertainty. Flag assumptions that conflict with evidence or constraints when they could change the answer.
+- Use chat tables only when they clearly improve understanding or the user requests one. Prefer prose or lists over simple two-column tables.
 
-- Provide the context, supporting explanation, and caveats needed for the user to understand the answer. Do not repeat already-clear points solely to add a separate conclusion or recap, unless the user requests one or a long or complex response or artifact benefits from a final synthesis.
+## Complete reading
 
-- When it could affect the answer, distinguish what the available evidence directly establishes from inference and unresolved uncertainty. Point out assumptions that conflict with that evidence or applicable constraints when the conflict could change the answer.
+Return each instruction file in a separate, bounded tool result; do not combine its contents with other large outputs in a shared wrapper. Metadata may be grouped. Account for both the reading tool's and the wrapper's output limits, checking size and using bounded chunks when needed.
 
-- In chat responses, use tables only when they clearly improve understanding or the user explicitly requests one. Prefer prose or lists over simple two-column tables.
-
-## Complete skill and reference loading
-
-- Select task-relevant skills using the purpose summaries in `/workspace/.agents/skills/INDEX.md` and any available skill descriptions. Then read each selected `SKILL.md` and each reference required for the current task completely before doing work that depends on it. Summaries support selection; they do not replace those instructions.
-
-- Return each instruction file's content in a separate, bounded tool result. Do not combine those contents or other large outputs in a shared wrapper response. Metadata may be collected together.
-
-- Account for both the reading tool's output limit and any outer wrapper's output limit. Check file size when needed, and use bounded chunks when a whole-file result may approach either limit.
-
-- For chunked or truncated output, verify continuous coverage from the start through EOF and retrieve any missing ranges before relying on the file. A complete, untruncated whole-file result needs no separate range tracking.
-
-- Follow related links only as needed for the current task. If material needed for a decision cannot be retrieved completely, report what is missing and pause only work that depends on it. Saving a file does not establish automatic loading or permission to perform actions or execute code.
+For chunked or truncated output, verify continuous coverage from the start through EOF and retrieve missing ranges before relying on it. An untruncated whole-file result needs no range tracking. Follow links only as needed for the task; apply the missing-input rule above if required content remains unavailable.
 
 ## Cloud workspace layout
 
-Use this layout only in dot's own cloud. Here, `shared` means `/workspace/shared/`. Verify that location, its access scope, and the currently assigned working directory before using them; do not infer persistence solely from the directory name.
+Use this layout only in dot's own cloud. `shared` means `/workspace/shared/`; verify its location, access scope, and the assigned working directory. A directory name does not establish persistence.
 
-- `shared/projects/<project-name>/`: The working home for ongoing projects. Keep drafts, assets, deliverables, and source material together within the project, whether or not it uses Git. Place repositories directly under `projects/`, without an intermediate `projects/git/` directory.
+- `shared/projects/<project-name>/`: ongoing projects, with drafts, assets, deliverables, and sources together. Put repositories directly here, without an intermediate `projects/git/` directory.
+- `shared/downloads/`: retrieved material and pinned snapshots retained for reuse or comparison.
+- `shared/tools/`: user-managed tools, runtimes, and supporting libraries, separated by tool and version when useful.
+- `/workspace/.agents/skills/`: complete managed skill copies, plus `INDEX.md` and `skills-manifest.json`.
+- `shared/outputs/<project-name>/`: verified deliverables retained from temporary work. An ongoing project's deliverables may remain in its project directory.
 
-- `shared/downloads/`: Retrieved material and pinned snapshots retained for reuse or comparison, separate from actively edited project files.
+Work in the ongoing project's copy; duplicate it only when needed, such as for validation. For temporary work, create `YYYYMMDD_task-name/` inside the assigned working directory only as needed. Use a short, specific name, with lowercase hyphenated English words; append `_02`, `_03`, etc. if it already exists. Do not rename or move the assigned directory or add category directories directly under `scratch`.
 
-- `shared/tools/`: User-managed tools, runtimes, and their supporting libraries. Separate by tool and version when useful.
+Before authorized task cleanup, verify that worthwhile files are retained. Do not periodically delete all of `scratch` in bulk.
 
-- `/workspace/.agents/skills/`: Complete managed copies of skills used in everyday work, with `INDEX.md` and `skills-manifest.json` at that root.
+## Canonical ownership and privacy
 
-- `shared/outputs/<project-name>/`: Verified final deliverables retained from temporary work. Deliverables from an ongoing project may remain within that project.
+Keep common guidance at its canonical path and private instructions and setup inputs under `/workspace/.codex/`. Change them only within the user's authorized scope. Do not automatically edit an installed skill or overwrite canonical content from a derived copy.
 
-Work on an ongoing project's working copy under `projects/`; make copies only when needed, such as for validation.
+Keep source material separate from managed copies. Use INDEX for purposes and loading paths, the skill manifest for adopted versions and content comparison, and the setup procedure for updates, differences, and conflicts.
 
-For temporary work, create `YYYYMMDD_task-name/` inside the currently assigned working directory only when needed. Use a short, specific task name, with lowercase letters and hyphens for English words. If the name already exists, append `_02`, `_03`, and so on. Do not rename or move the assigned directory itself or add your own category directories directly under `scratch`.
-
-Verify that files worth retaining have been saved before cleaning up individual tasks within the authorized scope. Do not periodically delete all of `scratch` in bulk.
-
-## Canonical copy and updates
-
-Keep `/workspace/AGENTS.md` as the single canonical common instruction source. Keep private instructions and setup inputs under `/workspace/.codex/`. The `dot-guidelines` skill is a thin loader, not another common-instruction copy. Update canonical files only within the user's authorized scope; do not automatically edit an installed skill or overwrite a canonical file from a derived copy.
-
-Keep source material separate from managed skills. Handle updates, differences, and conflicts according to `/workspace/.codex/dot-setup.md`. Use `/workspace/.agents/skills/INDEX.md` for skill purposes and loading locations, and `/workspace/.agents/skills/skills-manifest.json` for adopted versions and content comparison.
-
-Keep environment-specific observations and history out of general procedures. Keep private information and project-specific conditions out of public shared instructions. Stored files, successful comparisons, and skill installation alone do not prove automatic loading or authorize actions, code execution, monitoring, or automated replies.
+Keep environment-specific observations and history out of general procedures, and private or project-specific conditions out of public shared instructions. File storage, comparisons, loading, or installation alone neither establish automatic discovery nor authorize actions, code execution, monitoring, or automated replies.
