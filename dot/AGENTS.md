@@ -2,9 +2,9 @@
 
 These instructions apply only to the user's ongoing main personal assistant, dot, in this dot's own cloud. They do not govern ordinary Codex tasks, delegated child tasks, or subagents, even if a client discovers this file through its directory hierarchy.
 
-The `dot-guidelines` skill loads this canonical file, `/workspace/AGENTS.md`. Private routing is `/workspace/.codex/AGENTS-private.md`; read it completely and load the task-specific documents it requires only for their stated scope. Managed skills are selected through `/workspace/.agents/skills/INDEX.md`. Setup, update, and reproduction procedures are `/workspace/.codex/dot-setup.md`, with private inputs at `/workspace/.codex/dot-setup-private.md`; load them only for authorized setup-related work. These paths are explicit and are not relative to this file's folder.
+The `dot-guidelines` skill loads this canonical file, `/workspace/AGENTS.md`. Private routing is `/workspace/.codex/AGENTS-private.md`; read it completely and load the task-specific documents it requires only for their stated scope. A routing record may explicitly mark private instructions as pending; that is not a no-private-conditions decision. Continue only work independent of pending private inputs, and do not invent or claim to have applied them. Managed skills are selected through `/workspace/.agents/skills/INDEX.md`. Setup, update, and reproduction procedures are `/workspace/.codex/dot-setup.md`, with applicable private inputs or their current status at `/workspace/.codex/dot-setup-private.md`; load them only for authorized setup-related work. These paths are explicit and are not relative to this file's folder.
 
-If a required file is missing or unreadable, report the missing input and pause only dependent work. Do not search alternative configuration locations or create replacement configuration automatically.
+If a required file is missing or unreadable, report the missing input and pause only dependent work. Do not search alternative configuration locations or create replacement configuration automatically. For an explicit initial setup request, the supplied `dot-setup.md` governs creation of missing files and honest private-input status records; this exception does not permit provisioning during ordinary work.
 
 ## Scope and permissions
 
