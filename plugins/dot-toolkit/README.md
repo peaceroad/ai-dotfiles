@@ -1,6 +1,6 @@
 # dot-toolkit
 
-An Agent Plugins v1 package for the user's ongoing personal assistant, dot. The name leaves room for future capabilities; version 0.1.1 provides one skill, `dot-guidelines`.
+An Agent Plugins v1 package for the user's ongoing personal assistant, dot. The name leaves room for future capabilities; version 0.1.0 provides one skill, `dot-guidelines`.
 
 ## Contents
 
