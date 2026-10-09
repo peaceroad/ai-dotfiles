@@ -4,7 +4,9 @@ An Agent Plugins v1 package for the user's ongoing personal assistant, dot. Vers
 
 The plugin is the entry point; common and private instructions live separately in the cloud. Installing it does not by itself create those files or install the task skills listed in the setup procedure.
 
-The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/ff7340184e989c9436059239d2f8ef83eec8f9d5/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
+Skills and plugins may also be installed through supported Web-client features when available. The cloud-file workflow described here is separate from app installation: placing managed copies does not register them with the app or call for duplicating or migrating existing installations. The cloud INDEX and skill manifest describe only those managed copies.
+
+The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/55700e13c64ed313ad3691d271a0aa604f97efe0/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
 
 ## First setup
 
