@@ -70,23 +70,24 @@ Examples:
 }
 
 async function readJson(file, errors) {
+  // JSON.parse cannot return undefined; reserve it for read or parse failures.
   let text;
   try {
     const stat = await lstat(file);
     if (!stat.isFile() || stat.isSymbolicLink()) {
       errors.push(`${path.basename(file)} must be a regular file.`);
-      return null;
+      return undefined;
     }
     text = await readFile(file, "utf8");
   } catch (error) {
     errors.push(`Cannot read ${path.basename(file)}: ${error.message}`);
-    return null;
+    return undefined;
   }
   try {
     return JSON.parse(text);
   } catch (error) {
     errors.push(`${path.basename(file)} is not valid JSON: ${error.message}`);
-    return null;
+    return undefined;
   }
 }
 
@@ -286,7 +287,7 @@ async function validateMcp(root, errors, warnings, summary) {
     if (error.code === "ENOENT") return;
   }
   const mcp = await readJson(file, errors);
-  if (!mcp) return;
+  if (mcp === undefined) return;
   summary.hasMcp = true;
   if (!isObject(mcp)) {
     errors.push("The root of mcp.json must be an object.");
@@ -334,7 +335,7 @@ async function main() {
   const rootStat = await lstat(root);
   if (!rootStat.isDirectory()) throw new Error("The specified plugin root is not a directory.");
   const manifest = await readJson(path.join(root, "plugin.json"), errors);
-  if (manifest) validateManifest(manifest, errors, warnings);
+  if (manifest !== undefined) validateManifest(manifest, errors, warnings);
   await validateSkills(root, errors, warnings, summary);
   await validateMcp(root, errors, warnings, summary);
   await validateLinks(root, errors);
