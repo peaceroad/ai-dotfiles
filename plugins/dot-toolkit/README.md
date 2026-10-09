@@ -15,7 +15,8 @@ The following are separately provisioned files in this dot's own cloud, not file
 
 - `/workspace/AGENTS.md`: canonical common instructions
 - `/workspace/.codex/AGENTS-private.md`: private instruction routing and references to task-specific private documents
-- `/workspace/.codex/dot-setup.md` and `/workspace/.codex/dot-setup-private.md`: authorized setup, update, and reproduction procedures and inputs
+- `/workspace/.codex/dot-setup.md`: authorized setup, update, and reproduction procedure
+- `/workspace/.codex/dot-setup-private.md`: additional-candidate input when supplied and that group is in scope; an explicit no-additions choice can replace this input
 - `/workspace/.agents/skills/INDEX.md` and `/workspace/.agents/skills/skills-manifest.json`: managed skill discovery and inventory
 - `/workspace/.agents/skills/<skill-name>/`: complete managed skill folders
 
@@ -30,13 +31,13 @@ The ai-dotfiles repository keeps the editable public templates outside the plugi
 - `dot/AGENTS.md` is deployed as `/workspace/AGENTS.md`.
 - `dot/dot-setup.md` is deployed as `/workspace/.codex/dot-setup.md`.
 
-Repository paths are authoring locations, not alternate runtime locations. For authorized setup, provide these two documents plus your own `AGENTS-private.md` and `dot-setup-private.md`. If no private conditions apply, say so in the routing file; if no additional skills are selected, say so in the setup inputs. Keep task-specific private documents and their references in those private inputs. Review existing files before adopting an update, and follow `dot/dot-setup.md` for placement, verification, and pinned-version reproduction.
+Repository paths are authoring locations, not alternate runtime locations. For authorized setup, provide these two documents plus your own `AGENTS-private.md`. If no private conditions apply, say so in the routing file. Supply additional skill candidates through `dot-setup-private.md`, or explicitly choose no additions for that group. `dot/dot-setup.md` lists the common candidates and governs separate selection and approval for each group; a missing additional selection pauses only dependent work. The grouping is by selection input, not repository visibility, and listing a skill does not authorize its installation or update. Keep task-specific private documents and their references in private inputs. Review existing files before adopting an update, and follow `dot/dot-setup.md` for placement, verification, and pinned-version reproduction.
 
 Do not commit private inputs, actual skill inventories, acquisition records, restoration materials, or generated package archives to this public source. The setup procedure defines a project-specific `skills-manifest.json` format; it is separate from the Agent Plugins manifest and is private by default.
 
 ## Packaging and activation
 
-This package contains no private instructions, managed skill copies, MCP server, or hooks. The external cloud paths are runtime prerequisites, not package components. Installing the package is a separate action; source validation alone does not establish client discovery, activation, or persistence of the cloud files.
+This package contains no private instructions, managed skill copies, MCP server, or hooks. Required external cloud files are runtime prerequisites, not package components; the additional-candidate input is conditional as described above. Installing the package is a separate action; source validation alone does not establish client discovery, activation, or persistence of the cloud files.
 
 Use a client that supports [Agent Plugins v1](https://agent-plugins.org/specification) and [Agent Skills](https://agentskills.io/specification). If another installation already exposes `dot-guidelines`, resolve that overlap explicitly before activating this package.
 
