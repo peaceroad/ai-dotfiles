@@ -4,6 +4,8 @@ An Agent Plugins v1 package for the user's ongoing personal assistant, dot. Vers
 
 The plugin is the entry point; common and private instructions live separately in the cloud. Installing it does not by itself create those files or install the task skills listed in the setup procedure.
 
+The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/ff7340184e989c9436059239d2f8ef83eec8f9d5/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
+
 ## First setup
 
 1. Install the plugin in a supporting client.
