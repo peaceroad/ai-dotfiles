@@ -6,7 +6,7 @@ The plugin is the entry point; common and private instructions live separately i
 
 Skills and plugins may also be installed through supported Web-client features when available. The cloud-file workflow described here is separate from app installation: placing managed copies does not register them with the app or call for duplicating or migrating existing installations. The cloud INDEX and skill manifest describe only those managed copies.
 
-The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/ebc736e5fba921f38aa298a10101047eaa1d75c3/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
+The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/e75b338c6539dde16bd647c82860bea3e3427a45/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
 
 ## First setup
 
