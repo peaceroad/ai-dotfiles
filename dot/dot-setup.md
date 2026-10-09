@@ -6,7 +6,9 @@ File placement is separate from running bundled code, installing runtimes or plu
 
 ## Start with this file
 
-With `dot-toolkit` installed, attach this `dot-setup.md` and explicitly ask: “Set up your cloud using this procedure.” Read the supplied procedure completely before requiring files setup will create. It governs initial setup; do not silently replace it with a newer repository copy. Keep it and any specified edited-source identity available for resumption.
+Attach this `dot-setup.md` and explicitly ask: “Set up your cloud using this procedure.” Read the supplied procedure completely before requiring the loader or files setup will create. It governs initial setup; do not silently replace it with a newer repository copy. Keep it and any specified edited-source identity available for resumption.
+
+For initial setup, check whether `dot-toolkit` and its `dot-guidelines` loader are available using information the client exposes. Read the client-provided loader when available and identify its source or version when exposed; a repository copy does not establish what is installed. If the plugin is confirmed absent, guide the user to install it in a supporting client before continuing plugin-dependent setup. If installation status is unknown, ask a focused question rather than assuming absence. Report any known version mismatch; do not automatically install, reinstall, or update the plugin. Review, inspection, and explicitly requested file-only work may continue within scope; keep plugin-dependent completion pending until verified.
 
 Unless the user supplies or specifies another common-instruction source, obtain the complete `AGENTS.md` from:
 
@@ -98,9 +100,15 @@ Preserve INDEX and manifest when the adopted set, source revisions, contents, an
 
 For an empty initial setup with no installed skills and no selected placements, a new INDEX may say “No adopted skills”; use empty `sources`, `skills`, and `files` arrays. This records an empty adopted inventory, not rejection of pending candidates. Do not relabel existing inventories to match an example, or clear records for skipped/no-additions groups. If repair materials are missing, request them rather than substituting an upstream version.
 
-Read saved files back and verify the canonical instructions, private-document references, adopted skills, content comparisons, and INDEX/manifest consistency. Report storage locations and loading method, changed versus unchanged skills, and the actual status of common configuration, each skill group, and private inputs. Unresolved targets mean partial completion with the inputs needed to resume; skipped or explicitly unnecessary work is not pending.
+Read saved files back and verify the canonical instructions, private-document references, adopted skills, content comparisons, and INDEX/manifest consistency. Give a concise completion report covering:
 
-Report unverified automatic loading, script behavior, external links, or persistence separately. File comparisons do not establish those properties. If supported automatic loading cannot be verified, explicitly identify and read the canonical guidance at the start of work.
+- Guidance actually read: identify the available loader and the adopted common instructions' source, version or content identity, and canonical location, with a brief explanation of their roles. Distinguish a source copy from the installed loader, and report any known mismatch or unverified availability.
+- Adopted state: report common configuration, each skill group, and private-input status without reproducing confidential instruction contents. Name the added, updated, and retained managed skills with their relevant uses; distinguish these copies from app-installed skills. Identify unresolved targets and the inputs needed to resume; skipped or explicitly unnecessary work is not pending.
+- Intended normal use: explain that the canonical AGENTS remains the common reference, and relevant skills are selected from INDEX summaries and available descriptions even when the user does not name them. This routing does not authorize unrelated execution or monitoring.
+
+Report file integrity, reading in the current conversation, implicit selection in an unprimed main-dot context, and continuity across an actually observed conversation or environment boundary separately, with the conditions and evidence checked. Distinguish passed, failed, not run, and not observable; missing evidence is not success. Script behavior, external links, and persistence need their own applicable checks. If supported automatic loading cannot be verified, explicitly identify and read the canonical guidance at the start of work. This is a setup-result summary, not a checklist to repeat in routine replies.
+
+When behavioral verification is requested, test ordinary requests in the actual main dot without naming the loader, instruction paths, or expected skills. Check that complete required guidance was available before dependent work and that outputs satisfy the task, including should-use and should-not-use cases. Self-reports and delegated or injected-text simulations do not establish main-dot discovery. Use observable evidence; verified material in the current context need not be reread. Identify the actual conversation or environment boundary rather than inferring it from a new UI thread or app reopening. Do not reset, reinstall, change private instructions, or start recurring tests merely for verification. Unperformed behavioral checks do not negate verified file placement.
 
 ## 5. Manifest format and verification
 
