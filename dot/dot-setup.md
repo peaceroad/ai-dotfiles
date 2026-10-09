@@ -1,5 +1,7 @@
 This procedure governs authorized setup, updates, and reproduction in dot's own `/workspace` cloud. A file attachment or review request alone does not authorize execution. Stay within the requested scope and current permissions. Complete step 1 before saving files or proposing changes.
 
+Skills and plugins may also be installed through supported Web-client features when available. This procedure covers explicitly requested cloud-file management; copying a skill here does not register it with the app or imply that an existing app installation should be duplicated or migrated.
+
 File placement is separate from running bundled code, installing runtimes or plugins, enabling discovery, changing external-service settings, or starting automations. Handle those effects only as separately authorized. Use the user's conversational language; the English examples below do not prescribe the language of replies.
 
 ## Start with this file
@@ -86,6 +88,8 @@ Place approved managed copies at `/workspace/.agents/skills/<skill-name>/`. Reco
 For supported archives, verify contents against the pinned commit and retain the artifact hash in an acquisition record; the archive name does not establish the commit. Distinguish acquisition scope and omissions from Git-history presence. If an operation's outcome is unknown, inspect actual state before retrying. Resume only unfinished authorized work using the recorded versions. Do not automatically synchronize source edits into managed copies.
 
 ## 4. Management files and completion
+
+These records describe managed cloud copies, not the client's installed-skill inventory. An empty cloud inventory does not establish that no Web-installed skills exist.
 
 - `/workspace/.agents/skills/INDEX.md`: skill names, purposes, relative `SKILL.md` links, and a manifest pointer. It also points explicitly to `/workspace/AGENTS.md` and `/workspace/.codex/dot-setup.md`.
 - `/workspace/.agents/skills/skills-manifest.json`: currently adopted versions and contents, using the format below. Keep candidates, selection/approval decisions, operation history, and reading logs outside it. Detailed acquisition records may be referenced rather than copied into it. Retain unfinished work separately until reconciled with actual state; do not accumulate history in candidate lists.

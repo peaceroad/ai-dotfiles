@@ -59,6 +59,8 @@ Codexへ渡す共通指示の例です。回答の詳しさ、待機中の進め
 
 [dot-toolkitの日本語ガイド](docs/dot-toolkit/README.md)に、使い方、クラウドの基本配置、アクセス範囲、更新・再開時の考え方をまとめています。[プラグインのREADME](plugins/dot-toolkit/README.md)は配布物に含める英語の導入案内です。公開テンプレートは次の2つです。
 
+スキルやプラグインは、Web上の対応機能から導入できる場合もあります。ここでは、依頼した共通・個別指示やスキルのコピーをdotのクラウドで管理する方法を扱います。このファイル配置は、アプリへの導入・登録とは別です。
+
 - [dot/AGENTS.md](dot/AGENTS.md)：継続的に使う共通指示の正本。採用先はdot自身のクラウドの`/workspace/AGENTS.md`です。
 - [dot/dot-setup.md](dot/dot-setup.md)：この1ファイルから始める構築・更新・固定版再現の手順。採用先は`/workspace/.codex/dot-setup.md`です。
 
