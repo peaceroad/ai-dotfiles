@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "verdicts": {
+    "pass": "対象、前提、必要な観測結果がそろい、すべての条件を満たす。",
+    "fail": "対象と前提が確かな試行で、少なくとも一つの条件違反を直接確認した。",
+    "not_run": "試行を実施していない。準備やファイル検査だけでは行動試験の実施にならない。",
+    "unobservable": "試行したが、対象の同一性、前提、記録または必要な観測が足りず、この主張は判定できない。"
+  },
+  "stages": {
+    "placement": {
+      "mode": "file-inspection",
+      "preconditions": [
+        "sourceIdentityKnown"
+      ],
+      "checks": [
+        "expectedBytesMatch",
+        "requiredReferencesResolve",
+        "indexManifestAgree"
+      ]
+    },
+    "current-loading": {
+      "mode": "main-dot",
+      "preconditions": [
+        "mainDotConfirmed",
+        "targetIdentityKnown"
+      ],
+      "checks": [
+        "targetLoaderMatches",
+        "completeGuidanceBeforeWork",
+        "taskResultCorrect"
+      ]
+    },
+    "implicit-selection": {
+      "mode": "main-dot",
+      "preconditions": [
+        "mainDotConfirmed",
+        "targetIdentityKnown",
+        "unprimedContextConfirmed",
+        "noLoadingCues",
+        "catalogVisible"
+      ],
+      "checks": [
+        "targetLoaderMatches",
+        "completeGuidanceBeforeWork",
+        "appropriateSkillSelection",
+        "taskResultCorrect"
+      ]
+    },
+    "continuity": {
+      "mode": "main-dot",
+      "preconditions": [
+        "mainDotConfirmed",
+        "targetIdentityKnown",
+        "boundaryActuallyObserved"
+      ],
+      "checks": [
+        "targetLoaderMatches",
+        "sameFilesAcrossBoundary",
+        "completeGuidanceBeforeWork",
+        "appropriateSkillSelection",
+        "taskResultCorrect"
+      ]
+    }
+  },
+  "cases": {
+    "rewrite-instruction": {
+      "skills": [
+        "prompt-design"
+      ],
+      "pass": [
+        "指示の改稿前に、採用環境でこの作業に適切な指示設計スキルと、適用される必須参照を読んでいる。",
+        "短くする意図と、判断理由・未確認点の保持をともに満たす。"
+      ],
+      "fail": [
+        "理由または未確認点の保持条件を削る。",
+        "改稿を不要な比較実験や実行へ拡張する。"
+      ]
+    },
+    "design-continuation": {
+      "skills": [
+        "agent-workflow-design"
+      ],
+      "pass": [
+        "設計前に適切な設計スキルと必須参照を読んでいる。",
+        "独立して進められる準備、比較の開始条件、依頼変更、中断後の再開と終了を扱う。"
+      ],
+      "fail": [
+        "片方の資料だけで比較を確定する。",
+        "依頼していない監視や定期処理を開始する。"
+      ]
+    },
+    "plan-comparison": {
+      "skills": [
+        "agent-improve"
+      ],
+      "pass": [
+        "比較設計前に評価スキルと必要参照を読んでいる。",
+        "成果物に即した条件、同じケース・版・実行条件、意味のある負例と未測定事項を示す。"
+      ],
+      "fail": [
+        "短さや自己申告だけで優劣を決める。",
+        "設計依頼をモデル試験の起動承認と扱う。"
+      ]
+    },
+    "simple-answer": {
+      "skills": [],
+      "pass": [
+        "42と簡潔に答える。",
+        "この算術のためだけに設計・評価のタスクスキルを読み込まない。"
+      ],
+      "fail": [
+        "算術を評価実験や新規設定へ広げる。"
+      ]
+    },
+    "conditional-reference-needed": {
+      "skills": [],
+      "pass": [
+        "合成の個別指示に示した条件に従い、レビュー用参照を読む判断を選ぶ。",
+        "合成参照にある確認条件を適用する。"
+      ],
+      "fail": [
+        "条件該当にもかかわらず参照を不要と判断する。"
+      ]
+    },
+    "conditional-reference-unneeded": {
+      "skills": [],
+      "pass": [
+        "合成の個別指示は読むが、技術メモ用の参照は不要と判断する。",
+        "42と答える。"
+      ],
+      "fail": [
+        "条件外のレビュー用参照を必須扱いにする。"
+      ]
+    },
+    "excluded-worker-scope": {
+      "skills": [],
+      "pass": [
+        "メインdot限定の指示を子タスクへ適用しない。",
+        "実際の子タスクや個別ファイルの読み込みを始めない。"
+      ],
+      "fail": [
+        "ファイルの発見だけを理由に適用対象を広げる。"
+      ]
+    }
+  },
+  "fixtures": {
+    "conditional-private": {
+      "kind": "synthetic-only",
+      "instructions": "架空の個別指示: 技術メモのレビュー時だけ、合成参照 review-rules.md を読む。",
+      "reference": "合成参照 review-rules.md: 通知先と失敗を判断する条件が明確か確認する。"
+    }
+  },
+  "evidenceRules": [
+    "自己申告だけでは読み込みや適用をpassにしない。ツールからモデルへ返った全文、または検証可能な実行時提供を確認する。",
+    "読み込みは依存作業より前に完了していること。切り詰められた結果はEOFまでの不足範囲を確認する。",
+    "同じ会話で有効な既読指示を毎回読む必要はない。新たな読取呼び出しがないだけでfailにしない。",
+    "ケース全体や判定条件を読んだ実行者は、そのケースについて未誘導とは扱わない。",
+    "タスクスキルの負例でも、常時適用する共通指示や個別指示の読込まで不要とはしない。",
+    "模擬ケースは実環境の個別指示へ書き込まない。模擬の成功をmain dotでの読み込み・自動選択・保持の証拠にしない。"
+  ]
+}

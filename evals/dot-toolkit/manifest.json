@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "kind": "acceptance-definition",
+  "sourceCommit": "65df2edbd57e63f2244ca7412bb37f8c25d208b6",
+  "targets": [
+    {
+      "path": "plugins/dot-toolkit/plugin.json",
+      "sha256": "ce84ada8cf32dbe9bc544ef8a819f6f397e76b8f4ddcee1761f19f51308588d9",
+      "bytes": 219
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
+      "sha256": "87631b4ea671842e6b83af0d0a037f0da8a8b0a5f194d7a9644cc930d9646182",
+      "bytes": 1637
+    },
+    {
+      "path": "dot/AGENTS.md",
+      "sha256": "92aefa598e51a22bedfe91dd02b9002f8369a4df4777ead16d7e956b2e157c1a",
+      "bytes": 5561
+    },
+    {
+      "path": "dot/dot-setup.md",
+      "sha256": "b63433280fdadf5af6257c03a7a643dcbb0ed3402b743731213a33b838539ffd",
+      "bytes": 28659
+    }
+  ],
+  "behavioralRuns": "not_run",
+  "limits": [
+    "このmanifestは公開ソースの固定記録であり、導入済みプラグインや実環境の識別記録ではない。",
+    "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更は含まない。"
+  ]
+}

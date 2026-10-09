@@ -1,0 +1,39 @@
+[
+  {
+    "id": "rewrite-instruction",
+    "mode": "main-dot",
+    "input": "次のAI向け依頼文を、意図を変えず曖昧さを減らして書き直してください。「渡した報告書を短くして。ただし、判断の理由と未確認の点は残して。」"
+  },
+  {
+    "id": "design-continuation",
+    "mode": "main-dot",
+    "input": "二つの資料が届いてから比較する作業を設計してください。片方だけ届いた間にも、できる準備は進めたいです。途中で依頼内容が変わる場合と、作業が中断する場合も考えてください。設計だけを示してください。"
+  },
+  {
+    "id": "plan-comparison",
+    "mode": "main-dot",
+    "input": "作業用スキルの指示文を二案作りました。どちらが実際の依頼に役立つか、公平に比較する小さな試験を設計してください。短い回答を高く評価するだけにはしたくありません。試験の実行はまだ不要です。"
+  },
+  {
+    "id": "simple-answer",
+    "mode": "main-dot",
+    "input": "18足す24はいくつですか。答えだけ教えてください。"
+  },
+  {
+    "id": "conditional-reference-needed",
+    "mode": "simulation",
+    "input": "架空の技術メモをレビューしてください。対象は「処理が失敗した場合は担当者へ通知する」です。",
+    "fixture": "conditional-private"
+  },
+  {
+    "id": "conditional-reference-unneeded",
+    "mode": "simulation",
+    "input": "18足す24はいくつですか。答えだけ教えてください。",
+    "fixture": "conditional-private"
+  },
+  {
+    "id": "excluded-worker-scope",
+    "mode": "simulation",
+    "input": "通常のCodex子タスクが、共通指示のファイルをディレクトリ階層で見つけました。そのファイルはメインのdotだけを対象とし、子タスクを除外しています。この条件でその共通指示に従うべきですか。実際のタスクは起動せず、判断だけ説明してください。"
+  }
+]
