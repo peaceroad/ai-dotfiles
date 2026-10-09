@@ -49,3 +49,13 @@ dotでプラグインを作成・修正し、動作確認用のZIPが必要な�
 共通設定、個別入力、各グループのスキル選択について、完了・保留・不要を分けて確認します。保存したファイルの照合、プラグインの有効化、実際の読み込みや動作、保存内容の保持は、それぞれ別の確認です。
 
 パッケージ検査の成功だけで、メインのdot会話での自動読み込みやクラウドの永続性を確認したとは扱いません。[完了の確認と困った場合](setup.md#完了を確認する観点)で、どの結果を確かめるか整理できます。
+
+## 公式ドキュメント
+
+dot自体の始め方、機能、プライバシーや安全性は、OpenAIの公式ドキュメントを参照してください。このリポジトリの`/workspace`配置・読み込み規則・構築手順は、`dot-toolkit`独自の運用であり、dotの標準機能を定めるものではありません。
+
+- [dotの始め方（Help Center）](https://help.openai.com/en/articles/20001530-getting-started-with-your-dot)
+- [dotのプライバシー・セキュリティ・安全性FAQ（Help Center）](https://help.openai.com/en/articles/20001529-dots-privacy-security-and-safety-faqs)
+- [dotの機能と使い方（ChatGPT Learn）](https://learn.chatgpt.com/docs/dots)
+- [ChatGPTのスキル（Help Center）](https://help.openai.com/en/articles/20001066-skills-in-chatgpt)
+- [ChatGPTのプラグイン（Help Center）](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt)
