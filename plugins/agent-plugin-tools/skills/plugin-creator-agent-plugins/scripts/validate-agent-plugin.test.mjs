@@ -25,7 +25,10 @@ function run(name, pluginRoot, expected) {
   const warningText = Array.isArray(output.warnings) ? output.warnings.join("\n") : "";
   const problems = [];
   if (actualStatus !== expected.status) problems.push(`expected status ${expected.status}, got ${actualStatus}`);
+  if (output.ok !== (expected.status === 0)) problems.push(`expected ok ${expected.status === 0}, got ${output.ok}`);
   if (expected.errorIncludes && !errorText.includes(expected.errorIncludes)) problems.push(`missing error: ${expected.errorIncludes}`);
+  if (expected.errorCount !== undefined && output.errors?.length !== expected.errorCount) problems.push(`expected ${expected.errorCount} errors, got ${output.errors?.length}`);
+  if (expected.hasMcp !== undefined && output.hasMcp !== expected.hasMcp) problems.push(`expected hasMcp ${expected.hasMcp}, got ${output.hasMcp}`);
   if (expected.warningIncludes && !warningText.includes(expected.warningIncludes)) problems.push(`missing warning: ${expected.warningIncludes}`);
   if (expected.specVersion && output.specVersion !== expected.specVersion) problems.push(`expected specVersion ${expected.specVersion}, got ${output.specVersion}`);
   if (problems.length > 0) {
@@ -50,6 +53,73 @@ async function createPlugin(name, options = {}) {
 }
 
 try {
+  const invalidRoots = [
+    ["null", null],
+    ["false", false],
+    ["true", true],
+    ["zero", 0],
+    ["positive-number", 1],
+    ["negative-number", -1],
+    ["fraction", 1.5],
+    ["empty-string", ""],
+    ["string", "example"],
+    ["empty-array", []],
+    ["array", [{}]],
+  ];
+  for (const file of ["plugin.json", "mcp.json"]) {
+    const hasMcp = file === "mcp.json";
+    for (const [name, value] of invalidRoots) {
+      const root = await createPlugin(`${file}-${name}`);
+      await writeJson(path.join(root, file), value);
+      run(`${file} rejects ${name} root`, root, {
+        status: 1,
+        errorIncludes: `The root of ${file} must be an object.`,
+        errorCount: 1,
+        hasMcp,
+      });
+    }
+
+    const emptyObject = await createPlugin(`${file}-empty-object`);
+    await writeJson(path.join(emptyObject, file), {});
+    run(`${file} validates required object properties`, emptyObject, {
+      status: 1,
+      errorIncludes: `${file}.$schema must be`,
+      errorCount: 2,
+      hasMcp,
+    });
+
+    const malformed = await createPlugin(`${file}-malformed`);
+    await writeFile(path.join(malformed, file), "{", "utf8");
+    run(`${file} reports only its parse error`, malformed, {
+      status: 1,
+      errorIncludes: `${file} is not valid JSON:`,
+      errorCount: 1,
+      hasMcp: false,
+    });
+
+    const nonRegular = await createPlugin(`${file}-non-regular`);
+    await rm(path.join(nonRegular, file), { force: true });
+    await mkdir(path.join(nonRegular, file));
+    run(`${file} rejects a non-regular file without a root-type error`, nonRegular, {
+      status: 1,
+      errorIncludes: `${file} must be a regular file.`,
+      errorCount: 1,
+      hasMcp: false,
+    });
+
+    const missing = await createPlugin(`${file}-missing`);
+    await rm(path.join(missing, file), { force: true });
+    run(`${file} ${hasMcp ? "is optional" : "is required"}`, missing, {
+      status: hasMcp ? 0 : 1,
+      errorIncludes: hasMcp ? undefined : "Cannot read plugin.json:",
+      errorCount: hasMcp ? 0 : 1,
+      hasMcp: false,
+    });
+  }
+
+  const emptyMcp = await createPlugin("empty-mcp", { mcp: {} });
+  run("valid empty MCP server object", emptyMcp, { status: 0, errorCount: 0, hasMcp: true });
+
   const valid = await createPlugin("valid.plugin", {
     manifest: { $schema: pluginSchema, name: "valid.plugin", extensions: { "com.example.client": {} } },
     mcp: {
