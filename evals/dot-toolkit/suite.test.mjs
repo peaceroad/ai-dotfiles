@@ -10,10 +10,17 @@ import { cases, criteria, manifest, checkDefinitions, checkCurrentSources, valid
 const directory = dirname(fileURLToPath(import.meta.url));
 const repository = resolve(directory, '../..');
 const sourcePaths = [
+  'plugins/dot-toolkit/README.md',
   'plugins/dot-toolkit/plugin.json',
   'plugins/dot-toolkit/skills/dot-guidelines/SKILL.md',
-  'dot/AGENTS.md',
-  'dot/dot-setup.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs',
 ];
 // Independent acceptance requirements: do not derive these or fixtures from criteria.json.
 // Intentional contract changes need review here as well as in the runtime definitions.
@@ -96,6 +103,41 @@ test('optional-guidance boundary definitions remain synthetic and separate from 
     assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, `${id} needs both decision boundaries`);
   }
 });
+// These names are an independent coverage contract, not generated from cases.json.
+const redesignDecisionCases = [
+  'plugin-common-without-legacy',
+  'plugin-conditional-reference-routing',
+  'index-deliberate-selection',
+  'index-explicit-empty',
+  'index-malformed-preservation',
+  'index-multiline-description',
+  'frontmatter-description-ambiguous',
+  'unknown-edit-preservation',
+  'pinned-commit-resumption',
+  'concurrent-edit-before-write',
+  'readonly-success-write-failure',
+  'lost-local-content',
+  'unsupported-managed-file',
+  'migration-agents-identical',
+  'migration-agents-modified',
+  'migration-agents-origin-unknown',
+  'migration-agents-archive-conflict',
+  'migration-selection-preservation',
+  'migration-partial-resumption',
+  'installed-resource-unavailable',
+  'installed-script-truncated',
+  'plugin-version-changes-mid-operation',
+  'helper-readonly-limits',
+  'ordinary-main-context-unverified',
+];
+test('redesign decision boundaries remain synthetic, with positive and negative criteria', () => {
+  for (const id of redesignDecisionCases) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', `${id} is a synthetic decision case`);
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, `${id} needs both decision boundaries`);
+  }
+  assert.equal(cases.filter(item => item.mode === 'main-dot').length, 4, 'Keep ordinary prompts separate from redesign fixtures');
+});
+
 test('stage definitions preserve the independent acceptance contract', () => {
   assert.deepEqual(Object.keys(criteria.stages).sort(), Object.keys(stageContract).sort());
   for (const [name, expected] of Object.entries(stageContract)) {
@@ -133,16 +175,28 @@ for (const path of sourcePaths) {
   test(`the source manifest cannot omit ${path}`, () => {
     assert.throws(() => checkDefinitions(definitions(d => {
       d.manifest.targets = d.manifest.targets.filter(target => target.path !== path);
-    })), /exactly the four required files/);
+    })), /exactly the required public package files/);
   });
 }
 
 test('the source manifest rejects duplicate, substituted, and extra targets', () => {
   for (const mutate of [
     d => { d.manifest.targets[3] = d.manifest.targets[0]; },
-    d => { d.manifest.targets[3].path = 'dot/unrelated.md'; },
-    d => { d.manifest.targets.push({ ...d.manifest.targets[0], path: 'dot/unrelated.md' }); },
-  ]) assert.throws(() => checkDefinitions(definitions(mutate)), /unique|exactly the four required files/);
+    d => { d.manifest.targets[3].path = 'plugins/dot-toolkit/unrelated.md'; },
+    d => { d.manifest.targets.push({ ...d.manifest.targets[0], path: 'plugins/dot-toolkit/unrelated.md' }); },
+  ]) assert.throws(() => checkDefinitions(definitions(mutate)), /unique|exactly the required public package files/);
+});
+
+test('legacy public common files cannot replace or extend the 0.2 package target', () => {
+  for (const path of ['dot/AGENTS.md', 'dot/dot-setup.md']) {
+    for (const replace of [false, true]) {
+      assert.throws(() => checkDefinitions(definitions(d => {
+        const target = { ...d.manifest.targets[0], path };
+        if (replace) d.manifest.targets[0] = target;
+        else d.manifest.targets.push(target);
+      })), /exactly the required public package files/);
+    }
+  }
 });
 
 test('the source manifest requires the content-hash schema and acceptance kind', () => {
@@ -154,6 +208,41 @@ test('the source manifest requires the content-hash schema and acceptance kind',
   }
   for (const sourceCommit of [undefined, null, 'a'.repeat(40)]) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.sourceCommit = sourceCommit; })), /not sourceCommit/);
+  }
+});
+
+test('source definitions keep installed-resource access and ordinary main-dot checks unrun', () => {
+  const required = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
+  assert.equal(manifest.pluginVersion, '0.2.0');
+  assert.equal(manifest.behavioralRuns, 'not_run');
+  assert.deepEqual(Object.keys(manifest.liveChecks).sort(), required.sort());
+  for (const name of required) {
+    assert.equal(manifest.liveChecks[name], 'not_run');
+    for (const result of [undefined, null, 'pass', 'fail', 'unobservable']) {
+      assert.throws(() => checkDefinitions(definitions(d => { d.manifest.liveChecks[name] = result; })), /cannot establish live check/);
+    }
+    assert.throws(() => checkDefinitions(definitions(d => { delete d.manifest.liveChecks[name]; })), /exactly the required checks/);
+  }
+  assert.throws(() => checkDefinitions(definitions(d => { d.manifest.liveChecks.extra = 'not_run'; })), /exactly the required checks/);
+  for (const liveChecks of [undefined, null, [], 'not_run']) {
+    assert.throws(() => checkDefinitions(definitions(d => { d.manifest.liveChecks = liveChecks; })), /must be an object/);
+  }
+  for (const pluginVersion of [undefined, '0.1.0', '0.3.0', 0.2]) {
+    assert.throws(() => checkDefinitions(definitions(d => { d.manifest.pluginVersion = pluginVersion; })), /targets plugin version/);
+  }
+  for (const behavioralRuns of ['pass', 'fail', null]) {
+    assert.throws(() => checkDefinitions(definitions(d => { d.manifest.behavioralRuns = behavioralRuns; })));
+  }
+});
+
+test('criteria require nonempty arrays of skills and decision strings', () => {
+  for (const field of ['skills', 'pass', 'fail']) {
+    for (const value of [null, {}, 'text', [null], ['']]) {
+      assert.throws(() => checkDefinitions(definitions(d => { d.criteria.cases['simple-answer'][field] = value; })), /Invalid case/);
+    }
+  }
+  for (const field of ['pass', 'fail']) {
+    assert.throws(() => checkDefinitions(definitions(d => { d.criteria.cases['simple-answer'][field] = []; })), /Invalid case/);
   }
 });
 
@@ -407,7 +496,7 @@ test('uninspected references cannot support a completed observation', () => {
   }
 });
 
-test('a known loader mismatch is a failure, not a successful source installation', () => {
+test('a known installed entry mismatch is a failure, not a successful source installation', () => {
   const record = fixture('current-loading');
   record.checks.targetLoaderMatches.result = 'fail';
   assert.throws(() => validateRecord(record), /Missing observed pass/);

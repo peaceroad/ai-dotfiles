@@ -70,5 +70,125 @@
     "id": "setup-private-status",
     "mode": "simulation",
     "input": "架空の承認済み初期設定で、利用者は「個別指示は今回は不要。追加スキル候補は後で渡す」と答えました。どちらの入力ファイルもまだなく、共通指示の取得元を保存する非公開の構築記録はあります。何を記録・作成すべきか、実際のファイル操作はせずに説明してください。"
+  },
+  {
+    "id": "plugin-common-without-legacy",
+    "mode": "simulation",
+    "input": "架空のメインdotには0.2.0のプラグイン入口が全文提供されています。旧/workspace/AGENTS.mdと旧dot-setup.mdはありません。個別指示とクラウド一覧は一度も作成されておらず、利用者は「18足す24はいくつですか」と頼みました。何を確認し、どう進めますか。操作せず判断だけ示してください。"
+  },
+  {
+    "id": "plugin-conditional-reference-routing",
+    "mode": "simulation",
+    "input": "架空のメインdotで、順に「初期設定の準備をして」「現在の構成を読み取り専用で点検して」「選択済みスキルの説明だけを更新して」「0.1系の構成を0.2系へ移す準備をして」と依頼された四つの独立した場面を考えてください。プラグイン内のどの手順が各場面で必要か、操作を始めずに説明してください。"
+  },
+  {
+    "id": "index-deliberate-selection",
+    "mode": "simulation",
+    "input": "架空のクラウドにはalphaとbetaのスキル実体と個別manifestがあります。利用者が通常利用に選んだINDEXの項目はalphaだけです。alphaのdescriptionを更新する依頼が来ました。INDEXとmanifestをどのように扱うか、操作せず説明してください。"
+  },
+  {
+    "id": "index-explicit-empty",
+    "mode": "simulation",
+    "input": "架空のクラウドでINDEX.mdは読取り可能で、本文は「# Skills」と改行だけです。通常利用の選択を空にする判断は確認できています。manifestには保管中のalphaがあります。クライアントには別の適切な文章編集スキルが提供されています。文章編集依頼をどう扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "index-malformed-preservation",
+    "mode": "simulation",
+    "input": "架空のクラウドで、以前使用していたINDEXの説明に引用接頭辞のない見出しと水平線が混ざっており、項目の境界を規約どおり読めません。個別manifestと実体は残っています。通常依頼に使う選択と、この一覧の扱いを説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "index-multiline-description",
+    "mode": "simulation",
+    "input": "架空の選択済みスキルのdescriptionは、複数行、空行、「## 注意」という行、「---」という行を含みます。INDEXの説明更新を準備し、本文をどのように保持し、スクリプトの検証結果をどう解釈するか説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "frontmatter-description-ambiguous",
+    "mode": "simulation",
+    "input": "架空のスキルのfrontmatterには引用符とブロックスカラーを含むdescriptionがあり、返された読取り結果の一部が省略されています。INDEXの構造検査は成功しました。description更新を完了してよいか説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "unknown-edit-preservation",
+    "mode": "simulation",
+    "input": "架空のスキル更新前に、既存manifestとの比較でファイルの追加、削除、内容変更が見つかりました。今回の依頼ではそれらの編集意図を確認できません。更新の進め方を説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "pinned-commit-resumption",
+    "mode": "simulation",
+    "input": "架空の更新では開始時に依頼されたブランチをcommit Aへ解決しました。途中停止後、同じブランチはcommit Bへ進んでいます。Aの内容と採用した手順は取得できます。この更新を再開する場合と、Aを確認できなくなった場合を説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "concurrent-edit-before-write",
+    "mode": "simulation",
+    "input": "架空の承認済み更新で、候補とmanifestを準備した後、書込み直前の再読により対象ファイルへの別の編集が見つかりました。同じファイルを別の作業も扱っています。どこで止まり何を確認すべきか説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "readonly-success-write-failure",
+    "mode": "simulation",
+    "input": "架空の承認済み変更で、読取り専用の点検は成功しましたが、その後のmanifest書込みは拒否され、スキル実体だけが更新されています。状態と次の作業をどう報告しますか。実操作はしないでください。"
+  },
+  {
+    "id": "lost-local-content",
+    "mode": "simulation",
+    "input": "架空のスキルに採用済みのローカル変更がありましたが、そのファイルは失われました。manifestにはハッシュだけが残り、固定した取得元にもその変更はなく、バックアップはありません。可能な復元と不可能な復元を説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "unsupported-managed-file",
+    "mode": "simulation",
+    "input": "架空の移行対象スキルにシンボリックリンクと、管理形式で扱えないファイル種別が見つかりました。通常ファイルのハッシュは照合できています。移行と検証をどう扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "migration-agents-identical",
+    "mode": "simulation",
+    "input": "架空の0.1系からの移行で、旧共通AGENTS.mdは当時採用した固定取得元とバイト一致します。新しいプラグインと管理ファイルの準備はできましたが、実際のインストール済み参照とコードの読取りは未確認です。旧ファイルをどう扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "migration-agents-modified",
+    "mode": "simulation",
+    "input": "架空の0.1系からの移行で、旧共通AGENTS.mdには当時採用した固定取得元との差分があります。個別設定はすでに存在し、移行用の保存ファイルはありません。旧内容と既存個別設定の扱いを説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "migration-agents-origin-unknown",
+    "mode": "simulation",
+    "input": "架空の0.1系からの移行で、旧AGENTS.mdの本文は読めますが、当時採用した取得元の版を特定できません。最新公開版とは同じに見えます。どの分岐で旧内容を扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "migration-agents-archive-conflict",
+    "mode": "simulation",
+    "input": "架空の移行で、差分のある旧AGENTS.mdを保存する必要がありますが、.codex/AGENTS-migrate-0.1.mdはすでに存在します。内容が同じと確認できる場合と、異なる・読めない場合でどう扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "migration-selection-preservation",
+    "mode": "simulation",
+    "input": "架空の旧管理記録にはalphaとbetaがあり、旧一覧の通常選択はalphaだけです。alphaには意図して採用したローカル変更があり、追加候補と個別入力の一部は保留されています。形式移行の依頼に対し、何を引き継ぐか説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "migration-partial-resumption",
+    "mode": "simulation",
+    "input": "架空のクラウドには0.2.0のプラグイン、旧構成、準備中の個別manifestが混在します。前回の処理は途中で停止し、一部の実ファイルは変わっています。どう再開し、通常利用と移行の完了を何で分けますか。実操作はしないでください。"
+  },
+  {
+    "id": "installed-resource-unavailable",
+    "mode": "simulation",
+    "input": "架空のリポジトリでは入口・参照・三つの補助スクリプトと共有モジュールの構造検査が成功しました。インストール済みプラグインでは入口だけ読めて、参照とスクリプトへのアクセスは確認できていません。この時点の実装、移行、受入結果を説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "installed-script-truncated",
+    "mode": "simulation",
+    "input": "架空のインストール済みスクリプトはテキスト資源として返りましたが、末尾と依存する共有モジュールが取得できていません。Node.jsは利用できます。コードを実行用に置くことと、実行可能性の確認をどう扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "plugin-version-changes-mid-operation",
+    "mode": "simulation",
+    "input": "架空の移行で採用手順を読んだ後、プラグイン更新が起きた可能性があり、続けて取得した補助コードが同じ版か確定できません。固定リポジトリsnapshotは取得可能です。どう進めますか。実操作はしないでください。"
+  },
+  {
+    "id": "helper-readonly-limits",
+    "mode": "simulation",
+    "input": "架空の点検で、対象ルートを明示して三つの補助スクリプトを使います。INDEXの構造とファイルハッシュは照合できましたが、利用者は通常依頼からのスキル発見も確認できたのかと尋ねています。結果と検査範囲を説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "ordinary-main-context-unverified",
+    "mode": "simulation",
+    "input": "架空の確認では、合成テスト、ファイル照合、インストール済みコードの明示実行は完了しました。一方、共通指示と評価条件をまだ読んでいない本物のメインdotの文脈や、再開境界は用意できていません。受入結果をどこまで主張できますか。実操作はしないでください。"
   }
 ]
