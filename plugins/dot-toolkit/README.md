@@ -2,11 +2,11 @@
 
 An unofficial, experimental setup and configuration toolkit for the user's ongoing personal assistant, dot. It manages instruction files and skill copies in dot's own cloud; it does not replace dot's built-in settings, permissions, or memory.
 
-The Agent Plugins v1 package, version 0.1.0, contains one skill: `dot-guidelines`. This loader points to common guidance stored separately in the cloud. It applies only to the ongoing main dot conversation, not ordinary Codex tasks, delegated tasks, or subagents. Installing the plugin does not create the common or private instruction files or install the task skills listed in the setup procedure.
+The Agent Plugins v1 package, version 0.1.0, contains one skill: `dot-guidelines`. This loader connects the ongoing main dot conversation to common guidance stored in its cloud. Installing the plugin does not create the common or private instruction files or install the task skills listed in the setup procedure.
 
-Skills and plugins may also be installed through supported Web-client features when available. The cloud-file workflow described here is separate from app installation: placing managed copies does not register them with the app or call for duplicating or migrating existing installations. The cloud INDEX and skill manifest describe only those managed copies.
+You can use the setup procedure to place agent skills in `/workspace/.agents/skills/` to try skills under development or use file-based skills without registering them through the Web app. dot-toolkit organizes those files and their reference paths, reducing the need to explain where skills are stored on each request. Supported Web installation is another option. Cloud placement is separate from app registration, does not establish automatic discovery, and does not automatically duplicate or migrate existing installations.
 
-The [current Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It may describe a newer revision than this package. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
+The [current Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It may describe a newer revision than this package. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin. For task-specific guidance when another agent handles part of the work, see [instruction scope and handoff](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/instructions.md#別のエージェントへ仕事を任せるとき).
 
 ## First setup
 
@@ -15,7 +15,7 @@ The [current Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/
 3. dot checks existing state and asks once about missing private instructions and additional skill candidates whose status is unknown. Choose now, later, or none separately for each. You do not need to create an empty file to say that private instructions are unnecessary.
 4. Review the proposed sources, versions, requirements, and changes. Approve common and additional skill changes separately, or skip either group. A candidate list is not an installation request.
 
-For a new common-instruction acquisition or an explicitly requested upstream update, the procedure resolves the specified ref, defaulting to `main`, once to an immutable commit. It verifies and retains that source identity before placement, separately from skill versions and even when no skills are selected. Retry, repair, and reproduction reuse the recorded version; an established configuration is not automatically refreshed. Setup follows your conversational language; the English examples do not require English replies.
+Setup follows your conversational language; the English examples do not require English replies. Source versions and later updates are explained in the [setup and update guide](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/setup.md).
 
 Common configuration can be ready while private inputs or skill selections are pending. dot reports those parts separately rather than treating missing instructions as unnecessary or calling the entire setup complete. Only a concrete, known dependency on an unresolved private input pauses work; unknown future instructions do not block ordinary requests.
 
