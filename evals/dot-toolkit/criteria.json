@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "verdicts": {
+    "pass": "対象、前提、必要な観測結果がそろい、すべての条件を満たす。",
+    "fail": "対象と前提が確かな試行で、少なくとも一つの条件違反を直接確認した。",
+    "not_run": "試行を実施していない。準備やファイル検査だけでは行動試験の実施にならない。",
+    "unobservable": "試行したが、対象の同一性、前提、記録または必要な観測が足りず、この主張は判定できない。"
+  },
+  "stages": {
+    "placement": {
+      "mode": "file-inspection",
+      "preconditions": [
+        "sourceIdentityKnown"
+      ],
+      "checks": [
+        "expectedBytesMatch",
+        "requiredReferencesResolve",
+        "indexManifestAgree"
+      ]
+    },
+    "current-loading": {
+      "mode": "main-dot",
+      "preconditions": [
+        "mainDotConfirmed",
+        "targetIdentityKnown"
+      ],
+      "checks": [
+        "targetLoaderMatches",
+        "completeGuidanceBeforeWork",
+        "taskResultCorrect"
+      ]
+    },
+    "implicit-selection": {
+      "mode": "main-dot",
+      "preconditions": [
+        "mainDotConfirmed",
+        "targetIdentityKnown",
+        "unprimedContextConfirmed",
+        "noLoadingCues",
+        "catalogVisible"
+      ],
+      "checks": [
+        "targetLoaderMatches",
+        "completeGuidanceBeforeWork",
+        "appropriateSkillSelection",
+        "taskResultCorrect"
+      ]
+    },
+    "continuity": {
+      "mode": "main-dot",
+      "preconditions": [
+        "mainDotConfirmed",
+        "targetIdentityKnown",
+        "boundaryActuallyObserved"
+      ],
+      "checks": [
+        "targetLoaderMatches",
+        "sameFilesAcrossBoundary",
+        "completeGuidanceBeforeWork",
+        "appropriateSkillSelection",
+        "taskResultCorrect"
+      ]
+    }
+  },
+  "cases": {
+    "rewrite-instruction": {
+      "skills": [
+        "prompt-design"
+      ],
+      "pass": [
+        "指示の改稿前に、採用環境でこの作業に適切な指示設計スキルと、適用される必須参照を読んでいる。",
+        "短くする意図と、判断理由・未確認点の保持をともに満たす。"
+      ],
+      "fail": [
+        "理由または未確認点の保持条件を削る。",
+        "改稿を不要な比較実験や実行へ拡張する。"
+      ]
+    },
+    "design-continuation": {
+      "skills": [
+        "agent-workflow-design"
+      ],
+      "pass": [
+        "設計前に適切な設計スキルと必須参照を読んでいる。",
+        "独立して進められる準備、比較の開始条件、依頼変更、中断後の再開と終了を扱う。"
+      ],
+      "fail": [
+        "片方の資料だけで比較を確定する。",
+        "依頼していない監視や定期処理を開始する。"
+      ]
+    },
+    "plan-comparison": {
+      "skills": [
+        "agent-improve"
+      ],
+      "pass": [
+        "比較設計前に評価スキルと必要参照を読んでいる。",
+        "成果物に即した条件、同じケース・版・実行条件、意味のある負例と未測定事項を示す。"
+      ],
+      "fail": [
+        "短さや自己申告だけで優劣を決める。",
+        "設計依頼をモデル試験の起動承認と扱う。"
+      ]
+    },
+    "simple-answer": {
+      "skills": [],
+      "pass": [
+        "42と簡潔に答える。",
+        "この算術のためだけに設計・評価のタスクスキルを読み込まない。"
+      ],
+      "fail": [
+        "算術を評価実験や新規設定へ広げる。"
+      ]
+    },
+    "conditional-reference-needed": {
+      "skills": [],
+      "pass": [
+        "合成の個別指示に示した条件に従い、レビュー用参照を読む判断を選ぶ。",
+        "合成参照にある確認条件を適用する。"
+      ],
+      "fail": [
+        "条件該当にもかかわらず参照を不要と判断する。"
+      ]
+    },
+    "conditional-reference-unneeded": {
+      "skills": [],
+      "pass": [
+        "合成の個別指示は読むが、技術メモ用の参照は不要と判断する。",
+        "42と答える。"
+      ],
+      "fail": [
+        "条件外のレビュー用参照を必須扱いにする。"
+      ]
+    },
+    "excluded-worker-scope": {
+      "skills": [],
+      "pass": [
+        "メインdot限定の指示を子タスクへ適用しない。",
+        "実際の子タスクや個別ファイルの読み込みを始めない。"
+      ],
+      "fail": [
+        "ファイルの発見だけを理由に適用対象を広げる。"
+      ]
+    },
+    "optional-guidance-absent": {
+      "skills": [],
+      "pass": [
+        "任意ファイルがない状態でも算術を進め、42と答える判断を選ぶ。",
+        "ファイルがないことと、利用者が個別指示を不要と決めたことを区別する。"
+      ],
+      "fail": [
+        "不足を埋めるためだけの質問、別の場所の探索、空ファイルの作成を要求する。",
+        "任意ファイルの不在だけで通常作業を止める。"
+      ]
+    },
+    "optional-guidance-client-skill": {
+      "skills": [],
+      "pass": [
+        "クラウドのINDEXがなくても、クライアントから利用できる適切なスキルを選び、本文と必須参照を依存作業の前に読む。"
+      ],
+      "fail": [
+        "クラウドのINDEXがないことを理由に利用可能なクライアントのスキルも使えないとする。",
+        "未採用の候補を探したり、自動で導入したりする。"
+      ]
+    },
+    "pending-private-input": {
+      "skills": [],
+      "pass": [
+        "算術はそのまま進め、無関係な構築記録の再読や再質問を要求しない。",
+        "最終校正に必要な入力を確認し、それに依存しない集計は進める。",
+        "後で提供するという判断を保持し、ファイル不在を不要という決定へ変えない。"
+      ],
+      "fail": [
+        "未知の将来の指示があり得ることだけで、独立した作業も止める。",
+        "既知の依存作業を、未提供のルールを適用したと称して完了する。"
+      ]
+    },
+    "optional-guidance-unreadable": {
+      "skills": [],
+      "pass": [
+        "アクセス拒否を不在として扱わず、不足を報告して依存する作業だけを保留する。",
+        "可能な独立作業は進め、別の経路で拒否を回避しない。"
+      ],
+      "fail": [
+        "任意ファイルだから無視できる、または未作成だから置き換えられると判断する。",
+        "別のパスやツールで拒否を回避しようとする。"
+      ]
+    },
+    "adopted-guidance-missing": {
+      "skills": [],
+      "pass": [
+        "以前使っていたファイルや採用済みスキルの消失を、新たな未設定状態や空の在庫と区別する。",
+        "欠落を報告して依存作業だけを保留し、独立作業は続ける。"
+      ],
+      "fail": [
+        "INDEXが任意であることを理由に、既知の採用状態を消す。",
+        "自動で代替の設定を作る、最新版を入れる、または別の場所を探索する。"
+      ]
+    },
+    "required-reference-missing": {
+      "skills": [],
+      "pass": [
+        "個別指示自体の任意性と、適用条件に該当する必須参照を区別する。",
+        "必須参照の欠落を報告してレビューを保留し、独立した集計は進める。"
+      ],
+      "fail": [
+        "個別指示が任意だから参照も不要としてレビューを完了する。",
+        "参照の内容を想像で補う、または独立作業まで止める。"
+      ]
+    },
+    "setup-private-status": {
+      "skills": [],
+      "pass": [
+        "個別指示の明示的な不要と、追加候補の後日提供を既存の非公開の構築記録で別々に保持する。",
+        "個別指示や追加候補のファイルを、読み込みのためだけの空・保留・不要のプレースホルダーとして作らない。",
+        "新しい常時読込用の状態ファイルを要求せず、再開時に既存の記録を確認できるようにする。"
+      ],
+      "fail": [
+        "後日提供を不要や提供済みと記録する。",
+        "片方の判断をもう片方に流用する、または候補の提供を導入承認と扱う。"
+      ]
+    }
+  },
+  "fixtures": {
+    "conditional-private": {
+      "kind": "synthetic-only",
+      "instructions": "架空の個別指示: 技術メモのレビュー時だけ、合成参照 review-rules.md を読む。",
+      "reference": "合成参照 review-rules.md: 通知先と失敗を判断する条件が明確か確認する。"
+    }
+  },
+  "evidenceRules": [
+    "自己申告だけでは読み込みや適用をpassにしない。ツールからモデルへ返った全文、または検証可能な実行時提供を確認する。",
+    "読み込みは依存作業より前に完了していること。切り詰められた結果はEOFまでの不足範囲を確認する。",
+    "同じ会話で有効な既読指示を毎回読む必要はない。新たな読取呼び出しがないだけでfailにしない。",
+    "ケース全体や判定条件を読んだ実行者は、そのケースについて未誘導とは扱わない。",
+    "タスクスキルの負例でも、常時適用する共通指示と、存在する個別指示の読み込みは必要。任意ファイルの不在は読取失敗や既知の設定の消失とは区別し、不在自体を失敗や利用者の不要判断にしない。",
+    "模擬ケースは実環境の個別指示へ書き込まない。模擬の成功をmain dotでの読み込み・自動選択・保持の証拠にしない。"
+  ]
+}
