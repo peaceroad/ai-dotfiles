@@ -51,8 +51,9 @@ export function parseArgs(command, argv) {
     } else throw new Error('invalid_arguments');
   }
   if (!options.root || !path.isAbsolute(options.root)) throw new Error('absolute_root_required');
-  // Reject dot components rather than resolving through a possibly linked ancestor.
-  const components = options.root.slice(path.parse(options.root).root.length).split(path.sep);
+  // Reject dot components before normalization erases them. Windows accepts both
+  // separators; on POSIX a backslash is part of the filename.
+  const components = options.root.slice(path.parse(options.root).root.length).split(path.sep === '\\' ? /[\\/]/u : '/');
   if (!options.root.isWellFormed() || components.some(part => part === '.' || part === '..') || CONTROL.test(options.root)) throw new Error('invalid_root');
   options.root = path.normalize(options.root);
   if (command === 'verify-skill-files' && (options.all === (options.skills.length > 0))) throw new Error('explicit_scope_required');

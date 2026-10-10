@@ -54,8 +54,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs",
-      "sha256": "20b92a6e70e4d8b9d1d643661dac97ec6e7b6b3ccbaf0a09d663898eef6a6ad8",
-      "bytes": 13898
+      "sha256": "94232399f9552b72000281c3a9db1362da9530cbd56d48c991d13708ce94ac1c",
+      "bytes": 13984
     }
   ],
   "behavioralRuns": "not_run",

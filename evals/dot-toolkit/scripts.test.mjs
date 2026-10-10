@@ -89,6 +89,30 @@ test('every helper has stable JSON help, requires explicit absolute root, and re
   }
 });
 
+test('root arguments reject dot components before normalization using every native separator', () => {
+  const windows = path.sep === '\\';
+  const prefixes = windows
+    ? ['C:\\synthetic', 'C:/synthetic', '\\\\server\\share\\synthetic', '//server/share/synthetic']
+    : ['/synthetic', '/synthetic/literal\\..\\name', '/synthetic/literal\\.\\name'];
+  const separators = windows ? ['\\', '/'] : ['/'];
+  for (const command of commands) {
+    const scope = command === 'verify-skill-files' ? ['--all'] : [];
+    for (const prefix of prefixes) {
+      for (const separator of separators) {
+        const root = `${prefix}${separator}cloud`;
+        assert.equal(parseArgs(command, ['--root', root, ...scope]).root, path.normalize(root));
+        for (const dot of ['.', '..']) {
+          const invalid = `${prefix}${separator}${dot}`;
+          assert.throws(() => parseArgs(command, ['--root', invalid, ...scope]), { message: 'invalid_root' });
+          for (const nextSeparator of separators) {
+            assert.throws(() => parseArgs(command, ['--root', `${invalid}${nextSeparator}cloud`, ...scope]), { message: 'invalid_root' });
+          }
+        }
+      }
+    }
+  }
+});
+
 test('Node >=24 is checked, including before help, without automatic installation', t => {
   assert.equal(supportedNode('23.9.0'), false);
   assert.equal(supportedNode('24.0.0'), true);
