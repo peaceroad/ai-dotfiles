@@ -13,6 +13,8 @@ This skill owns common guidance for the ongoing main dot conversation. Use its `
 2. Before selecting task skills, read the existing `/workspace/.agents/skills-state/INDEX.md` and consider client-provided skill descriptions. INDEX intentionally selects cloud skills for normal use; it is not every installed skill or manifest. Choose relevant skills even when the user has not named them.
 3. Read the selected `SKILL.md` and its task-required references completely before dependent work. Follow that skill's own reference-loading conditions. Do not read all skills or manifests for an ordinary request, or search for unadopted candidates.
 
+Follow an explicitly requested skill source. Otherwise, when client-provided and INDEX-listed skills have the same name and both fit the task, prefer the INDEX-listed cloud copy: its inclusion records a deliberate choice. Use that copy's entrypoint and references together, without mixing versions. This selects a skill for the task; it does not update either copy or change INDEX.
+
 Reuse complete guidance, INDEX, and installed-resource checks established in the current context. Recheck the affected resources after changes or migration, an environment change, a read failure, or when the task needs new evidence. Do not repeat plugin discovery or setup merely to reconfirm readiness.
 
 A genuinely absent INDEX in a new environment, or a valid empty selection, leaves client-provided skills and independent work available. Absence of optional guidance is not a choice of none and does not erase known pending inputs. Continue independent work while an input is pending; do not claim to apply it or repeat unrelated setup questions.

@@ -56,6 +56,8 @@ If you already use a 0.1 setup, request migration as described below instead of 
 
 Once dot can read the common skill and any settings needed for the task are ready, ask for the work itself. For example, after adopting `prompt-design`, ask: “Make this request clearer and less ambiguous.” The guidance directs dot to select relevant skills from their descriptions and read their instructions before dependent work; you need not name the skill or its path.
 
+If a client-provided skill and an INDEX-listed cloud skill have the same name and both fit, an explicitly requested source takes precedence; otherwise dot prefers the deliberately selected cloud copy. It uses that copy's entrypoint and references together without updating either copy or changing the selection list.
+
 Routine work does not repeat installation checks, initial setup questions, or all-skill inspections. Genuinely absent optional files leave independent work and client-provided skills available. Unreadable files, malformed selection lists, or loss of previously used guidance pause only the affected work.
 
 Implicit selection and continuity in the actual main dot remain unverified for 0.2. Users do not need to arrange a fresh-context test before ordinary use. Maintainer acceptance checks distinguish installed-resource access, helper execution, selection, and continuity; source tests and hashes are not behavioral evidence.

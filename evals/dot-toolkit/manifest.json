@@ -4,8 +4,8 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "c486955a1b02cfd4eb4cdee47312ffb3afb9f7724965eb73132e46b614d575a7",
-      "bytes": 10594
+      "sha256": "28b304804beb3cb147ab838837c311a84975e8422dc0373dc8490ee0b110cbd6",
+      "bytes": 10912
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
@@ -14,8 +14,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "8149d876e1f44adc8bf6cffeeffbcef30a51df67473240d97040da929eab6363",
-      "bytes": 6294
+      "sha256": "0e7c22dfa4ae6c5b6455a00f7488faecadb24499a77b769675b8419742cdefdf",
+      "bytes": 6677
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
