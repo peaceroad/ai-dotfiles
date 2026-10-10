@@ -1,7 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "acceptance-definition",
-  "sourceCommit": "a456e9ed8937a9bc006c46227ad76d893ceba674",
   "targets": [
     {
       "path": "plugins/dot-toolkit/plugin.json",
@@ -20,8 +19,8 @@
     },
     {
       "path": "dot/dot-setup.md",
-      "sha256": "ebbb6402293c5cc254adfdf107fd04e28366399ab12cad4b1991e9516bb7151d",
-      "bytes": 28845
+      "sha256": "04ddbb52fae605f2816bb4d84cf95176d1db77916ee197695142ae8b827060e6",
+      "bytes": 29494
     }
   ],
   "behavioralRuns": "not_run",

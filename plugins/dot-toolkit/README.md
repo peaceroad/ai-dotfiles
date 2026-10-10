@@ -6,7 +6,7 @@ The Agent Plugins v1 package, version 0.1.0, contains one skill: `dot-guidelines
 
 Skills and plugins may also be installed through supported Web-client features when available. The cloud-file workflow described here is separate from app installation: placing managed copies does not register them with the app or call for duplicating or migrating existing installations. The cloud INDEX and skill manifest describe only those managed copies.
 
-The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/a456e9ed8937a9bc006c46227ad76d893ceba674/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
+The [current Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It may describe a newer revision than this package. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin.
 
 ## First setup
 
@@ -15,7 +15,7 @@ The [Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/a456e9ed
 3. dot checks existing state and asks once about missing private instructions and additional skill candidates. Choose now, later, or none separately for each. You do not need to create an empty file to say that private instructions are unnecessary.
 4. Review the proposed sources, versions, requirements, and changes. Approve common and additional skill changes separately, or skip either group. A candidate list is not an installation request.
 
-The procedure fetches common instructions from its verified repository/path/commit. That configuration pin is independent of skill versions and does not rely on default-branch contents. Setup follows your conversational language; the English examples do not require English replies.
+For a new common-instruction acquisition or an explicitly requested upstream update, the procedure resolves the specified ref, defaulting to `main`, once to an immutable commit. It verifies and retains that source identity before placement, separately from skill versions and even when no skills are selected. Retry, repair, and reproduction reuse the recorded version; an established configuration is not automatically refreshed. Setup follows your conversational language; the English examples do not require English replies.
 
 Common configuration can be ready while private inputs or skill selections are pending. dot reports those parts separately rather than treating missing instructions as unnecessary or calling the entire setup complete. Pending private inputs pause only work that needs them.
 

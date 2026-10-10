@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cases, criteria, manifest, checkDefinitions, checkPinnedSources, checkCurrentSources, validateRecord } from './suite.mjs';
+import { cases, criteria, manifest, checkDefinitions, checkCurrentSources, validateRecord } from './suite.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const repository = resolve(directory, '../..');
@@ -69,6 +69,23 @@ function temporaryDirectory(t) {
   return root;
 }
 
+function sourceBundle(t) {
+  const root = temporaryDirectory(t);
+  for (const path of [...sourcePaths, ...['suite.mjs', 'cases.json', 'criteria.json', 'manifest.json'].map(name => `evals/dot-toolkit/${name}`)]) {
+    const destination = resolve(root, path);
+    mkdirSync(dirname(destination), { recursive: true });
+    writeFileSync(destination, readFileSync(resolve(repository, path)));
+  }
+  return root;
+}
+
+function checkBundle(root) {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) if (key.toLowerCase() === 'path') delete env[key];
+  env.PATH = ''; // The checker must not need Git or any other external executable.
+  return spawnSync(process.execPath, [join(root, 'evals/dot-toolkit/suite.mjs'), 'check'], { cwd: root, encoding: 'utf8', env });
+}
+
 test('case definitions separate natural inputs, criteria, and synthetic-only conditions', () => checkDefinitions());
 test('stage definitions preserve the independent acceptance contract', () => {
   assert.deepEqual(Object.keys(criteria.stages).sort(), Object.keys(stageContract).sort());
@@ -119,6 +136,45 @@ test('the source manifest rejects duplicate, substituted, and extra targets', ()
   ]) assert.throws(() => checkDefinitions(definitions(mutate)), /unique|exactly the four required files/);
 });
 
+test('the source manifest requires the content-hash schema and acceptance kind', () => {
+  for (const schemaVersion of [undefined, null, 1, 3, '2']) {
+    assert.throws(() => checkDefinitions(definitions(d => { d.manifest.schemaVersion = schemaVersion; })), /Unsupported source manifest version/);
+  }
+  for (const kind of [undefined, null, '', 'other']) {
+    assert.throws(() => checkDefinitions(definitions(d => { d.manifest.kind = kind; })), /Invalid source manifest kind/);
+  }
+  for (const sourceCommit of [undefined, null, 'a'.repeat(40)]) {
+    assert.throws(() => checkDefinitions(definitions(d => { d.manifest.sourceCommit = sourceCommit; })), /not sourceCommit/);
+  }
+});
+
+for (const path of sourcePaths) {
+  test(`the source manifest rejects malformed hashes and sizes for ${path}`, () => {
+    for (const sha256 of [undefined, null, '', 'a'.repeat(63), 'A'.repeat(64), 'g'.repeat(64)]) {
+      assert.throws(() => checkDefinitions(definitions(d => { d.manifest.targets.find(target => target.path === path).sha256 = sha256; })));
+    }
+    for (const bytes of [undefined, null, 0, -1, 1.5, '1', Infinity, NaN]) {
+      assert.throws(() => checkDefinitions(definitions(d => { d.manifest.targets.find(target => target.path === path).bytes = bytes; })));
+    }
+  });
+  for (const field of ['sha256', 'bytes']) {
+    test(`a valid-format incorrect ${field} cannot validate ${path}`, t => {
+      const root = sourceBundle(t);
+      const altered = structuredClone(manifest);
+      const target = altered.targets.find(target => target.path === path);
+      if (field === 'sha256') target.sha256 = `${target.sha256[0] === '0' ? '1' : '0'}${target.sha256.slice(1)}`;
+      else target.bytes += 1;
+      const file = join(root, 'evals/dot-toolkit/manifest.json');
+      const contents = JSON.stringify(altered);
+      writeFileSync(file, contents);
+      const result = checkBundle(root);
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /Current candidate differs from the declared target/);
+      assert.equal(readFileSync(file, 'utf8'), contents, 'Checking must not regenerate expected hashes or sizes');
+    });
+  }
+}
+
 test('stage modes and condition lists have valid, unique identifiers', () => {
   for (const mode of [null, [], '', 'unknown']) {
     assert.throws(() => checkDefinitions(definitions(d => { d.criteria.stages.placement.mode = mode; })), /stage mode/);
@@ -141,12 +197,18 @@ test('result definitions cannot add or remove verdicts or omit their meaning', (
   ]) assert.throws(() => checkDefinitions(definitions(mutate)), /verdict|Verdict/);
 });
 
-test('frozen public sources match their recorded commit and hashes', checkPinnedSources);
 test('current candidate sources match the declared frozen target', () => checkCurrentSources());
+test('source checks work without a Git repository, history, or Git executable', t => {
+  const root = sourceBundle(t);
+  assert.equal(existsSync(join(root, '.git')), false);
+  const result = checkBundle(root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /current candidate bytes match the declared content hashes/);
+});
 
 for (const path of sourcePaths) {
   for (const change of ['modified', 'missing']) {
-    test(`a ${change} ${path} cannot hide behind a valid frozen snapshot`, t => {
+    test(`a ${change} ${path} cannot match the declared content hashes`, t => {
       const root = temporaryDirectory(t);
       for (const source of sourcePaths) {
         const destination = resolve(root, source);

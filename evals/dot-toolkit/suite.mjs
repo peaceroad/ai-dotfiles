@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -58,7 +57,9 @@ export function checkDefinitions(definitions = { cases, criteria, manifest }) {
     }
   }
   assert(object(manifest), 'Invalid source manifest');
-  assert.match(manifest.sourceCommit, /^[a-f0-9]{40}$/);
+  assert.equal(manifest.schemaVersion, 2, 'Unsupported source manifest version');
+  assert.equal(manifest.kind, 'acceptance-definition', 'Invalid source manifest kind');
+  assert(!Object.hasOwn(manifest, 'sourceCommit'), 'Source manifest version 2 uses content hashes, not sourceCommit');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert(Array.isArray(manifest.targets) && manifest.targets.every(object), 'Invalid source targets');
   const paths = manifest.targets.map(target => target.path);
@@ -69,15 +70,6 @@ export function checkDefinitions(definitions = { cases, criteria, manifest }) {
     assert(!target.path.split('/').some(part => !part || part === '.' || part === '..'));
     assert.match(target.sha256, /^[a-f0-9]{64}$/);
     assert(Number.isInteger(target.bytes) && target.bytes > 0);
-  }
-}
-
-export function checkPinnedSources() {
-  checkDefinitions();
-  for (const target of manifest.targets) {
-    const bytes = execFileSync('git', ['show', `${manifest.sourceCommit}:${target.path}`], { cwd: repository });
-    assert.equal(bytes.length, target.bytes, `Pinned source size differs: ${target.path}`);
-    assert.equal(createHash('sha256').update(bytes).digest('hex'), target.sha256, `Pinned source hash differs: ${target.path}`);
   }
 }
 
@@ -153,9 +145,8 @@ export function validateRecord(record) {
 
 function main(args) {
   if (args.length === 1 && args[0] === 'check') {
-    checkPinnedSources();
     checkCurrentSources();
-    console.log('Definitions, pinned public-source bytes, and current candidate identity verified. No model or live-environment test ran.');
+    console.log('Definitions and current candidate bytes match the declared content hashes. No Git history, model, or live-environment test was used.');
   } else if (args.length === 2 && args[0] === 'input') {
     const item = cases.find(c => c.id === args[1]);
     assert(item, 'Unknown case ID');

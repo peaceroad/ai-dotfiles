@@ -12,13 +12,15 @@ Attach this `dot-setup.md` and explicitly ask: “Set up your cloud using this p
 
 For initial setup, check whether `dot-toolkit` and its `dot-guidelines` loader are available using information the client exposes. Read the client-provided loader when available and identify its source or version when exposed; a repository copy does not establish what is installed. If the plugin is confirmed absent, guide the user to install it in a supporting client before continuing plugin-dependent setup. If installation status is unknown, ask a focused question rather than assuming absence. Report any known version mismatch; do not automatically install, reinstall, or update the plugin. Review, inspection, and explicitly requested file-only work may continue within scope; keep plugin-dependent completion pending until verified.
 
-Unless the user supplies or specifies another common-instruction source, obtain the complete `AGENTS.md` from:
+For a new common-instruction acquisition or an explicitly requested upstream update, use the following source unless the user supplies or specifies another:
 
 - Repository: `https://github.com/peaceroad/ai-dotfiles`
 - Repository path: `dot/AGENTS.md`
-- Commit: `221c7e47f3e54ed02937d7a60117ce708a25e360`
+- Branch: `main`
 
-Verify the repository, path, and commit, and read the document completely before adoption. This pin does not depend on default-branch contents. It selects common instructions only; skill versions are selected separately below. If the user specifies another branch or tag for common instructions, resolve it once to a commit, record that resolution with the current private setup records, and reuse it on retry. If verification fails, request the document or a supported source rather than guessing another ref.
+For a repository source, use a specified commit directly; otherwise resolve the selected branch or tag once to an immutable commit before acquiring the complete common-instruction document from that commit. Verify the repository, path, resolved commit, and retrieved contents, and read the document completely before adoption. After step 1 and before placement, retain the source repository/path, requested ref, resolved commit, and raw-byte SHA-256 with the private setup records, independently of the skill manifest, even when no skills are selected. This resolution selects common instructions only; skill versions are selected separately below.
+
+For retry, repair, reproduction, or interrupted work, reuse the saved common-instruction source and commit instead of resolving the branch again. Preserve supplied or intentionally edited contents and their recorded identity. If a source, ref, or saved resolution cannot be verified, request the document or a supported source rather than guessing another ref or using the latest contents. The supplied procedure still governs; resolving its common-instruction source does not replace the procedure.
 
 In an established runtime, use the canonical files at the paths below and apply only the requested changes. For identical skill reproduction, also obtain the adopted manifest and required restoration materials.
 
