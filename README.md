@@ -22,7 +22,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
   - [ai-dotfiles-cli](plugins/ai-dotfiles-cli/skills/ai-dotfiles-cli/SKILL.md)：`agent`で管理しているスキルリンクやプラグインの状態を調べるとき、自分の担当分を共有Marketplaceへ同期するとき、Codexの保守やセッション整理を行うときに使います。導入済みCLIのコマンドと確認手順を選び、操作結果を確かめます。CLI自体の開発や汎用的なプラグイン作成は対象外です。
   - [codex-history](plugins/ai-dotfiles-cli/skills/codex-history/SKILL.md)：以前にエクスポートした会話から、過去の決定理由を探したり、複数のセッションにまたがる経緯を確認したりするときに使う、実験的なスキルです。保存済みファイルを検索・参照し、根拠の場所と記録の不足を示します。進行中の会話の取得や、エクスポート・削除・復元は行いません。
 - **[dot-toolkit](plugins/dot-toolkit/README.md)**：dot自身のクラウドで指示とスキルを管理する、非公式・実験的な設定・セットアップツールキット。
-  - [dot-guidelines](plugins/dot-toolkit/skills/dot-guidelines/SKILL.md)：継続的なメインのdot会話で使う薄いローダーです。通常のCodexタスク、委任先のタスク、サブエージェントには適用しません。
+  - [dot-guidelines](plugins/dot-toolkit/skills/dot-guidelines/SKILL.md)：継続的なメインのdot会話から、クラウドに置いた共通指示を読むための短いローダーです。
 - **[agentコマンド](#agentコマンド)**：スキルとは別に実行する管理用CLI。
   - [`agent dev`](docs/agent-development.md)：開発対象の確認・同期、共有Marketplaceの設定・配布。
   - [`agent marketplace`](docs/agent-development.md#別マシンで単体skillを利用する)：プラグインに含めず個別に配布されたスキルの一覧表示・導入・更新・削除。
