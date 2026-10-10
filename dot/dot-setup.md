@@ -1,3 +1,5 @@
+This is an unofficial, experimental setup procedure for managing instruction files and skill copies in dot's cloud; it does not replace dot's built-in settings, permissions, or memory.
+
 This procedure governs authorized setup, updates, and reproduction in dot's own `/workspace` cloud. A file attachment or review request alone does not authorize execution. Stay within the requested scope and current permissions. Complete step 1 before saving files or proposing changes.
 
 Skills and plugins may also be installed through supported Web-client features when available. This procedure covers explicitly requested cloud-file management; copying a skill here does not register it with the app or imply that an existing app installation should be duplicated or migrated.
