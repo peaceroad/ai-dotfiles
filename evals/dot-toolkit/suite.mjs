@@ -16,17 +16,26 @@ const referenceList = value => Array.isArray(value) && value.every(nonempty);
 const references = value => referenceList(value) && value.length > 0;
 const verdicts = ['pass', 'fail', 'not_run', 'unobservable'];
 const modes = ['file-inspection', 'main-dot', 'simulation', 'delegated', 'codex'];
+const requiredLiveChecks = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
 // This bundle is the acceptance target, independently of the editable manifest.
 const requiredSources = [
+  'plugins/dot-toolkit/README.md',
   'plugins/dot-toolkit/plugin.json',
   'plugins/dot-toolkit/skills/dot-guidelines/SKILL.md',
-  'dot/AGENTS.md',
-  'dot/dot-setup.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs',
+  'plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs',
 ];
 
 export function checkDefinitions(definitions = { cases, criteria, manifest }) {
   const { cases, criteria, manifest } = definitions;
   assert(Array.isArray(cases) && cases.length > 0, 'Case definitions must be a nonempty array');
+  assert.equal(criteria?.schemaVersion, 1, 'Unsupported criteria version');
   assert(object(criteria?.cases) && object(criteria.stages) && object(criteria.verdicts), 'Invalid criteria definition');
   assert.deepEqual(Object.keys(criteria.verdicts).sort(), [...verdicts].sort(), 'Unknown or missing verdict definitions');
   assert(Object.values(criteria.verdicts).every(nonempty), 'Verdict descriptions must be nonempty strings');
@@ -46,7 +55,12 @@ export function checkDefinitions(definitions = { cases, criteria, manifest }) {
     assert.match(c.id, /^[a-z]+(?:-[a-z]+)*$/);
     assert(['main-dot', 'simulation'].includes(c.mode));
     assert(nonempty(c.input));
-    assert(criteria.cases[c.id].pass.length && criteria.cases[c.id].fail.length);
+    const expected = criteria.cases[c.id];
+    assert(object(expected), `Invalid case criteria: ${c.id}`);
+    assert(Array.isArray(expected.skills) && expected.skills.every(nonempty), `Invalid case skills: ${c.id}`);
+    for (const field of ['pass', 'fail']) {
+      assert(Array.isArray(expected[field]) && expected[field].length > 0 && expected[field].every(nonempty), `Invalid case ${field} criteria: ${c.id}`);
+    }
     if (c.mode === 'main-dot') {
       assert(!/dot-guidelines|SKILL\.md|AGENTS\.md|INDEX\.md|\/workspace\//.test(c.input));
       for (const skill of criteria.cases[c.id].skills) assert(!c.input.includes(skill));
@@ -60,13 +74,17 @@ export function checkDefinitions(definitions = { cases, criteria, manifest }) {
   assert.equal(manifest.schemaVersion, 2, 'Unsupported source manifest version');
   assert.equal(manifest.kind, 'acceptance-definition', 'Invalid source manifest kind');
   assert(!Object.hasOwn(manifest, 'sourceCommit'), 'Source manifest version 2 uses content hashes, not sourceCommit');
+  assert.equal(manifest.pluginVersion, '0.2.0', 'This acceptance definition targets plugin version 0.2.0');
   assert.equal(manifest.behavioralRuns, 'not_run');
+  assert(object(manifest.liveChecks), 'Live check declarations must be an object');
+  assert.deepEqual(Object.keys(manifest.liveChecks).sort(), [...requiredLiveChecks].sort(), 'Live check declarations must contain exactly the required checks');
+  for (const name of requiredLiveChecks) assert.equal(manifest.liveChecks[name], 'not_run', `Source definitions cannot establish live check: ${name}`);
   assert(Array.isArray(manifest.targets) && manifest.targets.every(object), 'Invalid source targets');
   const paths = manifest.targets.map(target => target.path);
   assert.equal(new Set(paths).size, paths.length, 'Source target paths must be unique');
-  assert.deepEqual([...paths].sort(), [...requiredSources].sort(), 'Source targets must contain exactly the four required files');
+  assert.deepEqual([...paths].sort(), [...requiredSources].sort(), 'Source targets must contain exactly the required public package files');
   for (const target of manifest.targets) {
-    assert.match(target.path, /^(plugins\/dot-toolkit\/|dot\/)/);
+    assert.match(target.path, /^plugins\/dot-toolkit\//);
     assert(!target.path.split('/').some(part => !part || part === '.' || part === '..'));
     assert.match(target.sha256, /^[a-f0-9]{64}$/);
     assert(Number.isInteger(target.bytes) && target.bytes > 0);
@@ -82,6 +100,8 @@ export function checkCurrentSources(root = repository) {
     assert.equal(bytes.length, target.bytes, `Current candidate differs from the declared target: ${target.path}`);
     assert.equal(createHash('sha256').update(bytes).digest('hex'), target.sha256, `Current candidate differs from the declared target: ${target.path}`);
   }
+  const plugin = JSON.parse(readFileSync(resolve(root, 'plugins/dot-toolkit/plugin.json'), 'utf8'));
+  assert.equal(plugin.version, '0.2.0', 'Current candidate must declare plugin version 0.2.0');
 }
 
 // This validates a human/observer's record, not the truth or authenticity of its evidence.
