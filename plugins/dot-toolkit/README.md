@@ -1,72 +1,101 @@
 # dot-toolkit
 
-An unofficial, experimental setup and configuration toolkit for the user's ongoing personal assistant, dot. It manages instruction files and skill copies in dot's own cloud; it does not replace dot's built-in settings, permissions, or memory.
+An unofficial, experimental plugin that helps your main dot use recurring private instructions and self-authored or developing skills without being told their locations on every request. Version **0.2.0** bundles `dot-guidelines` for common guidance and conditional setup, inspection, maintenance, and migration procedures.
 
-The Agent Plugins v1 package, version 0.1.0, contains one skill: `dot-guidelines`. This loader connects the ongoing main dot conversation to common guidance stored in its cloud. Installing the plugin does not create the common or private instruction files or install the task skills listed in the setup procedure.
+Private instructions and task skills are added separately, only when wanted. This cloud-file workflow does not replace ChatGPT's normal skill or plugin installation features.
 
-You can use the setup procedure to place agent skills in `/workspace/.agents/skills/` to try skills under development or use file-based skills without registering them through the Web app. dot-toolkit organizes those files and their reference paths, reducing the need to explain where skills are stored on each request. Supported Web installation is another option. Cloud placement is separate from app registration, does not establish automatic discovery, and does not automatically duplicate or migrate existing installations.
+## 1. Install in ChatGPT Web
 
-The [current Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/README.md) explains the cloud layout, setup choices, access boundaries, updates, and verification. It may describe a newer revision than this package. It also links to the separate `dot-setup.md` source; that procedure is not bundled in this plugin. For task-specific guidance when another agent handles part of the work, see [instruction scope and handoff](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/instructions.md#別のエージェントへ仕事を任せるとき).
+Obtain a ZIP or shared plugin from its maintainer. A shared plugin needs no ZIP preparation.
 
-## First setup
+To package the source yourself, use the maintainer's specified tag or commit. If none is specified, use the commit containing this guide and check that `plugins/dot-toolkit/plugin.json` declares version `0.2.0`. After checking out that revision, run from the repository root:
 
-1. Install the plugin in a supporting client.
-2. Attach `dot-setup.md` and explicitly ask: “Set up your cloud using this procedure.” The attachment governs; it is not replaced with the latest repository copy.
-3. dot checks existing state and asks once about missing private instructions and additional skill candidates whose status is unknown. Choose now, later, or none separately for each. You do not need to create an empty file to say that private instructions are unnecessary.
-4. Review the proposed sources, versions, requirements, and changes. Approve common and additional skill changes separately, or skip either group. A candidate list is not an installation request.
+```sh
+git rev-parse HEAD
+git show HEAD:plugins/dot-toolkit/plugin.json
+git archive --format=zip --output=../dot-toolkit-0.2.0.zip HEAD:plugins/dot-toolkit
+```
 
-Setup follows your conversational language; the English examples do not require English replies. Source versions and later updates are explained in the [setup and update guide](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/setup.md).
+The first two commands show the selected commit and version. The last creates a ZIP beside the checkout, with `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Choose another output name if it already exists. The archive uses committed contents, excluding uncommitted edits. Keep generated ZIPs uncommitted and private files out of the package.
 
-Common configuration can be ready while private inputs or skill selections are pending. dot reports those parts separately rather than treating missing instructions as unnecessary or calling the entire setup complete. Only a concrete, known dependency on an unresolved private input pauses work; unknown future instructions do not block ordinary requests.
+In ChatGPT Web, select the account and workspace you use for dot:
 
-## Later changes and interrupted setup
+- **ZIP:** use the available plugin-upload feature. Eligible workspace administrators with upload access can open Plugins in the admin console, then Add → Upload plugin.
+- **Shared plugin:** open the shared `dot-toolkit` in ChatGPT's Plugins directory.
 
-Attach later private files with an explicit request to apply them. dot compares and updates that scope without repeating common setup or replacing unrelated edits. Any skill additions or updates still need the applicable group's approval.
+Open the plugin details, select Install plugin if offered, and confirm it is installed and available. Upload and installation are separate checks; permissions and availability depend on your account and workspace. See OpenAI's [plugin installation and ZIP-upload instructions](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt) if those options are missing.
 
-For an update, specify the intended change or source; the procedure compares it with the existing configuration and adopted inventory. For a retry, retain the supplied procedure and recorded versions. dot checks the actual outcome before resuming unfinished work, rather than fetching newer versions or repeating changes blindly. Exact skill reproduction also needs the adopted manifest and any required restoration materials.
+Attaching a ZIP to a conversation, saving it to the Library, or extracting it in the cloud does not install a plugin. This guide uses the Web route for dot-toolkit; other plugins may support other routes.
 
-Version 0.1.0 identifies this initial plugin release. Repository commits identify revisions within it; the version label alone does not identify the contents of a trial ZIP. See `dot/dot-setup.md` for the full placement, comparison, recovery, and reproduction contract.
+Next, ask your main dot:
 
-## Cloud files and ownership
+> Check that you can read the installed dot-toolkit's dot-guidelines.
 
-The repository's `dot/AGENTS.md` and `dot/dot-setup.md` are public source templates. Setup places files at these exact locations in dot's cloud, not on the user's computer:
+Check the actual installed common skill and the bundled references needed for the intended task, including the intended version where identifiable. Repository access or a local Codex installation is not proof of availability in dot's cloud. If access fails, inspect the account, workspace, plugin state, and known version instead of repeatedly reinstalling or assuming synchronization. Reuse a current check unless the version or environment changes, access fails, or new evidence is needed.
 
-- `/workspace/AGENTS.md`: required canonical common guidance and task-loading rules
-- `/workspace/.codex/AGENTS-private.md`: optional direct private instructions and/or conditional references
-- `/workspace/.codex/dot-setup.md`: authorized setup, update, and reproduction procedure
-- `/workspace/.codex/dot-setup-private.md`: supplied additional candidates, when any
-- `/workspace/.agents/skills/`: complete managed skill folders, purpose summaries in `INDEX.md`, and adopted inventory in `skills-manifest.json`
+## 2. Request cloud setup if needed
 
-The loader handles explicit initial setup before requiring files that setup creates. During normal work it reads the required canonical guidance and follows the optional-file and task-routing rules defined there. If the private instruction file or managed INDEX is genuinely absent, work continues without private additions or selection from an unknown cloud inventory. No replacement, alternate-location search, or skill installation follows from that absence. Client-exposed skills remain available even without a cloud INDEX; an existing empty INDEX is also valid. Selected skills and required references must be read in full before dependent work.
+To manage private instructions or task skills as cloud files, ask: “Set up your cloud with dot-toolkit.” The [setup procedure](skills/dot-guidelines/reference/setup.md) is bundled; no separate `dot-setup.md` attachment is needed. You can use common guidance without creating private files or adopting task skills.
 
-A read error or access denial is not absence. A previously used guidance file disappearing is not a fresh unconfigured state either. dot reports unreadable guidance, including optional files, and any missing required common guidance, selected skill, required reference, or previously used guidance file. Only dependent work pauses.
+Choose now, later, or none separately for private instructions and additional skill candidates, if those decisions are not already known. dot checks existing files and edits, preserves pending inputs needed for resumption, and creates no empty instruction placeholders.
 
-Keep each private input's state with the private setup records under `/workspace/.codex/` used for the common-source identity, reusing existing records when available. Distinguish inputs awaiting an answer or delivery, explicitly deferred, explicitly unnecessary, and supplied. Absence alone is not a choice of none. Do not create empty or status-only instruction or candidate files, or a new always-read status file, to represent these decisions. Consult the records during authorized setup or resumption, or when a concrete task depends on an unresolved input, rather than during unrelated work. Missing optional files do not cause repeated setup questions, and ordinary conversation does not authorize provisioning.
+Initial setup offers these common candidates:
 
-## Package and activation
+- `agent-workflow-design`: design recurring or long-running agent workflows
+- `prompt-design`: create and revise model-facing instructions
+- `agent-improve`: compare skills or plugins and run improvement experiments
+- `plugin-creator-agent-plugins`: create, validate, and package plugins
 
-The package contains three files:
+dot shows each proposed skill's purpose, source, version, requirements, current placement, and changes. Approve additions and updates for the common and additional groups separately, or skip either. Existing authorization for that exact scope is reused. Listing a candidate does not approve placement, and a pending input pauses only dependent work.
 
-- `plugin.json`: the Agent Plugins manifest
-- `skills/dot-guidelines/SKILL.md`: the loader skill and its selection description
-- `README.md`: this usage guide
+Approved skills are copied as complete folders into dot's cloud. This is separate from installing dot-toolkit or registering skills through ChatGPT. Existing client-installed skills and unselected dependencies are not automatically copied, updated, or removed. See [maintenance](skills/dot-guidelines/reference/skills-maintenance.md) for version and preservation rules.
 
-There is no skill-level `agents/openai.yaml` in this package. It bundles no private instructions, managed skills, MCP server, or hooks. Do not commit private inputs, actual inventories, acquisition records, restoration materials, or generated ZIPs to the public source. The private-by-default skill inventory is distinct from the Agent Plugins manifest.
+If you already use a 0.1 setup, request migration as described below instead of treating it as a new setup.
 
-Use a client supporting [Agent Plugins v1](https://agent-plugins.org/specification) and [Agent Skills](https://agentskills.io/specification). Resolve any existing installation exposing `dot-guidelines` before activation.
+## 3. Make ordinary requests
 
-## Verification status
+Once dot can read the common skill and any settings needed for the task are ready, ask for the work itself. For example, after adopting `prompt-design`, ask: “Make this request clearer and less ambiguous.” The guidance directs dot to select relevant skills from their descriptions and read their instructions before dependent work; you need not name the skill or its path.
 
-Automated checks have covered the public files' structure and consistency and the evaluation code's behavior. Implicit skill selection in an actual main dot conversation, and continuity across conversation or environment boundaries, are not yet sufficiently verified. Source validation and cloud file placement do not establish client discovery, activation, or persistence. Report these outcomes separately, with the version and conditions actually checked; see the Japanese user guide for the acceptance checks.
+If a client-provided skill and an INDEX-listed cloud skill have the same name and both fit, an explicitly requested source takes precedence; otherwise dot prefers the deliberately selected cloud copy. It uses that copy's entrypoint and references together without updating either copy or changing the selection list.
 
-## Official resources
+Routine work does not repeat installation checks, initial setup questions, or all-skill inspections. Genuinely absent optional files leave independent work and client-provided skills available. Unreadable files, malformed selection lists, or loss of previously used guidance pause only the affected work.
 
-For product setup, features, and safety controls, see OpenAI's documentation below. This repository's `/workspace` paths, loading rules, and setup procedure are `dot-toolkit` conventions, not built-in dot behavior.
+Implicit selection and continuity in the actual main dot remain unverified for 0.2. Users do not need to arrange a fresh-context test before ordinary use. Maintainer acceptance checks distinguish installed-resource access, helper execution, selection, and continuity; source tests and hashes are not behavioral evidence.
 
-- [Getting started with your dot](https://help.openai.com/en/articles/20001530-getting-started-with-your-dot)
-- [Dots privacy, security, and safety FAQs](https://help.openai.com/en/articles/20001529-dots-privacy-security-and-safety-faqs)
-- [Meet dots — ChatGPT Learn](https://learn.chatgpt.com/docs/dots)
+## Later changes
 
-## Background
+- **Private instructions:** specify the content and scope to apply. Even for the first private file, dot compares and verifies only the affected instructions and references; this does not require full initial setup or unrelated skill checks.
+- **Task skills or their selection:** request the change. Selection-only work preserves skill contents and versions; removing an entry needs no source retrieval or repair. [Maintenance](skills/dot-guidelines/reference/skills-maintenance.md) preserves unexplained edits and unselected skills, pins source commits, and compares affected files and records before completion. Retries keep the recorded version; hashes cannot restore lost edits.
+- **An existing 0.1 setup:** explicitly request [migration](skills/dot-guidelines/reference/migrations/0.1-to-0.2.md). It keeps adopted skill bytes and selected membership. Old common instructions are compared with their known adopted version; changed or unidentifiable contents are archived in full without overwrite and are not automatically adopted as private guidance. Old files are retired only after preservation and the installed replacement route are verified.
+- **The plugin package:** update through its installation source, then verify the version your main dot can read. This does not automatically update private files or cloud-managed task skills.
 
-The common instructions adapt response-quality and complete-reference-loading guidance from [ai-dotfiles common Codex instructions at a pinned revision](https://github.com/peaceroad/ai-dotfiles/blob/5af65a5d4f355f8063b0871ea5baac76d143d5fc/home/.codex/AGENTS.md). dot-specific scope, layout, and setup remain in the public templates. Their wording alone does not establish improved model performance.
+## Files and checks
+
+Common guidance and procedures stay in the plugin. Version 0.2 does not maintain common runtime copies at `/workspace/AGENTS.md` or `/workspace/.codex/dot-setup.md`.
+
+The cloud files have separate roles:
+
+- `/workspace/.codex/AGENTS-private.md`: optional private instructions and conditional references
+- `/workspace/.agents/skills/<name>/`: each complete adopted skill, including references, scripts, and assets
+- `/workspace/.agents/skills-state/INDEX.md`: the deliberately selected skills for ordinary use, with links to `../skills/<name>/SKILL.md` and full parsed descriptions
+- `/workspace/.agents/skills-state/manifests/<name>.json`: source identity and raw-byte hashes under [schema 1](skills/dot-guidelines/reference/skills-maintenance.md#per-skill-manifest-schema-1)
+
+A manifest does not select its skill. INDEX is not regenerated from all manifests. These paths are conventions for dot's cloud, not the user's computer or the client's complete installed-skill inventory.
+
+The [read-only helpers](skills/dot-guidelines/reference/computer-checks.md) use **Node.js 24 or later**, with built-in modules only. Choose a helper when the task needs its evidence:
+
+- `inspect-computer.mjs`: fixed paths and runtime; private-file existence only
+- `check-skill-index.mjs`: catalog structure, selected manifests, and targets
+- `verify-skill-files.mjs`: exact relative paths and raw-byte hashes
+
+They emit JSON: exit `0` means complete or verified within scope, `1` a mismatch, and `2` unverified evidence or an error. They never write, fetch, install, repair, or change selection. A passing check does not prove description semantics, code safety, write permission, automatic loading, or persistence.
+
+The package contains this README, `plugin.json`, one skill, four conditional references, and three helpers with `lib.mjs`. No MCP server, hooks, or skill-level `agents/openai.yaml` is included. Historical `dot/AGENTS.md` and `dot/dot-setup.md` remain in Git history.
+
+## Scope and further reading
+
+`dot-guidelines` applies to the ongoing main dot, not ordinary Codex tasks or subagents. It does not replace built-in settings, permissions, or memory. Files do not authorize execution, installation, external actions, or live migration. Keep private instructions, actual inventories, environment observations, and generated ZIPs out of public source and packages.
+
+The [Japanese guide](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/dot-toolkit/README.md) covers everyday use; the [acceptance guide](https://github.com/peaceroad/ai-dotfiles/blob/main/evals/dot-toolkit/README.md) covers maintainer verification. Those pages may be newer than this package. Product help is available in [Getting started with your dot](https://help.openai.com/en/articles/20001530-getting-started-with-your-dot) and the [privacy and safety FAQ](https://help.openai.com/en/articles/20001529-dots-privacy-security-and-safety-faqs).
+
+Response-quality and complete-reading principles adapt [ai-dotfiles common Codex instructions at a pinned revision](https://github.com/peaceroad/ai-dotfiles/blob/5af65a5d4f355f8063b0871ea5baac76d143d5fc/home/.codex/AGENTS.md). Their wording alone is not evidence of improved model performance. The package format follows [Agent Plugins v1](https://agent-plugins.org/specification) and [Agent Skills](https://agentskills.io/specification); its cloud layout and management records are dot-toolkit conventions.

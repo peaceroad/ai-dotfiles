@@ -7,7 +7,26 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const dotToolkitFiles = ['README.md', 'plugin.json', 'skills/dot-guidelines/SKILL.md'];
+const dotToolkitFiles = [
+  'README.md',
+  'plugin.json',
+  'skills/dot-guidelines/SKILL.md',
+  'skills/dot-guidelines/reference/computer-checks.md',
+  'skills/dot-guidelines/reference/migrations/0.1-to-0.2.md',
+  'skills/dot-guidelines/reference/setup.md',
+  'skills/dot-guidelines/reference/skills-maintenance.md',
+  'skills/dot-guidelines/scripts/check-skill-index.mjs',
+  'skills/dot-guidelines/scripts/inspect-computer.mjs',
+  'skills/dot-guidelines/scripts/lib.mjs',
+  'skills/dot-guidelines/scripts/verify-skill-files.mjs',
+];
+const dotToolkitDirectories = [
+  'skills',
+  'skills/dot-guidelines',
+  'skills/dot-guidelines/reference',
+  'skills/dot-guidelines/reference/migrations',
+  'skills/dot-guidelines/scripts',
+];
 
 function assertDotToolkitPackage(root) {
   const files = [];
@@ -27,8 +46,8 @@ function assertDotToolkitPackage(root) {
     }
   }
   inspect(root);
-  assert.deepEqual(files.sort(), dotToolkitFiles, 'dot-toolkit must contain only its three public package files.');
-  assert.deepEqual(directories.sort(), ['skills', 'skills/dot-guidelines'], 'dot-toolkit must contain only its declared skill directories.');
+  assert.deepEqual(files.sort(), dotToolkitFiles, 'dot-toolkit must contain exactly its declared public package files.');
+  assert.deepEqual(directories.sort(), dotToolkitDirectories, 'dot-toolkit must contain only its declared skill directories.');
 }
 
 function markdownFiles(root) {
@@ -66,6 +85,23 @@ for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli
         const result = spawnSync(process.execPath, [join(skill, 'scripts', script), '--help'], { cwd: root, encoding: 'utf8', env: { ...process.env, PATH: '' } });
         assert.equal(result.status, 0, result.stdout + result.stderr);
       }
+    } else if (name === 'dot-toolkit') {
+      const metadata = JSON.parse(readFileSync(join(plugin, 'plugin.json'), 'utf8'));
+      assert.equal(metadata.version, '0.2.0');
+      const scriptRoot = join(plugin, 'skills', 'dot-guidelines', 'scripts');
+      for (const script of ['inspect-computer.mjs', 'check-skill-index.mjs', 'verify-skill-files.mjs']) {
+        const result = spawnSync(process.execPath, [join(scriptRoot, script), '--help'], {
+          cwd: root, encoding: 'utf8', env: { ...process.env, PATH: '', NODE_PATH: '', NODE_OPTIONS: '' },
+        });
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+        const help = JSON.parse(result.stdout);
+        assert.equal(help.schemaVersion, 1);
+        assert.equal(help.status, 'help');
+        assert.equal(result.stderr, '');
+        assert.ok(help.data.usage, `${script} must document isolated execution`);
+        assert.match(help.data.nodeRequirement, /24/);
+      }
+      assertDotToolkitPackage(plugin); // --help must not create generated or runtime files.
     } else if (name === 'ai-dotfiles-cli') {
       assert.deepEqual(readdirSync(join(plugin, 'skills')).sort(), ['ai-dotfiles-cli', 'codex-history']);
     } else if (name === 'agent-eval-tools') {
@@ -86,7 +122,7 @@ for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli
   });
 }
 
-for (const extra of ['AGENTS-private.md', 'skills/dot-guidelines/private/notes.md']) {
+for (const extra of ['AGENTS-private.md', 'skills/dot-guidelines/private/notes.md', 'skills/dot-guidelines/INDEX.md', 'skills/dot-guidelines/manifests/alpha.json']) {
   test(`dot-toolkit rejects an additional package file: ${extra}`, t => {
     const root = mkdtempSync(join(tmpdir(), 'dot-package-boundary-test-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -95,7 +131,7 @@ for (const extra of ['AGENTS-private.md', 'skills/dot-guidelines/private/notes.m
     const file = join(root, extra);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, 'Synthetic fixture; no private user data.\n');
-    assert.throws(() => assertDotToolkitPackage(root), /dot-toolkit must contain only its three public package files/);
+    assert.throws(() => assertDotToolkitPackage(root), /dot-toolkit must contain exactly its declared public package files/);
   });
 }
 
@@ -107,7 +143,7 @@ for (const file of dotToolkitFiles) {
     assertDotToolkitPackage(root);
     rmSync(join(root, file));
     mkdirSync(join(root, file));
-    assert.throws(() => assertDotToolkitPackage(root), /dot-toolkit must contain only its three public package files/);
+    assert.throws(() => assertDotToolkitPackage(root), /dot-toolkit must contain exactly its declared public package files/);
   });
 }
 

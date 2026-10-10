@@ -3,29 +3,74 @@
   "kind": "acceptance-definition",
   "targets": [
     {
+      "path": "plugins/dot-toolkit/README.md",
+      "sha256": "28b304804beb3cb147ab838837c311a84975e8422dc0373dc8490ee0b110cbd6",
+      "bytes": 10912
+    },
+    {
       "path": "plugins/dot-toolkit/plugin.json",
-      "sha256": "ce84ada8cf32dbe9bc544ef8a819f6f397e76b8f4ddcee1761f19f51308588d9",
+      "sha256": "4b3a8448bd3da6b56afbf56d041fcb2e9b208b2a1ec81bb421e149cccbbb9704",
       "bytes": 219
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "2cb9398f7662c8374c91f2bbbc38473c06d605c8a3ea254c74eaadc23358480f",
-      "bytes": 1637
+      "sha256": "0e7c22dfa4ae6c5b6455a00f7488faecadb24499a77b769675b8419742cdefdf",
+      "bytes": 6677
     },
     {
-      "path": "dot/AGENTS.md",
-      "sha256": "71dd62e93456dad157b72bd9b716e94033c38722169b30d2511f3e1d09f9ec24",
-      "bytes": 6360
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
+      "sha256": "61b9a7a6bb1cfb64df8341ce15308bf14357c17763b5fe500c0bfc6b6fbad68c",
+      "bytes": 7147
     },
     {
-      "path": "dot/dot-setup.md",
-      "sha256": "bf9f2a1f8da0bd6daba57593fc44e51b64b6e61e7852092fac5a4df1cefbf2a6",
-      "bytes": 30584
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
+      "sha256": "0cb629e34ed1ea30d89e08c8e92c1c0db55f259158a19e590a45a93e5bfdec00",
+      "bytes": 6125
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
+      "sha256": "5acd929a5db4cf670a4f29d9b2d3ce9f38cbead34bbd45061e6303ab7f4ac1ed",
+      "bytes": 9256
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
+      "sha256": "90baafb4908735b0b8fed5186a43b33f1aae5bd8c7a7bcefa6126fabda31b37d",
+      "bytes": 7527
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs",
+      "sha256": "8e97c32322cb31c362d53686112c31766123cd242442bf6450e5c814c3e6653d",
+      "bytes": 1411
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs",
+      "sha256": "1bf1bdab9988a21b29c62288ea28e437f0d49b9ffb621e754100e36b29afb439",
+      "bytes": 1142
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs",
+      "sha256": "7617118bf41f652fe44a213b38be224efe2bf2c85c7971a0857b4cc680775f86",
+      "bytes": 3512
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs",
+      "sha256": "20b92a6e70e4d8b9d1d643661dac97ec6e7b6b3ccbaf0a09d663898eef6a6ad8",
+      "bytes": 13898
     }
   ],
   "behavioralRuns": "not_run",
   "limits": [
     "このmanifestは公開ソースの固定記録であり、導入済みプラグインや実環境の識別記録ではない。",
-    "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更は含まない。"
-  ]
+    "構造検査、隔離パッケージ実行、合成記録はインストール済み資源へのアクセスや通常のメインdotでの行動を証明しない。",
+    "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
+    "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
+  ],
+  "pluginVersion": "0.2.0",
+  "liveChecks": {
+    "installedEntry": "not_run",
+    "installedReferences": "not_run",
+    "installedScriptsRetrieved": "not_run",
+    "installedScriptsExecuted": "not_run",
+    "ordinaryMainDotContext": "not_run"
+  }
 }
