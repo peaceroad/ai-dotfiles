@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { installAgent } from './install-agent.mjs';
+import { displayPath, installAgent } from './install-agent.mjs';
 import { CODEX_TOOLS } from '../tools/agent/codex/codex.mjs';
 
 function fixture(t) {
@@ -43,7 +43,7 @@ test('dry run creates nothing for each supported platform', t => {
   for (const platform of ['win32', 'linux', 'darwin']) {
     const output = [];
     installAgent({ ...options, platform, dryRun: true, log: line => output.push(line) });
-    assert.ok(output.some(line => line.includes('/ai-dotfiles/development.schema.json')));
+    assert.ok(output.includes(`Would install/update: ${displayPath(join(options.agentsRoot, 'ai-dotfiles', 'development.schema.json'))}`));
   }
   assert.equal(fs.existsSync(options.agentsRoot), false);
   assert.equal(fs.existsSync(options.binDir), false);
@@ -126,8 +126,11 @@ test('ownership stays within the first eight lines and late collisions prevent a
   fs.writeFileSync(command, '\r\n'.repeat(7) + 'rem @ai-dotfiles agent-dev-runtime managed\r\n');
   const installed = [];
   installAgent({ ...options, log: line => installed.push(line) });
-  assert.match(installed.at(-2), /\/runtime\/agent\.mjs$/);
-  assert.match(installed.at(-1), /\/scripts\/agent\.cmd$/);
+  const implementation = join(options.agentsRoot, 'ai-dotfiles', 'runtime', 'agent.mjs');
+  assert.equal(installed.at(-2), `Installed: ${displayPath(implementation)}`);
+  assert.equal(installed.at(-1), `Updated: ${displayPath(command)}`);
+  assert.deepEqual(fs.readFileSync(implementation), fs.readFileSync(new URL('../tools/agent/agent.mjs', import.meta.url)));
+  assert.deepEqual(fs.readFileSync(command), fs.readFileSync(new URL('../tools/agent/agent.cmd', import.meta.url)));
 });
 
 test('Unix command collisions reject even force before writing runtime', t => {
@@ -241,4 +244,21 @@ test('existing installation roots use filesystem canonical spelling', { skip: pr
   installAgent({ ...options, agentsRoot: root });
   installAgent({ ...options, agentsRoot: otherSpelling });
   assert.equal(fs.realpathSync(join(options.binDir, 'agent')), join(fs.realpathSync(root), 'ai-dotfiles', 'runtime', 'agent.mjs'));
+});
+
+
+test('display paths retain home-relative details and redact custom parents', t => {
+  const root = fs.mkdtempSync(join(fs.realpathSync(tmpdir()), 'agent-display-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const home = join(root, 'synthetic-home');
+  const paths = [home, join(home, 'runtime', 'agent.mjs'), join(root, 'custom', 'runtime', 'agent.mjs'),
+    join(root, 'synthetic-home-sibling', 'runtime', 'agent.mjs')];
+  const script = `import { displayPath } from ${JSON.stringify(new URL('./install-agent.mjs', import.meta.url).href)};
+    console.log(JSON.stringify(${JSON.stringify(paths)}.map(displayPath)));`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    encoding: 'utf8', env: { ...process.env, HOME: home, USERPROFILE: home },
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), ['~', '~/runtime/agent.mjs', '[custom]/agent.mjs', '[custom]/agent.mjs']);
+  assert.equal(result.stdout.includes(root), false);
 });

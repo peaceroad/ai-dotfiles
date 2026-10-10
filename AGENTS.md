@@ -16,7 +16,7 @@
 
 ## Export validation
 
-- After changing `export.js` or `export.yaml`, run `node --check export.js` and `npm run check`. Do not run `npm run build` while the dry run has outstanding findings.
+- After changing `export.js` or `export.yaml`, run `node --check export.js` and `npm run check` for repository checks with synthetic export inputs. Before publishing home-directory exports, also run `npm run check:export` against the intended real source files. Do not run `npm run build` while that dry run has outstanding findings.
 - For export work in the Windows Codex sandbox, complete the checks and ask the user to run `npm run build`; writes to `home/.agents/` and `home/.codex/` can fail with `EPERM` there.
 
 ## Dependencies
