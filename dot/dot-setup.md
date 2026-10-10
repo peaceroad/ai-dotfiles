@@ -42,20 +42,22 @@ Export additional common-instruction copies only when the operating environment 
 
 ### Private inputs now or later
 
-`/workspace/.codex/AGENTS-private.md` may contain direct private instructions, conditional references, or both. Separate documents are optional. `/workspace/.codex/dot-setup-private.md` holds additional skill candidates or their current status.
+`/workspace/.codex/AGENTS-private.md` is optional and contains actual private instructions, conditional references, or both. Separate referenced documents are optional. `/workspace/.codex/dot-setup-private.md` holds supplied additional skill candidates; it need not exist when there are none to store.
 
 For missing inputs whose status is unknown, ask once whether each will be supplied now, later, or is unnecessary: “For private instructions and additional skill candidates, would you like to provide them now, later, or use none for this setup? You can choose separately for each.” Continue independent common work. A no-additions choice concerns only candidates, not whether private instructions apply.
 
-During authorized initial setup, create only missing records:
+Retain each input's current status with the private setup records under `/workspace/.codex/` used for the common-instruction source identity. Distinguish awaiting an answer or delivery, explicitly deferred, explicitly unnecessary, and supplied inputs. Retain the user's decision and any known dependent scope or next input needed for resumption. Reuse existing records rather than requiring a new canonical status file. Check these records during setup and resumption, or when a concrete task depends on an unresolved input; ordinary work does not need to load them.
 
-- Preserve supplied private instructions, references, scopes, and loading conditions. If instructions are missing or deferred, record them as pending in `AGENTS-private.md`, without inventing their contents or claiming none apply. An explicit no-private-instructions choice permits dot to write that declaration; the user need not supply an empty file.
-- Preserve supplied additional candidates in `dot-setup-private.md`, or record their pending, deferred, or no-additions status. Listing candidates does not approve their installation.
+During authorized initial setup, create only needed files:
 
-Never overwrite existing private documents with minimal records. Missing, deferred, explicitly none, and supplied inputs remain distinct. Silence is not a decision; do not repeat an answered or pending question unless a specific task now depends on it. While instructions are pending, proceed only with independent work and report any material dependency.
+- Preserve supplied private instructions, references, scopes, and loading conditions in `AGENTS-private.md`. Do not create an empty, pending, or none placeholder merely to make that optional instruction file readable.
+- Preserve supplied additional candidates in `dot-setup-private.md`. Listing candidates does not approve their installation. Keep pending, deferred, and no-additions decisions in the private setup records rather than creating a candidate-file placeholder.
 
-Save supplied referenced private documents under `/workspace/.codex/`, retaining their filenames and conditions, and verify their explicit references. Keep private filenames, purposes, contents, candidates, and decisions out of public documents, PRs, and logs.
+Never overwrite existing private documents with minimal records or automatically remove earlier status-only files. File presence or absence does not establish a user's decision. Silence is not a decision; do not repeat an answered or pending question unless a specific task now depends on it. While instructions are pending, continue independent work and report only known material dependencies; unknown future instructions are not a blanket blocker.
 
-Later private files require an apply request. Compare and apply only that private scope, preserving existing common configuration, adopted skills, and prior decisions. Do not refetch or redo common setup; skill additions and updates still follow the separate selection process below.
+Save supplied referenced private documents under `/workspace/.codex/`, retaining their filenames and conditions, and verify their explicit references. Keep private filenames, purposes, contents, candidates, decisions, and setup records out of public documents, PRs, and logs.
+
+Later private files require an apply request. Compare and apply only that private scope, preserving existing common configuration, adopted skills, and prior decisions. Update the corresponding private-input status after verifying the result. Do not refetch or redo common setup; skill additions and updates still follow the separate selection process below.
 
 ## 3. Select and place skills
 
@@ -102,13 +104,13 @@ These records describe managed cloud copies, not the client's installed-skill in
 
 Preserve INDEX and manifest when the adopted set, source revisions, contents, and management references are unchanged, unless an actual verification must be recorded. Skill updates require corresponding source, file, hash, and verification records after comparison, even with no new skills. Preserve unrelated records and edits. Procedure-only or candidate-list edits do not change managed skills, INDEX, or manifest.
 
-For an empty initial setup with no installed skills and no selected placements, a new INDEX may say “No adopted skills”; use empty `sources`, `skills`, and `files` arrays. This records an empty adopted inventory, not rejection of pending candidates. Do not relabel existing inventories to match an example, or clear records for skipped/no-additions groups. If repair materials are missing, request them rather than substituting an upstream version.
+When there are no managed skills and no selected placements, INDEX and manifest need not be created merely for ordinary loading. If recording an empty adopted inventory, a new INDEX may say “No adopted skills”; use empty `sources`, `skills`, and `files` arrays in its manifest. This records an empty adopted inventory, not rejection of pending candidates. Do not relabel existing inventories to match an example, or clear records for skipped/no-additions groups. If repair materials are missing, request them rather than substituting an upstream version.
 
-Read saved files back and verify the canonical instructions, private-document references, adopted skills, content comparisons, and INDEX/manifest consistency. Give a concise completion report covering:
+Read saved files back and verify the canonical instructions, private-input status records, supplied private-document references, adopted skills, and content comparisons. For managed skills or retained inventory records, also verify INDEX/manifest consistency. Give a concise completion report covering:
 
 - Guidance actually read: identify the available loader and the adopted common instructions' source, version or content identity, and canonical location, with a brief explanation of their roles. Distinguish a source copy from the installed loader, and report any known mismatch or unverified availability.
 - Adopted state: report common configuration, each skill group, and private-input status without reproducing confidential instruction contents. Name the added, updated, and retained managed skills with their relevant uses; distinguish these copies from app-installed skills. Identify unresolved targets and the inputs needed to resume; skipped or explicitly unnecessary work is not pending.
-- Intended normal use: explain that the canonical AGENTS remains the common reference, and relevant skills are selected from INDEX summaries and available descriptions even when the user does not name them. This routing does not authorize unrelated execution or monitoring.
+- Intended normal use: explain that the canonical AGENTS remains the common reference, and relevant skills are selected from an available INDEX and client-provided descriptions even when the user does not name them. Absent optional private guidance or a cloud INDEX does not prevent ordinary work; available client-installed skills remain usable. This routing does not authorize unrelated execution or monitoring.
 
 Report file integrity, reading in the current conversation, implicit selection in an unprimed main-dot context, and continuity across an actually observed conversation or environment boundary separately, with the conditions and evidence checked. Distinguish passed, failed, not run, and not observable; missing evidence is not success. Script behavior, external links, and persistence need their own applicable checks. If supported automatic loading cannot be verified, explicitly identify and read the canonical guidance at the start of work. This is a setup-result summary, not a checklist to repeat in routine replies.
 

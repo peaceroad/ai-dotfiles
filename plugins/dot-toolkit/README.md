@@ -12,12 +12,12 @@ The [current Japanese user guide](https://github.com/peaceroad/ai-dotfiles/blob/
 
 1. Install the plugin in a supporting client.
 2. Attach `dot-setup.md` and explicitly ask: “Set up your cloud using this procedure.” The attachment governs; it is not replaced with the latest repository copy.
-3. dot checks existing state and asks once about missing private instructions and additional skill candidates. Choose now, later, or none separately for each. You do not need to create an empty file to say that private instructions are unnecessary.
+3. dot checks existing state and asks once about missing private instructions and additional skill candidates whose status is unknown. Choose now, later, or none separately for each. You do not need to create an empty file to say that private instructions are unnecessary.
 4. Review the proposed sources, versions, requirements, and changes. Approve common and additional skill changes separately, or skip either group. A candidate list is not an installation request.
 
 For a new common-instruction acquisition or an explicitly requested upstream update, the procedure resolves the specified ref, defaulting to `main`, once to an immutable commit. It verifies and retains that source identity before placement, separately from skill versions and even when no skills are selected. Retry, repair, and reproduction reuse the recorded version; an established configuration is not automatically refreshed. Setup follows your conversational language; the English examples do not require English replies.
 
-Common configuration can be ready while private inputs or skill selections are pending. dot reports those parts separately rather than treating missing instructions as unnecessary or calling the entire setup complete. Pending private inputs pause only work that needs them.
+Common configuration can be ready while private inputs or skill selections are pending. dot reports those parts separately rather than treating missing instructions as unnecessary or calling the entire setup complete. Only a concrete, known dependency on an unresolved private input pauses work; unknown future instructions do not block ordinary requests.
 
 ## Later changes and interrupted setup
 
@@ -31,13 +31,17 @@ Version 0.1.0 identifies this initial plugin release. Repository commits identif
 
 The repository's `dot/AGENTS.md` and `dot/dot-setup.md` are public source templates. Setup places files at these exact locations in dot's cloud, not on the user's computer:
 
-- `/workspace/AGENTS.md`: canonical common guidance and task-loading rules
-- `/workspace/.codex/AGENTS-private.md`: direct private instructions and/or conditional references, or an explicit pending/none status
+- `/workspace/AGENTS.md`: required canonical common guidance and task-loading rules
+- `/workspace/.codex/AGENTS-private.md`: optional direct private instructions and/or conditional references
 - `/workspace/.codex/dot-setup.md`: authorized setup, update, and reproduction procedure
-- `/workspace/.codex/dot-setup-private.md`: additional candidates or their current status
+- `/workspace/.codex/dot-setup-private.md`: supplied additional candidates, when any
 - `/workspace/.agents/skills/`: complete managed skill folders, purpose summaries in `INDEX.md`, and adopted inventory in `skills-manifest.json`
 
-The loader handles explicit initial setup before requiring files that setup creates. During normal work it reads canonical guidance and follows its task-specific routing. Private instructions can be written directly or refer to other documents under stated conditions. INDEX summaries and descriptions help select task skills; the selected instructions and required references are then read in full. Ordinary conversation or a missing file does not authorize provisioning.
+The loader handles explicit initial setup before requiring files that setup creates. During normal work it reads the required canonical guidance and follows the optional-file and task-routing rules defined there. If the private instruction file or managed INDEX is genuinely absent, work continues without private additions or selection from an unknown cloud inventory. No replacement, alternate-location search, or skill installation follows from that absence. Client-exposed skills remain available even without a cloud INDEX; an existing empty INDEX is also valid. Selected skills and required references must be read in full before dependent work.
+
+A read error or access denial is not absence. A previously used guidance file disappearing is not a fresh unconfigured state either. dot reports unreadable guidance, including optional files, and any missing required common guidance, selected skill, required reference, or previously used guidance file. Only dependent work pauses.
+
+Keep each private input's state with the private setup records under `/workspace/.codex/` used for the common-source identity, reusing existing records when available. Distinguish inputs awaiting an answer or delivery, explicitly deferred, explicitly unnecessary, and supplied. Absence alone is not a choice of none. Do not create empty or status-only instruction or candidate files, or a new always-read status file, to represent these decisions. Consult the records during authorized setup or resumption, or when a concrete task depends on an unresolved input, rather than during unrelated work. Missing optional files do not cause repeated setup questions, and ordinary conversation does not authorize provisioning.
 
 ## Package and activation
 

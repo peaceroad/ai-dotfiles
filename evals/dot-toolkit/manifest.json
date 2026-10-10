@@ -9,18 +9,18 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "87631b4ea671842e6b83af0d0a037f0da8a8b0a5f194d7a9644cc930d9646182",
+      "sha256": "2cb9398f7662c8374c91f2bbbc38473c06d605c8a3ea254c74eaadc23358480f",
       "bytes": 1637
     },
     {
       "path": "dot/AGENTS.md",
-      "sha256": "92aefa598e51a22bedfe91dd02b9002f8369a4df4777ead16d7e956b2e157c1a",
-      "bytes": 5561
+      "sha256": "71dd62e93456dad157b72bd9b716e94033c38722169b30d2511f3e1d09f9ec24",
+      "bytes": 6360
     },
     {
       "path": "dot/dot-setup.md",
-      "sha256": "04ddbb52fae605f2816bb4d84cf95176d1db77916ee197695142ae8b827060e6",
-      "bytes": 29494
+      "sha256": "bf9f2a1f8da0bd6daba57593fc44e51b64b6e61e7852092fac5a4df1cefbf2a6",
+      "bytes": 30584
     }
   ],
   "behavioralRuns": "not_run",

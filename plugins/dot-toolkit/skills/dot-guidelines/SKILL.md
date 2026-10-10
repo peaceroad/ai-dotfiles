@@ -17,4 +17,4 @@ This entry requires an explicit initial setup request. Attachment alone, ordinar
 
 Read `/workspace/AGENTS.md` completely, then follow its loading rules for private instructions, task-relevant skills and references, and authorized setup work. It owns common guidance and routing; this skill does not duplicate them.
 
-Read instruction files in separate bounded results and retrieve truncated content through EOF before relying on it. If required material is missing or unreadable, report it and pause only dependent work. Outside authorized setup, do not provision, restore, install, activate, or search alternate configuration locations automatically. Loading guidance does not authorize actions or broaden the request.
+Read instruction files in separate bounded results and retrieve truncated content through EOF before relying on it. If `/workspace/AGENTS.md` is missing or unreadable, report it and pause dependent work. Outside authorized setup, do not provision, restore, install, activate, or search alternate configuration locations automatically. Loading guidance does not authorize actions or broaden the request.

@@ -87,6 +87,15 @@ function checkBundle(root) {
 }
 
 test('case definitions separate natural inputs, criteria, and synthetic-only conditions', () => checkDefinitions());
+test('optional-guidance boundary definitions remain synthetic and separate from live trials', () => {
+  for (const id of [
+    'optional-guidance-absent', 'optional-guidance-client-skill', 'pending-private-input',
+    'optional-guidance-unreadable', 'adopted-guidance-missing', 'required-reference-missing', 'setup-private-status',
+  ]) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', `${id} is a synthetic decision case`);
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, `${id} needs both decision boundaries`);
+  }
+});
 test('stage definitions preserve the independent acceptance contract', () => {
   assert.deepEqual(Object.keys(criteria.stages).sort(), Object.keys(stageContract).sort());
   for (const [name, expected] of Object.entries(stageContract)) {

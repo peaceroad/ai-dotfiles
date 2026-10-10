@@ -6,11 +6,13 @@ These instructions govern only the user's ongoing main assistant, dot, in its ow
 
 ## Load relevant guidance
 
-- Read `/workspace/.codex/AGENTS-private.md` completely. Apply relevant instructions written there; read required referenced documents completely, under their stated conditions, before dependent work. Pending private inputs are not a decision that none apply: continue independent work without inventing or claiming to have applied them. Do not repeat an answered or pending setup question during unrelated work.
-- Read `/workspace/.agents/skills/INDEX.md` and select task skills using its purpose summaries and available descriptions. Before dependent work, read each selected `SKILL.md` and its required references completely; summaries support selection, not execution.
-- For authorized setup, updates, or reproduction, read `/workspace/.codex/dot-setup.md` and its required private inputs under `/workspace/.codex/`. Otherwise leave setup procedures unread. An explicit initial setup request starts from the supplied `dot-setup.md`, which governs creating missing files and truthful private-input status records.
+- If `/workspace/.codex/AGENTS-private.md` exists, read it completely. Apply relevant instructions written there; read required referenced documents completely, under their stated conditions, before dependent work. If it is absent, continue without private additions; do not ask for or create a file merely to satisfy loading.
+- If `/workspace/.agents/skills/INDEX.md` exists, read it and use its purpose summaries to select from adopted managed skills. Also use descriptions of skills available through the client; an absent or empty cloud INDEX does not exclude those skills. Do not search for unadopted or uninstalled candidates during ordinary work. Before dependent work, read each selected `SKILL.md` and its required references completely; summaries support selection, not execution.
+- For authorized setup, updates, or reproduction, read `/workspace/.codex/dot-setup.md` and the relevant private setup records under `/workspace/.codex/`. Otherwise leave setup procedures and records unread unless a concrete task depends on an unresolved setup input. An explicit initial setup request starts from the supplied `dot-setup.md`, which governs creating needed files and retaining private-input decisions.
 
-If required material is missing or unreadable, report it and pause only dependent work. Outside authorized setup, do not provision replacement configuration or search alternate locations.
+Absence of an optional file does not establish that the user chose none or erase known pending inputs. While a private input is pending, continue independent work without inventing or claiming to have applied it; pause only a task known to depend on that input. Do not repeat an answered or pending setup question during unrelated work.
+
+A read failure or access denial is not absence, and a file known to have been in use is not newly unconfigured just because it disappears. Report unreadable guidance and any missing required common guidance, selected skill, required reference, or previously used guidance file; pause only dependent work. Outside authorized setup, do not provision replacement configuration or search alternate locations; never use another route to bypass an access denial.
 
 ## Scope and permissions
 
