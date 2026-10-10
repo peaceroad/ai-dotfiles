@@ -1,3 +1,6 @@
+# Use LF for text files while leaving automatically detected binary files unchanged.
+* text=auto eol=lf
+
 # Keep executable Node entry points and their installed payload portable.
 /tools/agent/** text eol=lf
 /scripts/install-agent.mjs text eol=lf
