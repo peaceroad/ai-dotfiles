@@ -1,23 +1,25 @@
 #!/usr/bin/env node
 import { MANIFESTS, SKILLS, addAccessFailure, finding, readManifest, run, sha256, validName, validRelative } from './lib.mjs';
 
-function inventory(access, result, base, declared, relative = '') {
+function inventory(access, result, base, declared, relative = '', actual = new Set()) {
   const target = relative ? `${base}/${relative}` : base;
   let entries;
   try { entries = access.list(target); }
-  catch (error) { addAccessFailure(result, error, target, 'mismatch', 'skill_directory_missing'); return; }
+  catch (error) { addAccessFailure(result, error, target, 'mismatch', 'skill_directory_missing'); return actual; }
   for (const entry of entries) {
     const file = relative ? `${relative}/${entry}` : entry;
     const full = `${base}/${file}`;
     if (!validRelative(file)) { finding(result, 'unverified', 'unsupported_path', target); continue; }
+    actual.add(file);
     let stat;
     try { stat = access.stat(full); }
     catch (error) { addAccessFailure(result, error, full); continue; }
     if (stat.isDirectory()) {
       if (![...declared].some(name => name.startsWith(`${file}/`))) finding(result, 'mismatch', 'extra_directory', full);
-      inventory(access, result, base, declared, file);
+      inventory(access, result, base, declared, file, actual);
     } else if (!declared.has(file)) finding(result, 'mismatch', 'extra_file', full);
   }
+  return actual;
 }
 
 run('verify-skill-files', process.argv.slice(2), (options, result, access) => {
@@ -45,9 +47,16 @@ run('verify-skill-files', process.argv.slice(2), (options, result, access) => {
     if (manifest) {
       const base = `${SKILLS}/${name}`;
       const declared = new Set(manifest.files.map(file => file.path));
-      inventory(access, result, base, declared);
+      const actual = inventory(access, result, base, declared);
+      const inventoryVerified = !result.findings.slice(initial).some(item => item.severity === 'unverified');
       for (const file of manifest.files) {
         const target = `${base}/${file.path}`;
+        // A successful open may resolve a differently spelled path on some filesystems.
+        // Require the declared spelling to exist in the directory inventory as well.
+        if (inventoryVerified && !actual.has(file.path)) {
+          finding(result, 'mismatch', 'missing_file', target);
+          continue;
+        }
         try {
           const bytes = access.read(target);
           checkedFiles++;

@@ -105,6 +105,9 @@ test('optional-guidance boundary definitions remain synthetic and separate from 
 });
 // These names are an independent coverage contract, not generated from cases.json.
 const redesignDecisionCases = [
+  'current-guidance-reuse',
+  'scoped-private-input',
+  'selection-removal-without-source',
   'plugin-common-without-legacy',
   'plugin-conditional-reference-routing',
   'index-deliberate-selection',

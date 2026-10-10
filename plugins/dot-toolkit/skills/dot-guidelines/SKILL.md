@@ -10,8 +10,10 @@ This skill owns common guidance for the ongoing main dot conversation. Use its `
 ## Normal work
 
 1. Read `/workspace/.codex/AGENTS-private.md` completely if present, applying relevant instructions and required references under their stated conditions. Do not create an empty file or ask for one merely to satisfy loading.
-2. Before selecting task skills, read the existing `/workspace/.agents/skills-state/INDEX.md` and consider client-provided skill descriptions. INDEX intentionally selects cloud skills for normal use; it is not every installed skill or manifest. Choose relevant skills even when the user has not named them. Reuse a fully read, current INDEX, but reread it after changes or migration.
+2. Before selecting task skills, read the existing `/workspace/.agents/skills-state/INDEX.md` and consider client-provided skill descriptions. INDEX intentionally selects cloud skills for normal use; it is not every installed skill or manifest. Choose relevant skills even when the user has not named them.
 3. Read the selected `SKILL.md` and its task-required references completely before dependent work. Follow that skill's own reference-loading conditions. Do not read all skills or manifests for an ordinary request, or search for unadopted candidates.
+
+Reuse complete guidance, INDEX, and installed-resource checks established in the current context. Recheck the affected resources after changes or migration, an environment change, a read failure, or when the task needs new evidence. Do not repeat plugin discovery or setup merely to reconfirm readiness.
 
 A genuinely absent INDEX in a new environment, or a valid empty selection, leaves client-provided skills and independent work available. Absence of optional guidance is not a choice of none and does not erase known pending inputs. Continue independent work while an input is pending; do not claim to apply it or repeat unrelated setup questions.
 
@@ -21,7 +23,7 @@ Read failures, access denials, malformed selections, and disappearance of previo
 
 Read only the reference needed for the requested work:
 
-- Explicit initial setup or later private-input application: [setup](reference/setup.md).
+- Explicit initial setup or private-input application: [setup](reference/setup.md).
 - Environment inspection, a concrete access/runtime problem, or interpreting helper results: [computer checks](reference/computer-checks.md).
 - Skill addition, update, selection changes, comparison, reproduction, or interrupted maintenance: [skills maintenance](reference/skills-maintenance.md).
 - Existing 0.1 common files or legacy inventory during setup, inspection, or migration: [0.1 to 0.2 migration](reference/migrations/0.1-to-0.2.md). A remaining old layout needs migration, not automatic cleanup or a claim that setup is ready.
@@ -38,13 +40,13 @@ Keep private instructions, candidates, source inventories, and actual-environmen
 
 ## Reading and responses
 
-Read each instruction file in a separate bounded result; check tool and wrapper limits. Retrieve any omitted ranges through EOF before relying on truncated content. Reuse complete, still-current guidance; excerpts support finding a document, not pretending to have read it.
+Read each instruction file in a separate bounded result; check tool and wrapper limits. Retrieve any omitted ranges through EOF before relying on truncated content. Excerpts support finding a document, not pretending to have read it.
 
 Lead with the answer, result, or necessary next action. Avoid excessive praise, repeated obvious recaps, and unnecessary tables. Keep needed context, evidence, and caveats; distinguish evidence, inference, and material uncertainty. Use the user's conversational language. Claim only the validation actually performed, separating file checks from installed-resource access, main-dot behavior, and persistence.
 
 ## Cloud workspace
 
-Verify the assigned directory, access scope, and `/workspace/shared/`; a directory name does not establish persistence. Create locations only as needed:
+When a task needs file work, verify the assigned directory and access scope before choosing a work or retention location. A directory name such as `/workspace/shared/` does not establish persistence. Create locations only as needed:
 
 - `/workspace/shared/projects/<project>/`: ongoing work, including repositories, drafts, sources, and deliverables together
 - `/workspace/shared/downloads/`: retained acquisitions and pinned snapshots

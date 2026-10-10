@@ -2,6 +2,15 @@
 
 Use for authorized additions, updates, selection changes, comparisons, reproduction, and interrupted maintenance. The common scope and stop rules remain in [dot-guidelines](../SKILL.md). This is a dot-toolkit convention, not an Agent Skills or Agent Plugins inventory standard.
 
+## Choose the operation
+
+- **Selection or description only:** preserve skill files, source versions, and manifests. Inspect the current INDEX and the entries affected by the request. For an addition or description refresh, read the selected entry's current frontmatter and check its recorded identity and required files. Removing an entry does not require retrieving or repairing that skill. Recheck INDEX before writing, change only the approved membership or descriptions, then validate the resulting selection.
+- **Add or update skill contents:** use the source and manifest contracts below, followed by **Apply and resume**.
+- **Comparison or reproduction:** use the recorded identity and the checks needed for the requested result. A comparison does not authorize writes; reproduction does not authorize an upgrade.
+- **Interrupted work:** inspect the actual state and retained intent, then resume only the unfinished part of the authorized operation.
+
+Use the [computer checks](computer-checks.md) that support that operation. INDEX-only work needs no new source acquisition or blanket hash verification of unselected skills.
+
 ## Ownership and source identity
 
 - `/workspace/.agents/skills/<name>/` contains every adopted skill file, including references, scripts, templates, and assets.

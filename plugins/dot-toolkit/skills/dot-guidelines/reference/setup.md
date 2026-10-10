@@ -1,12 +1,14 @@
 # Setup and private inputs
 
-Use for an explicit request to set up dot's own cloud or apply supplied private inputs. Attachment alone is not an apply request. Follow the scope, preservation, and permission boundaries in [dot-guidelines](../SKILL.md).
+Use for an explicit request to set up dot's own cloud or apply supplied private inputs. Attachment alone is not an apply request. Follow [dot-guidelines](../SKILL.md) for authority, preservation, privacy, and reuse of current checks.
+
+Route by the requested change, even in a new environment. For private instructions only, use **Optional private inputs** and **Verify and report** below: compare the affected instructions, references, and retained pending decisions, then apply and read back that scope. Skip initial candidate selection and unrelated skill/helper checks. For a requested initial setup, follow the full procedure; skill-only changes use [skills maintenance](skills-maintenance.md).
 
 ## Establish the starting point
 
-Read [computer checks](computer-checks.md) and inspect the relevant current state before proposing or saving changes. Confirm the selected environment, allowed writes, required commands, and existing files. Read private content only when this setup needs it; a diagnostic existence check does not read that content for you.
+Inspect the selected environment, allowed scope, and relevant existing files before proposing or saving changes. Read private content only when this setup needs it. Use [computer checks](computer-checks.md) when a helper is needed for the requested inspection or managed-file verification; choose the checks that answer that question. An existence check does not read private content or establish write permission.
 
-Use the actual client-provided `dot-guidelines` and its bundled references. Identify the plugin version or resource identity when exposed. If installation is needed, follow this toolkit's ChatGPT Web route in the [plugin README](../../../README.md), then verify that the ongoing main dot can access the installed skill. Uploading a ZIP or reading repository source does not establish installation; a local Codex installation does not establish availability in dot's cloud. If installation status is unknown, resolve that uncertainty rather than claiming absence. Continue review or explicitly requested file-only work while plugin-dependent completion remains pending. Do not install, reinstall, or upgrade automatically.
+Use the actual client-provided `dot-guidelines` and the references needed for this operation, at one identified version. Reuse a current installation check; if availability is unknown, resolve it without assuming absence. When installation is needed, follow the [plugin README](../../../README.md) and verify access from the main dot. A ZIP, repository copy, or local Codex installation is not that evidence. Review and explicitly requested file-only work can continue while plugin-dependent completion is pending. Do not install, reinstall, or upgrade automatically.
 
 Version 0.2 owns common guidance in the plugin. Do not create permanent `/workspace/AGENTS.md` or `/workspace/.codex/dot-setup.md` copies. When old files or inventory are present, use [migration](migrations/0.1-to-0.2.md) before switching their authority. Preserve any supplied edited procedure and source identity; resolve a conflict with the requested version rather than silently replacing it with a newer procedure.
 
@@ -18,11 +20,11 @@ During initial setup, if their status is unknown, ask once whether private instr
 
 Retain decisions and unresolved inputs privately only when needed to resume. Use existing records when available; no new always-read state file, candidate-file template, operation log, or empty instruction file is required. Inputs attached to a single request may be sufficient. Preserve existing candidate files such as `dot-setup-private.md` and prior pending choices; optional does not mean disposable. Do not replace substantive private documents with status summaries.
 
-For later private inputs, apply only the explicitly requested private scope after comparison. Preserve common guidance, adopted skills, and prior decisions; do not repeat initial setup. Update any retained pending decision after verifying the applied result. Keep private contents, filenames beyond these public conventions, and actual setup records out of public reports.
+Before writing private inputs, compare the affected current contents with the inspected state and reconcile intervening edits. Preserve common guidance, adopted skills, and prior decisions. Update any retained pending decision after verifying the applied result. Keep private contents, filenames beyond these public conventions, and actual setup records out of public reports.
 
 ## Choose skills separately
 
-Read [skills maintenance](skills-maintenance.md) for source selection, placement, INDEX, and manifests. A new setup need not install any task skills or create an empty catalog. Cloud placement and Web-client installation are separate; leave existing client installations alone unless that change is requested.
+A new setup need not adopt any task skills or create an empty catalog. If skills are selected, read [skills maintenance](skills-maintenance.md) before source acquisition or placement; it owns version selection, file comparison, INDEX, and manifests. Cloud placement and Web-client installation are separate; leave existing client installations alone unless that change is requested.
 
 Offer these common candidates from [peaceroad/ai-dotfiles](https://github.com/peaceroad/ai-dotfiles), normally `main`, without automatically selecting them:
 
@@ -37,6 +39,6 @@ Deduplicate an identical authorized source/path/commit placement without treatin
 
 ## Verify and report
 
-Read back changed private files and references, and validate any managed skills and selected INDEX using the maintenance procedure. Confirm the installed entry and resources are accessible before claiming plugin-dependent setup is ready. Keep the current operation's resources at one identified version; if they change during work, reconcile before continuing.
+Read back changed private files and references. For skill changes, validate the affected files, manifests, and INDEX through the maintenance procedure. Before claiming plugin-dependent setup is ready, establish access to the installed entry and resources needed for this operation; a still-current check suffices. If their identity changes during work, reconcile before continuing.
 
-Report the common plugin identity and availability, private inputs applied or pending, skill groups added/updated/retained/skipped, and any unresolved target with its next needed input. Do not reproduce confidential instructions. Distinguish verified files, installed-resource retrieval and script execution, current-conversation loading, implicit selection, and continuity across an observed boundary. A successful source check or file placement does not establish automatic discovery, runtime behavior, or persistence.
+Report what was applied, retained, or skipped, what was verified, and any unresolved target with the input needed to resume. For initial setup, include plugin identity/availability and the separate private-input and skill-group decisions. A scoped private-input change needs only its result and material dependencies, not the full setup checklist. Keep file checks, installed-resource access/execution, and behavioral claims distinct; report only observations actually made. Confidential contents stay out of the report.

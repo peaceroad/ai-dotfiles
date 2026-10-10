@@ -4,8 +4,8 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "5ee458db70ca3f306bd48a828e1d3aab8c40dedfb0ef9ea19c311cf1a8a0ba54",
-      "bytes": 9439
+      "sha256": "c486955a1b02cfd4eb4cdee47312ffb3afb9f7724965eb73132e46b614d575a7",
+      "bytes": 10594
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
@@ -14,23 +14,23 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "9c4b4cae3cae015c7417bf99522490b18d317b27fc3d63dfafbe26b8d0718f22",
-      "bytes": 6032
+      "sha256": "8149d876e1f44adc8bf6cffeeffbcef30a51df67473240d97040da929eab6363",
+      "bytes": 6294
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
-      "sha256": "9effe3e574e6941fd49f12fb15a3b7dd804dc202150b3def7c0b8c4de5a0a1c5",
-      "bytes": 6635
+      "sha256": "61b9a7a6bb1cfb64df8341ce15308bf14357c17763b5fe500c0bfc6b6fbad68c",
+      "bytes": 7147
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
-      "sha256": "7422d3bdec92606d748ba046f7ac400cb07f1cc713ff55c89875bd12aa155d1c",
-      "bytes": 5651
+      "sha256": "0cb629e34ed1ea30d89e08c8e92c1c0db55f259158a19e590a45a93e5bfdec00",
+      "bytes": 6125
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "d39cbfa39f5ef5adf2c7e8fa6eca138521af3977b4795daec9c33c465f756b36",
-      "bytes": 8123
+      "sha256": "5acd929a5db4cf670a4f29d9b2d3ce9f38cbead34bbd45061e6303ab7f4ac1ed",
+      "bytes": 9256
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
@@ -49,8 +49,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs",
-      "sha256": "e5a4485267aa389714765d65835c5edc08172dcea3956033b8a6743b826c52dc",
-      "bytes": 2986
+      "sha256": "7617118bf41f652fe44a213b38be224efe2bf2c85c7971a0857b4cc680775f86",
+      "bytes": 3512
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs",

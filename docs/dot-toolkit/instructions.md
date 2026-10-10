@@ -10,7 +10,7 @@
 
 | 参照先 | 読む場面 |
 | --- | --- |
-| [setup.md](../../plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md) | 明示された初期設定、後から提供した個別入力の適用 |
+| [setup.md](../../plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md) | 明示された初期設定、個別指示の保存・変更 |
 | [computer-checks.md](../../plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md) | 環境や配置の点検、具体的なアクセス・実行上の問題、検査結果の確認 |
 | [skills-maintenance.md](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md) | スキルの追加・更新、選択対象の変更、比較・再現、中断した保守の再開 |
 | [migrations/0.1-to-0.2.md](../../plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md) | 0.1の共通ファイルや管理記録からの移行 |
@@ -97,7 +97,7 @@ INDEXがない状態、正しい形式で選択が空の状態、以前の一覧
 
 - `inspect-computer.mjs`：決められた配置と実行ランタイムを確認します。個別指示などの非公開ファイルは存在だけを調べ、内容を読み出しません。
 - `check-skill-index.mjs`：INDEXの形式、選択したスキルの記録、リンク、実際の参照先を検査します。YAMLの解釈やdescriptionの意味の一致は判定しません。
-- `verify-skill-files.mjs`：指定したスキル、または明示した`--all`について、採用manifestと実際のファイルをバイト単位で比べます。
+- `verify-skill-files.mjs`：指定したスキル、または明示した`--all`について、採用manifestと実際の相対パス・ファイル内容を照合します。内容はバイト単位で比べます。
 
 終了コードは`0`が検査完了・適合、`1`が不一致、`2`が未検証・読取エラーなどです。存在確認は任意ファイルがなくても完了します。INDEXの検査では、未作成は未検証、正しい形式の空の選択は適合です。結果の意味は検査対象に限定します。
 

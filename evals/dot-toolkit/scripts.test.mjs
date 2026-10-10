@@ -67,6 +67,7 @@ function snapshot(root) {
 function boot(command, root, code, extra = []) {
   const child = spawnSync(process.execPath, ['--input-type=module', '--eval', `
     import fs from 'node:fs';
+    import path from 'node:path';
     ${code}
     process.argv = [process.execPath, ${JSON.stringify(path.join(scripts, `${command}.mjs`))}, '--root', ${JSON.stringify(root)}, ...${JSON.stringify(extra)}];
     await import(${JSON.stringify(pathToFileURL(path.join(scripts, `${command}.mjs`)).href)});
@@ -257,6 +258,31 @@ test('verifier detects extra, missing and raw-byte modified files and undeclared
   assert.deepEqual(snapshot(root), before);
 });
 
+for (const alias of ['skill.md', 'SKILL.md.']) {
+  test(`a filesystem alias cannot stand in for a declared file: ${alias}`, t => {
+    const root = temporary(t);
+    const manifest = putSkill(root);
+    manifest.files.push({ path: alias, sha256: manifest.files[0].sha256 });
+    write(root, `${state}/manifests/sample.json`, JSON.stringify(manifest));
+    const before = snapshot(root);
+    // Model case/trailing-dot aliases on every platform. Directory enumeration
+    // still exposes only the real entry; stat/open would otherwise read it twice.
+    const result = boot('verify-skill-files', root, `
+      const alias = ${JSON.stringify(alias)};
+      const canonical = target => path.basename(String(target)) === alias
+        ? path.join(path.dirname(String(target)), 'SKILL.md') : target;
+      for (const method of ['lstatSync', 'openSync']) {
+        const original = fs[method];
+        fs[method] = (target, ...args) => original.call(fs, canonical(target), ...args);
+      }
+    `, ['--skill', 'sample']);
+    assert.equal(result.code, 1);
+    assert.deepEqual(codes(result), ['missing_file']);
+    assert.equal(result.output.data.skills[0].checkedFiles, 1);
+    assert.deepEqual(snapshot(root), before);
+  });
+}
+
 test('named scope is explicit, repeated skills work and --all uses manifests without changing selection', t => {
   const root = temporary(t);
   putSkill(root, 'first');
@@ -362,7 +388,7 @@ test('confirmed read-denied is distinct from missing, including mixed mismatch p
   const denied = boot('check-skill-index', root, `
     const original = fs.openSync;
     fs.openSync = function (target, ...args) {
-      if (String(target).endsWith('/INDEX.md')) { const error = new Error('private path'); error.code = 'EACCES'; throw error; }
+      if (path.basename(String(target)) === 'INDEX.md') { const error = new Error('private path'); error.code = 'EACCES'; throw error; }
       return original.call(this, target, ...args);
     };
   `);
@@ -371,7 +397,7 @@ test('confirmed read-denied is distinct from missing, including mixed mismatch p
   const failed = boot('check-skill-index', root, `
     const original = fs.openSync;
     fs.openSync = function (target, ...args) {
-      if (String(target).endsWith('/INDEX.md')) { const error = new Error('private path'); error.code = 'EIO'; throw error; }
+      if (path.basename(String(target)) === 'INDEX.md') { const error = new Error('private path'); error.code = 'EIO'; throw error; }
       return original.call(this, target, ...args);
     };
   `);
@@ -381,7 +407,7 @@ test('confirmed read-denied is distinct from missing, including mixed mismatch p
   const mixed = boot('verify-skill-files', root, `
     const original = fs.openSync;
     fs.openSync = function (target, ...args) {
-      if (String(target).endsWith('/SKILL.md')) { const error = new Error('private path'); error.code = 'EACCES'; throw error; }
+      if (path.basename(String(target)) === 'SKILL.md') { const error = new Error('private path'); error.code = 'EACCES'; throw error; }
       return original.call(this, target, ...args);
     };
   `, ['--skill', 'sample']);
@@ -425,7 +451,7 @@ test('concurrent replacement is unverified rather than a hash verdict', t => {
   const result = boot('verify-skill-files', root, `
     const original = fs.openSync;
     fs.openSync = function (target, ...args) {
-      if (String(target).endsWith('/SKILL.md')) fs.writeFileSync(target, 'changed while opening');
+      if (path.basename(String(target)) === 'SKILL.md') fs.writeFileSync(target, 'changed while opening');
       return original.call(this, target, ...args);
     };
   `, ['--skill', 'sample']);
