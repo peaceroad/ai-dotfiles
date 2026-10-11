@@ -5,6 +5,9 @@
       "type": "stdio",
       "command": "python3",
       "args": ["-B", "${PLUGIN_ROOT}/skills/compare-skill-snapshots/scripts/server.py"],
+      "env": {
+        "SKILL_DIFF_ROOTS": "[\"${PLUGIN_DATA}/snapshots\"]"
+      },
       "cwd": "${PLUGIN_ROOT}"
     }
   }

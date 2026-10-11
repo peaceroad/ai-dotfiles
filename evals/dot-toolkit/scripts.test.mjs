@@ -703,16 +703,35 @@ test('package-only MCP source needs no skills or selection and INDEX-only change
   assert.deepEqual(snapshot(root), before);
 });
 
-test('plugin missing, extra, and unsupported linked files are discrepancies, not adoption', t => {
+test('plugin missing and extra files are discrepancies, not adoption', t => {
   const root = temporary(t); putPlugin(root);
   const target = path.join(root, '.agents/plugins/sample.plugin/shared.txt');
   fs.unlinkSync(target);
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('missing_file'));
   write(root, '.agents/plugins/sample.plugin/unrecorded.txt', 'Do not adopt me.');
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('extra_file'));
+});
+
+test('plugin symlinks are discrepancies, not adoption', t => {
+  const root = temporary(t); putPlugin(root);
+  const target = path.join(root, '.agents/plugins/sample.plugin/shared.txt');
+  fs.unlinkSync(target);
   const outside = path.join(root, 'outside'); fs.writeFileSync(outside, 'Not followed.');
-  fs.symlinkSync(outside, target);
+  try {
+    fs.symlinkSync(outside, target);
+  } catch (error) {
+    if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+    t.skip('Symlink creation is unavailable for this fixture');
+    return;
+  }
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('unsupported_symlink'));
-  fs.unlinkSync(target); fs.linkSync(outside, target);
+});
+
+test('plugin hardlinks are discrepancies, not adoption', t => {
+  const root = temporary(t); putPlugin(root);
+  const target = path.join(root, '.agents/plugins/sample.plugin/shared.txt');
+  fs.unlinkSync(target);
+  const outside = path.join(root, 'outside'); fs.writeFileSync(outside, 'Not followed.');
+  fs.linkSync(outside, target);
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('unsupported_hardlink'));
 });

@@ -13,7 +13,7 @@ Use the [computer checks](computer-checks.md) that support that operation. INDEX
 
 ## Package scope
 
-Retain standalone `/workspace/.agents/skills/<name>/` and its schema-1 manifest unchanged. There is no automatic 0.2-to-0.3 move, rename, or duplicate cleanup. If a user requests a conversion, compare source identity, local edits, selected membership, and references before agreeing the affected changes.
+Adopt each standalone skill as a complete folder at `/workspace/.agents/skills/<name>/`, including its references, scripts, templates, and assets. Record provenance in `/workspace/.agents/skills-state/manifests/<name>.json` using schema 1 below. Existing 0.2 placements and manifests remain valid: there is no automatic move, rename, or duplicate cleanup. If a user requests a conversion, compare source identity, local edits, selected membership, and references before agreeing the affected changes.
 
 Adopt a plugin as one complete package at `/workspace/.agents/plugins/<plugin-name>/`, with provenance at `/workspace/.agents/plugins-state/manifests/<plugin-name>.json`. Preserve upstream `plugin.json`, unqualified `SKILL.md` names, root resources, MCP configuration, client-extension directories, and internal relative layout. A skill may refer outside its own folder to resources inside its package; validate containment at the package root. Do not flatten, split, rename, or rewrite source files to make cloud discovery work. MCP-only packages with no skills may be retained without INDEX entries.
 
@@ -21,11 +21,7 @@ Before placement, verify `plugin.json` and its plugin name, source repository/pa
 
 Copying MCP configuration or extensions does not register, start, authenticate, or enable them. Inspect required package resources without running bundled code merely to place it. Any requested activation needs the actual client's supported integration, permissions, and separate verification; do not claim that copying makes it work.
 
-## Ownership and source identity
-
-- `/workspace/.agents/skills/<name>/` contains every adopted standalone skill file, including references, scripts, templates, and assets.
-- `/workspace/.agents/skills-state/INDEX.md` owns intentional per-skill selection for normal work, for both standalone skills and plugin skills.
-- `/workspace/.agents/skills-state/manifests/<name>.json` owns each skill's source identity and expected raw-byte hashes. A manifest does not select its skill.
+## Pin source identity
 
 For new placement or an upstream update, use the requested commit, or resolve the requested branch/tag once to an immutable Git commit. Default to `main` only if no ref was specified; do not guess another ref if it is absent. Use the same resolution for packages acquired together from that repository. Verify archive content against that commit; a filename is not evidence. For edited sources, preserve the requested local changes and base identity instead of fetching newer content.
 
@@ -33,7 +29,7 @@ Repair, reproduction, retry, and continuation reuse the recorded commit and inte
 
 ## INDEX contract
 
-INDEX is a selected list, not a generated inventory of all manifests. Preserve its membership during description refreshes or format migration. Change membership only within the requested selection scope. Never reconstruct a missing or damaged established INDEX from all manifests. Inspect current files and known selection evidence; ask only for the selection that cannot be established. New-environment absence and a valid empty selection are different from loss or corruption.
+`/workspace/.agents/skills-state/INDEX.md` owns intentional per-skill selection for normal work, for both standalone skills and plugin skills. It is not a generated inventory of all manifests. Preserve its membership during description refreshes or format migration. Change membership only within the requested selection scope. Never reconstruct a missing or damaged established INDEX from all manifests. Inspect current files and known selection evidence; ask only for the selection that cannot be established. New-environment absence and a valid empty selection are different from loss or corruption.
 
 The entire format is a `# Skills` title followed by zero or more entries:
 

@@ -144,20 +144,37 @@ class ComparisonTests(unittest.TestCase):
         self.write('upstream', 'SKILL.md', b'upstream edit\n')
         copied = self.root/'standalone-plugin'
         shutil.copytree(SCRIPTS.parents[2], copied)
-        entry = copied/'skills/compare-skill-snapshots/scripts/server.py'
+        data = self.root/'plugin-data'
+        snapshots = data/'snapshots'
+        snapshots.mkdir(parents=True)
+        paths = {}
+        for side, original in self.paths.items():
+            destination = snapshots/side
+            shutil.copytree(original, destination)
+            paths[side] = str(destination)
+        expected = self.call()
+        config = json.loads((copied/'mcp.json').read_text())['mcpServers']['skill-diff']
+        self.assertEqual(config['type'], 'stdio')
+        self.assertEqual(config['command'], 'python3')
+        def expand(value):
+            return value.replace('${PLUGIN_ROOT}', str(copied)).replace('${PLUGIN_DATA}', str(data))
+        environment = {key: expand(value) for key, value in config.get('env', {}).items()}
+        environment.update(PLUGIN_ROOT=str(copied), PLUGIN_DATA=str(data))
         async def run():
+            # Use the prepared interpreter for the manifest's bare python3 command.
+            # The ambient allowlist covers self.root; the manifest must narrow it.
             params = StdioServerParameters(command=sys.executable,
-                args=['-B', str(entry)], cwd=str(self.root),
-                env={'SKILL_DIFF_ROOTS': os.environ['SKILL_DIFF_ROOTS']})
+                args=[expand(arg) for arg in config['args']], cwd=expand(config['cwd']),
+                env=environment)
             async with stdio_client(params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     listed = await session.list_tools()
                     self.assertEqual([t.name for t in listed.tools], ['compare_skill'])
-                    result = await session.call_tool('compare_skill', self.paths)
+                    result = await session.call_tool('compare_skill', paths)
                     self.assertFalse(result.isError)
-                    self.assertEqual(json.loads(result.content[0].text), self.call())
-                    error = await session.call_tool('compare_skill', {'local':'/', 'upstream':self.paths['upstream']})
+                    self.assertEqual(json.loads(result.content[0].text), expected)
+                    error = await session.call_tool('compare_skill', self.paths)
                     self.assertTrue(error.isError)
         asyncio.run(run())
 
