@@ -1194,7 +1194,112 @@ test('export refuses missing indexed history and unsafe destinations before crea
   assert.deepEqual(readdirSync(output), []);
   await assert.rejects(exportSessions(snapshot, plan, f.home, { log() {} }), /outside CODEX_HOME/);
   mkdirSync(join(output, '.git'));
+  writeFileSync(join(output, '.git', 'HEAD'), 'ref: refs/heads/main\n');
   await assert.rejects(exportSessions(snapshot, plan, output, { log() {} }), /outside Git/);
+});
+
+test('export permits proven-empty Git marker directories and still preserves source storage', async t => {
+  const f = renderableFixture(t), ancestor = exportParent(t), output = join(ancestor, 'exports');
+  mkdirSync(output);
+  mkdirSync(join(ancestor, '.git'));
+  mkdirSync(join(output, '.git'));
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  await exportSessions(snapshot, plan, output, { log() {} });
+  const bundles = listBundles(output);
+  assert.equal(bundles.length, 2);
+  for (const bundle of bundles) await verifyBundle(bundle);
+  assert.deepEqual(readdirSync(join(ancestor, '.git')), []);
+  assert.deepEqual(readdirSync(join(output, '.git')), []);
+  assert.deepEqual(await inspectSessions(f.home), snapshot);
+  mkdirSync(join(f.home, '.git'));
+  const inside = join(f.home, 'exports'); mkdirSync(inside);
+  await assert.rejects(exportSessions(snapshot, plan, inside, { log() {} }), /outside CODEX_HOME/);
+  assert.deepEqual(readdirSync(inside), []);
+});
+
+test('export refuses nonempty directories and all Git marker files before writing', async t => {
+  const f = renderableFixture(t);
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  for (const kind of ['repository', 'malformed-directory', 'worktree-file', 'malformed-file', 'empty-file']) {
+    const output = exportParent(t), marker = join(output, '.git');
+    if (kind === 'repository') {
+      mkdirSync(marker); mkdirSync(join(marker, 'objects')); mkdirSync(join(marker, 'refs'));
+      writeFileSync(join(marker, 'HEAD'), 'ref: refs/heads/main\n');
+      writeFileSync(join(marker, 'config'), '[core]\nrepositoryformatversion = 0\nbare = false\n');
+    } else if (kind === 'malformed-directory') {
+      mkdirSync(marker); writeFileSync(join(marker, 'unknown'), 'synthetic malformed metadata');
+    } else {
+      writeFileSync(marker, kind === 'worktree-file' ? 'gitdir: ../synthetic-worktree\n' : kind === 'empty-file' ? '' : 'malformed');
+    }
+    await assert.rejects(exportSessions(snapshot, plan, output, { log() {} }), /outside Git/, kind);
+    assert.deepEqual(readdirSync(output), ['.git']);
+  }
+});
+
+test('empty inner Git markers do not hide a repository ancestor', async t => {
+  const f = renderableFixture(t), ancestor = exportParent(t), output = join(ancestor, 'nested', 'exports');
+  mkdirSync(output, { recursive: true });
+  mkdirSync(join(output, '.git'));
+  mkdirSync(join(ancestor, '.git'));
+  writeFileSync(join(ancestor, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  await assert.rejects(exportSessions(snapshot, plan, output, { log() {} }), /outside Git/);
+  assert.deepEqual(readdirSync(output), ['.git']);
+});
+
+test('export refuses symlink Git markers, including empty and dangling targets', async t => {
+  const f = renderableFixture(t);
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  for (const dangling of [false, true]) {
+    const output = exportParent(t), target = join(exportParent(t), 'metadata');
+    if (!dangling) mkdirSync(target);
+    try { symlinkSync(target, join(output, '.git'), 'dir'); }
+    catch (error) {
+      if (['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) { t.skip('Directory symlinks unavailable'); return; }
+      throw error;
+    }
+    await assert.rejects(exportSessions(snapshot, plan, output, { log() {} }), /outside Git/);
+    assert.deepEqual(readdirSync(output), ['.git']);
+  }
+});
+
+test('export resolves output symlinks before checking repository ancestors', async t => {
+  const f = renderableFixture(t), repository = exportParent(t), output = join(repository, 'exports');
+  mkdirSync(output); mkdirSync(join(repository, '.git'));
+  writeFileSync(join(repository, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  const linkParent = exportParent(t), link = join(linkParent, 'output');
+  try { symlinkSync(output, link, 'dir'); }
+  catch (error) {
+    if (['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) { t.skip('Directory symlinks unavailable'); return; }
+    throw error;
+  }
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  await assert.rejects(exportSessions(snapshot, plan, link, { log() {} }), /outside Git/);
+  assert.deepEqual(readdirSync(output), []);
+  assert.deepEqual(readdirSync(linkParent), ['output']);
+});
+
+test('export fails closed when Git marker inspection cannot prove absence or emptiness', async t => {
+  const f = renderableFixture(t), output = exportParent(t), marker = join(output, '.git');
+  mkdirSync(marker);
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  // Inject failures so this also exercises privileged runners and Windows.
+  for (const [method, code] of [['lstatSync', 'EACCES'], ['readdirSync', 'EACCES'], ['readdirSync', 'ENOENT']]) {
+    const original = fs[method];
+    fs[method] = (path, ...args) => {
+      if (path === marker) throw Object.assign(new Error('synthetic private path must not escape'), { code });
+      return original(path, ...args);
+    };
+    syncBuiltinESMExports();
+    try {
+      await assert.rejects(exportSessions(snapshot, plan, output, { log() {} }), error => {
+        assert.match(error.message, /Cannot inspect Git metadata/);
+        assert.doesNotMatch(error.message, /synthetic private path/);
+        return true;
+      });
+    } finally { fs[method] = original; syncBuiltinESMExports(); }
+    assert.deepEqual(readdirSync(output), ['.git']);
+  }
 });
 
 test('failed revalidation leaves an explicitly incomplete export, with no completed manifest', async t => {
