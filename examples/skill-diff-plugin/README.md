@@ -12,7 +12,7 @@ The sample never downloads, authenticates, updates, monitors, hosts an HTTP serv
 
 ## CLI (no third-party dependencies)
 
-Requires Python 3.12 on POSIX with descriptor-relative opens, `O_NOFOLLOW`, and `O_DIRECTORY` (tested on Linux; Windows is not supported). From the sample root, using synthetic example paths:
+Requires Python 3.12 on POSIX with descriptor-relative opens, `O_NOFOLLOW`, and `O_DIRECTORY`; Windows is not supported. From the sample root, using synthetic example paths:
 
 ```sh
 export SKILL_DIFF_ROOTS='["/tmp/skill-review"]'
@@ -28,12 +28,12 @@ The allowlist must already exist and is fail-closed when missing or invalid. Eac
 `mcp.json` exposes `compare_skill(local, upstream, base=None)` through an Agent Plugins 1.0.0 stdio configuration. It resolves `python3` from the host's PATH. Prepare an isolated Python 3.12 environment separately, with authorization for dependency installation, then make that environment's `python3` available to the client. For example:
 
 ```sh
-python3 -m venv /tmp/skill-diff-venv
+python3.12 -m venv /tmp/skill-diff-venv
 /tmp/skill-diff-venv/bin/python -m pip install -r requirements.txt
 export PATH="/tmp/skill-diff-venv/bin:$PATH"
 ```
 
-Only the SDK version is pinned, in sample-only requirements.txt. pip resolves its transitive dependencies; this is not a complete reproducibility or hash-verified lock. Dependency installation may use the package registry; runtime comparisons and tests require no network. No dependency is installed by startup or tests.
+The sample-only `requirements.txt` allows the official MCP Python SDK `>=2.3.0,<3`. The adapter uses `MCPServer` and the protocol test uses `Client` from SDK 2.x. pip resolves the SDK and its transitive dependencies within their declared requirements; this is not a reproducibility or hash-verified lock. Dependency installation may use the package registry; runtime comparisons and tests require no network. No dependency is installed by startup or tests.
 
 The bundled configuration sets `SKILL_DIFF_ROOTS` to `["${PLUGIN_DATA}/snapshots"]`, independently of the shell's allowlist. The client expands `PLUGIN_DATA` to this plugin instance's private data directory; this is a different location from the CLI example's `/tmp/skill-review`.
 
@@ -47,13 +47,18 @@ Per snapshot: 512 directory entries, depth 32, 64 KiB per readable file and 2 Mi
 
 ## Verification
 
+From the sample root, use the POSIX environment prepared above:
+
 ```sh
+python3 -c 'import platform; from importlib.metadata import version; print("Python", platform.python_version()); print("MCP SDK", version("mcp"))'
 python3 -B -m unittest discover -s tests -v
 node /path/to/plugin-creator-agent-plugins/scripts/validate-agent-plugin.mjs .
 ```
 
-The standard-library tests work without MCP; the protocol test explicitly skips when the SDK is unavailable. With the SDK installed, both run. Fixtures are private temporary directories; CLI and MCP checks run from a separately copied plugin outside the repository to check distribution isolation.
+With the SDK installed, expect all 10 tests to pass without skips. The nine standard-library tests also work without MCP; the protocol test explicitly skips when the SDK is unavailable, which leaves MCP behavior unverified. Fixtures are private temporary directories; CLI and MCP checks run from a separately copied plugin outside the repository to check distribution isolation.
 
-The MCP test expands the copied package's `mcp.json`, uses the prepared Python interpreter, and checks that its declared allowlist overrides a conflicting ambient value. It starts and closes a private stdio subprocess, initializes an SDK client, lists the one tool, and calls it. Other tests cover local/upstream attribution, meaningful diffs, input preservation, invalid roots, escapes, links, special files and bounded traversal/content. Structural validation and a stdio round trip do not establish real-client registration, discovery, or product-specific support.
+The MCP test expands the copied package's `mcp.json`, uses the prepared Python interpreter, and permits paths within the configured roots while rejecting paths allowed only by the parent process's environment. It starts and closes a private stdio subprocess, connects with the SDK's default protocol negotiation, checks the one tool and its annotations, compares its text and structured results with the CLI's shared function, and verifies that snapshot files remain unchanged. Other tests cover local/upstream attribution, meaningful diffs, invalid roots, escapes, links, special files and bounded traversal/content. Structural validation and a stdio round trip do not establish real-client registration, discovery, or product-specific support.
 
-Sources: [Agent Plugins 1.0.0 specification](https://agent-plugins.org/specification), [official Python MCP SDK](https://github.com/modelcontextprotocol/python-sdk).
+Record the source commit, actual Python and SDK versions, and pass/fail/skip results. For dependency updates, test the minimum SDK 2.3.0 and the latest stable version allowed by the range in separate environments; one run suffices when they are the same version. An allowed version range does not establish that every future 2.x release has been tested. If POSIX execution is unavailable, retain that limitation and run these checks on POSIX before claiming a successful comparison round trip.
+
+Sources: [Agent Plugins 1.0.0 specification](https://agent-plugins.org/specification), [official Python MCP SDK](https://github.com/modelcontextprotocol/python-sdk), [SDK 2 migration guide](https://py.sdk.modelcontextprotocol.io/migration/).

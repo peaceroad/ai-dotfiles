@@ -139,12 +139,11 @@ class ComparisonTests(unittest.TestCase):
 
     @unittest.skipUnless(importlib.util.find_spec('mcp'), 'optional MCP SDK is not installed')
     def test_mcp_stdio_parity_and_error(self):
-        from mcp import ClientSession, StdioServerParameters
-        from mcp.client.stdio import stdio_client
+        from mcp import Client, StdioServerParameters
         self.write('upstream', 'SKILL.md', b'upstream edit\n')
         copied = self.root/'standalone-plugin'
         shutil.copytree(SCRIPTS.parents[2], copied)
-        data = self.root/'plugin-data'
+        data = self.root/'plugin data'
         snapshots = data/'snapshots'
         snapshots.mkdir(parents=True)
         paths = {}
@@ -153,6 +152,8 @@ class ComparisonTests(unittest.TestCase):
             shutil.copytree(original, destination)
             paths[side] = str(destination)
         expected = self.call()
+        before = {str(p.relative_to(snapshots)): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in snapshots.rglob('*') if p.is_file()}
         config = json.loads((copied/'mcp.json').read_text())['mcpServers']['skill-diff']
         self.assertEqual(config['type'], 'stdio')
         self.assertEqual(config['command'], 'python3')
@@ -162,21 +163,31 @@ class ComparisonTests(unittest.TestCase):
         environment.update(PLUGIN_ROOT=str(copied), PLUGIN_DATA=str(data))
         async def run():
             # Use the prepared interpreter for the manifest's bare python3 command.
-            # The ambient allowlist covers self.root; the manifest must narrow it.
+            # Only the manifest's roots are passed; the broader parent-only roots
+            # must not grant access to the server.
             params = StdioServerParameters(command=sys.executable,
                 args=[expand(arg) for arg in config['args']], cwd=expand(config['cwd']),
                 env=environment)
-            async with stdio_client(params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    listed = await session.list_tools()
-                    self.assertEqual([t.name for t in listed.tools], ['compare_skill'])
-                    result = await session.call_tool('compare_skill', paths)
-                    self.assertFalse(result.isError)
-                    self.assertEqual(json.loads(result.content[0].text), expected)
-                    error = await session.call_tool('compare_skill', self.paths)
-                    self.assertTrue(error.isError)
+            async with Client(params, read_timeout_seconds=30) as client:
+                listed = await client.list_tools()
+                self.assertEqual([t.name for t in listed.tools], ['compare_skill'])
+                annotations = listed.tools[0].annotations
+                self.assertIsNotNone(annotations)
+                self.assertIs(annotations.read_only_hint, True)
+                self.assertIs(annotations.destructive_hint, False)
+                self.assertIs(annotations.idempotent_hint, True)
+                self.assertIs(annotations.open_world_hint, False)
+                result = await client.call_tool('compare_skill', paths)
+                self.assertFalse(result.is_error)
+                self.assertEqual(json.loads(result.content[0].text), expected)
+                self.assertEqual(result.structured_content, expected)
+                error = await client.call_tool('compare_skill', self.paths)
+                self.assertTrue(error.is_error)
+                self.assertIn('outside configured roots', error.content[0].text)
         asyncio.run(run())
+        after = {str(p.relative_to(snapshots)): hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in snapshots.rglob('*') if p.is_file()}
+        self.assertEqual(before, after)
 
 
 if __name__ == '__main__':

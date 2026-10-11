@@ -1,2 +1,2 @@
 # Optional MCP adapter only. CLI requires no third-party packages.
-mcp==1.29.0
+mcp>=2.3.0,<3
