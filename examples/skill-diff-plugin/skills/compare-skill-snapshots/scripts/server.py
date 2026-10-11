@@ -1,4 +1,5 @@
 """Optional SDK adapter; stdout is reserved for MCP stdio protocol messages."""
+from typing import Any
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
@@ -9,7 +10,7 @@ server = MCPServer('skill-diff-sample')
 
 @server.tool(annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False,
                                        idempotent_hint=True, open_world_hint=False))
-def compare_skill(local: str, upstream: str, base: str | None = None) -> dict:
+def compare_skill(local: str, upstream: str, base: str | None = None) -> dict[str, Any]:
     """Compare one local skill with an independently acquired upstream snapshot.
 
     Paths must be inside administrator-configured SKILL_DIFF_ROOTS. Returns relative
