@@ -1280,11 +1280,13 @@ test('export resolves output symlinks before checking repository ancestors', asy
 });
 
 test('export fails closed when Git marker inspection cannot prove absence or emptiness', async t => {
-  const f = renderableFixture(t), output = exportParent(t), marker = join(output, '.git');
-  mkdirSync(marker);
+  const f = renderableFixture(t), ancestor = exportParent(t), output = join(ancestor, 'exports');
+  mkdirSync(output);
+  const markers = [join(output, '.git'), join(ancestor, '.git')];
+  for (const marker of markers) mkdirSync(marker);
   const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
   // Inject failures so this also exercises privileged runners and Windows.
-  for (const [method, code] of [['lstatSync', 'EACCES'], ['readdirSync', 'EACCES'], ['readdirSync', 'ENOENT']]) {
+  for (const marker of markers) for (const [method, code] of [['lstatSync', 'EACCES'], ['readdirSync', 'EACCES'], ['readdirSync', 'ENOENT']]) {
     const original = fs[method];
     fs[method] = (path, ...args) => {
       if (path === marker) throw Object.assign(new Error('synthetic private path must not escape'), { code });
@@ -1299,6 +1301,77 @@ test('export fails closed when Git marker inspection cannot prove absence or emp
       });
     } finally { fs[method] = original; syncBuiltinESMExports(); }
     assert.deepEqual(readdirSync(output), ['.git']);
+    assert.deepEqual(readdirSync(ancestor).sort(), ['.git', 'exports']);
+  }
+});
+
+test('export refuses Windows junction Git markers with empty, populated or dangling targets', { skip: process.platform !== 'win32' }, async t => {
+  const f = renderableFixture(t);
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  for (const state of ['empty', 'populated', 'dangling']) {
+    const output = exportParent(t), target = join(exportParent(t), 'metadata');
+    if (state !== 'dangling') mkdirSync(target);
+    if (state === 'populated') writeFileSync(join(target, 'HEAD'), 'ref: refs/heads/main\n');
+    symlinkSync(target, join(output, '.git'), 'junction');
+    await assert.rejects(exportSessions(snapshot, plan, output, { log() {} }), /outside Git/, state);
+    assert.deepEqual(readdirSync(output), ['.git']);
+  }
+});
+
+test('export checks real repository ancestry for Windows output junctions', { skip: process.platform !== 'win32' }, async t => {
+  const f = renderableFixture(t), snapshot = await inspectSessions(f.home);
+  const plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  for (const realRepository of [false, true]) {
+    const physical = exportParent(t), logical = exportParent(t), output = join(physical, 'exports');
+    mkdirSync(output);
+    const repository = realRepository ? physical : logical;
+    mkdirSync(join(repository, '.git'));
+    writeFileSync(join(repository, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+    const link = join(logical, 'exports');
+    symlinkSync(output, link, 'junction');
+    if (realRepository) {
+      await assert.rejects(exportSessions(snapshot, plan, link, { log() {} }), /outside Git/);
+      assert.deepEqual(readdirSync(output), []);
+    } else {
+      await exportSessions(snapshot, plan, link, { log() {} });
+      const bundles = listBundles(output);
+      assert.equal(bundles.length, 2);
+      for (const bundle of bundles) await verifyBundle(bundle);
+    }
+  }
+});
+
+test('agent session export checks destination Git markers independently of its working directory', async t => {
+  const project = exportParent(t);
+  mkdirSync(join(project, '.git'));
+  writeFileSync(join(project, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+  for (const empty of [true, false]) {
+    const f = renderableFixture(t), output = exportParent(t);
+    mkdirSync(join(output, '.git'));
+    if (!empty) writeFileSync(join(output, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+    const snapshot = await inspectSessions(f.home);
+    const sources = snapshot.sessions.map(row => [row.path, readFileSync(row.path)]);
+    const run = args => spawnSync(process.execPath, [join(import.meta.dirname, '..', 'agent.mjs'), 'codex', 'session', ...args], {
+      cwd: project, encoding: 'utf8', timeout: 30_000,
+      env: { ...process.env, CODEX_HOME: f.home, AGENT_DEV_HOME: f.home,
+        AGENT_CODEX_EXPORT_CONFIG: join(f.home, 'synthetic-export-settings.json') },
+    });
+    const preview = run(['plan', 'export', parent, '--output', output]);
+    assert.equal(preview.status, 0, preview.stderr + preview.stdout);
+    const token = preview.stdout.match(/Confirmation token: ([a-f0-9]+)/)?.[1];
+    assert.ok(token, preview.stdout);
+    const exported = run(['export', parent, '--output', output, '--after', 'keep', '--confirm', token]);
+    assert.equal(exported.status, empty ? 0 : 1, exported.stderr + exported.stdout);
+    const bundles = listBundles(output);
+    assert.equal(bundles.length, empty ? 2 : 0);
+    for (const bundle of bundles) await verifyBundle(bundle);
+    if (!empty) {
+      assert.match(exported.stdout, /outside Git/);
+      assert.deepEqual(readdirSync(output), ['.git']);
+    }
+    assert.deepEqual(readdirSync(join(output, '.git')), empty ? [] : ['HEAD']);
+    assert.deepEqual(await inspectSessions(f.home), snapshot);
+    for (const [path, bytes] of sources) assert.deepEqual(readFileSync(path), bytes);
   }
 });
 
