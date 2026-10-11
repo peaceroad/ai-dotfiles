@@ -105,6 +105,14 @@ test('optional-guidance boundary definitions remain synthetic and separate from 
 });
 // These names are an independent coverage contract, not generated from cases.json.
 const redesignDecisionCases = [
+  'plugin-complete-placement',
+  'plugin-update-new-skill',
+  'plugin-update-selected-deletion',
+  'plugin-identity-collision',
+  'plugin-index-only-selection',
+  'standalone-plugin-coexistence',
+  'plugin-local-edit-preservation',
+
   'same-name-source-selection',
   'current-guidance-reuse',
   'scoped-private-input',
@@ -191,7 +199,7 @@ test('the source manifest rejects duplicate, substituted, and extra targets', ()
   ]) assert.throws(() => checkDefinitions(definitions(mutate)), /unique|exactly the required public package files/);
 });
 
-test('legacy public common files cannot replace or extend the 0.2 package target', () => {
+test('legacy public common files cannot replace or extend the 0.3 package target', () => {
   for (const path of ['dot/AGENTS.md', 'dot/dot-setup.md']) {
     for (const replace of [false, true]) {
       assert.throws(() => checkDefinitions(definitions(d => {
@@ -217,7 +225,7 @@ test('the source manifest requires the content-hash schema and acceptance kind',
 
 test('source definitions keep installed-resource access and ordinary main-dot checks unrun', () => {
   const required = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
-  assert.equal(manifest.pluginVersion, '0.2.0');
+  assert.equal(manifest.pluginVersion, '0.3.0');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert.deepEqual(Object.keys(manifest.liveChecks).sort(), required.sort());
   for (const name of required) {
@@ -231,7 +239,7 @@ test('source definitions keep installed-resource access and ordinary main-dot ch
   for (const liveChecks of [undefined, null, [], 'not_run']) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.liveChecks = liveChecks; })), /must be an object/);
   }
-  for (const pluginVersion of [undefined, '0.1.0', '0.3.0', 0.2]) {
+  for (const pluginVersion of [undefined, '0.1.0', '0.2.0', 0.3]) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.pluginVersion = pluginVersion; })), /targets plugin version/);
   }
   for (const behavioralRuns of ['pass', 'fail', null]) {

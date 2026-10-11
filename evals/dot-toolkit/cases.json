@@ -210,5 +210,40 @@
     "id": "ordinary-main-context-unverified",
     "mode": "simulation",
     "input": "架空の確認では、合成テスト、ファイル照合、インストール済みコードの明示実行は完了しました。一方、共通指示と評価条件をまだ読んでいない本物のメインdotの文脈や、再開境界は用意できていません。受入結果をどこまで主張できますか。実操作はしないでください。"
+  },
+  {
+    "id": "plugin-complete-placement",
+    "mode": "simulation",
+    "input": "架空の利用者がプラグインalpha一式をクラウドへ配置し、その中のreviewだけを通常利用に選ぶことを承認しました。パッケージには二つのスキル、ルート共有資料、MCP設定と拡張ファイルがあります。配置と選択を説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "plugin-update-new-skill",
+    "mode": "simulation",
+    "input": "架空のalpha更新は承認済みです。reviewは選択済みで、次版では新しいlintが追加されます。ローカル差分はなく、sourceは同じです。更新単位と選択を説明してください。実操作はしないでください。"
+  },
+  {
+    "id": "plugin-update-selected-deletion",
+    "mode": "simulation",
+    "input": "架空のalphaの新しい版では、選択済みreviewがreview-nextへ改名されたようです。更新の依頼はありますが選択変更は未解決です。どう進めますか。実操作はしないでください。"
+  },
+  {
+    "id": "plugin-identity-collision",
+    "mode": "simulation",
+    "input": "架空のクラウドにrepo-a/plugins/alpha由来のalphaがあります。追加候補repo-b/plugins/alphaも同じplugin名を主張します。選択スキル名は異なります。どう扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "plugin-index-only-selection",
+    "mode": "simulation",
+    "input": "架空の既存alphaは固定版で配置済みです。利用者はreviewをINDEXから外し、配置済みlintを選ぶことだけ依頼しました。sourceのmainは新しくなっています。何を変更しますか。実操作はしないでください。"
+  },
+  {
+    "id": "standalone-plugin-coexistence",
+    "mode": "simulation",
+    "input": "架空の0.2環境に単体reviewとschema1 manifestがあります。0.3のdot-toolkitを導入し、beta:reviewも別途選択しました。既存単体skillをどう扱いますか。実操作はしないでください。"
+  },
+  {
+    "id": "plugin-local-edit-preservation",
+    "mode": "simulation",
+    "input": "架空のalphaは固定commitのprovenanceがありますが、ルート共有資料が説明なく変更されています。上流更新を承認済みです。どう進めますか。実操作はしないでください。"
   }
 ]

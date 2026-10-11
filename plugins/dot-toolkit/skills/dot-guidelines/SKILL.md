@@ -13,7 +13,7 @@ This skill owns common guidance for the ongoing main dot conversation. Use its `
 2. Before selecting task skills, read the existing `/workspace/.agents/skills-state/INDEX.md` and consider client-provided skill descriptions. INDEX intentionally selects cloud skills for normal use; it is not every installed skill or manifest. Choose relevant skills even when the user has not named them.
 3. Read the selected `SKILL.md` and its task-required references completely before dependent work. Follow that skill's own reference-loading conditions. Do not read all skills or manifests for an ordinary request, or search for unadopted candidates.
 
-Follow an explicitly requested skill source. Otherwise, when client-provided and INDEX-listed skills have the same name and both fit the task, prefer the INDEX-listed cloud copy: its inclusion records a deliberate choice. Use that copy's entrypoint and references together, without mixing versions. This selects a skill for the task; it does not update either copy or change INDEX.
+Follow an explicitly requested skill source. Otherwise, when client-provided and INDEX-listed skills have the same name and both fit the task, prefer the INDEX-listed cloud copy: its inclusion records a deliberate choice. Plugin entries use `plugin-name:skill-name`; the qualification identifies the package, not a renamed source skill. Resolve same-named matches by purpose and the requested source rather than conflating distinct packages. Use that copy's entrypoint and references together, preserving the package root and without mixing versions. This selects a skill for the task; it does not update either copy or change INDEX.
 
 Reuse complete guidance, INDEX, and installed-resource checks established in the current context. Recheck the affected resources after changes or migration, an environment change, a read failure, or when the task needs new evidence. Do not repeat plugin discovery or setup merely to reconfirm readiness.
 
@@ -27,7 +27,7 @@ Read only the reference needed for the requested work:
 
 - Explicit initial setup or private-input application: [setup](reference/setup.md).
 - Environment inspection, a concrete access/runtime problem, or interpreting helper results: [computer checks](reference/computer-checks.md).
-- Skill addition, update, selection changes, comparison, reproduction, or interrupted maintenance: [skills maintenance](reference/skills-maintenance.md).
+- Skill or plugin addition, update, selection changes, comparison, reproduction, or interrupted maintenance: [skills maintenance](reference/skills-maintenance.md).
 - Existing 0.1 common files or legacy inventory during setup, inspection, or migration: [0.1 to 0.2 migration](reference/migrations/0.1-to-0.2.md). A remaining old layout needs migration, not automatic cleanup or a claim that setup is ready.
 
 Normal requests do not require setup procedures or periodic helper runs. Keep manifests and any private resumption records for the work that actually needs them.
@@ -54,7 +54,9 @@ When a task needs file work, verify the assigned directory and access scope befo
 - `/workspace/shared/downloads/`: retained acquisitions and pinned snapshots
 - `/workspace/shared/tools/`: user-managed tools and runtimes
 - `/workspace/shared/outputs/<project>/`: verified deliverables from temporary work
-- `/workspace/.agents/skills/<name>/`: complete adopted skill folders
-- `/workspace/.agents/skills-state/`: the selected INDEX and per-skill manifests
+- `/workspace/.agents/skills/<name>/`: complete adopted standalone skill folders
+- `/workspace/.agents/plugins/<plugin-name>/`: complete adopted plugin packages
+- `/workspace/.agents/plugins-state/manifests/`: per-plugin provenance
+- `/workspace/.agents/skills-state/`: one selected INDEX for both kinds and standalone per-skill manifests
 
 Work in the ongoing project's copy unless a separate copy serves a concrete purpose. Temporary work goes in `YYYYMMDD_task-name/` under the assigned working directory; use a short lowercase hyphenated name and a suffix for collisions. Do not rename the assigned directory or create category directories directly under `scratch`. Before authorized cleanup, retain worthwhile work; do not bulk-delete scratch periodically.

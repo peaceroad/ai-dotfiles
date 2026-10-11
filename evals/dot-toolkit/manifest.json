@@ -4,58 +4,58 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "28b304804beb3cb147ab838837c311a84975e8422dc0373dc8490ee0b110cbd6",
-      "bytes": 10912
+      "sha256": "e7885ff88bd8d3c44edd69d7ff0e122248f23c53b230178b5d0a7c228d71a6da",
+      "bytes": 9771
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
-      "sha256": "4b3a8448bd3da6b56afbf56d041fcb2e9b208b2a1ec81bb421e149cccbbb9704",
+      "sha256": "2d77cd84396681a138a073249cb552e37e7cbc53080d49560521ea04c8fad7e6",
       "bytes": 219
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "0e7c22dfa4ae6c5b6455a00f7488faecadb24499a77b769675b8419742cdefdf",
-      "bytes": 6677
+      "sha256": "219bc5ada077479fce764c3221209b5f36c2dc6866857329b9841958a0090019",
+      "bytes": 7127
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
-      "sha256": "61b9a7a6bb1cfb64df8341ce15308bf14357c17763b5fe500c0bfc6b6fbad68c",
-      "bytes": 7147
+      "sha256": "26aadd6db4e22a653b956caccd0bc610dca9ae7bbc399572dffda3c4435620e3",
+      "bytes": 7834
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
-      "sha256": "0cb629e34ed1ea30d89e08c8e92c1c0db55f259158a19e590a45a93e5bfdec00",
-      "bytes": 6125
+      "sha256": "d272e8ca238f690e8ff7faeb9122a633149d25c8d8a9138c9c16cde0d5480495",
+      "bytes": 6630
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "5acd929a5db4cf670a4f29d9b2d3ce9f38cbead34bbd45061e6303ab7f4ac1ed",
-      "bytes": 9256
+      "sha256": "c63385e673fa3d152f93ec14e878325f956f883be2e9dd61f059ac50903d3787",
+      "bytes": 13327
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
-      "sha256": "90baafb4908735b0b8fed5186a43b33f1aae5bd8c7a7bcefa6126fabda31b37d",
-      "bytes": 7527
+      "sha256": "afada4bdd5482de6645f682646ff0802ffccbc39a638eba1b95e4a8ca372cfe1",
+      "bytes": 7712
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs",
-      "sha256": "8e97c32322cb31c362d53686112c31766123cd242442bf6450e5c814c3e6653d",
-      "bytes": 1411
+      "sha256": "3dc43469c369e7c27f5964310915935626df1f85f073919141fd70dabf8f4c30",
+      "bytes": 1519
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs",
-      "sha256": "1bf1bdab9988a21b29c62288ea28e437f0d49b9ffb621e754100e36b29afb439",
-      "bytes": 1142
+      "sha256": "fcf3bddd46270fcbbe71189fb36d7dca3db8e4a39c1f65b6338ccf19f119627a",
+      "bytes": 1806
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs",
-      "sha256": "7617118bf41f652fe44a213b38be224efe2bf2c85c7971a0857b4cc680775f86",
-      "bytes": 3512
+      "sha256": "7b8de560d67ee0548cee5d6354c3ab0cba47503902e581c7081132343c40b6e1",
+      "bytes": 3977
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs",
-      "sha256": "94232399f9552b72000281c3a9db1362da9530cbd56d48c991d13708ce94ac1c",
-      "bytes": 13984
+      "sha256": "f3a33625deea0a172f6d71f90e96523694f4689ca64b3c908d91e595d346af07",
+      "bytes": 16479
     }
   ],
   "behavioralRuns": "not_run",
@@ -65,7 +65,7 @@
     "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
     "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
   ],
-  "pluginVersion": "0.2.0",
+  "pluginVersion": "0.3.0",
   "liveChecks": {
     "installedEntry": "not_run",
     "installedReferences": "not_run",

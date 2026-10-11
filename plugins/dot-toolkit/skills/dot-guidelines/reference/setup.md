@@ -10,7 +10,7 @@ Inspect the selected environment, allowed scope, and relevant existing files bef
 
 Use the actual client-provided `dot-guidelines` and the references needed for this operation, at one identified version. Reuse a current installation check; if availability is unknown, resolve it without assuming absence. When installation is needed, follow the [plugin README](../../../README.md) and verify access from the main dot. A ZIP, repository copy, or local Codex installation is not that evidence. Review and explicitly requested file-only work can continue while plugin-dependent completion is pending. Do not install, reinstall, or upgrade automatically.
 
-Version 0.2 owns common guidance in the plugin. Do not create permanent `/workspace/AGENTS.md` or `/workspace/.codex/dot-setup.md` copies. When old files or inventory are present, use [migration](migrations/0.1-to-0.2.md) before switching their authority. Preserve any supplied edited procedure and source identity; resolve a conflict with the requested version rather than silently replacing it with a newer procedure.
+Version 0.3 retains common guidance in the plugin. Do not create permanent `/workspace/AGENTS.md` or `/workspace/.codex/dot-setup.md` copies. When old files or inventory are present, use [migration](migrations/0.1-to-0.2.md) before switching their authority. Preserve any supplied edited procedure and source identity; resolve a conflict with the requested version rather than silently replacing it with a newer procedure.
 
 ## Optional private inputs
 
@@ -22,20 +22,22 @@ Retain decisions and unresolved inputs privately only when needed to resume. Use
 
 Before writing private inputs, compare the affected current contents with the inspected state and reconcile intervening edits. Preserve common guidance, adopted skills, and prior decisions. Update any retained pending decision after verifying the applied result. Keep private contents, filenames beyond these public conventions, and actual setup records out of public reports.
 
-## Choose skills separately
+## Choose packages and skills separately
 
-A new setup need not adopt any task skills or create an empty catalog. If skills are selected, read [skills maintenance](skills-maintenance.md) before source acquisition or placement; it owns version selection, file comparison, INDEX, and manifests. Cloud placement and Web-client installation are separate; leave existing client installations alone unless that change is requested.
+A new setup need not adopt any task skills or create an empty catalog. For skill or plugin placement or selection, read [skills maintenance](skills-maintenance.md) before source acquisition or placement; it owns version selection, file comparison, INDEX, and manifests. Cloud placement and Web-client installation are separate; leave existing client installations alone unless that change is requested.
 
-Offer these common candidates from [peaceroad/ai-dotfiles](https://github.com/peaceroad/ai-dotfiles), normally `main`, without automatically selecting them:
+Offer these common skill candidates from [peaceroad/ai-dotfiles](https://github.com/peaceroad/ai-dotfiles), normally `main`, without automatically selecting them:
 
 - `agent-workflow-design` at `plugins/agent-design-tools/skills/agent-workflow-design`: recurring or long-running agent workflow design, including waiting and recovery; uses applicable instruction-design and skill-authoring guidance.
 - `prompt-design` at `plugins/agent-design-tools/skills/prompt-design`: creating and reviewing model-facing instructions; requires its applicable target references and skill-authoring guidance for structural changes.
 - `agent-improve` at `plugins/agent-eval-tools/skills/agent-improve`: evidence-based evaluation and comparisons; executing trials also needs a suitable harness, available capabilities, and authorized scope and budget.
 - `plugin-creator-agent-plugins` at `plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins`: portable plugin authoring and validation; check the selected tools' runtime needs. Its standalone workflows do not require the `agent` CLI.
 
+When adopting these from their plugin sources, propose the complete containing package (`agent-design-tools`, `agent-eval-tools`, or `agent-plugin-tools`) and separately list only the skills to select. Explain the other files/components that will be copied. Package approval is not approval to select every contained skill, run scripts, or activate MCP or extensions. Standalone sources and existing standalone copies remain supported; do not migrate 0.2 placements automatically.
+
 Keep common candidates and privately supplied additional candidates separate when presenting and approving changes. These groups describe selection provenance, not repository visibility. Show each proposed skill's purpose, source/path, resolved version, requirements, existing status, and action: retain, add, update, conflict, or skip. Reuse clear approval covering the exact operation, targets, version scope, and destination; otherwise obtain the missing group's approval. Approval of one group does not approve the other. Either can be skipped, and no additions does not authorize updates or removals.
 
-Deduplicate an identical authorized source/path/commit placement without treating the other group's selection as approved. Resolve affected same-name/source/version conflicts before placement; an unselected candidate does not block independent approved work. Preserve installed skills omitted from selection. Do not automatically add upstream or dependency skills; explain a required missing dependency and obtain the necessary resolution.
+Deduplicate an identical authorized package source/path/commit placement without treating the other group's selection as approved. Reject a plugin name already owned by a different repository/path; resolve that identity conflict before placement. For the same source, reconcile differing versions and local edits before an authorized whole-package update; an unselected candidate does not block independent approved work. Preserve installed skills omitted from selection. Do not automatically add upstream or dependency skills; explain a required missing dependency and obtain the necessary resolution.
 
 ## Verify and report
 

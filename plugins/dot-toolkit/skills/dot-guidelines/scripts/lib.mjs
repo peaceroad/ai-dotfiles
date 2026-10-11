@@ -6,6 +6,18 @@ import { createHash } from 'node:crypto';
 export const INDEX = '.agents/skills-state/INDEX.md';
 export const MANIFESTS = '.agents/skills-state/manifests';
 export const SKILLS = '.agents/skills';
+export const PLUGINS = '.agents/plugins';
+export const PLUGIN_MANIFESTS = '.agents/plugins-state/manifests';
+export const validPluginName = value => typeof value === 'string' && value.length <= 64 && /^(?!.*--)(?!.*\.\.)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(value);
+export function selectionTarget(name) {
+  const parts = name.split(':');
+  if (parts.length === 1 && validName(name)) return { kind: 'skill', name, path: `${SKILLS}/${name}/SKILL.md`, manifest: `${MANIFESTS}/${name}.json`, link: `../skills/${name}/SKILL.md` };
+  if (parts.length === 2 && validPluginName(parts[0]) && validName(parts[1])) {
+    const [plugin, skill] = parts;
+    return { kind: 'plugin', name: plugin, path: `${PLUGINS}/${plugin}/skills/${skill}/SKILL.md`, manifest: `${PLUGIN_MANIFESTS}/${plugin}.json`, link: `../plugins/${plugin}/skills/${skill}/SKILL.md` };
+  }
+  return null;
+}
 const NAME = /^(?!.*--)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
 export const validName = value => typeof value === 'string' && value.length <= 64 && NAME.test(value);
@@ -33,20 +45,32 @@ export function finish(result, successfulStatus = 'verified') {
   return exitCode;
 }
 function usage(command) {
-  return `node ${command}.mjs --root <absolute-cloud-root>${command === 'verify-skill-files' ? ' (--skill <name> [--skill <name> ...] | --all)' : ''}`;
+  return `node ${command}.mjs --root <absolute-cloud-root>${command === 'verify-skill-files' ? ' (--skill <name> ... | --all | --plugin <name> ... | --all-plugins)' : ''}`;
 }
 export function parseArgs(command, argv) {
   if (argv.length === 1 && ['--help', '-h'].includes(argv[0])) return { help: true };
   const options = { skills: [], all: false };
+  let pluginMode = false;
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--root' && options.root === undefined && argv[index + 1] && !argv[index + 1].startsWith('--')) {
       options.root = argv[++index];
     } else if (command === 'verify-skill-files' && arg === '--skill' && validName(argv[index + 1])) {
+      if (pluginMode) throw new Error('mixed_package_scope');
       const name = argv[++index];
       if (options.skills.includes(name)) throw new Error('duplicate_skill');
       options.skills.push(name);
+    } else if (command === 'verify-skill-files' && arg === '--plugin' && validPluginName(argv[index + 1])) {
+      if (options.skills.length && !pluginMode) throw new Error('mixed_package_scope');
+      pluginMode = true;
+      const name = argv[++index];
+      if (options.skills.includes(name)) throw new Error('duplicate_plugin');
+      options.skills.push(name);
+    } else if (command === 'verify-skill-files' && arg === '--all-plugins' && !options.all) {
+      pluginMode = true;
+      options.all = true;
     } else if (command === 'verify-skill-files' && arg === '--all' && !options.all) {
+      if (pluginMode) throw new Error('mixed_package_scope');
       options.all = true;
     } else throw new Error('invalid_arguments');
   }
@@ -57,6 +81,7 @@ export function parseArgs(command, argv) {
   if (!options.root.isWellFormed() || components.some(part => part === '.' || part === '..') || CONTROL.test(options.root)) throw new Error('invalid_root');
   options.root = path.normalize(options.root);
   if (command === 'verify-skill-files' && (options.all === (options.skills.length > 0))) throw new Error('explicit_scope_required');
+  if (pluginMode) options.kind = 'plugin';
   return options;
 }
 export function run(command, argv, action, successfulStatus = 'verified') {
@@ -185,9 +210,10 @@ export function parseIndex(bytes) {
     const heading = /^## \[([^\]]+)\]\(([^)]+)\)$/u.exec(lines[index]);
     if (!heading) return { error: 'index_entry_invalid', line: index + 1 };
     const [, name, link] = heading;
-    if (!validName(name)) return { error: 'index_name_invalid', line: index + 1 };
+    const target = selectionTarget(name);
+    if (!target) return { error: 'index_name_invalid', line: index + 1 };
     if (names.has(name)) return { error: 'index_duplicate_name', line: index + 1 };
-    if (link !== `../skills/${name}/SKILL.md`) return { error: 'index_link_invalid', line: index + 1 };
+    if (link !== target.link) return { error: 'index_link_invalid', line: index + 1 };
     names.add(name);
     index++;
     if (!blanks()) return { error: 'index_blank_required', line: index + 1 };
@@ -205,11 +231,13 @@ export function parseIndex(bytes) {
   return { entries };
 }
 
-export function validateManifest(value, name) {
+export function validateManifest(value, name, kind = 'skill') {
+  const plugin = kind === 'plugin';
   if (!object(value)) return 'manifest_object_required';
-  if (Object.keys(value).some(key => !['schemaVersion', 'name', 'source', 'files', 'localChanges', 'verification'].includes(key))) return 'manifest_unknown_field';
+  if (Object.keys(value).some(key => ![...(plugin ? ['kind'] : []), 'schemaVersion', 'name', 'source', 'files', 'localChanges', 'verification'].includes(key))) return 'manifest_unknown_field';
   if (value.schemaVersion !== 1) return 'manifest_schema_unsupported';
-  if (!validName(value.name) || value.name !== name) return 'manifest_name_mismatch';
+  if (plugin && value.kind !== 'plugin') return 'manifest_kind_invalid';
+  if (!(plugin ? validPluginName(value.name) : validName(value.name)) || value.name !== name) return 'manifest_name_mismatch';
   if (!object(value.source) || Object.keys(value.source).some(key => !['repository', 'path', 'ref', 'commit'].includes(key)) ||
     !['repository', 'path', 'ref', 'commit'].every(key => safeString(value.source[key])) ||
     !(value.source.path === '.' || validRelative(value.source.path)) ||
@@ -222,7 +250,7 @@ export function validateManifest(value, name) {
     if (paths.has(item.path)) return 'manifest_duplicate_path';
     paths.add(item.path);
   }
-  if (!paths.has('SKILL.md')) return 'manifest_skill_file_required';
+  if (!paths.has(plugin ? 'plugin.json' : 'SKILL.md')) return plugin ? 'manifest_plugin_file_required' : 'manifest_skill_file_required';
   for (const file of paths) {
     const parts = file.split('/');
     for (let length = 1; length < parts.length; length++) if (paths.has(parts.slice(0, length).join('/'))) return 'manifest_path_conflict';
@@ -234,16 +262,27 @@ export function validateManifest(value, name) {
   // selection, or the computed verdict.
   return null;
 }
-export function readManifest(access, result, name) {
-  const target = `${MANIFESTS}/${name}.json`;
+export function readManifest(access, result, name, kind = 'skill') {
+  const target = `${kind === 'plugin' ? PLUGIN_MANIFESTS : MANIFESTS}/${name}.json`;
   let bytes;
   try { bytes = access.read(target); }
   catch (error) { addAccessFailure(result, error, target, 'mismatch', 'manifest_missing'); return null; }
   let value;
   try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)); }
   catch { finding(result, 'mismatch', 'manifest_json_invalid', target); return null; }
-  const error = validateManifest(value, name);
+  const error = validateManifest(value, name, kind);
   if (error) { finding(result, 'mismatch', error, target); return null; }
   return value;
 }
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+
+export function checkPluginIdentity(access, result, name) {
+  const target = `${PLUGINS}/${name}/plugin.json`;
+  let bytes;
+  try { bytes = access.read(target); }
+  catch (error) { addAccessFailure(result, error, target, 'mismatch', 'plugin_file_missing'); return; }
+  let value;
+  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+  catch { finding(result, 'mismatch', 'plugin_json_invalid', target); return; }
+  if (!object(value) || value.name !== name) finding(result, 'mismatch', 'plugin_identity_mismatch', target);
+}
