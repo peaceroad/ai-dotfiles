@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { INDEX, MANIFESTS, SKILLS, addAccessFailure, finding, parseIndex, readManifest, run } from './lib.mjs';
+import { INDEX, selectionTarget, checkPluginIdentity, addAccessFailure, finding, parseIndex, readManifest, run } from './lib.mjs';
 
 run('check-skill-index', process.argv.slice(2), (_options, result, access) => {
   result.scope.index = INDEX;
@@ -12,11 +12,26 @@ run('check-skill-index', process.argv.slice(2), (_options, result, access) => {
     return;
   }
   result.data = { entries: [], descriptionSemantics: 'not_checked', fileHashes: 'not_checked' };
+  const checkedPlugins = new Map();
   for (const entry of parsed.entries) {
-    result.data.entries.push({ name: entry.name, path: `${SKILLS}/${entry.name}/SKILL.md`,
-      manifest: `${MANIFESTS}/${entry.name}.json`, descriptionLines: entry.descriptionLines });
-    readManifest(access, result, entry.name);
-    const target = `${SKILLS}/${entry.name}/SKILL.md`;
+    const selected = selectionTarget(entry.name);
+    result.data.entries.push({ name: entry.name, path: selected.path,
+      manifest: selected.manifest, descriptionLines: entry.descriptionLines });
+    if (selected.kind !== 'plugin' || !checkedPlugins.has(selected.name)) {
+      const manifest = readManifest(access, result, selected.name, selected.kind);
+      if (selected.kind === 'plugin') {
+        checkPluginIdentity(access, result, selected.name);
+        checkedPlugins.set(selected.name, manifest);
+      }
+    }
+    if (selected.kind === 'plugin') {
+      const manifest = checkedPlugins.get(selected.name);
+      const relative = selected.path.split('/').slice(3).join('/');
+      if (manifest && !manifest.files.some(file => file.path === relative)) {
+        finding(result, 'mismatch', 'selected_skill_unrecorded', selected.path);
+      }
+    }
+    const target = selected.path;
     try { access.stat(target, 'file'); }
     catch (error) { addAccessFailure(result, error, target, 'mismatch', 'skill_file_missing'); }
   }

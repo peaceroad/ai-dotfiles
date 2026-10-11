@@ -87,7 +87,7 @@ for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli
       }
     } else if (name === 'dot-toolkit') {
       const metadata = JSON.parse(readFileSync(join(plugin, 'plugin.json'), 'utf8'));
-      assert.equal(metadata.version, '0.2.0');
+      assert.equal(metadata.version, '0.3.0');
       const scriptRoot = join(plugin, 'skills', 'dot-guidelines', 'scripts');
       for (const script of ['inspect-computer.mjs', 'check-skill-index.mjs', 'verify-skill-files.mjs']) {
         const result = spawnSync(process.execPath, [join(scriptRoot, script), '--help'], {

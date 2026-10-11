@@ -57,13 +57,14 @@ Codexへ渡す共通指示の例です。回答の詳しさ、待機中の進め
 
 ## dot向けの共通指示と構築手順
 
-[dot-toolkit](plugins/dot-toolkit/README.md) 0.2.0は、個別の作業条件や自作スキルの場所をdotへ毎回説明する手間を減らすための、非公式・実験的なプラグインです。メインのdot向けの共通指示`dot-guidelines`と、必要なときだけ読む初期設定・点検・保守・移行の手順を同梱します。
+[dot-toolkit](plugins/dot-toolkit/README.md) 0.3.0は、個別の作業条件や自作スキルの場所をdotへ毎回説明する手間を減らすための、非公式・実験的なプラグインです。メインのdot向けの共通指示`dot-guidelines`と、必要なときだけ読む初期設定・点検・保守・移行の手順を同梱します。
 
 まずChatGPT Webでプラグインをインストールし、メインのdotから`dot-guidelines`を読めることを確認します。ZIPのアップロードとインストールは分けて確認し、ローカルCodexのインストールをdot側の確認には代用しません。その後、個別指示やファイルで管理するスキルが必要なら「dot-toolkitで初期設定して」と依頼します。別の`dot-setup.md`の添付は不要です。クラウドへのタスク用スキルの配置は、このプラグイン自体のインストールとは別の作業です。
 
 - [使い始める](docs/dot-toolkit/README.md)：インストールから普段の利用までの入口
 - [インストール・初期設定・変更](docs/dot-toolkit/setup.md)：利用者が行う操作、スキル選択、0.1からの移行、更新
-- [共通指示とファイル構成](docs/dot-toolkit/instructions.md)：個別指示、選択用INDEX、スキルごとの採用記録、読み取り専用検査
+- [共通指示とファイル構成](docs/dot-toolkit/instructions.md)：個別指示、単体スキルとプラグインに共通のINDEX、採用記録、MCPとの境界
+- [スキル差分比較サンプル](examples/skill-diff-plugin/README.md)：任意の別パッケージ。一つのスキルのローカルスナップショットをCLIまたはMCPで比較
 - [受け入れ確認](evals/dot-toolkit/README.md)：開発・検証担当者向け。ソース検査と、実際のメインdotでの読み込み・選択・継続性を区別
 
 ## スキル

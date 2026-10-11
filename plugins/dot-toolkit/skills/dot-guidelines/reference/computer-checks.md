@@ -1,6 +1,6 @@
 # Read-only computer checks
 
-Use for requested inspection, or when setup, maintenance, or a concrete fault needs helper evidence about dot's cloud. Select only the command and scope that answer the current question; the presence of three helpers does not require running all three. Ordinary requests and private-text-only edits do not need a routine helper run. The helpers require Node.js **24 or later**, use only built-in modules, and never write, install, repair, delete, fetch from the network, or change selection.
+Use for requested inspection, or when setup, maintenance, or a concrete fault needs helper evidence about dot's cloud. Select only the command and scope that answer the current question; the presence of helpers does not require running all three. Ordinary requests and private-text-only edits do not need a routine helper run. The helpers require Node.js **24 or later**, use only built-in modules, and never write, install, repair, delete, fetch from the network, or change selection.
 
 ## Access the correct resources
 
@@ -20,13 +20,15 @@ node check-skill-index.mjs --root /workspace
 node verify-skill-files.mjs --root /workspace --skill example-skill
 node verify-skill-files.mjs --root /workspace --skill example-skill --skill another-skill
 node verify-skill-files.mjs --root /workspace --all
+node verify-skill-files.mjs --root /workspace --plugin example-plugin
+node verify-skill-files.mjs --root /workspace --all-plugins
 ```
 
-Every command also supports `--help`. Supply an explicit absolute root; synthetic tests use an isolated root with the same internal layout. Verification needs explicit skill names or `--all`, never an implicit scan of all skills. `--all` checks managed manifest records, not client-installed skills and not normal selection membership.
+Every command also supports `--help`. Supply an explicit absolute root; synthetic tests use an isolated root with the same internal layout. Verification needs explicit `--skill` names or standalone `--all`, or explicit `--plugin` names or `--all-plugins`. Do not mix these scope forms. The all options enumerate only the corresponding managed provenance directory, not client-installed packages or normal selection membership.
 
 - `inspect-computer.mjs` inspects fixed known root/directories and configuration paths, including legacy common/setup/INDEX/inventory presence, and reports the executing Node runtime. It does not read or print private instruction contents, enumerate the user's workspace, infer writeability, or establish historical use.
-- `check-skill-index.mjs` checks the [small INDEX grammar](skills-maintenance.md#index-contract), unique names, exact links, each selected manifest and real `SKILL.md` target, and containment. It does not add unselected manifest members, parse YAML, or compare the description semantically with frontmatter.
-- `verify-skill-files.mjs` validates the selected manifests and compares all declared regular files by exact relative path and raw-byte SHA-256, reporting missing, extra, and modified files. Filesystem aliases, such as differently cased names resolving to one file, do not establish that both declared paths exist. It refuses unsupported links/types rather than following them or excluding them from a successful result. Executable/read-only regular files may be hashed, but permission and owner identity are not compared.
+- `check-skill-index.mjs` checks the [small INDEX grammar](skills-maintenance.md#index-contract), unique names, exact links, each selected manifest and real `SKILL.md` target, and containment. Qualified entries resolve to plugin provenance; the helper checks plugin identity and that the selected entrypoint is recorded. It does not hash the whole package. It does not add unselected manifest members, parse YAML, or compare the description semantically with frontmatter.
+- `verify-skill-files.mjs` validates the explicitly scoped standalone or plugin manifests and compares all declared regular files by exact relative path and raw-byte SHA-256, reporting missing, extra, and modified files. Plugin mode also compares the package name in `plugin.json` with its placement/provenance name. Filesystem aliases, such as differently cased names resolving to one file, do not establish that both declared paths exist. It refuses unsupported links/types rather than following them or excluding them from a successful result. Executable/read-only regular files may be hashed, but permission and owner identity are not compared.
 
 The helpers reject symlinks in inspected paths, including ancestors, hardlinked regular files, and special file types. They do not follow a link outside the selected root. A refusal requires inspecting the affected placement within authorized scope; it is not permission to replace the link or change permissions. These read-only checks are not a security sandbox or an atomic filesystem snapshot: concurrent changes can invalidate a result, so recheck immediately before a mutation.
 

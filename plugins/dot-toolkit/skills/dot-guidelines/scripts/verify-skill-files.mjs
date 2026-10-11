@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { MANIFESTS, SKILLS, addAccessFailure, finding, readManifest, run, sha256, validName, validRelative } from './lib.mjs';
+import { MANIFESTS, SKILLS, PLUGINS, PLUGIN_MANIFESTS, validPluginName, checkPluginIdentity, addAccessFailure, finding, readManifest, run, sha256, validName, validRelative } from './lib.mjs';
 
 function inventory(access, result, base, declared, relative = '', actual = new Set()) {
   const target = relative ? `${base}/${relative}` : base;
@@ -24,28 +24,33 @@ function inventory(access, result, base, declared, relative = '', actual = new S
 
 run('verify-skill-files', process.argv.slice(2), (options, result, access) => {
   const names = [...options.skills];
-  result.scope.mode = options.all ? 'all_manifests' : 'named_skills';
-  result.scope.skills = names;
-  result.data = { skills: [], fileMetadata: 'not_compared', sourceTrust: 'not_verified' };
+  const plugin = options.kind === 'plugin';
+  const manifests = plugin ? PLUGIN_MANIFESTS : MANIFESTS;
+  const valid = plugin ? validPluginName : validName;
+  result.scope.mode = plugin ? (options.all ? 'all_plugin_manifests' : 'named_plugins') : (options.all ? 'all_manifests' : 'named_skills');
+  result.scope[plugin ? 'plugins' : 'skills'] = names;
+  const packages = [];
+  result.data = { [plugin ? 'plugins' : 'skills']: packages, fileMetadata: 'not_compared', sourceTrust: 'not_verified' };
   if (options.all) {
     let entries;
-    try { entries = access.list(MANIFESTS); }
-    catch (error) { addAccessFailure(result, error, MANIFESTS, 'unverified', 'manifest_directory_missing'); return; }
+    try { entries = access.list(manifests); }
+    catch (error) { addAccessFailure(result, error, manifests, 'unverified', 'manifest_directory_missing'); return; }
     for (const entry of entries) {
-      const target = `${MANIFESTS}/${entry}`;
+      const target = `${manifests}/${entry}`;
       try { access.stat(target, 'file'); }
       catch (error) { addAccessFailure(result, error, target); continue; }
       const name = entry.endsWith('.json') ? entry.slice(0, -5) : '';
-      if (!validName(name)) { finding(result, 'mismatch', 'unexpected_manifest_entry', MANIFESTS); continue; }
+      if (!valid(name)) { finding(result, 'mismatch', 'unexpected_manifest_entry', manifests); continue; }
       names.push(name);
     }
   }
   for (const name of names) {
     const initial = result.findings.length;
-    const manifest = readManifest(access, result, name);
+    const manifest = readManifest(access, result, name, plugin ? 'plugin' : 'skill');
     let checkedFiles = 0;
     if (manifest) {
-      const base = `${SKILLS}/${name}`;
+      if (plugin) checkPluginIdentity(access, result, name);
+      const base = `${plugin ? PLUGINS : SKILLS}/${name}`;
       const declared = new Set(manifest.files.map(file => file.path));
       const actual = inventory(access, result, base, declared);
       const inventoryVerified = !result.findings.slice(initial).some(item => item.severity === 'unverified');
@@ -65,6 +70,6 @@ run('verify-skill-files', process.argv.slice(2), (options, result, access) => {
       }
     }
     const current = result.findings.slice(initial);
-    result.data.skills.push({ name, status: current.some(item => item.severity === 'unverified') ? 'unverified' : current.length ? 'mismatch' : 'verified', checkedFiles });
+    packages.push({ name, status: current.some(item => item.severity === 'unverified') ? 'unverified' : current.length ? 'mismatch' : 'verified', checkedFiles });
   }
 });

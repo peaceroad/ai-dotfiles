@@ -610,3 +610,109 @@ test('description quote-prefix parsing preserves Unicode line and paragraph sepa
     assert.deepEqual(snapshot(root), before);
   }
 });
+
+function putPlugin(root, name = 'sample.plugin', extra = {}) {
+  const files = {
+    'plugin.json': JSON.stringify({ $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name }),
+    'skills/sample/SKILL.md': '---\nname: sample\ndescription: Synthetic description.\n---\nRead ../../shared.txt.\n',
+    'shared.txt': 'Package root resource.\n',
+    'mcp.json': '{"mcpServers":{}}\n',
+    'com.example.client/data.json': '{}\n',
+    ...extra,
+  };
+  for (const [file, bytes] of Object.entries(files)) write(root, `.agents/plugins/${name}/${file}`, bytes);
+  const manifest = { ...record(name, files), kind: 'plugin' };
+  manifest.source.path = `plugins/${name}`;
+  write(root, `.agents/plugins-state/manifests/${name}.json`, JSON.stringify(manifest));
+  return manifest;
+}
+function pluginEntry(name = 'sample.plugin', skill = 'sample') {
+  return entry(`${name}:${skill}`).replace(`../skills/${name}:${skill}/SKILL.md`, `../plugins/${name}/skills/${skill}/SKILL.md`);
+}
+
+test('mixed INDEX distinguishes standalone and qualified copies without rewriting source names', t => {
+  const root = temporary(t);
+  putSkill(root); putPlugin(root); putPlugin(root, 'other');
+  index(root, [entry('sample'), pluginEntry(), pluginEntry('other')]);
+  const before = snapshot(root);
+  const result = run('check-skill-index', root);
+  assert.equal(result.code, 0, result.text);
+  assert.deepEqual(result.output.data.entries.map(e => e.name), ['sample', 'sample.plugin:sample', 'other:sample']);
+  assert.equal(run('verify-skill-files', root, ['--plugin', 'sample.plugin']).code, 0);
+  assert.deepEqual(snapshot(root), before);
+});
+
+test('qualified selection rejects duplicate keys, traversal, malformed qualification and mismatched links', () => {
+  for (const name of ['p:s:extra', '../p:s', 'p:../s', 'p..q:s', 'p--q:s', 'P:s', 'p:s.name', ':s', 'p:']) {
+    assert.ok(parseIndex(Buffer.from(`# Skills\n\n${pluginEntry().replaceAll('sample.plugin:sample', name)}`)).error, name);
+  }
+  assert.equal(parseIndex(Buffer.from(`# Skills\n\n${pluginEntry()}\n${pluginEntry()}`)).error, 'index_duplicate_name');
+  assert.equal(parseIndex(Buffer.from(`# Skills\n\n${pluginEntry().replace('../plugins/', '../skills/')}`)).error, 'index_link_invalid');
+  const long = `${'p'.repeat(64)}:${'s'.repeat(64)}`;
+  assert.equal(parseIndex(Buffer.from(`# Skills\n\n${pluginEntry(...long.split(':'))}`)).error, undefined);
+});
+
+test('plugin verification scopes provenance separately and includes root/MCP/extension files', t => {
+  const root = temporary(t); putPlugin(root); putSkill(root);
+  write(root, '.agents/skills/sample/SKILL.md', 'Standalone local edit.');
+  assert.equal(run('verify-skill-files', root, ['--all-plugins']).code, 0);
+  assert.equal(run('verify-skill-files', root, ['--all']).code, 1);
+  for (const file of ['shared.txt', 'mcp.json', 'com.example.client/data.json']) {
+    const target = `.agents/plugins/sample.plugin/${file}`;
+    const old = fs.readFileSync(path.join(root, target));
+    write(root, target, 'Changed');
+    assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('modified_file'));
+    write(root, target, old);
+  }
+  for (const flags of [['--plugin', 'sample.plugin', '--skill', 'sample'], ['--skill', 'sample', '--plugin', 'sample.plugin'], ['--plugin', 'sample.plugin', '--all'], ['--all', '--all-plugins'], ['--plugin', 'sample.plugin', '--plugin', 'sample.plugin']]) {
+    assert.equal(run('verify-skill-files', root, flags).code, 2);
+  }
+});
+
+test('plugin identity and selected entrypoint provenance cannot be silently substituted', t => {
+  const root = temporary(t); const manifest = putPlugin(root); index(root, [pluginEntry()]);
+  write(root, '.agents/plugins/sample.plugin/plugin.json', '{"name":"other"}');
+  assert.ok(codes(run('check-skill-index', root)).includes('plugin_identity_mismatch'));
+  assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('plugin_identity_mismatch'));
+  putPlugin(root);
+  manifest.files = manifest.files.filter(f => f.path !== 'skills/sample/SKILL.md');
+  write(root, '.agents/plugins-state/manifests/sample.plugin.json', JSON.stringify(manifest));
+  assert.ok(codes(run('check-skill-index', root)).includes('selected_skill_unrecorded'));
+});
+
+test('plugin provenance has no selection and requires complete-package identity fields', t => {
+  const root = temporary(t); const manifest = putPlugin(root);
+  assert.equal(validateManifest(manifest, 'sample.plugin', 'plugin'), null);
+  for (const mutate of [m => delete m.kind, m => m.kind = 'skill', m => m.selected = ['sample'], m => m.files = m.files.filter(f => f.path !== 'plugin.json'), m => m.source.commit = 'main', m => m.files[0].path = '../plugin.json']) {
+    const changed = structuredClone(manifest); mutate(changed);
+    assert.ok(validateManifest(changed, 'sample.plugin', 'plugin'));
+  }
+  assert.equal(validateManifest(record(), 'sample'), null, 'Standalone schema 1 stays valid');
+});
+
+test('package-only MCP source needs no skills or selection and INDEX-only changes leave bytes untouched', t => {
+  const root = temporary(t); const manifest = putPlugin(root);
+  const file = '.agents/plugins/sample.plugin/skills';
+  fs.rmSync(path.join(root, file), { recursive: true });
+  manifest.files = manifest.files.filter(f => !f.path.startsWith('skills/'));
+  write(root, '.agents/plugins-state/manifests/sample.plugin.json', JSON.stringify(manifest));
+  index(root, []);
+  const before = snapshot(root);
+  assert.equal(run('check-skill-index', root).code, 0);
+  assert.equal(run('verify-skill-files', root, ['--plugin', 'sample.plugin']).code, 0);
+  assert.deepEqual(snapshot(root), before);
+});
+
+test('plugin missing, extra, and unsupported linked files are discrepancies, not adoption', t => {
+  const root = temporary(t); putPlugin(root);
+  const target = path.join(root, '.agents/plugins/sample.plugin/shared.txt');
+  fs.unlinkSync(target);
+  assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('missing_file'));
+  write(root, '.agents/plugins/sample.plugin/unrecorded.txt', 'Do not adopt me.');
+  assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('extra_file'));
+  const outside = path.join(root, 'outside'); fs.writeFileSync(outside, 'Not followed.');
+  fs.symlinkSync(outside, target);
+  assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('unsupported_symlink'));
+  fs.unlinkSync(target); fs.linkSync(outside, target);
+  assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('unsupported_hardlink'));
+});
