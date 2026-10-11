@@ -725,7 +725,17 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
   const relativeHome = relative(snapshot.home, destination);
   if (!relativeHome || (!isAbsolute(relativeHome) && relativeHome !== '..' && !relativeHome.startsWith(`..${sep}`))) fail('Export output must be outside CODEX_HOME.');
   for (let dir = destination; ; dir = resolve(dir, '..')) {
-    if (exists(join(dir, '.git'))) fail('Export output must be outside Git repositories; exports contain private history.');
+    const marker = join(dir, '.git');
+    let stat, emptyDirectory = false;
+    try {
+      stat = lstatSync(marker, { throwIfNoEntry: false });
+      // Only a proven-empty regular directory is harmless. Do not follow links,
+      // parse gitfiles, or treat malformed/unreadable metadata as no repository.
+      emptyDirectory = stat?.isDirectory() && !stat.isSymbolicLink() && readdirSync(marker).length === 0;
+    } catch {
+      fail('Cannot inspect Git metadata at export output or its ancestors; exports contain private history.');
+    }
+    if (stat && !emptyDirectory) fail('Export output must be outside Git repositories; exports contain private history.');
     if (resolve(dir, '..') === dir) break;
   }
   const space = statfsSync(destination, { bigint: true });
