@@ -96,12 +96,11 @@ chronicle = false
 # network_proxy = true
 
 [features.context_management]
-# Astraの実験的コンテキスト管理。メモと同じタスクの検索可能な履歴で詳細を保持する。
-# 既定はfalse。設定リファレンス上の対象はChatGPTサインインのPlus・Pro・Pro Lite。
-# 対応クライアントで有効にし、新しいタスクを開始して利用する。
+# 実験的コンテキスト管理。2026-10-12確認の公式リファレンスでは利用不可。
+# 再有効化を検討する場合は、その時点の提供状況と対応クライアントを確認する。
 # https://learn.chatgpt.com/docs/config-file/config-reference
 
-# 安定性を優先して無効化（2026-09-06）。以下のIssueの対応状況を確認して再検討する。
+# 安定性を優先して無効化した（2026-09-06）。以下は当時の判断に使ったIssue。
 # 閾値の上書きで引き継ぎ指示が欠落: https://github.com/openai/codex/issues/42918
 # 圧縮後に未完了の作業が停止: https://github.com/openai/codex/issues/42693
 # notes/historyツール不足で作業を反復: https://github.com/openai/codex/issues/42449
