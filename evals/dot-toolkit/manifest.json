@@ -39,8 +39,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.3-to-0.4.md",
-      "sha256": "8df539ae2b6b949caaca8835614bcd7cd2db6e963bdee0d0859c88ae9000a4f8",
-      "bytes": 6904
+      "sha256": "a79973206c8461ef3d3d9c28fa6b136189acf203780b53c47b88addda2d25201",
+      "bytes": 7066
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs",

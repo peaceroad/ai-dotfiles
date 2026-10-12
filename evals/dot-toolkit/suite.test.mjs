@@ -159,6 +159,7 @@ const workspaceDecisionCases = [
   'handoff-task-skill-access', 'handoff-verified-project-path',
   'ordinary-codex-policy-near-miss', 'delegated-file-work-policy-near-miss',
   'workspace-upgrade-review', 'workspace-upgrade-only', 'workspace-organization-delegated',
+  'workspace-cross-filesystem-removal-authority',
   'workspace-update-event-offer', 'workspace-organization-later',
   'project-evaluation-storage', 'temporary-work-resumption',
   'maintained-guide-and-oneoff-deliverable', 'comparison-results-and-concurrency',
