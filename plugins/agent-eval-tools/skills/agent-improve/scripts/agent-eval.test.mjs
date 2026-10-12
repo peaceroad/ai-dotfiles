@@ -518,6 +518,29 @@ test('adapter records terminal events without retaining reasoning or claiming ob
   assert.ok(!args.some(x => x.includes('bypass') || x === '--ignore-rules'));
 });
 
+test('CLI event framing preserves results across arbitrary chunks and unterminated lines', () => {
+  const answer = '日本語 🧪\nquoted "text" and \\escape'.repeat(2048);
+  const events = [
+    '', ' \t', JSON.stringify({ type: 'thread.started', thread_id: 'synthetic' }),
+    JSON.stringify(cliMessage('earlier')), 'not-json', JSON.stringify(cliMessage(answer)),
+    JSON.stringify(cliTurn),
+  ];
+  for (const ending of ['\n', '\r\n']) for (const trailing of ['', ending]) {
+    const text = events.join(ending) + trailing;
+    for (const size of [1, 7, 4096, text.length]) {
+      const reader = createEventReader();
+      reader.push('');
+      for (let offset = 0; offset < text.length; offset += size) reader.push(text.slice(offset, offset + size));
+      reader.push('');
+      assert.deepEqual(reader.finish(), {
+        output: answer, usage: cliTurn.usage, threadId: 'synthetic', completed: true,
+        errors: [], eventTypes: ['thread.started', 'item.completed', 'turn.completed'],
+        toolActivity: false, observedModel: null, invalidLines: 1,
+      });
+    }
+  }
+});
+
 test('malformed CLI events stay unscorable and a failed turn cannot become successful', () => {
   const reader = createEventReader();
   const malformed = [null, [], 1, {}, { type: 4 }, { type: 'item.completed', item: { type: 'agent_message', text: { answer: 'wrong type' } } }];

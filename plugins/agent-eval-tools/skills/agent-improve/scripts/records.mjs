@@ -40,8 +40,9 @@ export function safeFile(root, name, { existing = true } = {}) {
   for (let i = 0; i < parts.length; i++) {
     path = join(path, parts[i]);
     if (existsSync(path)) {
-      if (lstatSync(path).isSymbolicLink() || !inside(base, realpathSync(path))) throw new Error('Symlink or path escape in bundle.');
-      if (i < parts.length - 1 && !lstatSync(path).isDirectory()) throw new Error('Bundle parent is not a directory.');
+      const metadata = lstatSync(path);
+      if (metadata.isSymbolicLink() || !inside(base, realpathSync(path))) throw new Error('Symlink or path escape in bundle.');
+      if (i < parts.length - 1 && !metadata.isDirectory()) throw new Error('Bundle parent is not a directory.');
     } else if (existing) throw new Error(`Missing bundle file: ${name}`);
   }
   return path;

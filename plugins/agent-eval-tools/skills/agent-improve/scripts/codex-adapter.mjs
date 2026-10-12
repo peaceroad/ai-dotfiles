@@ -19,7 +19,8 @@ export function findCodex(explicit) {
     return explicit;
   }
   const native = process.platform === 'win32' ? 'codex.exe' : 'codex';
-  for (const dir of (process.env.PATH || '').split(delimiter).filter(Boolean)) {
+  const directories = (process.env.PATH || '').split(delimiter).filter(Boolean);
+  for (const dir of directories) {
     const file = join(dir, native);
     if (existsSync(file)) return file;
   }
@@ -28,7 +29,7 @@ export function findCodex(explicit) {
   if (process.platform === 'win32') {
     const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
     const triple = arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-msvc';
-    for (const dir of (process.env.PATH || '').split(delimiter).filter(Boolean)) {
+    for (const dir of directories) {
       const packageFile = join(dir, 'node_modules', '@openai', 'codex', 'package.json');
       if (!existsSync(packageFile)) continue;
       const require = createRequire(resolve(packageFile));
@@ -80,7 +81,15 @@ export function createEventReader() {
     // Reasoning items and full tool transcripts are deliberately not retained.
   }
   return {
-    push(chunk) { pending += chunk; const lines = pending.split('\n'); pending = lines.pop(); for (const item of lines) line(item); },
+    push(chunk) {
+      // Scan only new text; a long fragmented line must not be rescanned on every push.
+      let start = 0, end;
+      while ((end = chunk.indexOf('\n', start)) !== -1) {
+        line(pending + chunk.slice(start, end));
+        pending = ''; start = end + 1;
+      }
+      pending += chunk.slice(start);
+    },
     finish() { line(pending); pending = ''; result.eventTypes = [...types]; return { ...result, completed: result.completed && !failed, invalidLines: invalid }; },
   };
 }
