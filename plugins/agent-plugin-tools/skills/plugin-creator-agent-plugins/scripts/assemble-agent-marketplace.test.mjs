@@ -592,3 +592,220 @@ test("portable tree digest has deterministic byte ordering and excludes host per
     assert.notEqual(await treeDigest(root), before);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("assembler accepts an explicitly selected root alias and rejects internal redirects", async (t) => {
+  const { rename } = await import("node:fs/promises");
+  for (const output of ["plugins", "skills", ".agents", ".agents/marketplace-development", ".agents/plugins", ".agents/skills", ".agents/marketplace-development/state.json"]) {
+    await t.test(output, async (t) => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "assembler-boundary-"));
+      try {
+        const distribution = path.join(root, "distribution");
+        const selected = path.join(root, "selected");
+        const source = path.join(root, "sources", "sample-plugin");
+        await createPlugin(source, "sample-plugin");
+        await mkdir(distribution);
+        try { await symlink(distribution, selected, "junction"); }
+        catch (error) {
+          if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+          throw error;
+        }
+        const initialized = invoke(["init", selected, "--name", "sample", "--display-name", "Sample", "--plugin", source, "--category", "Tools"], root);
+        assert.equal(initialized.status, 0, initialized.stderr);
+        const synced = invoke(["sync", selected], root);
+        assert.equal(synced.status, 0, synced.stderr);
+        const redirected = path.join(distribution, output);
+        const outside = path.join(root, "outside");
+        if (output === "skills") await mkdir(redirected);
+        await rename(redirected, outside);
+        const file = output.endsWith(".json");
+        await symlink(outside, redirected, file ? "file" : "junction");
+        const before = file ? await readFile(outside) : await treeDigest(outside);
+        for (const command of ["sync", "check", "add"]) {
+          const result = invoke([command, selected, ...(command === "add" ? [source, "--category", "Tools"] : [])], root);
+          assert.equal(result.status, 1, result.stderr);
+          assert.match(result.stderr, /redirected/u);
+        }
+        assert.deepEqual(file ? await readFile(outside) : await treeDigest(outside), before);
+      } finally { await rm(root, { recursive: true, force: true }); }
+    });
+  }
+});
+
+test("assembler preflights init output and rejects canonical source/output overlap", async (t) => {
+  const { readdir } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(os.tmpdir(), "assembler-source-boundary-"));
+  try {
+    const distribution = path.join(root, "distribution");
+    const outside = path.join(root, "outside");
+    await mkdir(distribution);
+    await mkdir(outside);
+    try { await symlink(outside, path.join(distribution, ".agents"), "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const rejected = invoke(["init", distribution, "--name", "sample", "--display-name", "Sample"], root);
+    assert.equal(rejected.status, 1, rejected.stderr);
+    assert.match(rejected.stderr, /redirected/u);
+    assert.deepEqual(await readdir(outside), []);
+    await rm(path.join(distribution, ".agents"));
+
+    const generated = path.join(distribution, "plugins", "sample-plugin");
+    await createPlugin(generated, "sample-plugin");
+    const alias = path.join(root, "alias");
+    await symlink(distribution, alias, "junction");
+    const config = path.join(root, "config.json");
+    await writeJson(config, { schemaVersion: 2, name: "sample", displayName: "Sample", skills: [],
+      plugins: [{ source: path.join(alias, "plugins", "sample-plugin"), category: "Tools" }] });
+    const before = await readFile(path.join(generated, "content.txt"));
+    const result = invoke(["sync", distribution, "--config", config], root);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /source overlaps managed/u);
+    assert.deepEqual(await readFile(path.join(generated, "content.txt")), before);
+    assert.equal((await readdir(distribution)).includes(".agents"), false);
+
+    // A source containing the destination would recursively consume its own output.
+    await createPlugin(path.join(root, "source-plugin"), "parent-plugin");
+    await writeJson(config, { schemaVersion: 2, name: "sample", displayName: "Sample", skills: [],
+      plugins: [{ source: path.join(root, "source-plugin"), category: "Tools" }] });
+    const nested = invoke(["sync", path.join(root, "source-plugin", "distribution"), "--config", config], root);
+    assert.equal(nested.status, 1, nested.stderr);
+    assert.match(nested.stderr, /source overlaps managed/u);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("streamed tree digests match buffered vectors for empty, binary, nested and linked entries", async (t) => {
+  const { createHash } = await import("node:crypto");
+  const { lstat, readdir, readlink } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(os.tmpdir(), "assembler-digest-vector-"));
+  try {
+    await mkdir(path.join(root, "nested"));
+    await writeFile(path.join(root, "empty"), Buffer.alloc(0));
+    await writeFile(path.join(root, "Z.bin"), Buffer.from(Array.from({ length: 700003 }, (_, i) => i % 251)));
+    await writeFile(path.join(root, "nested", "é.txt"), "text\u0000tail\n");
+    try { await symlink("Z.bin", path.join(root, "link"), "file"); }
+    catch (error) {
+      if (!["EPERM", "EACCES"].includes(error.code)) throw error;
+      t.diagnostic("Link vector unavailable; other digest vectors still checked");
+    }
+    for (const legacy of [false, true]) {
+      const hash = createHash("sha256");
+      async function buffered(directory, prefix = "") {
+        const names = (await readdir(directory)).sort((a, b) => legacy ? a.localeCompare(b, "en") : Buffer.compare(Buffer.from(a), Buffer.from(b)));
+        for (const name of names) {
+          const file = path.join(directory, name);
+          const rel = prefix ? `${prefix}/${name}` : name;
+          const info = await lstat(file);
+          if (info.isSymbolicLink()) hash.update(`l\0${rel}\0${await readlink(file)}\0`);
+          else {
+            hash.update(`${info.isDirectory() ? "d" : "f"}\0${rel}\0${legacy ? `${info.mode & 0o777}\0` : ""}`);
+            if (info.isDirectory()) await buffered(file, rel);
+            else {
+              const bytes = await readFile(file);
+              hash.update(legacy ? bytes : createHash("sha256").update(bytes).digest("hex"));
+              hash.update("\0");
+            }
+          }
+        }
+      }
+      await buffered(root);
+      assert.equal(await treeDigest(root, legacy), `${legacy ? "sha256" : "sha256-tree-v2"}:${hash.digest("hex")}`);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("assembler resolves a new selected root beneath an aliased ancestor", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "assembler-new-root-"));
+  try {
+    const parent = path.join(root, "parent");
+    const alias = path.join(root, "selected-parent");
+    await mkdir(parent);
+    try { await symlink(parent, alias, "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const selected = path.join(alias, "new-marketplace");
+    const result = invoke(["init", selected, "--name", "sample", "--display-name", "Sample"], root);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(invoke(["sync", selected], root).status, 0);
+    assert.equal(invoke(["check", path.join(parent, "new-marketplace")], root).status, 0);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("assembler errors and recovery paths hide a synthetic private home", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "assembler-diagnostics-"));
+  try {
+    const result = spawnSync(process.execPath, [assembler, "sync", path.join(home, "missing")], {
+      encoding: "utf8", env: { ...process.env, HOME: home, USERPROFILE: home },
+    });
+    assert.equal(result.status, 1);
+    assert.ok(!result.stderr.includes(home));
+    assert.match(result.stderr, /~\/missing/u);
+    const guidance = filesystemGuidance({ code: "EACCES", path: path.join(home, "marketplace") }, { root: home, command: "sync" });
+    assert.ok(!guidance.includes(home));
+    assert.match(guidance, /Reported path:/u);
+  } finally { await rm(home, { recursive: true, force: true }); }
+});
+
+test("assembler preserves temporary, staging and backup collisions", async (t) => {
+  const { pathToFileURL } = await import("node:url");
+  for (const kind of ["temporary", "staging", "backup"]) await t.test(kind, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "assembler-collision-"));
+    try {
+      const distribution = path.join(root, "distribution");
+      const source = path.join(root, "source");
+      const config = path.join(root, "config.json");
+      await createPlugin(source, "sample");
+      await writeJson(config, { schemaVersion: 2, name: "sample", displayName: "Sample", skills: [],
+        plugins: [{ source, category: "Tools" }] });
+      if (kind === "backup") {
+        const initialized = invoke(["init", distribution, "--name", "sample", "--display-name", "Sample"], root);
+        assert.equal(initialized.status, 0, initialized.stderr);
+      }
+      const preload = path.join(root, "collision.mjs"), marker = path.join(root, "collision-path.txt");
+      await writeFile(preload, `import fs from "node:fs"; import path from "node:path";
+import crypto from "node:crypto"; import { syncBuiltinESMExports } from "node:module";
+if (process.argv[1] === ${JSON.stringify(assembler)}) {
+  crypto.randomUUID = () => "fixed"; syncBuiltinESMExports();
+  const directory = path.join(${JSON.stringify(distribution)}, ".agents", "marketplace-development");
+  const kind = ${JSON.stringify(kind)};
+  const collision = path.join(directory, kind === "staging" ? ".staging-" + process.pid + "-fixed"
+    : kind === "backup" ? "config.json.bak-" + process.pid + "-fixed" : "schema.json.tmp-" + process.pid + "-fixed");
+  fs.mkdirSync(path.dirname(collision), { recursive: true });
+  if (kind === "staging") fs.mkdirSync(collision);
+  fs.writeFileSync(kind === "staging" ? path.join(collision, "sentinel") : collision, "another writer");
+  fs.writeFileSync(${JSON.stringify(marker)}, collision);
+}\n`);
+      const args = kind === "temporary" ? ["init", distribution, "--name", "sample", "--display-name", "Sample"]
+        : kind === "staging" ? ["sync", distribution, "--config", config] : ["add", distribution, source, "--category", "Tools"];
+      const result = spawnSync(process.execPath, [assembler, ...args], {
+        encoding: "utf8", env: { ...process.env, NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` },
+      });
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, kind === "backup" ? /Backup path already exists/u : /EEXIST/u);
+      const collision = await readFile(marker, "utf8");
+      assert.equal(await readFile(kind === "staging" ? path.join(collision, "sentinel") : collision, "utf8"), "another writer");
+      if (kind === "backup") assert.deepEqual(JSON.parse(await readFile(path.join(distribution, ".agents", "marketplace-development", "config.json"))).plugins, []);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+});
+
+test("assembler redacts known source paths in captured validator failures", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "assembler-child-diagnostics-"));
+  try {
+    const source = path.join(root, "private-source");
+    await createPlugin(source, "sample");
+    try { await symlink(path.join(root, "missing"), path.join(source, "dangling"), "file"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const result = spawnSync(process.execPath, [assembler, "init", path.join(root, "marketplace"), "--name", "sample", "--display-name", "Sample", "--plugin", source, "--category", "Tools"], {
+      encoding: "utf8", env: { ...process.env, HOME: path.join(root, "home"), USERPROFILE: path.join(root, "home") },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Cannot resolve link/u);
+    assert.ok(!result.stderr.includes(root));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

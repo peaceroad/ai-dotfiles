@@ -31,6 +31,8 @@ scripts/
 └── validate-agent-plugin.mjs
 ```
 
+The explicitly selected repository root is resolved to its canonical directory, so selecting a root through an alias is supported. Below that root, generated files and their ancestors must not be symbolic links or junctions, including dangling links. The scaffold checks all managed destinations before copying and rechecks each write. Refresh replaces files through temporary files and rename, so a hardlinked target does not modify its other links. Ownership markers do not override these location checks. These checks reject existing redirects; they do not provide a sandbox against hostile concurrent path replacement.
+
 The runner, validator, and schema are generated files. Keep repository-specific behavior out of them; their source tests remain in this skill. Refresh when adopting changes to those templates or their generated behavior:
 
 ```powershell
@@ -108,6 +110,8 @@ If the current execution environment cannot write the Repository's `.agents/` su
 ```powershell
 node scripts/scaffold-local-agent-plugin.mjs prepare 'C:\path\to\repository' 'plugins\my-plugin' 'C:\path\to\pending-config.json' --bump-version
 ```
+
+Displayed paths use `~` or `[external]/<name>` rather than expanded home paths. Recovery commands use placeholders; substitute the same paths you selected.
 
 The pending output directory must already exist, the output must be outside `.agents/plugin-development/`, and `prepare` never overwrites an existing file. It validates the portable plugin and its Marketplace binding before writing the same base configuration that `init` would use. It refuses an existing repository configuration because `import` cannot replace one. Add required check definitions to the pending configuration; `import` runs them after generating the runner. Import through an available authorized execution path; if only the user's terminal can write the target, explain the observed denial and provide the concrete command:
 

@@ -475,3 +475,174 @@ test("import places a pending config without deleting its source and rolls back 
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+async function scaffoldFixture(root) {
+  const repository = path.join(root, "repository");
+  await writeJson(path.join(repository, "plugins", "sample-plugin", "plugin.json"), {
+    $schema: schema, name: "sample-plugin", version: "0.1.0",
+  });
+  await writeJson(path.join(repository, ".agents", "plugins", "marketplace.json"), {
+    name: "sample-marketplace", plugins: [{
+      name: "sample-plugin", source: { source: "local", path: "./plugins/sample-plugin" },
+    }],
+  });
+  return repository;
+}
+
+test("scaffold refuses redirected managed ancestors and endpoints before writing", async (t) => {
+  const { symlink, rename, readdir } = await import("node:fs/promises");
+  for (const target of ["scripts", ".agents", ".agents/plugin-development", "scripts/local-plugin.mjs", ".agents/plugin-development/sample-plugin.json"]) {
+    await t.test(target, async (t) => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "scaffold-boundary-"));
+      try {
+        const repository = await scaffoldFixture(root);
+        const redirected = path.join(repository, target);
+        const outside = path.join(root, "outside");
+        const isFile = target.endsWith(".mjs") || target.endsWith(".json");
+        await mkdir(path.dirname(redirected), { recursive: true });
+        if (target === ".agents") await rename(redirected, outside);
+        else if (isFile) await writeFile(outside, "sentinel");
+        else await mkdir(outside);
+        try { await symlink(outside, redirected, isFile ? "file" : "junction"); }
+        catch (error) {
+          if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+          throw error;
+        }
+        const before = isFile ? await readFile(outside) : await readdir(outside);
+        const result = invoke(["init", repository, "plugins/sample-plugin", "--keep-version"], root);
+        assert.equal(result.status, 1, result.stderr);
+        assert.match(result.stderr, /redirected/u);
+        assert.deepEqual(isFile ? await readFile(outside) : await readdir(outside), before);
+        if (target !== "scripts/local-plugin.mjs" && target !== "scripts") {
+          assert.equal(existsSync(path.join(repository, "scripts", "local-plugin.mjs")), false);
+        }
+      } finally { await rm(root, { recursive: true, force: true }); }
+    });
+  }
+});
+
+test("scaffold permits a selected root alias and replaces hardlinked managed files by rename", async (t) => {
+  const { symlink, link, unlink, rename } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(os.tmpdir(), "scaffold-root-alias-"));
+  try {
+    const repository = await scaffoldFixture(root);
+    const selected = path.join(root, "selected");
+    try { await symlink(repository, selected, "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const initialized = invoke(["init", selected, "plugins/sample-plugin", "--keep-version"], root);
+    assert.equal(initialized.status, 0, initialized.stderr);
+    const runner = path.join(repository, "scripts", "local-plugin.mjs");
+    const sentinel = path.join(root, "sentinel.mjs");
+    await appendFile(runner, "\n// managed refresh candidate\n");
+    const before = await readFile(runner);
+    await link(runner, sentinel);
+    const refreshed = invoke(["refresh", selected], root);
+    assert.equal(refreshed.status, 0, refreshed.stderr);
+    assert.deepEqual(await readFile(sentinel), before);
+    assert.doesNotMatch(await readFile(runner, "utf8"), /managed refresh candidate/u);
+
+    // A later internal redirect is refused even though the files carry ownership markers.
+    const scripts = path.join(repository, "scripts");
+    const externalScripts = path.join(root, "external-scripts");
+    await rename(scripts, externalScripts);
+    await symlink(externalScripts, scripts, "junction");
+    const refused = invoke(["refresh", selected], root);
+    assert.equal(refused.status, 1, refused.stderr);
+    assert.match(refused.stderr, /redirected/u);
+    await unlink(scripts);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("scaffold rejects dangling generated endpoints and keeps preparation diagnostics public-safe", async (t) => {
+  const { symlink } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(os.tmpdir(), "scaffold-diagnostics-"));
+  try {
+    const repository = await scaffoldFixture(root);
+    const pending = path.join(root, "pending.json");
+    const result = spawnSync(process.execPath, [scaffold, "prepare", repository, "plugins/sample-plugin", pending, "--keep-version"], {
+      encoding: "utf8", env: { ...process.env, HOME: root, USERPROFILE: root },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(!(result.stdout + result.stderr).includes(root));
+    assert.match(result.stdout, /Prepared: ~\/pending.json/u);
+    await mkdir(path.join(repository, "scripts"));
+    try { await symlink(path.join(root, "absent"), path.join(repository, "scripts", "local-plugin.mjs"), "file"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const imported = invoke(["import", repository, pending], root);
+    assert.equal(imported.status, 1);
+    assert.match(imported.stderr, /redirected/u);
+    assert.equal(existsSync(path.join(repository, ".agents", "plugin-development", "schema.json")), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("scaffold preserves an exclusive temporary-file collision", async () => {
+  const { pathToFileURL } = await import("node:url");
+  const root = await mkdtemp(path.join(os.tmpdir(), "scaffold-collision-"));
+  try {
+    const repository = await scaffoldFixture(root);
+    const collision = path.join(repository, ".agents", "plugin-development", ".scaffold-fixed.tmp");
+    await mkdir(path.dirname(collision));
+    await writeFile(collision, "another writer");
+    const preload = path.join(root, "collision.mjs");
+    await writeFile(preload, 'import crypto from "node:crypto"; import { syncBuiltinESMExports } from "node:module"; crypto.randomUUID = () => "fixed"; syncBuiltinESMExports();\n');
+    const result = spawnSync(process.execPath, [scaffold, "init", repository, "plugins/sample-plugin", "--keep-version"], {
+      encoding: "utf8", env: { ...process.env, NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` },
+    });
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /EEXIST/u);
+    assert.equal(await readFile(collision, "utf8"), "another writer");
+    assert.equal(existsSync(path.join(repository, ".agents", "plugin-development", "schema.json")), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("scaffold retains the primary error when owned temporary cleanup also fails", async () => {
+  const { pathToFileURL } = await import("node:url");
+  const root = await mkdtemp(path.join(os.tmpdir(), "scaffold-secondary-failure-"));
+  try {
+    const repository = await scaffoldFixture(root);
+    const preload = path.join(root, "failure.mjs");
+    await writeFile(preload, `import fs from "node:fs"; import { syncBuiltinESMExports } from "node:module";
+const copy = fs.copyFileSync, unlink = fs.unlinkSync;
+fs.copyFileSync = (source, target, ...args) => {
+  if (String(target).includes(".scaffold-")) throw new Error("PRIMARY_COPY_FAILURE");
+  return copy(source, target, ...args);
+};
+fs.unlinkSync = (target, ...args) => {
+  if (String(target).includes(".scaffold-")) throw new Error("SECONDARY_CLEANUP_FAILURE");
+  return unlink(target, ...args);
+};
+syncBuiltinESMExports();\n`);
+    const result = spawnSync(process.execPath, [scaffold, "init", repository, "plugins/sample-plugin", "--keep-version"], {
+      encoding: "utf8", env: { ...process.env, NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /PRIMARY_COPY_FAILURE/u);
+    assert.match(result.stderr, /Additional cleanup failure.*SECONDARY_CLEANUP_FAILURE/u);
+    assert.ok(!result.stderr.includes(root));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("scaffold redacts known source paths in captured validator failures", async (t) => {
+  const { symlink } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(os.tmpdir(), "scaffold-child-diagnostics-"));
+  try {
+    const repository = await scaffoldFixture(root);
+    try { await symlink(path.join(root, "missing"), path.join(repository, "plugins", "sample-plugin", "dangling"), "file"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const result = spawnSync(process.execPath, [scaffold, "init", repository, "plugins/sample-plugin", "--keep-version"], {
+      encoding: "utf8", env: { ...process.env, HOME: path.join(root, "home"), USERPROFILE: path.join(root, "home") },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Cannot resolve link/u);
+    assert.ok(!result.stderr.includes(root));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

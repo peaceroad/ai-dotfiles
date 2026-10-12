@@ -64,3 +64,5 @@ Keep repository-specific behavior in the per-plugin configuration or its check s
 The [Astra review and follow-up audit](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-plugin-tools/astra-review.md) records the design decisions, frozen evaluation inputs, observed checks, and remaining limits. That record is for maintainers and is not required reading when using the skill.
 
 Marketplace package digests now use the portable `sha256-tree-v2:` content format. Update consumers before distribution, and run a full sync in the original environment to migrate permission-sensitive legacy digests. File permissions remain a local execution concern; permission-only changes do not trigger copying. See the [distribution contract](skills/plugin-creator-agent-plugins/references/marketplace-distribution.md#distribution-boundary).
+
+Diagnostic paths from the scaffold, Marketplace assembler, and built-in instruction probe use `~` or `[external]/<name>` instead of expanded private paths. The probe's JSON `skillPath` is a display label, not a canonical path for later file operations.

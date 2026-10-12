@@ -4,10 +4,12 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { homedir } from "node:os";
 import {
   cp,
   lstat,
   mkdir,
+  open,
   readFile,
   realpath,
   readdir,
@@ -222,12 +224,74 @@ async function pathType(target) {
   }
 }
 
+// Canonicalize only the explicitly selected root, including a missing suffix.
+// Symlinks below that boundary remain disallowed for managed destinations.
+async function canonicalRoot(root) {
+  try { return await realpath(root); }
+  catch (error) {
+    if (error.code !== "ENOENT" || path.dirname(root) === root) throw error;
+    return path.join(await canonicalRoot(path.dirname(root)), path.basename(root));
+  }
+}
+
+async function assertDestinationPath(root, target) {
+  if (!isWithin(root, target)) fail("Managed destination escapes the Marketplace root.");
+  let current = root;
+  const parts = path.relative(root, target).split(path.sep).filter(Boolean);
+  for (let index = -1; index < parts.length; index += 1) {
+    if (index >= 0) current = path.join(current, parts[index]);
+    const type = await pathType(current);
+    if (type === null) return;
+    if (type === "link" || (index < parts.length - 1 && type !== "directory")) {
+      fail(`Managed destination has a redirected or non-directory ancestor: ${path.relative(root, current) || "."}`);
+    }
+  }
+}
+
+async function assertOutputBoundary(root) {
+  for (const output of ["plugins", "skills", DEVELOPMENT_DIRECTORY,
+    CONFIG_RELATIVE_PATH, SCHEMA_RELATIVE_PATH, STATE_RELATIVE_PATH,
+    CATALOG_RELATIVE_PATH, SKILL_CATALOG_RELATIVE_PATH]) {
+    await assertDestinationPath(root, path.join(root, output));
+  }
+}
+
+async function assertSourceBoundary(root, source, kind, name, allowGeneratedSource) {
+  const canonical = await realpath(source);
+  for (const output of ["plugins", "skills", ".agents"]) {
+    const destination = path.join(root, output);
+    if (!isWithin(pathKey(canonical), pathKey(destination))
+      && !isWithin(pathKey(destination), pathKey(canonical))) continue;
+    // A scoped merge may use exactly an unselected generated package as context.
+    if (allowGeneratedSource && output === kind
+      && pathKey(canonical) === pathKey(path.join(destination, name))) return;
+    fail(`Package source overlaps managed Marketplace output: ${displayPath(source)}`);
+  }
+}
+
+function displayPath(value) {
+  const absolute = path.resolve(value);
+  const home = path.resolve(homedir());
+  return isWithin(home, absolute)
+    ? `~${absolute === home ? "" : `/${path.relative(home, absolute).replaceAll(path.sep, "/")}`}`
+    : `[external]/${path.basename(absolute)}`;
+}
+
+function publicMessage(value, paths = []) {
+  let message = String(value);
+  for (const value of paths.filter(value => typeof value === "string").sort((a, b) => b.length - a.length)) {
+    message = message.replaceAll(value, displayPath(value));
+  }
+  return message.replaceAll(path.resolve(homedir()), "~")
+    .replaceAll(path.resolve(homedir()).replaceAll("\\", "/"), "~");
+}
+
 async function readJson(file, label) {
   let text;
   try {
     text = await readFile(file, "utf8");
   } catch (error) {
-    if (error.code === "ENOENT") fail(`${label} does not exist: ${file}`);
+    if (error.code === "ENOENT") fail(`${label} does not exist: ${displayPath(file)}`);
     throw error;
   }
   try {
@@ -267,7 +331,7 @@ function pathKey(value) {
 
 function isWithin(root, candidate) {
   const relative = path.relative(root, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 function reportedErrorPath(error) {
@@ -292,7 +356,7 @@ export function filesystemGuidance(error, options) {
     && root
     && isWithin(pathKey(path.resolve(root)), pathKey(failedPath)),
   );
-  const location = failedPath ? `\nReported path: ${failedPath}` : "";
+  const location = failedPath ? `\nReported path: ${displayPath(failedPath)}` : "";
   const retry = rerunInstruction(options);
 
   if (error.code === "EACCES" || error.code === "EPERM" || error.code === "EROFS") {
@@ -331,8 +395,9 @@ function addSecondaryFailure(primaryError, action, target, secondaryError) {
   primaryError.secondaryFailures.push({ action, target, error: secondaryError });
 }
 
-async function removeAfterOperation(target, options, primaryError) {
+async function removeAfterOperation(root, target, options, primaryError) {
   try {
+    await assertDestinationPath(root, target);
     await rm(target, options);
   } catch (error) {
     if (!primaryError) throw error;
@@ -340,8 +405,10 @@ async function removeAfterOperation(target, options, primaryError) {
   }
 }
 
-async function restoreBackup(backup, destination, primaryError) {
+async function restoreBackup(root, backup, destination, primaryError) {
   try {
+    await assertDestinationPath(root, backup);
+    await assertDestinationPath(root, destination);
     if ((await pathType(backup)) !== null) await rename(backup, destination);
   } catch (error) {
     addSecondaryFailure(primaryError, "rollback", backup, error);
@@ -368,7 +435,7 @@ function validateConfig(config, root) {
     plugin.source = normalizeText(plugin.source, `plugins[${index}].source`);
     plugin.category = normalizeText(plugin.category, `plugins[${index}].category`);
     const resolved = pathKey(resolveConfigSource(root, plugin.source));
-    if (sources.has(resolved)) fail(`Duplicate plugin source: ${plugin.source}`);
+    if (sources.has(resolved)) fail(`Duplicate plugin source: ${displayPath(resolveConfigSource(root, plugin.source))}`);
     sources.add(resolved);
   }
   const skillSources = new Set();
@@ -380,7 +447,7 @@ function validateConfig(config, root) {
     skill.source = normalizeText(skill.source, `skills[${index}].source`);
     if (skill.sourceUrl !== undefined) skill.sourceUrl = validateSourceUrl(skill.sourceUrl, `skills[${index}].sourceUrl`);
     const resolved = pathKey(resolveConfigSource(root, skill.source));
-    if (skillSources.has(resolved)) fail(`Duplicate Skill source: ${skill.source}`);
+    if (skillSources.has(resolved)) fail(`Duplicate Skill source: ${displayPath(resolveConfigSource(root, skill.source))}`);
     skillSources.add(resolved);
   }
   return config;
@@ -394,8 +461,8 @@ function runValidator(pluginRoot) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    const detail = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
-    fail(`Plugin validation failed for ${pluginRoot}.${detail ? `\n${detail}` : ""}`);
+    const detail = publicMessage(`${result.stdout ?? ""}${result.stderr ?? ""}`.trim(), [pluginRoot, SCRIPT_DIR]);
+    fail(`Plugin validation failed for ${displayPath(pluginRoot)}.${detail ? `\n${detail}` : ""}`);
   }
 }
 
@@ -406,12 +473,13 @@ async function inspectPlugin(root, entry, {
 } = {}) {
   const source = resolveConfigSource(root, entry.source);
   if (!allowGeneratedSource && isWithin(path.join(root, PLUGINS_RELATIVE_PATH), source)) {
-    fail(`Plugin source must not be inside the generated plugins directory: ${entry.source}`);
+    fail(`Plugin source must not be inside the generated plugins directory: ${displayPath(source)}`);
   }
-  if ((await pathType(source)) !== "directory") fail(`Plugin source is not a directory: ${entry.source}`);
-  if (validate) runValidator(source);
+  if ((await pathType(source)) !== "directory") fail(`Plugin source is not a directory: ${displayPath(source)}`);
   const manifest = await readJson(path.join(source, "plugin.json"), "plugin.json");
-  const name = validateName(manifest.name, `${entry.source}/plugin.json.name`);
+  const name = validateName(manifest.name, `${displayPath(source)}/plugin.json.name`);
+  await assertSourceBoundary(root, source, "plugins", name, allowGeneratedSource);
+  if (validate) runValidator(source);
   const plugin = { ...entry, source, name };
   if (includeDigest) plugin.digest = await treeDigest(source);
   return plugin;
@@ -435,16 +503,16 @@ async function inspectSkill(root, entry, {
 } = {}) {
   const source = resolveConfigSource(root, entry.source);
   if (!allowGeneratedSource && isWithin(path.join(root, SKILLS_RELATIVE_PATH), source)) {
-    fail(`Skill source must not be inside the generated skills directory: ${entry.source}`);
+    fail(`Skill source must not be inside the generated skills directory: ${displayPath(source)}`);
   }
-  if ((await pathType(source)) !== "directory") fail(`Skill source is not a directory: ${entry.source}`);
+  if ((await pathType(source)) !== "directory") fail(`Skill source is not a directory: ${displayPath(source)}`);
   const skillFile = path.join(source, "SKILL.md");
-  if ((await pathType(skillFile)) !== "file") fail(`Skill source has no SKILL.md: ${entry.source}`);
+  if ((await pathType(skillFile)) !== "file") fail(`Skill source has no SKILL.md: ${displayPath(source)}`);
   const text = await readFile(skillFile, "utf8");
   const lines = text.split(/\r?\n/u);
-  if (lines[0]?.trim() !== "---") fail(`${entry.source}/SKILL.md must start with YAML frontmatter.`);
+  if (lines[0]?.trim() !== "---") fail(`${displayPath(source)}/SKILL.md must start with YAML frontmatter.`);
   const end = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
-  if (end < 0) fail(`${entry.source}/SKILL.md has unclosed YAML frontmatter.`);
+  if (end < 0) fail(`${displayPath(source)}/SKILL.md has unclosed YAML frontmatter.`);
   const frontmatter = lines.slice(1, end);
   const valueFor = (key) => {
     const match = frontmatter
@@ -457,11 +525,12 @@ async function inspectSkill(root, entry, {
     }
     return value;
   };
-  const name = validateSkillName(valueFor("name"), `${entry.source}/SKILL.md name`);
-  if (!valueFor("description")) fail(`${entry.source}/SKILL.md description must be non-empty.`);
+  const name = validateSkillName(valueFor("name"), `${displayPath(source)}/SKILL.md name`);
+  if (!valueFor("description")) fail(`${displayPath(source)}/SKILL.md description must be non-empty.`);
   if (path.basename(source) !== name) {
-    fail(`Skill source directory name must match the name in SKILL.md: ${entry.source}.`);
+    fail(`Skill source directory name must match the name in SKILL.md: ${displayPath(source)}.`);
   }
+  await assertSourceBoundary(root, source, "skills", name, allowGeneratedSource);
   const skill = { ...entry, source, name };
   if (includeDigest) skill.digest = await treeDigest(source);
   return skill;
@@ -482,6 +551,7 @@ async function inspectSkills(config, root, inspectionOptions) {
 export async function treeDigest(root, legacy = false) {
   const hash = createHash("sha256");
   const realRoot = await realpath(root);
+  const buffer = Buffer.allocUnsafe(256 * 1024);
   async function visit(directory, relativeDirectory) {
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((a, b) => legacy ? a.name.localeCompare(b.name, "en") : Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)));
@@ -494,8 +564,16 @@ export async function treeDigest(root, legacy = false) {
         await visit(target, path.join(relativeDirectory, entry.name));
       } else if (stats.isFile()) {
         hash.update(legacy ? `f\0${relative}\0${stats.mode & 0o777}\0` : `f\0${relative}\0`);
-        const content = await readFile(target);
-        hash.update(legacy ? content : createHash("sha256").update(content).digest("hex"));
+        const contentHash = legacy ? hash : createHash("sha256");
+        const file = await open(target, "r");
+        try {
+          while (true) {
+            const { bytesRead } = await file.read(buffer, 0, buffer.length, null);
+            if (bytesRead === 0) break;
+            contentHash.update(buffer.subarray(0, bytesRead));
+          }
+        } finally { await file.close(); }
+        if (!legacy) hash.update(contentHash.digest("hex"));
         hash.update("\0");
       } else if (stats.isSymbolicLink()) {
         const linkTarget = await readlink(target);
@@ -510,7 +588,7 @@ export async function treeDigest(root, legacy = false) {
         }
         hash.update(`l\0${relative}\0${linkTarget}\0`);
       } else {
-        fail(`Unsupported filesystem entry in plugin ${root}: ${relative}`);
+        fail(`Unsupported filesystem entry in plugin ${displayPath(root)}: ${relative}`);
       }
     }
   }
@@ -571,7 +649,7 @@ async function loadState(root) {
     || (state.skills !== undefined && (!isObject(state.skills)
       || Object.values(state.skills).some((skill) => !isObject(skill) || typeof skill.digest !== "string")))
   ) {
-    fail(`Refusing an invalid or unmanaged generation state: ${file}`);
+    fail(`Refusing an invalid or unmanaged generation state: ${displayPath(file)}`);
   }
   return state;
 }
@@ -580,27 +658,28 @@ async function assertSchemaManaged(root, templateText) {
   const file = path.join(root, SCHEMA_RELATIVE_PATH);
   const type = await pathType(file);
   if (type === null) return null;
-  if (type !== "file") fail(`Managed schema path is not a file: ${file}`);
+  if (type !== "file") fail(`Managed schema path is not a file: ${displayPath(file)}`);
   const current = await readFile(file, "utf8");
   if (current !== templateText && !current.includes(SCHEMA_MARKER) && !current.includes(LEGACY_SCHEMA_MARKER)) {
-    fail(`Refusing to overwrite an unmanaged schema: ${file}`);
+    fail(`Refusing to overwrite an unmanaged schema: ${displayPath(file)}`);
   }
   return current;
 }
 
 async function assertManagedFileSafe(file, expectedText, previousDigest, label) {
   const type = await pathType(file);
-  if (type !== null && type !== "file") fail(`${label} path is not a file: ${file}`);
+  if (type !== null && type !== "file") fail(`${label} path is not a file: ${displayPath(file)}`);
   if (type === "file") {
     const current = await readFile(file);
     const currentDigest = byteDigest(current);
     if (current.toString("utf8") !== expectedText && previousDigest !== currentDigest) {
-      fail(`Refusing to overwrite a ${label} changed outside this assembler: ${file}`);
+      fail(`Refusing to overwrite a ${label} changed outside this assembler: ${displayPath(file)}`);
     }
   }
 }
 
 async function assertDestinationsSafe(root, plugins, skills, catalogText, skillCatalogText, state) {
+  await assertOutputBoundary(root);
   const pluginDestinationDigests = new Map();
   const skillDestinationDigests = new Map();
   await assertManagedFileSafe(
@@ -618,82 +697,99 @@ async function assertDestinationsSafe(root, plugins, skills, catalogText, skillC
 
   for (const plugin of plugins) {
     const destination = path.join(root, PLUGINS_RELATIVE_PATH, plugin.name);
+    await assertDestinationPath(root, destination);
     const type = await pathType(destination);
     if (type === null) {
       pluginDestinationDigests.set(plugin.name, null);
       continue;
     }
-    if (type !== "directory") fail(`Plugin destination is not a directory: ${destination}`);
+    if (type !== "directory") fail(`Plugin destination is not a directory: ${displayPath(destination)}`);
     const currentDigest = await treeDigest(destination);
     const recordedDigest = state?.plugins?.[plugin.name]?.digest;
     const unchanged = currentDigest === plugin.digest || recordedDigest === currentDigest
       || (recordedDigest?.startsWith("sha256:") && recordedDigest === await treeDigest(destination, true));
     if (!unchanged) {
-      fail(`Refusing to overwrite a plugin changed outside this assembler: ${destination}`);
+      fail(`Refusing to overwrite a plugin changed outside this assembler: ${displayPath(destination)}`);
     }
     pluginDestinationDigests.set(plugin.name, currentDigest);
   }
   for (const skill of skills) {
     const destination = path.join(root, SKILLS_RELATIVE_PATH, skill.name);
+    await assertDestinationPath(root, destination);
     const type = await pathType(destination);
     if (type === null) {
       skillDestinationDigests.set(skill.name, null);
       continue;
     }
-    if (type !== "directory") fail(`Skill destination is not a directory: ${destination}`);
+    if (type !== "directory") fail(`Skill destination is not a directory: ${displayPath(destination)}`);
     const currentDigest = await treeDigest(destination);
     const recordedDigest = state?.skills?.[skill.name]?.digest;
     const unchanged = currentDigest === skill.digest || recordedDigest === currentDigest
       || (recordedDigest?.startsWith("sha256:") && recordedDigest === await treeDigest(destination, true));
     if (!unchanged) {
-      fail(`Refusing to overwrite a Skill changed outside this assembler: ${destination}`);
+      fail(`Refusing to overwrite a Skill changed outside this assembler: ${displayPath(destination)}`);
     }
     skillDestinationDigests.set(skill.name, currentDigest);
   }
   return { pluginDestinationDigests, skillDestinationDigests };
 }
 
-async function writeAtomic(file, content) {
+async function writeAtomic(root, file, content) {
+  await assertDestinationPath(root, file);
   await mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.tmp-${process.pid}-${randomUUID()}`;
   const backup = `${file}.bak-${process.pid}-${randomUUID()}`;
+  const handle = await open(temporary, "wx"); // Own the file before cleanup is enabled.
   let primaryError;
   try {
-    await writeFile(temporary, content);
+    try { await handle.writeFile(content); }
+    catch (error) { primaryError = error; throw error; }
+    finally {
+      try { await handle.close(); }
+      catch (error) {
+        if (!primaryError) throw error;
+        addSecondaryFailure(primaryError, "close", temporary, error);
+      }
+    }
+    await assertDestinationPath(root, file);
+    if ((await pathType(backup)) !== null) fail(`Backup path already exists: ${displayPath(backup)}`);
     const exists = (await pathType(file)) !== null;
     if (exists) await rename(file, backup);
     try {
       await rename(temporary, file);
     } catch (error) {
-      if (exists) await restoreBackup(backup, file, error);
+      if (exists) await restoreBackup(root, backup, file, error);
       throw error;
     }
-    if (exists) await rm(backup, { force: true });
+    if (exists) await removeAfterOperation(root, backup, { force: true });
   } catch (error) {
     primaryError ??= error;
     throw error;
   } finally {
-    await removeAfterOperation(temporary, { force: true }, primaryError);
+    await removeAfterOperation(root, temporary, { force: true }, primaryError);
   }
 }
 
-async function replaceDirectory(staged, destination) {
+async function replaceDirectory(root, staged, destination) {
+  await assertDestinationPath(root, staged);
+  await assertDestinationPath(root, destination);
   await mkdir(path.dirname(destination), { recursive: true });
   const backup = `${destination}.bak-${process.pid}-${randomUUID()}`;
+  if ((await pathType(backup)) !== null) fail(`Backup path already exists: ${displayPath(backup)}`);
   const exists = (await pathType(destination)) !== null;
   if (exists) await rename(destination, backup);
   try {
     await rename(staged, destination);
   } catch (error) {
-    if (exists) await restoreBackup(backup, destination, error);
+    if (exists) await restoreBackup(root, backup, destination, error);
     throw error;
   }
-  if (exists) await rm(backup, { recursive: true, force: true });
+  if (exists) await removeAfterOperation(root, backup, { recursive: true, force: true });
 }
 
 async function runInit(options) {
   const rootType = await pathType(options.root);
-  if (rootType !== null && rootType !== "directory") fail(`Marketplace root is not a directory: ${options.root}`);
+  if (rootType !== null && rootType !== "directory") fail(`Marketplace root is not a directory: ${displayPath(options.root)}`);
   await mkdir(options.root, { recursive: true });
   const configPath = path.join(options.root, CONFIG_RELATIVE_PATH);
   if ((await pathType(configPath)) !== null) fail(`${CONFIG_RELATIVE_PATH.replaceAll(path.sep, "/")} already exists.`);
@@ -713,19 +809,21 @@ async function runInit(options) {
   await inspectPlugins(config, options.root, { includeDigest: false });
   const schemaText = await readFile(SCHEMA_TEMPLATE, "utf8");
   const schemaCurrent = await assertSchemaManaged(options.root, schemaText);
+  await assertDestinationPath(options.root, configPath);
   await mkdir(path.dirname(configPath), { recursive: true });
   const schemaPath = path.join(options.root, SCHEMA_RELATIVE_PATH);
   const schemaAction = schemaCurrent === null
     ? "Created"
     : schemaCurrent === schemaText ? "Reused" : "Updated";
-  if (schemaCurrent !== schemaText) await writeAtomic(schemaPath, schemaText);
+  if (schemaCurrent !== schemaText) await writeAtomic(options.root, schemaPath, schemaText);
   try {
+    await assertDestinationPath(options.root, configPath);
     await writeFile(configPath, jsonText(config), { flag: "wx" });
   } catch (error) {
     if (error.code !== "EEXIST") {
-      await removeAfterOperation(configPath, { force: true }, error);
+      await removeAfterOperation(options.root, configPath, { force: true }, error);
     }
-    if (schemaCurrent === null) await removeAfterOperation(schemaPath, { force: true }, error);
+    if (schemaCurrent === null) await removeAfterOperation(options.root, schemaPath, { force: true }, error);
     throw error;
   }
   console.log(`Created: ${CONFIG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
@@ -746,7 +844,7 @@ async function runAdd(options) {
   });
   if (existing.some((plugin) => plugin.name === inspected.name)) fail(`Plugin ${inspected.name} is already configured.`);
   config.plugins.push(entry);
-  await writeAtomic(path.join(options.root, CONFIG_RELATIVE_PATH), jsonText(config));
+  await writeAtomic(options.root, path.join(options.root, CONFIG_RELATIVE_PATH), jsonText(config));
   console.log(`Added: ${inspected.name}`);
   console.log("Run sync to update the Marketplace distribution.");
 }
@@ -968,13 +1066,23 @@ async function runSync(options) {
     `.staging-${process.pid}-${randomUUID()}`,
   );
   const changed = [];
+  let stagingOwned = false;
+  async function prepareStaging(staged) {
+    await assertDestinationPath(options.root, staged);
+    if (!stagingOwned) {
+      await mkdir(path.dirname(stagingRoot), { recursive: true });
+      await mkdir(stagingRoot);
+      stagingOwned = true;
+    }
+    await mkdir(path.dirname(staged), { recursive: true });
+  }
   let primaryError;
   try {
     for (const plugin of plugins) {
       const destination = path.join(options.root, PLUGINS_RELATIVE_PATH, plugin.name);
       if (pluginDestinationDigests.get(plugin.name) === plugin.digest) continue;
       const staged = path.join(stagingRoot, PLUGINS_RELATIVE_PATH, plugin.name);
-      await mkdir(path.dirname(staged), { recursive: true });
+      await prepareStaging(staged);
       await cp(plugin.source, staged, {
         recursive: true,
         force: false,
@@ -990,7 +1098,7 @@ async function runSync(options) {
       const destination = path.join(options.root, SKILLS_RELATIVE_PATH, skill.name);
       if (skillDestinationDigests.get(skill.name) === skill.digest) continue;
       const staged = path.join(stagingRoot, SKILLS_RELATIVE_PATH, skill.name);
-      await mkdir(path.dirname(staged), { recursive: true });
+      await prepareStaging(staged);
       await cp(skill.source, staged, {
         recursive: true,
         force: false,
@@ -1008,7 +1116,7 @@ async function runSync(options) {
     }
 
     for (const item of changed) {
-      await replaceDirectory(item.staged, item.destination);
+      await replaceDirectory(options.root, item.staged, item.destination);
       console.log(item.plugin
         ? `Synced: plugins/${item.plugin.name}`
         : `Synced: skills/${item.skill.name}`);
@@ -1017,21 +1125,21 @@ async function runSync(options) {
     if (!selected) {
       const schemaPath = path.join(options.root, SCHEMA_RELATIVE_PATH);
       if (schemaCurrent !== schemaText) {
-        await writeAtomic(schemaPath, schemaText);
+        await writeAtomic(options.root, schemaPath, schemaText);
         console.log(`Updated: ${SCHEMA_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
       }
     }
     if (!selected || options.merge) {
       const catalogPath = path.join(options.root, CATALOG_RELATIVE_PATH);
       if ((await pathType(catalogPath)) !== "file" || await readFile(catalogPath, "utf8") !== catalogText) {
-        await writeAtomic(catalogPath, catalogText);
+        await writeAtomic(options.root, catalogPath, catalogText);
         console.log(`Updated: ${CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
       }
     }
     if (!selected || options.merge || options.selectedSkill) {
       const skillCatalogPath = path.join(options.root, SKILL_CATALOG_RELATIVE_PATH);
       if ((await pathType(skillCatalogPath)) !== "file" || await readFile(skillCatalogPath, "utf8") !== skillCatalogText) {
-        await writeAtomic(skillCatalogPath, skillCatalogText);
+        await writeAtomic(options.root, skillCatalogPath, skillCatalogText);
         console.log(`Updated: ${SKILL_CATALOG_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
       }
     }
@@ -1073,7 +1181,7 @@ async function runSync(options) {
     const statePath = path.join(options.root, STATE_RELATIVE_PATH);
     const stateText = jsonText(stateDocument);
     if ((await pathType(statePath)) !== "file" || await readFile(statePath, "utf8") !== stateText) {
-      await writeAtomic(statePath, stateText);
+      await writeAtomic(options.root, statePath, stateText);
       console.log(`Updated: ${STATE_RELATIVE_PATH.replaceAll(path.sep, "/")}`);
     }
     for (const name of retainedPlugins) console.log(`WARNING: Retained unreferenced generated plugin: plugins/${name}`);
@@ -1088,7 +1196,7 @@ async function runSync(options) {
     primaryError = error;
     throw error;
   } finally {
-    await removeAfterOperation(stagingRoot, { recursive: true, force: true }, primaryError);
+    if (stagingOwned) await removeAfterOperation(options.root, stagingRoot, { recursive: true, force: true }, primaryError);
   }
 }
 
@@ -1171,6 +1279,8 @@ async function main() {
       help();
       return;
     }
+    options.root = await canonicalRoot(options.root);
+    await assertOutputBoundary(options.root);
     await assertMarketplaceLayoutCurrent(options.root);
     if (options.command === "init") await runInit(options);
     else if (options.command === "add") await runAdd(options);
@@ -1185,10 +1295,10 @@ async function main() {
 function reportFailure(error) {
   const prefix = error.expected ? "assemble-agent-marketplace" : "assemble-agent-marketplace unexpected error";
   const code = typeof error.code === "string" ? ` [${error.code}]` : "";
-  console.error(`${prefix}${code}: ${error.message}`);
+  console.error(`${prefix}${code}: ${publicMessage(error.message, [error.path, error.dest])}`);
   for (const failure of error.secondaryFailures ?? []) {
     const secondaryCode = typeof failure.error?.code === "string" ? ` [${failure.error.code}]` : "";
-    console.error(`Additional ${failure.action} failure${secondaryCode} at ${failure.target}: ${failure.error?.message ?? failure.error}`);
+    console.error(`Additional ${failure.action} failure${secondaryCode} at ${displayPath(failure.target)}: ${publicMessage(failure.error?.message ?? failure.error, [failure.error?.path, failure.error?.dest])}`);
   }
   const guidance = filesystemGuidance(
     error,
