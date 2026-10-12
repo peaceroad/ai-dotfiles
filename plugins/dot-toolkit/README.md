@@ -43,7 +43,7 @@ A provenance record is separate from the upstream `plugin.json`; it does not rew
 
 Existing 0.2 standalone skills and private instructions need **no mandatory migration**. An explicit conversion to a plugin package is a separate change that preserves local edits and selected membership. The older [0.1-to-0.2 migration procedure](skills/dot-guidelines/reference/migrations/0.1-to-0.2.md) remains available for old common files and records.
 
-Upgrading from 0.3 to 0.4 requires no data conversion. When the user reports an installation update or an explicit check observes the installed version transition, dot offers a [workspace review](skills/dot-guidelines/reference/migrations/0.3-to-0.4.md) once if not already addressed; you can also request it explicitly. It identifies useful changes within the requested scope; the update alone does not authorize file organization.
+Upgrading from 0.3 to 0.4 requires no data conversion. When the user reports an installation update or an explicit check observes the installed version transition, dot briefly offers a [workspace review](skills/dot-guidelines/reference/migrations/0.3-to-0.4.md) unless available history shows it was already addressed. If history is unavailable, it makes a conditional offer without asking you to reconstruct past handling. You can also request organization of folders created under 0.3 or earlier at any time, including usable folders you want to arrange more consistently. The update alone does not authorize file organization.
 
 ## Updates and maintenance
 

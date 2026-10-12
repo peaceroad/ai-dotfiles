@@ -29,7 +29,7 @@ Read only the reference needed for the requested work:
 - Environment inspection, a concrete access/runtime problem, or interpreting helper results: [computer checks](reference/computer-checks.md).
 - Skill or plugin addition, update, selection changes, comparison, reproduction, or interrupted maintenance: [skills maintenance](reference/skills-maintenance.md).
 - Existing 0.1 common files or legacy inventory during setup, inspection, or migration: [0.1 to 0.2 migration](reference/migrations/0.1-to-0.2.md). A remaining old layout needs migration, not automatic cleanup or a claim that setup is ready.
-- A user-reported installation update to 0.4 or a version transition observed during an explicit check, or an explicit request to review or organize files for it: [workspace review](reference/migrations/0.3-to-0.4.md). At that point, offer the review once if not already addressed; do not start it without authorization or poll versions during normal work.
+- A user-reported installation update to 0.4 or a version transition observed during an explicit check, or an explicit request to review or organize existing work folders: [workspace review](reference/migrations/0.3-to-0.4.md). On an update, offer briefly unless available history shows it was already addressed; if history is unavailable, make the offer conditional instead of asking about past handling. Do not start organization without authorization or poll versions during normal work.
 
 Normal requests do not require setup procedures or periodic helper runs. Keep manifests and any private resumption records for the work that actually needs them.
 
@@ -60,7 +60,13 @@ Lead with the answer, result, or necessary next action. Avoid excessive praise. 
 
 ## Cloud workspace
 
-Before creating, downloading, editing, or organizing files, verify the assigned directory, access scope, and existing layout. Honor an explicitly requested destination within that scope; otherwise use these conventions rather than ad hoc task directories directly under `/workspace/shared/`. Directory names do not establish persistence. Create locations only as needed:
+Before file work, verify the assigned directory, access scope, and existing layout. For ordinary work, choose the location in this order:
+
+1. Honor an explicitly requested destination within the allowed scope.
+2. Otherwise, continue from the current editable original or existing project, following its storage/privacy rules even for short tasks. A delivery destination need not become the original's new home.
+3. When a new home is needed, choose by the roles below. For temporary work, follow the scratch rules below. Create only needed locations, not ad hoc task directories directly under `/workspace/shared/`.
+
+These conventions do not require reorganizing usable existing homes. Requested organization uses the workspace review above. Directory names do not establish persistence.
 
 - `/workspace/shared/projects/<project>/`: ongoing projects, including sources, drafts, tests/evaluations, and deliverables
 - `/workspace/shared/docs/`: standalone documents kept for reading and revision
@@ -72,7 +78,7 @@ Before creating, downloading, editing, or organizing files, verify the assigned 
 - `/workspace/.agents/plugins-state/manifests/`: per-plugin provenance
 - `/workspace/.agents/skills-state/`: one selected INDEX for both kinds and standalone per-skill manifests
 
-Use the existing project and its storage/privacy rules, including test, evaluation, and temporary/build locations, even for short tasks. Keep its documents, test/evaluation definitions, publishable evidence, and deliverables together; tests are not automatically temporary, nor generated files automatically outputs. Start new ongoing work in `projects/`. Independent trials can use assigned scratch before their longer-term scope is clear; if they become ongoing projects, gather needed material and editable originals in the project and continue there. Use separate working copies only for a concrete purpose, such as isolated testing.
+Keep a project's documents, test/evaluation definitions, publishable evidence, and deliverables in its established layout, including temporary/build locations. Tests are not automatically temporary, nor generated files automatically outputs. Independent trials can use assigned scratch before their longer-term scope is clear; if they become ongoing projects, gather needed material and editable originals in the project and continue there. Use separate working copies only for a concrete purpose, such as isolated testing.
 
 Choose docs versus outputs by role, not duration, completion state, or format alone. Use or deliver files from their existing home when possible, without duplicating them merely for handoff. Environment-specific supporting documents may use `/workspace/.codex/docs/` when needed.
 
