@@ -455,7 +455,12 @@ function configurationBytes(path = CONFIG_PATH) {
   const info = fileInfo(path);
   if (!info) return null;
   if (!info.isFile()) fail(`Configuration must be a regular file: ${displayPath(path)}`);
-  return readFileSync(path, "utf8");
+  return readFileSync(path);
+}
+
+function configurationMatches(path, original) {
+  const current = configurationBytes(path);
+  return current === null ? original === null : original !== null && current.equals(original);
 }
 
 function withConfigurationLock(operation) {
@@ -1651,7 +1656,11 @@ function replaceManagedSkillDirectory(paths, source, destination, name, state, s
   mkdirSync(staged); // Exclusive staging ownership; never reuse an existing directory.
   let primaryError;
   try {
-    cpSync(source, staged, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
+    for (const entry of readdirSync(source)) {
+      cpSync(join(source, entry), join(staged, entry), {
+        recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true,
+      });
+    }
     if (treeDigestSync(staged, stateEntry.digest) !== stateEntry.digest) fail(`Copied Skill differs from the Marketplace source: ${name}.`);
     assertDestinationPath(paths.root, destination);
     if (existed) renameSync(destination, backup);
@@ -2642,7 +2651,7 @@ async function checkMarketplace({ target, pluginTarget, skillTarget, interactive
 }
 
 async function reconcileMarketplace(requestedName) {
-  const original = readFileSync(CONFIG_PATH, "utf8");
+  const original = readFileSync(CONFIG_PATH);
   const config = JSON.parse(original);
   validateConfiguration(config);
   const [name, entry] = selectTarget(config.marketplaces, requestedName, "marketplace");
@@ -2720,7 +2729,7 @@ async function reconcileMarketplace(requestedName) {
     try {
       if (marketplaceRevision(root) !== revision) fail("Shared Marketplace changed during review. Run check --interactive again. No changes made.");
       withConfigurationLock((location) => {
-        if (configurationBytes(location.path) !== original) fail("Local configuration changed during review. Run check --interactive again. No changes made.");
+        if (!configurationMatches(location.path, original)) fail("Local configuration changed during review. Run check --interactive again. No changes made.");
         writeAtomic(location.root, location.path, jsonText(config));
         acceptRevision(root, revision, identityRoot);
       });
@@ -2816,7 +2825,7 @@ Enter :back in an input form to discard that operation.`);
         validateConfiguration(config);
         try {
           withConfigurationLock((location) => {
-            if (configurationBytes(location.path) !== originalBytes) {
+            if (!configurationMatches(location.path, originalBytes)) {
               fail("Local configuration changed while configure was open. No settings were overwritten. The draft is still in this menu; review it before canceling and reopening configure.");
             }
             if (existed && canonicalJson(config) === canonicalJson(original)) {

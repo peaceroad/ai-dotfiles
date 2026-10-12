@@ -1688,24 +1688,37 @@ async function configureWithConcurrentChange(fixture, initialInput, pendingText,
 
 test("configure keeps its draft and refuses changed, deleted or newly created configuration bytes", async (t) => {
   const { mkdtempSync, existsSync } = await import("node:fs");
-  for (const variant of ["changed", "deleted", "created", "formatting-only"]) await t.test(variant, async () => {
+  for (const variant of ["changed", "deleted", "created", "formatting-only", "encoding-only"]) await t.test(variant, async () => {
     const root = mkdtempSync(join(tmpdir(), "configure-conflict-"));
     try {
       const fixture = consumerFixture(root);
       let expected;
       const created = variant === "created";
       if (created) rmSync(fixture.configPath);
+      if (variant === "encoding-only") {
+        const config = JSON.parse(readFileSync(fixture.configPath));
+        config.marketplaces.shared.displayName = "\ufffd";
+        writeJson(fixture.configPath, config);
+      }
       const result = await configureWithConcurrentChange(fixture,
         created ? `a\nshared\n${fixture.marketplace}\n\nDraft title\n` : "e\n\n\nDraft title\n",
         `${created ? "Added" : "Updated"} Marketplace target: shared (pending settings)`, () => {
           if (variant === "deleted") { rmSync(fixture.configPath); expected = null; }
+          else if (variant === "encoding-only") {
+            const before = readFileSync(fixture.configPath);
+            const index = before.indexOf(Buffer.from("\ufffd"));
+            assert.ok(index >= 0);
+            expected = Buffer.concat([before.subarray(0, index), Buffer.from([0xff]), before.subarray(index + 3)]);
+            assert.equal(expected.toString("utf8"), before.toString("utf8"));
+            writeFileSync(fixture.configPath, expected);
+          }
           else {
             const config = created ? { schemaVersion: 2, skills: {}, plugins: {}, marketplaces: {} }
               : JSON.parse(readFileSync(fixture.configPath));
             if (variant !== "formatting-only") config.marketplaces.concurrent = {
               root: join(root, "concurrent"), name: "concurrent", displayName: "Concurrent", mode: "consumer", plugins: [], skills: [],
             };
-            expected = `${JSON.stringify(config)}\n\n`;
+            expected = Buffer.from(`${JSON.stringify(config)}\n\n`);
             writeFileSync(fixture.configPath, expected);
           }
         });
@@ -1713,7 +1726,7 @@ test("configure keeps its draft and refuses changed, deleted or newly created co
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stderr, /Local configuration changed while configure was open/u);
       assert.match(result.stdout, /current: Draft title/u);
-      assert.equal(existsSync(fixture.configPath) ? readFileSync(fixture.configPath, "utf8") : null, expected);
+      assert.deepEqual(existsSync(fixture.configPath) ? readFileSync(fixture.configPath) : null, expected);
       assert.equal(existsSync(`${fixture.configPath}.lock`), false);
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
