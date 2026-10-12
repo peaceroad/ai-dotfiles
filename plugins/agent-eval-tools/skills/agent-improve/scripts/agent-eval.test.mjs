@@ -197,7 +197,6 @@ test('retained records can be read without their original source and reject a ch
   const configFile = join(root, 'experiment.json'), output = join(root, 'out'), retained = join(root, 'retained');
   saveJson(configFile, config);
   const adapter = fake(), first = await run(configFile, output, () => ({ identity: { test: true }, invoke: adapter.invoke }));
-  mkdirSync(retained, { mode: 0o700 });
   cpSync(output, retained, { recursive: true, errorOnExist: true, force: false });
   assert.equal(readFileSync(join(retained, 'record.json'), 'utf8'), readFileSync(join(output, 'record.json'), 'utf8'));
   renameSync(join(root, 'target'), join(root, 'target-unavailable'));
