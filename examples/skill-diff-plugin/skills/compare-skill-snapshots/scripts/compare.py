@@ -19,6 +19,12 @@ class ComparisonError(ValueError):
 
 def directory(path):
     """Open every absolute path component without following links, including ancestors."""
+    if '\0' in path:
+        raise ComparisonError('Paths must not contain NUL characters')
+    try:
+        os.fsencode(path)
+    except UnicodeError:
+        raise ComparisonError('Path cannot be encoded for this filesystem') from None
     if not os.path.isabs(path) or '..' in path.split('/'):
         raise ComparisonError('Expected an absolute path without parent traversal')
     fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
@@ -100,8 +106,12 @@ def snapshot(path, roots):
 
 
 def configured_roots():
+    # A literal path survives client placeholder expansion without nested JSON
+    # escaping. Presence takes precedence, even if invalid: never fall back to a
+    # broader inherited allowlist when a host explicitly selects one root.
+    single = 'SKILL_DIFF_ROOT' in os.environ
     try:
-        roots = json.loads(os.environ.get('SKILL_DIFF_ROOTS', '[]'))
+        roots = [os.environ['SKILL_DIFF_ROOT']] if single else json.loads(os.environ.get('SKILL_DIFF_ROOTS', '[]'))
         if not isinstance(roots, list) or not roots or len(roots) > 16:
             raise ValueError()
         for root in roots:
@@ -111,6 +121,8 @@ def configured_roots():
             os.close(fd)
         return [os.path.normpath(root) for root in roots]
     except (OSError, ValueError, TypeError):
+        if single:
+            raise ComparisonError('Set SKILL_DIFF_ROOT to an existing, absolute, non-root directory without symlinks') from None
         raise ComparisonError('Set SKILL_DIFF_ROOTS to a JSON list of existing, absolute, non-root directories without symlinks') from None
 
 

@@ -13,7 +13,7 @@ server = MCPServer('skill-diff-sample')
 def compare_skill(local: str, upstream: str, base: str | None = None) -> dict[str, Any]:
     """Compare one local skill with an independently acquired upstream snapshot.
 
-    Paths must be inside administrator-configured SKILL_DIFF_ROOTS. Returns relative
+    Paths must be inside administrator-configured snapshot roots. Returns relative
     added/deleted/changed paths and bounded UTF-8 diffs, directed local to upstream.
     With base, attributes byte changes relative to it, not authorship or merge safety.
     Does not acquire snapshots, verify revisions, write inputs, or execute their code.
