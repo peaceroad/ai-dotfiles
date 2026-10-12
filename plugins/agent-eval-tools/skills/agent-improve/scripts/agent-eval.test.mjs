@@ -379,6 +379,59 @@ test('source conflicts are detected before writing and external edits are retain
   assert.equal(readFileSync(join(root, 'target', 'SKILL.md'), 'utf8'), 'USER CHANGE');
 });
 
+test('Unicode source conflicts preserve invalid UTF-8 bytes before any replacement', t => {
+  const root = temp(t), first = join(root, 'SKILL.md'), other = join(root, 'other.md');
+  writeFileSync(first, 'BASE'); writeFileSync(other, '\ufffd');
+  const baseline = snapshot({ root, files: ['SKILL.md', 'other.md'] });
+  const candidate = editBundle(baseline, [{ path: 'SKILL.md', content: 'BETTER' }], ['SKILL.md']);
+  const external = Buffer.from([0xff]);
+  writeFileSync(other, external);
+  assert.throws(() => applyBundle(root, baseline, candidate), /Intervening edit/);
+  assert.equal(readFileSync(first, 'utf8'), 'BASE');
+  assert.deepEqual(readFileSync(other), external);
+});
+
+test('Unicode source conflicts are rechecked as bytes immediately before replacement', t => {
+  const root = temp(t), file = join(root, 'SKILL.md');
+  writeFileSync(file, '\ufffd');
+  const baseline = snapshot({ root, files: ['SKILL.md'] });
+  const candidate = editBundle(baseline, [{ path: 'SKILL.md', content: 'BETTER' }], ['SKILL.md']);
+  const external = Buffer.from([0xff]), read = fs.readFileSync;
+  let reads = 0;
+  const reader = t.mock.method(fs, 'readFileSync', (path, ...args) => {
+    if (path === file && ++reads === 2) writeFileSync(file, external);
+    return read(path, ...args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { reader.mock.restore(); syncBuiltinESMExports(); });
+  assert.throws(() => applyBundle(root, baseline, candidate), /Concurrent edit/);
+  assert.deepEqual(read(file), external);
+});
+
+test('Unicode failure recovery restores only byte-identical candidate content', async t => {
+  for (const changedExternally of [false, true]) await t.test(changedExternally ? 'preserve-external-bytes' : 'restore-original-bytes', t => {
+    const root = temp(t), first = join(root, 'SKILL.md'), second = join(root, 'other.md');
+    const original = Buffer.from('\ufeffBASE\r\n'), external = Buffer.from([0xff]);
+    writeFileSync(first, original); writeFileSync(second, 'KEEP');
+    const baseline = snapshot({ root, files: ['SKILL.md', 'other.md'] });
+    const candidate = editBundle(baseline, [{ path: 'SKILL.md', content: '\ufffd' }, { path: 'other.md', content: 'BETTER' }], ['SKILL.md', 'other.md']);
+    const rename = fs.renameSync;
+    const renamer = t.mock.method(fs, 'renameSync', (from, to) => {
+      if (to === second) {
+        if (changedExternally) writeFileSync(first, external);
+        throw new Error('Synthetic later replacement failure.');
+      }
+      return rename(from, to);
+    });
+    syncBuiltinESMExports();
+    t.after(() => { renamer.mock.restore(); syncBuiltinESMExports(); });
+    assert.throws(() => applyBundle(root, baseline, candidate), /Synthetic later replacement failure/);
+    assert.deepEqual(readFileSync(first), changedExternally ? external : original);
+    assert.equal(readFileSync(second, 'utf8'), 'KEEP');
+    assert.deepEqual(readdirSync(root).sort(), ['SKILL.md', 'other.md']);
+  });
+});
+
 test('Unicode application preflights every replacement before writing any file', t => {
   const root = temp(t);
   writeFileSync(join(root, 'SKILL.md'), 'BASE'); writeFileSync(join(root, 'other.md'), 'KEEP');

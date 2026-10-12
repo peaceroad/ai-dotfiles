@@ -183,9 +183,11 @@ export async function measuredCall(store, key, role, request, invoke, budget) {
 }
 
 export function applyBundle(root, baseline, candidate) {
+  // Lossy UTF-8 decoding would hide byte changes that become replacement characters.
+  const hasContent = (file, content) => readFileSync(file).equals(Buffer.from(content, 'utf8'));
   // Check the entire relevant bundle before writing any file; never reset a tree.
   for (const [name, content] of Object.entries(baseline.files)) {
-    if (readFileSync(safeFile(root, name), 'utf8') !== content) throw new Error(`Intervening edit in ${name}; application refused.`);
+    if (!hasContent(safeFile(root, name), content)) throw new Error(`Intervening edit in ${name}; application refused.`);
   }
   const changed = Object.keys(candidate.files).filter(n => candidate.files[n] !== baseline.files[n]);
   for (const name of changed) {
@@ -207,13 +209,13 @@ export function applyBundle(root, baseline, candidate) {
     for (const name of changed) {
       const file = safeFile(root, name);
       // Catch common concurrent edits again immediately before each replacement.
-      if (readFileSync(file, 'utf8') !== baseline.files[name]) throw new Error(`Concurrent edit in ${name}.`);
+      if (!hasContent(file, baseline.files[name])) throw new Error(`Concurrent edit in ${name}.`);
       replace(file, candidate.files[name]); written.push(name);
     }
   } catch (e) {
     for (const name of written.reverse()) {
       const file = safeFile(root, name);
-      if (readFileSync(file, 'utf8') === candidate.files[name]) replace(file, baseline.files[name]);
+      if (hasContent(file, candidate.files[name])) replace(file, baseline.files[name]);
     }
     throw e;
   }
