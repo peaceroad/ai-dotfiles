@@ -22,7 +22,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
   - [ai-dotfiles-cli](plugins/ai-dotfiles-cli/skills/ai-dotfiles-cli/SKILL.md)：`agent`で管理しているスキルリンクやプラグインの状態を調べるとき、自分の担当分を共有Marketplaceへ同期するとき、Codexの保守やセッション整理を行うときに使います。導入済みCLIのコマンドと確認手順を選び、操作結果を確かめます。CLI自体の開発や汎用的なプラグイン作成は対象外です。
   - [codex-history](plugins/ai-dotfiles-cli/skills/codex-history/SKILL.md)：以前にエクスポートした会話から、過去の決定理由を探したり、複数のセッションにまたがる経緯を確認したりするときに使う、実験的なスキルです。保存済みファイルを検索・参照し、根拠の場所と記録の不足を示します。進行中の会話の取得や、エクスポート・削除・復元は行いません。
 - **[dot-toolkit](plugins/dot-toolkit/README.md)**：dot自身のクラウドで個別指示とスキルを扱う、非公式・実験的な指示・セットアップツールキット。
-  - [dot-guidelines](plugins/dot-toolkit/skills/dot-guidelines/SKILL.md)：継続的なメインのdot向けの短い共通指示です。初期設定・点検・保守・移行の手順を条件付きで読みます。
+  - [dot-guidelines](plugins/dot-toolkit/skills/dot-guidelines/SKILL.md)：継続的なメインのdot向けの短い共通指示です。通常のファイル作業や保存先の選択にも使い、初期設定・点検・保守・移行の手順を条件付きで読みます。
 - **[agentコマンド](#agentコマンド)**：スキルとは別に実行する管理用CLI。
   - [`agent dev`](docs/agent-development.md)：開発対象の確認・同期、共有Marketplaceの設定・配布。
   - [`agent marketplace`](docs/agent-development.md#別マシンで単体skillを利用する)：プラグインに含めず個別に配布されたスキルの一覧表示・導入・更新・削除。
@@ -57,13 +57,16 @@ Codexへ渡す共通指示の例です。回答の詳しさ、待機中の進め
 
 ## dot向けの共通指示と構築手順
 
-[dot-toolkit](plugins/dot-toolkit/README.md) 0.3.0は、個別の作業条件や自作スキルの場所をdotへ毎回説明する手間を減らすための、非公式・実験的なプラグインです。メインのdot向けの共通指示`dot-guidelines`と、必要なときだけ読む初期設定・点検・保守・移行の手順を同梱します。
+[dot-toolkit](plugins/dot-toolkit/README.md)は、個別の作業条件や自作スキルの場所をdotへ毎回説明する手間を減らすための、非公式・実験的なプラグインです。メインのdot向けの共通指示`dot-guidelines`と、必要なときだけ読む初期設定・点検・保守・移行の手順を同梱します。
 
-まずChatGPT Webでプラグインをインストールし、メインのdotから`dot-guidelines`を読めることを確認します。ZIPのアップロードとインストールは分けて確認し、ローカルCodexのインストールをdot側の確認には代用しません。その後、個別指示やファイルで管理するスキルが必要なら「dot-toolkitで初期設定して」と依頼します。別の`dot-setup.md`の添付は不要です。クラウドへのタスク用スキルの配置は、このプラグイン自体のインストールとは別の作業です。
+まずChatGPT Webでプラグインをインストールし、メインのdotから`dot-guidelines`を読めることを確認します。その後、個別指示やファイルで管理するスキルが必要なら「dot-toolkitで初期設定して」と依頼します。
 
-- [使い始める](docs/dot-toolkit/README.md)：インストールから普段の利用までの入口
-- [インストール・初期設定・変更](docs/dot-toolkit/setup.md)：利用者が行う操作、スキル選択、0.1からの移行、更新
-- [共通指示とファイル構成](docs/dot-toolkit/instructions.md)：個別指示、単体スキルとプラグインに共通のINDEX、採用記録、MCPとの境界
+- [日本語ガイド](docs/dot-toolkit/README.md)：概要と目的別の案内
+- [インストールと初期設定](docs/dot-toolkit/setup.md)：利用者が行う操作、スキル選択、0.1からの移行、更新
+- [クラウドコンピュータを使う](docs/dot-toolkit/cloud-computer.md)：ターミナルと画面操作、アクセスと確認の範囲
+- [クラウドのファイル管理](docs/dot-toolkit/cloud-workspace.md)：プロジェクト内の作成・保存・整理
+- [スキルとプラグインの管理](docs/dot-toolkit/skills-management.md)：INDEX、採用記録、更新、MCPとの境界
+- [共通指示の日本語訳と解説](docs/dot-toolkit/guidelines.md)：SKILL.mdの全文訳と出典付きの補足
 - [スキル差分比較サンプル](examples/skill-diff-plugin/README.md)：任意の別パッケージ。一つのスキルのローカルスナップショットをCLIまたはMCPで比較
 - [受け入れ確認](evals/dot-toolkit/README.md)：開発・検証担当者向け。ソース検査と、実際のメインdotでの読み込み・選択・継続性を区別
 

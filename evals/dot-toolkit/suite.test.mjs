@@ -17,6 +17,7 @@ const sourcePaths = [
   'plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md',
   'plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md',
   'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.3-to-0.4.md',
   'plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs',
   'plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs',
   'plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs',
@@ -147,7 +148,39 @@ test('redesign decision boundaries remain synthetic, with positive and negative 
     assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', `${id} is a synthetic decision case`);
     assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, `${id} needs both decision boundaries`);
   }
-  assert.equal(cases.filter(item => item.mode === 'main-dot').length, 4, 'Keep ordinary prompts separate from redesign fixtures');
+  assert.equal(cases.filter(item => item.mode === 'main-dot').length, 7, 'Keep ordinary prompts separate from redesign fixtures');
+});
+
+// Coverage and input isolation only: semantic decisions require an observed trial.
+const workspaceDecisionCases = [
+  'workspace-discovery-empty-cwd', 'project-document-location',
+  'standalone-document-location', 'explicit-document-destination',
+  'handoff-task-skill-access', 'handoff-verified-project-path',
+  'ordinary-codex-policy-near-miss', 'delegated-file-work-policy-near-miss',
+  'workspace-upgrade-review', 'workspace-upgrade-only', 'workspace-organization-delegated',
+  'workspace-update-event-offer',
+  'project-evaluation-storage', 'temporary-work-resumption',
+  'maintained-guide-and-oneoff-deliverable', 'comparison-results-and-concurrency',
+];
+test('workspace scope and handoff boundaries remain synthetic decision cases', () => {
+  for (const id of workspaceDecisionCases) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', id);
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
+  }
+});
+
+test('ordinary file requests remain extractable without loading cues or synthetic fixtures', () => {
+  for (const id of ['find-existing-draft', 'continue-project-document', 'save-standalone-guide']) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'main-dot', id);
+    assert.throws(() => checkDefinitions(definitions(d => {
+      d.cases.find(item => item.id === id).fixture = 'conditional-private';
+    })));
+    for (const cue of ['dot-guidelines', 'SKILL.md', 'AGENTS.md', 'INDEX.md', '/workspace/']) {
+      assert.throws(() => checkDefinitions(definitions(d => {
+        d.cases.find(item => item.id === id).input += ` Read ${cue} first.`;
+      })), `${id}: loading cue must invalidate a natural prompt`);
+    }
+  }
 });
 
 test('stage definitions preserve the independent acceptance contract', () => {
@@ -199,7 +232,7 @@ test('the source manifest rejects duplicate, substituted, and extra targets', ()
   ]) assert.throws(() => checkDefinitions(definitions(mutate)), /unique|exactly the required public package files/);
 });
 
-test('legacy public common files cannot replace or extend the 0.3 package target', () => {
+test('legacy public common files cannot replace or extend the current package target', () => {
   for (const path of ['dot/AGENTS.md', 'dot/dot-setup.md']) {
     for (const replace of [false, true]) {
       assert.throws(() => checkDefinitions(definitions(d => {
@@ -225,7 +258,7 @@ test('the source manifest requires the content-hash schema and acceptance kind',
 
 test('source definitions keep installed-resource access and ordinary main-dot checks unrun', () => {
   const required = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
-  assert.equal(manifest.pluginVersion, '0.3.0');
+  assert.equal(manifest.pluginVersion, '0.4.0');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert.deepEqual(Object.keys(manifest.liveChecks).sort(), required.sort());
   for (const name of required) {
@@ -239,7 +272,7 @@ test('source definitions keep installed-resource access and ordinary main-dot ch
   for (const liveChecks of [undefined, null, [], 'not_run']) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.liveChecks = liveChecks; })), /must be an object/);
   }
-  for (const pluginVersion of [undefined, '0.1.0', '0.2.0', 0.3]) {
+  for (const pluginVersion of [undefined, '0.1.0', '0.2.0', '0.3.0', 0.4]) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.pluginVersion = pluginVersion; })), /targets plugin version/);
   }
   for (const behavioralRuns of ['pass', 'fail', null]) {

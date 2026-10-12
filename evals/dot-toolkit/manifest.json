@@ -4,22 +4,22 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "e7885ff88bd8d3c44edd69d7ff0e122248f23c53b230178b5d0a7c228d71a6da",
-      "bytes": 9771
+      "sha256": "3c91c49e40a8a00cb420f513e53801cfdee2388620c345f4f9d7a1625306b6d7",
+      "bytes": 10581
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
-      "sha256": "2d77cd84396681a138a073249cb552e37e7cbc53080d49560521ea04c8fad7e6",
+      "sha256": "a70a67478fb41febaae6fea79cf7928ce1fb7965b445e8f7799e830bdce07427",
       "bytes": 219
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "219bc5ada077479fce764c3221209b5f36c2dc6866857329b9841958a0090019",
-      "bytes": 7127
+      "sha256": "f9a5345cce727060c61d30e7184efc2d7a8d3f12185a45bf94817416f04e59af",
+      "bytes": 10900
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
-      "sha256": "26aadd6db4e22a653b956caccd0bc610dca9ae7bbc399572dffda3c4435620e3",
+      "sha256": "a66d1c8f2020c08f93c85baa5876e9d8961ae96d1493f34ebbe8f32a8d81d982",
       "bytes": 7834
     },
     {
@@ -29,13 +29,18 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "c63385e673fa3d152f93ec14e878325f956f883be2e9dd61f059ac50903d3787",
+      "sha256": "c7d3982940b415ee7607dcc262b9f8c6d147651232f5ffa73eba7b8b79f6fcaa",
       "bytes": 13327
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
-      "sha256": "afada4bdd5482de6645f682646ff0802ffccbc39a638eba1b95e4a8ca372cfe1",
-      "bytes": 7712
+      "sha256": "082eacff788702d17f5a94c1fff91d9132768dc9480629fd1a60e44a7324e717",
+      "bytes": 7720
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.3-to-0.4.md",
+      "sha256": "26c5c4672305417819b92a39a03d197d04fdf234722b4e6e77cbba738f623a79",
+      "bytes": 6006
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs",
@@ -65,7 +70,7 @@
     "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
     "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
   ],
-  "pluginVersion": "0.3.0",
+  "pluginVersion": "0.4.0",
   "liveChecks": {
     "installedEntry": "not_run",
     "installedReferences": "not_run",
