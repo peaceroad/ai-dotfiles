@@ -9,6 +9,12 @@ import { ROLLOUT_POLICY } from './session-rollout-io.mjs';
 const FORMAT = 'ai-dotfiles/codex-export-batch';
 const HEX = /^[0-9a-f]{64}$/;
 const KEY = /^[a-zA-Z0-9_-]+$/;
+const HISTORY_FILE = 'thread_history_1.sqlite';
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+const identity = stat => `${stat.dev}:${stat.ino}:${stat.birthtimeMs}`;
+const checkHistoryVersions = home => {
+  if (readdirSync(home).some(name => /^thread_history_\d+\.sqlite$/i.test(name) && name !== HISTORY_FILE)) reject('Unknown indexed history database version.');
+};
 export const sourceIdentity = home => fingerprint(pathIdentity(realpathSync(home)));
 export function writeBatch(directory, snapshot, plan, entries, selection) {
   const folder = join(directory, 'batches');
@@ -64,30 +70,38 @@ export function listBatches(directory) {
 }
 
 export async function openHistoryReader(home, sessions) {
-  if (readdirSync(home).some(name => /^thread_history_\d+\.sqlite$/.test(name) && name !== 'thread_history_1.sqlite')) reject('Unknown indexed history database version.');
-  const path = join(home, 'thread_history_1.sqlite');
+  checkHistoryVersions(home);
+  const path = join(home, HISTORY_FILE), before = exists(path) ? regularFile(path, home) : null;
   let db;
   try {
     let version, queries = [], rowQueries;
-    if (exists(path)) {
-      regularFile(path, home);
+    if (before) {
       const { DatabaseSync } = await import('node:sqlite');
       db = new DatabaseSync(path, { readOnly: true });
       version = db.prepare('PRAGMA data_version').get().data_version;
       db.exec('BEGIN');
+      if (db.prepare('PRAGMA encoding').get().encoding !== 'UTF-8') reject('Unsupported indexed history text encoding.');
       const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name);
       if (tables.some(name => name.startsWith('thread_') && !HISTORY_TABLES.includes(name)) || HISTORY_TABLES.some(name => !tables.includes(name))) reject('Unsupported indexed history schema.');
       queries = HISTORY_TABLES.map(table => {
         const first = table === 'thread_history_projection_state' ? 'thread_id' : 'rollout_ordinal';
-        const info = db.prepare(`PRAGMA table_info(${table})`).all();
+        const info = db.prepare(`PRAGMA table_xinfo(${table})`).all();
         const columns = info.map(column => column.name);
-        if (!columns.includes('thread_id') || !columns.includes(first)) reject('Unsupported indexed history columns.');
+        if (info.some(column => column.hidden) || !columns.includes('thread_id') || !columns.includes(first)) reject('Unsupported indexed history columns.');
         // A non-null primary key resolves ordinal ties without sorting payloads.
         // SQLite permits nullable keys in some schemas; retain full-row ordering there.
         const key = info.filter(column => column.pk).sort((a, b) => a.pk - b.pk);
         const ties = key.length && key.every(column => column.notnull) ? key.map(column => column.name) : columns;
         const order = [first, ...ties.filter(column => column !== first)].map(column => `"${column.replaceAll('"', '""')}" COLLATE BINARY`).join(', ');
-        return [table, db.prepare(`SELECT * FROM ${table} WHERE thread_id = ? ORDER BY ${order}`)];
+        // Read TEXT as bytes before the binding can replace invalid UTF-8. Keep
+        // storage types separate so a BLOB is never mistaken for valid text.
+        const select = columns.map((column, i) => {
+          const name = `"${column.replaceAll('"', '""')}"`;
+          return `typeof(${name}) AS t${i}, CASE WHEN typeof(${name})='text' THEN CAST(${name} AS BLOB) ELSE ${name} END AS v${i}`;
+        }).join(', ');
+        const query = db.prepare(`SELECT ${select} FROM ${table} WHERE thread_id = ? ORDER BY ${order}`);
+        query.setReadBigInts(true);
+        return [table, query, columns];
       });
     }
     if (sessions.some(row => !['legacy', 'paginated'].includes(row.historyMode) || (row.historyMode === 'paginated' && !db))) reject('Indexed history is required for paginated sessions; operation stopped.');
@@ -98,8 +112,21 @@ export async function openHistoryReader(home, sessions) {
     return { present: !!db,
       *lines(ids) {
         const selected = selectedIds(ids);
-        for (const [table, query] of queries) for (const id of selected) {
-          for (const row of query.iterate(id)) yield `${JSON.stringify({ table, row })}\n`;
+        for (const [table, query, columns] of queries) for (const id of selected) {
+          for (const values of query.iterate(id)) {
+            const row = Object.create(null);
+            for (const [i, column] of columns.entries()) {
+              const type = values[`t${i}`];
+              let value = values[`v${i}`];
+              if (type === 'text') {
+                try { value = decoder.decode(value); }
+                catch { reject('Invalid UTF-8 in indexed history text.'); }
+              } else if (type === 'integer' && typeof value === 'bigint' && Number.isSafeInteger(Number(value))) value = Number(value);
+              else if (!((type === 'null' && value === null) || (type === 'real' && Number.isFinite(value)))) reject('Unsupported indexed history value type or range.');
+              row[column] = value;
+            }
+            yield `${JSON.stringify({ table, row })}\n`;
+          }
         }
       },
       hasRows(ids) {
@@ -109,9 +136,11 @@ export async function openHistoryReader(home, sessions) {
         return rowQueries.some(query => selected.some(id => query.get(id) !== undefined));
       },
       check() {
+        checkHistoryVersions(home);
         if (db) {
           db.exec('COMMIT');
-          if (db.prepare('PRAGMA data_version').get().data_version !== version) reject('Indexed history changed during operation.');
+          if (identity(regularFile(path, home)) !== identity(before)
+            || db.prepare('PRAGMA data_version').get().data_version !== version) reject('Indexed history changed during operation.');
         } else if (exists(path)) reject('Indexed history appeared during operation.');
       },
       close() { db?.close(); },

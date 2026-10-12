@@ -379,6 +379,33 @@ test('invalid UTF-8 records fail with an exact line and no decoder content', asy
   await assert.rejects(async () => { for await (const record of jsonLines(f.path)) void record; }, /Invalid UTF-8 in history record at line 2/);
 });
 
+test('non-JSON whitespace stops export while ASCII whitespace and string contents are preserved', async t => {
+  for (const prefix of ['\ufeff', '\u00a0']) {
+    const f = setup(t);
+    writeFileSync(f.path, line(meta(id)) + prefix + line(msg('Synthetic record')));
+    await assert.rejects(f.save(), /Invalid JSON in history record at line 2/);
+    assert.deepEqual(listBundles(f.output), []);
+  }
+  const f = setup(t), raw = ' \t\r\n' + line(meta(id)).replace('\n', '\r\n') + line(msg('\ufeff\u00a0日本語'));
+  writeFileSync(f.path, raw);
+  assert.equal((await f.save()).partial, false);
+  const bundle = listBundles(f.output)[0]; await verifyBundle(bundle);
+  assert.equal(readFileSync(join(bundle.folder, 'rollout.jsonl'), 'utf8'), raw);
+});
+
+test('unsupported raw scalars retain exact bytes even when duplicate properties hide them', async t => {
+  for (const state of ['{"nested":[1e400]}', '{"nested":[1e400],"nested":[1]}', '{"nested":"\\ud800","nested":[1]}']) {
+    const f = setup(t), raw = line(meta(id)) + line(msg('Synthetic record'))
+      + `{"timestamp":"2000-01-01T00:00:00Z","ordinal":2,"type":"world_state","payload":{"full":true,"state":${state}}}\n`;
+    writeFileSync(f.path, raw);
+    assert.equal((await f.save()).partial, true);
+    const bundle = listBundles(f.output)[0]; await verifyBundle(bundle);
+    assert.equal(bundle.manifest.coverage.lineage.status, 'unverified');
+    assert.equal(readFileSync(join(bundle.folder, 'rollout.jsonl'), 'utf8'), raw);
+    assert.equal(await runHistory(['check', '--in', f.output], { log() {} }), 3);
+  }
+});
+
 test('search snippets include late matches and read-only result limits are explicit', async t => {
   const f = setup(t); writeFileSync(f.path, line(meta(id)) + line(msg('x'.repeat(2000) + 'NEEDLE' + 'y'.repeat(2000))));
   await f.save(); const output = [];

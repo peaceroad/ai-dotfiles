@@ -9,7 +9,7 @@ import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { MAINTENANCE_CLI_VERSIONS, inspectSessions, inspectDeletionReferences, makePlan, selectPlan, parseSessionArgs, exportSessions, runSessions, assertClientsClosed, runOfficialCodex, inspectCliCompatibility, displayText, planExportedDeletion } from './manage-codex-sessions.mjs';
 import { listBundles, snapshotDigest, fingerprint, verifyBundle, HISTORY_TABLES } from './session-export-storage.mjs';
-import { listBatches, readBatch } from './session-export-batches.mjs';
+import { listBatches, readBatch, openHistoryReader } from './session-export-batches.mjs';
 import { inspectSidebarRefresh } from './session-sidebar-cache.mjs';
 import { runHistory } from './manage-codex-history.mjs';
 import { supportsZstdRuntime, chargeRolloutBytes } from './session-rollout-io.mjs';
@@ -912,6 +912,28 @@ test('confirmation trimming still rejects blank, wrong-case, and changed interna
   }
 });
 
+test('date deletion distinguishes all and partial exclusions from a genuinely empty selection', async t => {
+  for (const kind of ['all-excluded', 'partly-excluded', 'empty']) {
+    const f = fixture(t), base = deletionOptions(f), calls = [], output = [];
+    if (kind === 'all-excluded') f.update('UPDATE threads SET is_pinned = 1');
+    if (kind === 'partly-excluded') f.update('UPDATE threads SET is_pinned = 1 WHERE id = ?', other);
+    const selection = ['--before', kind === 'empty' ? '1970-01-01' : '2026-07-01'];
+    assert.equal(await runSessions(['plan', 'delete', ...selection], { ...base, cli: () => assert.fail('Preview is read-only') }), 0);
+    assert.equal(await runSessions(['delete', ...selection], { ...base, log: line => output.push(line),
+      ask: kind === 'partly-excluded' ? confirmPrompt : () => assert.fail('No eligible sessions to confirm'), cli(args) {
+        if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+        calls.push(args[1]); assert.equal(args[1], parent);
+        for (const id of [parent, child]) { f.update('DELETE FROM threads WHERE id = ?', id); rmSync(join(f.home, 'sessions', `${id}.jsonl`)); }
+        f.update('DELETE FROM thread_spawn_edges');
+        return { status: 0 };
+      },
+    }), kind === 'empty' ? 0 : 3);
+    assert.deepEqual(calls, kind === 'partly-excluded' ? [parent] : []);
+    assert.equal(output.some(line => line.includes('Do not substitute a new date selector')), false);
+    assert.ok((await inspectSessions(f.home)).sessions.some(row => row.id === other));
+  }
+});
+
 test('archive verifies actual descendant moves; partial success stops the batch', async t => {
   for (const partial of [false, true]) {
     const f = fixture(t), base = deletionOptions(f), calls = [], output = [];
@@ -962,6 +984,70 @@ function historyFixture(f) {
   db.close();
   // DB preservation also applies to legacy rollouts; paginated syntax is tested separately.
 }
+
+test('indexed history preserves supported text and numeric values with unchanged JSON serialization', async t => {
+  const f = fixture(t); historyFixture(f);
+  const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+  try {
+    db.exec('ALTER TABLE thread_items ADD COLUMN optional TEXT; ALTER TABLE thread_items ADD COLUMN score REAL');
+    db.prepare('UPDATE thread_items SET item_json=?, rollout_ordinal=?, score=? WHERE thread_id=?')
+      .run('\ufeff日本語\0\ufffd', Number.MAX_SAFE_INTEGER, 0.5, parent);
+  } finally { db.close(); }
+  const reader = await openHistoryReader(f.home, []);
+  try {
+    const rows = [...reader.lines([parent])];
+    assert.equal(rows.find(line => JSON.parse(line).table === 'thread_items'), JSON.stringify({ table: 'thread_items',
+      row: { thread_id: parent, rollout_ordinal: Number.MAX_SAFE_INTEGER, item_json: '\ufeff日本語\0\ufffd', optional: null, score: 0.5 } }) + '\n');
+    assert.equal(reader.hasRows([parent]), true); reader.check();
+  } finally { reader.close(); }
+});
+
+test('indexed history rejects lossy values before publishing snapshots', async t => {
+  for (const value of ["CAST(x'ff' AS TEXT)", "CAST(x'fe' AS TEXT)", "x'61'", '9223372036854775807', '1e400']) {
+    const f = renderableFixture(t), output = exportParent(t); historyFixture(f);
+    const db = new DatabaseSync(join(f.home, 'thread_history_1.sqlite'));
+    try {
+      // No type affinity: exercise SQLite storage types instead of coercing them to TEXT.
+      db.exec('ALTER TABLE thread_items ADD COLUMN extra');
+      db.prepare(`UPDATE thread_items SET extra=${value} WHERE thread_id=?`).run(parent);
+    } finally { db.close(); }
+    await assert.rejects(saveBatch(f, output), /Invalid UTF-8 in indexed history|Unsupported indexed history value/);
+    assert.deepEqual(listBundles(output), []); assert.deepEqual(listBatches(output), []);
+  }
+});
+
+test('old replacement-character history snapshots cannot authorize deletion of either invalid UTF-8 value', async t => {
+  const f = renderableFixture(t), output = exportParent(t); historyFixture(f);
+  const path = join(f.home, 'thread_history_1.sqlite');
+  let db = new DatabaseSync(path);
+  db.prepare('UPDATE thread_items SET item_json=? WHERE thread_id=?').run('\ufffd', parent); db.close();
+  // This history row matches the old lossy reader's output for either ff or fe.
+  const { batch } = await saveBatch(f, output);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  for (const hex of ['ff', 'fe']) {
+    db = new DatabaseSync(path);
+    try { db.prepare(`UPDATE thread_items SET item_json=CAST(x'${hex}' AS TEXT) WHERE thread_id=?`).run(parent); }
+    finally { db.close(); }
+    const plan = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+    assert.equal(plan.sessions.length, 0);
+    assert.match(plan.skipped[0].problems.join(' '), /Invalid UTF-8 in indexed history/);
+    assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...deletionOptions(f), ask: () => assert.fail('Invalid data must not reach confirmation'),
+    }), 3);
+  }
+});
+
+test('indexed history rejects unsupported encoding and generated columns', async t => {
+  for (const kind of ['encoding', 'generated']) {
+    const f = fixture(t), path = join(f.home, 'thread_history_1.sqlite');
+    if (kind === 'encoding') { const db = new DatabaseSync(path); db.exec("PRAGMA encoding='UTF-16'; CREATE TABLE fixture (id TEXT)"); db.close(); }
+    else {
+      historyFixture(f); const db = new DatabaseSync(path);
+      db.exec('ALTER TABLE thread_items ADD COLUMN generated TEXT AS (item_json)'); db.close();
+    }
+    await assert.rejects(openHistoryReader(f.home, []), /Unsupported indexed history (text encoding|columns)/);
+  }
+});
 
 function rolloverHistoryFixture(t) {
   const f = renderableFixture(t);
@@ -1410,6 +1496,41 @@ test('export detects history-only WAL commits and a newly created history databa
   }
 });
 
+test('indexed history readers recheck path identity and unknown database versions', async t => {
+  for (const kind of ['replace', 'version', 'version-without-current']) {
+    const f = fixture(t), path = join(f.home, 'thread_history_1.sqlite');
+    if (kind !== 'version-without-current') historyFixture(f);
+    const reader = await openHistoryReader(f.home, []);
+    try {
+      if (kind === 'replace') {
+        if (process.platform === 'win32') {
+          assert.throws(() => renameSync(path, `${path}.old`), { code: 'EBUSY' });
+          reader.check(); continue; // The OS rejected replacement of the open database.
+        }
+        renameSync(path, `${path}.old`); historyFixture(f);
+      } else writeFileSync(join(f.home, 'thread_history_2.sqlite'), 'synthetic unknown version');
+      assert.throws(() => reader.check(), /[Ii]ndexed history/);
+    } finally { reader.close(); }
+  }
+});
+
+test('history database replacement during export never publishes the stale handle snapshot', { skip: process.platform === 'win32' }, async t => {
+  const f = renderableFixture(t), output = exportParent(t); historyFixture(f);
+  const snapshot = await inspectSessions(f.home), plan = selectPlan(snapshot, parseSessionArgs(['export', parent]));
+  let replaced = false;
+  await assert.rejects(exportSessions(snapshot, plan, output, { log(line) {
+    if (line !== 'Progress: Reinspect source session metadata' || replaced) return;
+    replaced = true;
+    const path = join(f.home, 'thread_history_1.sqlite');
+    renameSync(path, `${path}.old`); historyFixture(f);
+    const db = new DatabaseSync(path);
+    try { db.prepare('UPDATE thread_items SET item_json=? WHERE thread_id=?').run('newer unsaved history', parent); }
+    finally { db.close(); }
+  } }), /Indexed history changed during operation/);
+  assert.equal(replaced, true);
+  assert.deepEqual(listBundles(output), []); assert.deepEqual(listBatches(output), []);
+});
+
 test('interactive week and date selectors preview without running a mutation', async t => {
   const f = fixture(t);
   for (const selection of ['4w', '4weeks', '4 weeks', '2026-07-01']) {
@@ -1582,6 +1703,49 @@ test('unverified lineage and older coverage never authorize exported deletion', 
         return base.cli(args);
       } }), 3);
     assert.equal(mutations, 0);
+  }
+});
+
+test('old verified snapshots are revalidated for raw JSON whitespace and hidden unsupported scalars', async t => {
+  for (const schemaVersion of [2, 3]) for (const kind of ['nbsp', 'bom', 'overflow', 'duplicate-overflow', 'duplicate-surrogate']) {
+    const f = renderableFixture(t), output = exportParent(t), path = join(f.home, 'sessions', `${parent}.jsonl`);
+    f.update('DELETE FROM thread_spawn_edges'); historyFixture(f);
+    f.update("UPDATE threads SET history_mode='paginated' WHERE id=?", parent);
+    const raw = readFileSync(path, 'utf8').replace('"history_mode":"legacy"', '"history_mode":"paginated"')
+      + JSON.stringify({ timestamp: '2000-01-01T00:00:00Z', ordinal: 2, type: 'world_state', payload: { full: true, state: { nested: [1] } } }) + '\n';
+    writeFileSync(path, raw);
+    const { batch } = await saveBatch(f, output), bundle = listBundles(output)[0], manifest = bundle.manifest;
+    assert.equal(manifest.coverage.lineage.status, 'verified');
+    // Reconstruct a pre-fix snapshot: bytes, hashes and source metadata agree,
+    // but its recorded verified status relied on normalization or Infinity.
+    const replacement = { overflow: '"nested":[1e400]', 'duplicate-overflow': '"nested":[1e400],"nested":[1]',
+      'duplicate-surrogate': '"nested":"\\ud800","nested":[1]' }[kind];
+    const saved = replacement ? raw.replace('"nested":[1]', replacement)
+      : raw.replace('\n', `\n${kind === 'nbsp' ? '\u00a0' : '\ufeff'}`);
+    writeFileSync(path, saved); writeFileSync(join(bundle.folder, 'rollout.jsonl'), saved);
+    const bytes = Buffer.byteLength(saved), sha256 = createHash('sha256').update(saved).digest('hex');
+    Object.assign(manifest.files.find(file => file.file === 'rollout.jsonl'), { bytes, sha256 });
+    Object.assign(manifest.coverage.lineage.rollouts[0], { endByte: bytes, sha256 });
+    Object.assign(manifest.sourceArtifacts[0], { storedBytes: bytes, decodedBytes: bytes, storedSha256: sha256, decodedSha256: sha256 });
+    manifest.artifactSetDigest = fingerprint(manifest.sourceArtifacts);
+    batch.entries[0].artifactSetDigest = manifest.artifactSetDigest;
+    if (schemaVersion === 2) {
+      manifest.schemaVersion = 2; delete manifest.sourceArtifacts; delete manifest.artifactSetDigest; delete manifest.validation;
+      batch.schemaVersion = 1; delete batch.entries[0].artifactSetDigest; delete batch.entries[0].policy;
+    }
+    manifest.contentDigest = snapshotDigest(manifest); batch.entries[0].digest = manifest.contentDigest;
+    const snapshot = await inspectSessions(f.home);
+    batch.groups[0].fingerprint = selectPlan(snapshot, parseSessionArgs(['export', parent])).groups[0].fingerprint;
+    const { digest, ...body } = batch; batch.digest = fingerprint(body);
+    writeFileSync(join(bundle.folder, 'manifest.json'), JSON.stringify(manifest));
+    writeFileSync(join(output, 'batches', `${batch.id}.json`), JSON.stringify(batch));
+    const plan = await planExportedDeletion(snapshot, output, batch.id);
+    assert.equal(plan.sessions.length, 0);
+    assert.match(plan.skipped[0].problems.join(' '), replacement ? /boundary coverage does not match/ : /Invalid JSON in history record at line 2/);
+    assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...deletionOptions(f), ask: () => assert.fail('Old verification must not authorize deletion'),
+    }), 3);
+    assert.equal(readFileSync(join(bundle.folder, 'rollout.jsonl'), 'utf8'), saved);
   }
 });
 

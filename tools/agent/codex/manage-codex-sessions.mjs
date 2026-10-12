@@ -1321,7 +1321,7 @@ export async function runSessions(args, {
     if (plan.problems.length) { log('Stopped before execution: resolve the plan problems above, then review a new plan.'); return 1; }
     if (options.operation === 'export' && !options.output) options.output = readExportDirectory() ?? undefined;
     if (options.confirm && options.confirm !== confirmationToken(plan, options)) fail('Confirmation token does not match the current operation plan.');
-    const excluded = options.batch && plan.skipped.some(group => !group.alreadyAbsent);
+    const excluded = options.operation === 'delete' && plan.skipped.some(group => !group.alreadyAbsent);
     if (options.action === 'plan') {
       if (options.operation !== 'export' || options.output) log(`Confirmation token: ${confirmationToken(plan, options)}`);
       else log('Specify --output or configure an export directory to obtain a confirmation token.');
@@ -1447,7 +1447,7 @@ export async function runSessions(args, {
     }
     log(`${options.action === 'delete' ? 'Deleted' : 'Archived'} and verified: ${plan.sessions.length} indexed session(s). No project file or shared database was manually removed.`);
     printExclusions(plan, log);
-    if (excluded) log('Next: review the exclusion reasons above. To inspect this same batch again, use agent codex session plan delete --exported <batch-id> --in <export-directory>. Do not substitute a new date selector.');
+    if (excluded && options.batch) log('Next: review the exclusion reasons above. To inspect this same batch again, use agent codex session plan delete --exported <batch-id> --in <export-directory>. Do not substitute a new date selector.');
     return excluded || sidebarAttention ? 3 : 0;
   } catch (error) {
     // OS/SQLite/child stderr can contain private paths, settings, and history content.

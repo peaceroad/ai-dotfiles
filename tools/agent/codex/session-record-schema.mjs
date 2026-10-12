@@ -323,5 +323,5 @@ const record = tagged({
     { ...responseCommon, encrypted_content: text }, { other_recipients: array(agentPath) }) }, { ordinal: uint }],
   inter_agent_communication_metadata: [{ timestamp: text, payload: shape({ trigger_turn: bool }) }, { ordinal: uint }],
 });
-export const knownHistoryRecord = ({ value, numberTokens, scalarStrings }) => scalarStrings !== false && record(value, numberTokens)
+export const knownHistoryRecord = ({ value, numberTokens, scalarStrings, finiteNumbers }) => scalarStrings !== false && finiteNumbers !== false && record(value, numberTokens)
   && (value.type !== 'session_meta' || (noRoleAliasConflict(value.payload) && noRoleAliasConflict(value.payload.source?.subagent?.thread_spawn)));

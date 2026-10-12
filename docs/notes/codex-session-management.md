@@ -72,7 +72,11 @@ agent codex session plan delete --before 2026-07-01
 
 生ログとDB行は逐次出力し、書き出したファイルを読み直してハッシュを照合します。最後に元セッション・依存ログ・収集したローカル添付物を再検査し、履歴DBだけが処理中に更新された場合も検知します。検査後に`complete: true`のmanifestを書き、未完了フォルダーを通常の名前へ変更します。失敗時は途中ファイルを残して検索対象から外し、既に公開したスナップショットは巻き戻しません。
 
+履歴DBの文字列はBLOBとして取得して厳格にUTF-8を検査し、不正bytesを同じ置換文字へ変換して一致と判定することを防ぎます。DBハンドルの更新検査に加え、同名パスのファイルidentityと未知DB版の出現も再確認します。既存の有効なJSON表現は維持し、旧保存物による削除にも元DBの新しい検査を適用します。[保存型と旧保存物の扱い](../plans/ai-dotfiles-session-preservation-plan.md#履歴dbの文字列とファイルidentity)
+
 `coverage.lineage`は展開後JSONLのbyte境界・ordinal・参照関係を`rollout-prefix-v2`で記録します。既知schemaと連続ordinalで検証できた範囲だけをverifiedとし、未知recordやordinal欠落・gap・重複はunverifiedとしてrawを保存し、exported deletionを停止します。不正UTF-8・JSON・境界に使う整数token・検証可能な境界の不一致はexport自体を失敗させます。追加の所有rolloutにも同じ検査を適用します。legacyかつbaseなしの履歴はordinal検査の対象外です。完全な公式parser互換を意味せず、対応payloadは`session-record-schema.mjs`の保守的な部分集合です。旧`plain-prefix-v1`の保存物は閲覧できますが、削除の根拠には再exportが必要です。
+
+JSONLを読むときはBOMやUnicode空白を除去せず、JSONのASCII空白と区別します。境界検証では任意JSONの入れ子の数値も有限数か確認し、JavaScriptでoverflowする数値を含む記録は未検証にします。重複keyで上書きされる値のoverflowや孤立サロゲートも検査し、正常な重複keyやescapeは維持します。policy版は維持し、旧v2/v3のverified記録も削除前に保存bytesから再計算するため、以前の誤った検証結果を引き継ぎません。旧保存物を上書き・削除して直す処理ではありません。
 
 v2 policyは通常のターン開始・終了、ターン設定、推論・ツール呼出しと戻り値、対応する完了項目、トークン使用量などを追加しました。型名だけでなく、入れ子のvariant、必須項目、nullの可否、整数の元token、パス型を検査します。たとえば`CommandExecution.cwd`には`file:` URI、`turn_context.cwd`にはnative絶対パスを要求します。未知項目を無視してordinalを進めず、未検証になった最初の理由と行番号を保存します。
 

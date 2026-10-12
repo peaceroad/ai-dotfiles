@@ -85,6 +85,14 @@
 
 非圧縮経路の受入条件は検証済みです。圧縮export・削除を追加する際は、このDB対象集合の規則を引き継ぎ、混在形式の試験を追加します。
 
+### 履歴DBの文字列とファイルidentity
+
+履歴DBのTEXTをNodeのSQLite bindingへそのまま文字列化させると、不正UTF-8の異なるbytesが同じ置換文字となり、保存後の変更を検出できない場合がありました。TEXTはBLOBへcastしてから厳格なUTF-8 decoderで検査し、元がBLOBの値と区別します。DBの文字コードはUTF-8、保存値は有効な文字列・安全整数・有限REAL・nullに限定します。範囲外整数や非有限数、BLOB、生成列などの未対応構造では停止します。対応する行のJSON表現・順序と`owned-rollout-ids-v1`は変えません。
+
+ボード・添付metadata readerと同様に、読取前後のDBパスの`dev`・`ino`・`birthtime`を照合し、未知DB版の出現も最終検査で拒否します。開いた古いDBハンドルの`data_version`が変わらなくても、同名パスが別DBに置き換われば完了snapshotを公開しません。書き込み元を終了する運用条件は維持し、並行更新全体への排他や完全整合性の保証にはしません。
+
+合成fixtureは、不正UTF-8間の変更、置換文字を保存した旧形式と不正な元DB行との誤一致、BOM・NULを含む有効な文字列の保持、数値・null、未対応encoding・値型、DB差し替え・未知版出現を検査します。Windowsでは開いたSQLiteの差し替えをOSが拒否する条件を別に扱います。既存のsnapshotは変更せず、削除前の元DB照合を新しいreaderでやり直します。すでに削除した元データを復元できるという主張ではありません。
+
 ## 削除CLIの起動時更新を抑止する
 
 **削除CLI自身が、最後の照合後に履歴を更新し得る経路を先に閉じます。** 現行ai-dotfilesは [公式CLIのdeleteを呼び](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/tools/agent/codex/manage-codex-sessions.mjs#L1166-L1172)、公式CLIは [app-serverを起動してからthread/deleteを実行](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/tui/src/session_archive_commands.rs#L82-L117)します。その初期化は、設定次第で [background migrationとcompressionを非同期に開始](https://github.com/openai/codex/blob/822e58cc3d666166c7446c5b1ea2e52f5d09594c/codex-rs/core/src/thread_manager.rs#L456-L505)します。全クライアントを閉じる条件だけでは、この起動処理を防げません。
@@ -131,6 +139,8 @@ v2では、基本metadataとmessage・function_callに加え、metadataの既知
 compactionの追加根拠は、同じ版の[rollout payload](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/history/src/rollout_payload.rs)、[checkpointとmetadata](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/history/src/lib.rs)、[retained context](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/history/src/retained_context.rs)、[MCP](https://github.com/openai/codex/blob/rust-v0.159.2/codex-rs/protocol/src/mcp.rs)、[拡張項目](https://github.com/openai/codex/tree/rust-v0.159.2/codex-rs/ext/items/src)です。置換履歴とmetadataの件数一致、guardian履歴、保持文脈、MCP resource origins、resume metadataを検査します。MCP結果など、公式定義が任意のJSONとする部分は外枠の型と区別します。JSON escapeに由来する孤立サロゲートはkeyも含めて検出し、未検証にします。
 
 この追加では`rollout-prefix-v2`を維持します。既存の検証済みsnapshotは削除前の再検証を通れば利用でき、未検証の警告付きsnapshotは新実装で再exportします。checkpointやツール結果のraw保全は、`conversation.md`での全面的な表示・検索や、export前に失われた短縮前の全文の復元を意味しません。
+
+JSONL parserは元bytesからBOMを消さず、空行にはJSONのASCII空白だけを認めます。文字列外のNBSPやBOMをtrimしてverifiedへ変えることはせず、不正JSONとして停止します。CRLFとASCII空白はbytesに含めたまま受け付け、文字列内のBOM・Unicode空白は保持します。任意JSONにも数値の有限性を確認し、`1e400`のようにJavaScriptでoverflowする記録はrawを保持したunverifiedにします。構文は引き続きJSON.parseで検査し、その後、行長上限内のraw scalar tokenを反復走査します。reviverが見ない上書き前の重複keyの値も対象とし、overflowや孤立サロゲートを後続の値で隠せないようにします。構造parserや再帰的なtree walkは追加せず、正常な重複key・数値文字列・escape・surrogate pairは保持します。これは保守的な対応範囲の制限であり、公式CLIの全依存featureや数値decoderとの完全互換を確認したものではありません。旧v2/v3の同policy・verified保存物も、保存bytesの再検証に失敗すれば削除を許可しません。
 
 開発作業の追加schemaは、同じ版のprotocolとturn itemsを根拠にします。ファイル変更の辞書は各変更内容、レビューは対象variant・結果・行範囲、エージェント操作は送受信ID・状態・役割の別名を検査します。hosted Web検索と拡張Web検索はactionのtagが異なり、両者を混同しません。エージェント間通信は送信元・宛先のpathと必須booleanを検査します。これらのpathや通信内容を使った追加の読取・操作は行わず、保存・削除の対象範囲は既存の親子グループ・所有者・継承履歴規則に従います。`development-turn.mjs`の合成fixtureは既存のcompaction fixtureを含め、混在したターンでも検証します。
 

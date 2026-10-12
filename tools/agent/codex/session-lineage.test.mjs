@@ -105,6 +105,60 @@ test('unknown schemas and noncontiguous ordinals remain unverified without inven
   await assert.rejects(f.check(lines([meta(), unknown]) + 'bad JSON\n', 2), /JSON/);
 });
 
+test('JSONL rejects BOM and Unicode whitespace outside records without normalizing their bytes', async t => {
+  const f = fixture(t), metadata = lines([meta()]), message = lines([msg(1)]);
+  for (const whitespace of ['\ufeff', '\u00a0', '\u2003', '\u2028', '\v', '\f']) {
+    for (const raw of [whitespace + metadata + message, metadata + whitespace + message,
+      metadata + message.trimEnd() + whitespace + '\n', metadata + whitespace + '\n' + message]) {
+      await assert.rejects(f.check(raw, 2), /Invalid JSON in history record at line [12]/);
+    }
+  }
+  const raw = ' \t\r\n' + ' \t' + metadata.trimEnd() + '\r\n' + message + '\t\r\n';
+  const checked = await f.check(raw, 2);
+  assert.equal(checked.status, 'verified');
+  assert.equal(checked.sha256, createHash('sha256').update(raw).digest('hex'));
+  const content = msg(1); content.payload.content[0].text = '\ufeff\u00a0日本語';
+  assert.equal((await f.check(lines([meta(), content]), 2)).status, 'verified');
+});
+
+test('opaque JSON with non-finite decoded numbers cannot establish verified lineage', async t => {
+  const f = fixture(t);
+  const world = { timestamp: stamp, ordinal: 1, type: 'world_state', payload: { full: true, state: { nested: [1] } } };
+  for (const token of ['1e400', '-1e400', '1e300', '"1e400"']) {
+    const raw = lines([meta(), world]).replace('"nested":[1]', `"nested":[${token}]`);
+    assert.equal((await f.check(raw, 2)).status, ['1e400', '-1e400'].includes(token) ? 'unverified' : 'verified');
+  }
+});
+
+test('raw scalar checks include overwritten values while preserving valid duplicate keys and escapes', async t => {
+  const f = fixture(t);
+  for (const [state, status] of [
+    ['{"nested":[1e400],"nested":[1]}', 'unverified'],
+    ['{"nested":[-1e400],"\\u006eested":[1]}', 'unverified'],
+    ['{"nested":"\\ud800","nested":[1]}', 'unverified'],
+    ['{"nested":{"deep":[{"bad":1e400}]},"nested":[1]}', 'unverified'],
+    ['{"nested":{"deep":[{"bad":"\\udfff"}]},"nested":[1]}', 'unverified'],
+    ['{"\\ud800":1,"\\ud800":2}', 'unverified'],
+    ['{"nested":[2],"nested":[1]}', 'verified'],
+    ['{"nested":[2],"\\u006eested":[1]}', 'verified'],
+    ['{"nested":"\\ud83d\\ude42","nested":[1]}', 'verified'],
+    ['{"nested":"\\\\ud800","nested":[1]}', 'verified'],
+    ['{"escaped\\\"key":"1e400; \\\\ and \\\" quotes","number":-1.25e+10}', 'verified'],
+    ['{"number":1e300,"text":"1e400"}', 'verified'],
+  ]) {
+    const raw = lines([meta()]) + `{"timestamp":"${stamp}","ordinal":1,"type":"world_state","payload":{"full":true,"state":${state}}}\n`;
+    assert.equal((await f.check(raw, 2)).status, status, state);
+  }
+});
+
+test('zstd JSONL keeps the same raw whitespace rejection as plain history', { skip: !supportsZstdRuntime() }, async t => {
+  const f = fixture(t), path = f.path + '.zst';
+  for (const prefix of ['\ufeff', '\u00a0']) {
+    writeFileSync(path, zstdCompressSync(lines([meta()]) + prefix + lines([msg(1)])));
+    await assert.rejects(validateHistoryPrefix(path, { owner: id }), /Invalid JSON in history record at line 2/);
+  }
+});
+
 test('numeric lexemes reject rounding, exponent notation, negatives, strings and overflow', async t => {
   const f = fixture(t);
   for (const token of ['1.00000000000000001', '1e0', '-0', '-1', '9007199254740992', '"1"']) {

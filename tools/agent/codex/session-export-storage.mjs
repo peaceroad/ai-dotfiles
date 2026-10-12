@@ -178,10 +178,33 @@ export async function writeVerifiedFile(source, path, progress) {
   if (await digestFile(path, progress) !== sha256) reject('Export copy verification failed.');
   return { file: basename(path), bytes, sha256 };
 }
+// JSON.parse must validate syntax first. Scan raw scalar tokens iteratively so
+// duplicate properties cannot hide overflow or escaped lone surrogates from the
+// reviver. Valid duplicate keys retain JSON.parse's normal last-value semantics.
+function rawJsonScalars(text) {
+  let scalarStrings = true, finiteNumbers = true;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '"') {
+      const start = i;
+      let unicodeEscape = false;
+      while (++i < text.length && text[i] !== '"') {
+        if (text[i] === '\\') { if (text[i + 1] === 'u') unicodeEscape = true; i++; }
+      }
+      // Strict UTF-8 already guarantees literal characters are scalar strings.
+      if (scalarStrings && unicodeEscape && !JSON.parse(text.slice(start, i + 1)).isWellFormed()) scalarStrings = false;
+    } else if (text[i] === '-' || (text[i] >= '0' && text[i] <= '9')) {
+      const start = i;
+      while (i + 1 < text.length && /[0-9eE+.-]/.test(text[i + 1])) i++;
+      if (finiteNumbers && !Number.isFinite(Number(text.slice(start, i + 1)))) finiteNumbers = false;
+    }
+  }
+  return { scalarStrings, finiteNumbers };
+}
+
 // Bounded line parsing preserves byte offsets; never silently drop malformed records.
 export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, endByte, numberTokens = false, onChunk, ...io } = {}) {
   let pieces = [], length = 0, offset = 0, line = 0;
-  const decoder = new TextDecoder('utf-8', { fatal: true });
+  const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
   let read = 0;
   for await (const chunk of rolloutChunks(path, { ...io, endByte })) {
     onChunk?.(chunk);
@@ -193,16 +216,14 @@ export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, 
       const bytes = pieces.length ? Buffer.concat([...pieces, tail], length + tail.length) : tail;
       offset += bytes.length; line++;
       let text, value;
-      try { text = decoder.decode(bytes).trim(); }
+      try { text = decoder.decode(bytes); }
       catch { reject(`Invalid UTF-8 in history record at line ${line}.`); }
-      if (text) {
+      // Only JSON whitespace may form a blank line. Preserve BOM/NBSP and all
+      // other bytes for JSON.parse instead of normalizing malformed records.
+      if (!/^[ \t\r\n]*$/.test(text)) {
         // JSON.parse diagnostics can quote private record contents. Report only the location.
         const tokens = numberTokens ? new WeakMap() : null;
-        let scalarStrings = true;
         try { value = JSON.parse(text, tokens ? function(key, value, context) {
-          // JSON.parse accepts lone UTF-16 surrogate escapes; Rust strings do not.
-          // Include opaque JSON values and keys without a second tree traversal.
-          if (scalarStrings && (!key.isWellFormed() || (typeof value === 'string' && !value.isWellFormed()))) scalarStrings = false;
           if (typeof value === 'number') {
             let fields = tokens.get(this);
             if (!fields) tokens.set(this, fields = {});
@@ -211,7 +232,7 @@ export async function* jsonLines(path, { maxLine = 128 * 1024 * 1024, progress, 
           return value;
         } : undefined); }
         catch { reject(`Invalid JSON in history record at line ${line}.`); }
-        yield { value, line, end: offset, ...(tokens ? { numberTokens: tokens, scalarStrings } : {}) };
+        yield { value, line, end: offset, ...(tokens ? { numberTokens: tokens, ...rawJsonScalars(text) } : {}) };
       }
       pieces = []; length = 0;
       start = end + 1;
