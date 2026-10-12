@@ -34,6 +34,18 @@ try {
   await run("mixed", "Agent Plugins v1 uses root plugin.json, but every package must include .codex-plugin/plugin.json for compatibility.\n", "mixed-or-compatibility");
   await run("legacy", "Every plugin must include .codex-plugin/plugin.json and .mcp.json.\n", "legacy-codex-described");
   await run("unknown", "Create a reusable extension package.\n", "unknown");
+  const env = { ...process.env, HOME: tempRoot, USERPROFILE: tempRoot };
+  for (const args of [["--skill-path", path.join(tempRoot, "agent-v1.md")],
+    ["--skill-path", path.join(tempRoot, "agent-v1.md"), "--json"],
+    ["--skill-path", path.join(tempRoot, "missing.md")]]) {
+    const result = spawnSync(process.execPath, [script, ...args], { encoding: "utf8", env });
+    const output = result.stdout + result.stderr;
+    if (output.includes(tempRoot) || !output.includes("~/")) {
+      failed = true;
+      console.error("FAIL diagnostic paths must be public-safe");
+    }
+  }
+  console.log(failed ? "Diagnostic checks failed" : "PASS public-safe diagnostic paths");
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }

@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
+  closeSync,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -78,6 +84,39 @@ function fail(message, exitCode = 1) {
   const error = new Error(message);
   error.exitCode = exitCode;
   throw error;
+}
+
+function displayPath(value) {
+  const absolute = resolve(value);
+  const home = resolve(homedir());
+  return isWithin(home, absolute)
+    ? `~${absolute === home ? "" : `/${relative(home, absolute).replaceAll("\\", "/")}`}`
+    : `[external]/${basename(absolute)}`;
+}
+
+function publicMessage(value, paths = []) {
+  let message = String(value);
+  for (const value of paths.filter(value => typeof value === "string").sort((a, b) => b.length - a.length)) {
+    message = message.replaceAll(value, displayPath(value));
+  }
+  return message.replaceAll(resolve(homedir()), "~")
+    .replaceAll(resolve(homedir()).replaceAll("\\", "/"), "~");
+}
+
+// The selected repository root is canonical. Managed descendants cannot redirect.
+function assertDestinationPath(root, target) {
+  if (!isWithin(root, target)) fail("Managed destination escapes the repository root.");
+  let current = root;
+  const parts = relative(root, target).split(/[\\/]/u).filter(Boolean);
+  for (let index = -1; index < parts.length; index += 1) {
+    if (index >= 0) current = join(current, parts[index]);
+    let info;
+    try { info = lstatSync(current); }
+    catch (error) { if (error.code === "ENOENT") return; throw error; }
+    if (info.isSymbolicLink() || (index < parts.length - 1 && !info.isDirectory())) {
+      fail(`Managed destination has a redirected or non-directory ancestor: ${relative(root, current) || "."}`);
+    }
+  }
 }
 
 function parseArgs(argv) {
@@ -192,7 +231,7 @@ function isWithin(parent, candidate) {
 
 function resolveRepositoryRoot(repositoryRoot) {
   if (!existsSync(repositoryRoot) || !statSync(repositoryRoot).isDirectory()) {
-    fail(`Repository root does not exist: ${repositoryRoot}`);
+    fail(`Repository root does not exist: ${displayPath(repositoryRoot)}`);
   }
   return realpathSync(repositoryRoot);
 }
@@ -238,7 +277,7 @@ function validateInitInputs(options) {
       .filter(Boolean)
       .join("\n")
       .trim();
-    fail(`Portable plugin validation failed.${details ? `\n${details}` : ""}`);
+    fail(`Portable plugin validation failed.${details ? `\n${publicMessage(details, [pluginPath, options.repositoryRoot, SCRIPT_DIR])}` : ""}`);
   }
 
   const manifest = JSON.parse(
@@ -259,7 +298,7 @@ function validateInitInputs(options) {
     "marketplace.json",
   );
   if (!existsSync(marketplacePath)) {
-    fail(`Marketplace catalog does not exist: ${marketplacePath}`);
+    fail(`Marketplace catalog does not exist: ${displayPath(marketplacePath)}`);
   }
   const marketplace = JSON.parse(readFileSync(marketplacePath, "utf8"));
   const namedEntries = Array.isArray(marketplace.plugins)
@@ -284,13 +323,14 @@ function inspectManagedFiles(repositoryRoot) {
   const states = [];
   for (const file of MANAGED_FILES) {
     if (!existsSync(file.source)) {
-      fail(`Managed template source is missing: ${file.source}`);
+      fail(`Managed template source is missing: ${displayPath(file.source)}`);
     }
     const templateBytes = readFileSync(file.source);
     if (!templateBytes.includes(file.marker)) {
-      fail(`Managed template marker is missing: ${file.source}`);
+      fail(`Managed template marker is missing: ${displayPath(file.source)}`);
     }
     const target = join(repositoryRoot, file.target);
+    assertDestinationPath(repositoryRoot, target);
     if (!existsSync(target)) {
       states.push({ file, target, state: "missing" });
       continue;
@@ -326,8 +366,30 @@ function copyManagedFiles(repositoryRoot, { refresh }) {
       }
       continue;
     }
+    assertDestinationPath(repositoryRoot, target);
     mkdirSync(dirname(target), { recursive: true });
-    copyFileSync(file.source, target);
+    const temporary = join(dirname(target), `.scaffold-${randomUUID()}.tmp`);
+    const fd = openSync(temporary, "wx");
+    let primaryError;
+    try {
+      closeSync(fd);
+      copyFileSync(file.source, temporary);
+      assertDestinationPath(repositoryRoot, target);
+      renameSync(temporary, target);
+    } catch (error) {
+      primaryError = error;
+      throw error;
+    } finally {
+      try {
+        if (existsSync(temporary)) {
+          assertDestinationPath(repositoryRoot, temporary);
+          unlinkSync(temporary);
+        }
+      } catch (error) {
+        if (!primaryError) throw error;
+        primaryError.message += `\nAdditional cleanup failure at ${displayPath(temporary)}: ${publicMessage(error.message, [error.path, error.dest])}`;
+      }
+    }
     console.log(`${refresh ? "Refreshed" : "Created"}: ${file.target.replaceAll("\\", "/")}`);
   }
 }
@@ -360,14 +422,16 @@ function configRelativePath(pluginName) {
 function requireMissingRepositoryConfig(repositoryRoot, pluginName) {
   const relativeConfigPath = configRelativePath(pluginName);
   const configPath = join(repositoryRoot, relativeConfigPath);
+  assertDestinationPath(repositoryRoot, configPath);
   if (existsSync(configPath)) {
     fail(`${relativeConfigPath.replaceAll("\\", "/")} already exists.`);
   }
-  return { configPath, relativeConfigPath };
+  return { repositoryRoot, configPath, relativeConfigPath };
 }
 
 function listRepositoryConfigs(repositoryRoot) {
   const configDirectory = join(repositoryRoot, CONFIG_DIRECTORY);
+  assertDestinationPath(repositoryRoot, configDirectory);
   if (!existsSync(configDirectory) || !statSync(configDirectory).isDirectory()) {
     return [];
   }
@@ -386,7 +450,7 @@ function readPendingConfig(options) {
     !existsSync(options.pendingConfig)
     || !statSync(options.pendingConfig).isFile()
   ) {
-    fail(`Pending configuration does not exist: ${options.pendingConfig}`);
+    fail(`Pending configuration does not exist: ${displayPath(options.pendingConfig)}`);
   }
   const configDirectory = join(options.repositoryRoot, CONFIG_DIRECTORY);
   if (isWithin(canonicalPath(configDirectory), canonicalPath(options.pendingConfig))) {
@@ -438,6 +502,7 @@ function formatJson(value) {
 }
 
 function writeNewRepositoryConfig(config, destination, action) {
+  assertDestinationPath(destination.repositoryRoot, destination.configPath);
   mkdirSync(dirname(destination.configPath), { recursive: true });
   writeFileSync(
     destination.configPath,
@@ -451,7 +516,7 @@ function writeNewRepositoryConfig(config, destination, action) {
 function writePendingConfig(options) {
   const outputDirectory = dirname(options.pendingOutput);
   if (!existsSync(outputDirectory) || !statSync(outputDirectory).isDirectory()) {
-    fail(`Pending output directory does not exist: ${outputDirectory}`);
+    fail(`Pending output directory does not exist: ${displayPath(outputDirectory)}`);
   }
   const pendingOutput = join(realpathSync(outputDirectory), basename(options.pendingOutput));
   const configDirectory = join(options.repositoryRoot, CONFIG_DIRECTORY);
@@ -459,20 +524,16 @@ function writePendingConfig(options) {
     fail(`Pending output must be outside ${CONFIG_DIRECTORY.replaceAll("\\", "/")}.`);
   }
   if (existsSync(pendingOutput)) {
-    fail(`Pending output already exists: ${pendingOutput}`);
+    fail(`Pending output already exists: ${displayPath(pendingOutput)}`);
   }
   writeFileSync(
     pendingOutput,
     formatJson(buildRepositoryConfig(options)),
     { encoding: "utf8", flag: "wx" },
   );
-  console.log(`Prepared: ${pendingOutput}`);
+  console.log(`Prepared: ${displayPath(pendingOutput)}`);
   console.log("Review or extend the pending configuration, then run:");
-  console.log(`  node ${quotePowerShell(SCRIPT_PATH)} import ${quotePowerShell(options.repositoryRoot)} ${quotePowerShell(pendingOutput)}`);
-}
-
-function quotePowerShell(value) {
-  return `'${value.replaceAll("'", "''")}'`;
+  console.log("  node <skill-root>/scripts/scaffold-local-agent-plugin.mjs import <repository-root> <pending-output>");
 }
 
 function validateScaffold(repositoryRoot, configPaths) {
@@ -489,13 +550,13 @@ function validateScaffold(repositoryRoot, configPaths) {
       },
     );
     if (result.error || result.status !== 0) {
-      const details = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+      const details = publicMessage([result.stdout, result.stderr].filter(Boolean).join("\n").trim(), [repositoryRoot, SCRIPT_DIR]);
       fail(
         `Generated runner validation failed for ${relative(repositoryRoot, configPath).replaceAll("\\", "/")}.`
         + (details ? `\n${details}` : ""),
       );
     }
-    console.log(result.stdout.trim());
+    console.log(publicMessage(result.stdout.trim(), [repositoryRoot, SCRIPT_DIR]));
   }
 }
 
@@ -522,13 +583,14 @@ function runImport(options) {
     validateScaffold(repositoryRoot, [configPath]);
   } catch (error) {
     try {
+      assertDestinationPath(repositoryRoot, configPath);
       unlinkSync(configPath);
     } catch (cleanupError) {
-      fail(`${error.message}\nCould not remove failed import: ${cleanupError.message}`);
+      fail(`${error.message}\nCould not remove failed import: ${publicMessage(cleanupError.message, [cleanupError.path, cleanupError.dest])}`);
     }
     throw error;
   }
-  console.log(`Pending source retained: ${options.pendingConfig}`);
+  console.log(`Pending source retained: ${displayPath(options.pendingConfig)}`);
 }
 
 function runPrepare(options) {
@@ -552,7 +614,7 @@ function runRefresh(options) {
   validateScaffold(repositoryRoot, configPaths);
 }
 
-export function permissionGuidance(error, options, scriptPath = SCRIPT_PATH) {
+export function permissionGuidance(error, options) {
   if (!options || (error.code !== "EACCES" && error.code !== "EPERM")) {
     return undefined;
   }
@@ -564,11 +626,11 @@ export function permissionGuidance(error, options, scriptPath = SCRIPT_PATH) {
       const versionFlag = options.versionPolicy === "bump" ? "--bump-version" : "--keep-version";
       const marketplaceArgs = options.marketplaceRoot === "."
         ? ""
-        : ` --marketplace-root ${quotePowerShell(options.marketplaceRoot)}`;
+        : " --marketplace-root <marketplace-root>";
       return "The repository development configuration directory is not writable.\n"
         + "Choose a writable <pending-output>, then run:\n"
-        + `  node ${quotePowerShell(scriptPath)} prepare ${quotePowerShell(options.repositoryRoot)} ${quotePowerShell(options.pluginRoot)} 'C:\\path\\to\\pending-config.json'${marketplaceArgs} ${versionFlag}\n`
-        + `  node ${quotePowerShell(scriptPath)} import ${quotePowerShell(options.repositoryRoot)} 'C:\\path\\to\\pending-config.json'`;
+        + `  node <skill-root>/scripts/scaffold-local-agent-plugin.mjs prepare <repository-root> <plugin-root> <pending-output>${marketplaceArgs} ${versionFlag}\n`
+        + "  node <skill-root>/scripts/scaffold-local-agent-plugin.mjs import <repository-root> <pending-output>";
     }
     if (options.command === "import") {
       return "The repository development configuration directory is not writable.\n"
@@ -599,7 +661,7 @@ function main(argv) {
       runRefresh(options);
     }
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    console.error(`Error: ${publicMessage(error.message, [error.path, error.dest])}`);
     const guidance = permissionGuidance(error, options);
     if (guidance) {
       console.error(guidance);

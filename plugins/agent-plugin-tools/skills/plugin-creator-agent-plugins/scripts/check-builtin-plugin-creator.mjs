@@ -4,6 +4,16 @@ import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+function displayPath(value) {
+  const absolute = path.resolve(value);
+  const fromHome = path.relative(os.homedir(), absolute);
+  if (!fromHome) return "~";
+  if (fromHome !== ".." && !fromHome.startsWith(`..${path.sep}`) && !path.isAbsolute(fromHome)) {
+    return `~/${fromHome.replaceAll(path.sep, "/")}`;
+  }
+  return `[external]/${path.basename(absolute)}`;
+}
+
 function parseArgs(argv) {
   const result = { json: false, skillPath: null };
   for (let index = 0; index < argv.length; index += 1) {
@@ -62,7 +72,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const skillPath = path.resolve(options.skillPath || defaultSkillPath());
   const content = await readFile(skillPath, "utf8");
-  const result = { skillPath, ...inspect(content) };
+  const result = { skillPath: displayPath(skillPath), ...inspect(content) };
 
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
@@ -78,6 +88,9 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`check-builtin-plugin-creator: ${error.message}`);
+  const detail = error.code
+    ? `${error.code}${typeof error.path === "string" ? `: ${displayPath(error.path)}` : ""}`
+    : String(error.message).replaceAll(os.homedir(), "~").replaceAll(os.homedir().replaceAll("\\", "/"), "~");
+  console.error(`check-builtin-plugin-creator: ${detail}`);
   process.exitCode = 1;
 });
