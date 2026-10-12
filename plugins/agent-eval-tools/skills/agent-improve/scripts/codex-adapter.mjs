@@ -60,7 +60,7 @@ export function codexArguments(runtime, cwd, schemaFile) {
 
 export function createEventReader() {
   let pending = '', invalid = 0, failed = false;
-  const result = { output: '', usage: null, threadId: null, completed: false, errors: [], eventTypes: [], toolActivity: false, observedModel: null };
+  const result = { output: null, usage: null, threadId: null, completed: false, errors: [], eventTypes: [], toolActivity: false, observedModel: null };
   const types = new Set();
   function line(text) {
     if (!text.trim()) return;
@@ -123,9 +123,9 @@ export function codexInvoker(runtime, workRoot) {
           const result = reader.finish();
           let status = 'completed';
           if (termination) status = termination.confirmed ? (termination.interrupted ? 'interrupted' : 'timeout') : 'cleanup_unconfirmed';
-          else if (error || code !== 0 || !result.completed || result.invalidLines) status = 'runtime_error';
+          else if (error || code !== 0 || !result.completed || result.invalidLines || typeof result.output !== 'string') status = 'runtime_error';
           else if (result.toolActivity) status = 'unsupported';
-          const reason = error || (termination ? termination.reason : result.toolActivity ? 'Tool activity is outside the text adapter contract.' : status === 'runtime_error' ? result.errors.at(-1) || stderr.slice(-1600) || 'Missing successful turn completion.' : null);
+          const reason = error || (termination ? termination.reason : result.toolActivity ? 'Tool activity is outside the text adapter contract.' : status === 'runtime_error' ? result.errors.at(-1) || stderr.slice(-1600) || (typeof result.output !== 'string' ? 'Missing final agent message.' : 'Missing successful turn completion.') : null);
           child.stdout?.destroy(); child.stderr?.destroy(); child.stdin?.destroy(); child.unref();
           resolveResult({ status, reason, output: result.output, usage: result.usage, threadId: result.threadId, eventTypes: result.eventTypes, observedModel: result.observedModel, exitCode: code, signal, workspace: cwd });
         };

@@ -57,11 +57,14 @@ export function snapshot(spec, base = process.cwd()) {
     if (!lstatSync(path).isFile()) throw new Error('Bundle entries must be files.');
     const bytes = readFileSync(path);
     if (bytes.length > 512 * 1024 || bytes.includes(0)) throw new Error('Only bounded text files are supported.');
-    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    // Treat a leading BOM as content, matching UTF-8 application and rollback.
+    const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
     files[name] = text;
   }
   return { hash: digest(files), files };
 }
+
+const validReplacementText = content => typeof content === 'string' && content.isWellFormed() && !content.includes('\0') && Buffer.byteLength(content) <= 512 * 1024;
 
 export function editBundle(parent, edits, editable) {
   if (!Array.isArray(edits) || !edits.length) throw new Error('A candidate needs at least one edit.');
@@ -70,7 +73,7 @@ export function editBundle(parent, edits, editable) {
     const path = portablePath(edit.path);
     if (!editable.includes(path) || !Object.hasOwn(files, path) || touched.has(path)) throw new Error('Edit outside declared files or duplicate edit.');
     if (!/\.(md|txt|json)$/.test(path)) throw new Error('This runner supports text/data candidates only, not executable helper changes.');
-    if (typeof edit.content !== 'string' || edit.content.includes('\0') || Buffer.byteLength(edit.content) > 512 * 1024) throw new Error('Invalid replacement text.');
+    if (!validReplacementText(edit.content)) throw new Error('Invalid replacement text.');
     files[path] = edit.content.replace(/\r\n?/g, '\n');
     touched.add(path);
   }
@@ -187,6 +190,8 @@ export function applyBundle(root, baseline, candidate) {
   const changed = Object.keys(candidate.files).filter(n => candidate.files[n] !== baseline.files[n]);
   for (const name of changed) {
     if (!Object.hasOwn(baseline.files, name)) throw new Error('Adding or removing source files is not supported by this applicator.');
+    // Retained candidates can bypass editBundle; validate all replacements before writing.
+    if (!validReplacementText(candidate.files[name])) throw new Error('Invalid replacement text.');
     safeFile(root, name);
   }
   const written = [];
