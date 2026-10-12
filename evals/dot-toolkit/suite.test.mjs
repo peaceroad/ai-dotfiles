@@ -126,6 +126,7 @@ const redesignDecisionCases = [
   'index-multiline-description',
   'frontmatter-description-ambiguous',
   'unknown-edit-preservation',
+  'comparison-report-without-adoption',
   'pinned-commit-resumption',
   'concurrent-edit-before-write',
   'readonly-success-write-failure',
