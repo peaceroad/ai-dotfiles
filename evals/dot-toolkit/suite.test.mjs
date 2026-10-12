@@ -161,6 +161,7 @@ const workspaceDecisionCases = [
   'workspace-update-event-offer', 'workspace-organization-later',
   'project-evaluation-storage', 'temporary-work-resumption',
   'maintained-guide-and-oneoff-deliverable', 'comparison-results-and-concurrency',
+  'undecided-plan-location', 'standalone-deliverable-bundle', 'image-collection-location',
 ];
 test('workspace scope and handoff boundaries remain synthetic decision cases', () => {
   for (const id of workspaceDecisionCases) {
