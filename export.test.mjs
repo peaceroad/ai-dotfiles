@@ -4,6 +4,7 @@ import { chmodSync, copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, 
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const inputs = {
   '.codex/AGENTS.md': 'Synthetic shared instructions.\n',
@@ -44,7 +45,7 @@ function fixture(t) {
     runWithPreload(source, ...args) {
       const preload = join(root, 'fault.mjs');
       writeFileSync(preload, source);
-      return run(args, ['--import', preload]);
+      return run(args, ['--import', pathToFileURL(preload).href]);
     },
   };
 }

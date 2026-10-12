@@ -590,7 +590,11 @@ async function resolveDeclaredTarget(targetPath) {
   }
   // Declarations may precede installation, but any existing alias must be resolved.
   // A dangling link or unreadable ancestor fails closed rather than becoming lexical.
-  return path.join(await realpath(existingPath), ...missingSegments);
+  const resolved = await realpath(existingPath);
+  if (missingSegments.length && !(await lstat(resolved)).isDirectory()) {
+    throw Object.assign(new Error('Skill target ancestor is not a directory'), { code: 'ENOTDIR' });
+  }
+  return path.join(resolved, ...missingSegments);
 }
 
 async function selectRepositorySkillLinks(content, relativePath) {
