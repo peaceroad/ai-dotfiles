@@ -1,13 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, rmSync, existsSync, symlinkSync } from 'node:fs';
+import childProcess, { spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { syncBuiltinESMExports } from 'node:module';
+import { PassThrough, Writable } from 'node:stream';
+import fs, { cpSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, rmSync, existsSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { snapshot, editBundle, openStore, measuredCall, saveJson, readJson, readRecord, digest, applyBundle } from './records.mjs';
 import { loadExperiment, callPlan, checkOutput, compareRows, improve } from './experiment.mjs';
-import { createEventReader, codexArguments } from './codex-adapter.mjs';
+import { createEventReader, codexArguments, codexInvoker } from './codex-adapter.mjs';
 import { hostInvoker, readHostInput, hostInputSlice } from './host-adapter.mjs';
 import { run, report, applyRecord, hostOperation } from './agent-eval.mjs';
 
@@ -43,6 +46,38 @@ function fake() {
   return { invoke, prompts, get calls() { return calls; } };
 }
 
+function mockCodex(t, respond) {
+  const version = t.mock.method(childProcess, 'spawnSync', (binary, args) => {
+    assert.equal(binary, process.execPath); assert.deepEqual(args, ['--version']);
+    return { status: 0, stdout: 'synthetic-codex-test\n' };
+  });
+  const spawn = t.mock.method(childProcess, 'spawn', (binary, args) => {
+    assert.equal(binary, process.execPath); assert.equal(args[0], 'exec');
+    const child = new EventEmitter();
+    child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.unref = () => {};
+    let prompt = '';
+    child.stdin = new Writable({
+      write(chunk, encoding, done) { prompt += chunk.toString(); done(); },
+      final(done) {
+        queueMicrotask(() => {
+          const response = respond(prompt);
+          for (const chunk of response.chunks || []) child.stdout.write(chunk);
+          if (response.error) child.emit('error', new Error(response.error));
+          else child.emit('close', response.code ?? 0, null);
+        });
+        done();
+      },
+    });
+    return child;
+  });
+  syncBuiltinESMExports();
+  t.after(() => { spawn.mock.restore(); version.mock.restore(); syncBuiltinESMExports(); });
+}
+
+const cliMessage = text => ({ type: 'item.completed', item: { type: 'agent_message', text } });
+const cliTurn = { type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } };
+const cliChunks = events => [Buffer.from(events.map(JSON.stringify).join('\n'))];
+
 test('CLI commands execute through a linked script directory as well as the source', t => {
   const root = temp(t), source = fileURLToPath(new URL('.', import.meta.url)), linked = join(root, 'linked-scripts');
   symlinkSync(source, linked, process.platform === 'win32' ? 'junction' : 'dir');
@@ -76,6 +111,50 @@ test('bundle snapshots retain declared filenames that also name object propertie
   assert.equal(saved.files.__proto__, '__proto__');
   writeFileSync(join(root, '__proto__'), 'CHANGED');
   assert.notEqual(snapshot({ root, files: ['__proto__', 'constructor', 'SKILL.md'] }).hash, bundle.hash);
+});
+
+test('Unicode replacement validation rejects isolated surrogates', () => {
+  const parent = { files: { 'SKILL.md': 'BASE' } };
+  for (const content of ['\ud800', '\udfff', '\ud800\ud800', '\udfff\ud800', '\ud800X\udc00']) {
+    assert.throws(() => editBundle(parent, [{ path: 'SKILL.md', content }], ['SKILL.md']), /Invalid replacement text/);
+  }
+});
+
+test('BOM snapshots preserve leading and interior text without weakening UTF-8 validation', t => {
+  const root = temp(t), path = join(root, 'SKILL.md');
+  for (const content of ['\ufeffBASE', '\ufeff\ufeffBASE', 'before\ufeffafter 🧪']) {
+    writeFileSync(path, content);
+    const bundle = snapshot({ root, files: ['SKILL.md'] });
+    assert.equal(bundle.files['SKILL.md'], content);
+    assert.equal(bundle.hash, digest({ 'SKILL.md': content }));
+  }
+  for (const bytes of [Buffer.from([0xc0, 0xaf]), Buffer.from([0xef, 0xbb, 0xbf, 0xff]), Buffer.from('a\0b'), Buffer.alloc(512 * 1024 + 1, 97)]) {
+    writeFileSync(path, bytes);
+    assert.throws(() => snapshot({ root, files: ['SKILL.md'] }));
+  }
+});
+
+test('Unicode invalid generated proposals stay unaccepted and are never evaluated', async t => {
+  for (const content of ['\ud800', '\udfff']) {
+    const root = temp(t), config = fixture(root, { maxCandidates: 1 }), file = join(root, 'experiment.json'), out = join(root, 'out');
+    saveJson(file, config);
+    let targetCalls = 0, invalidTargetCalls = 0;
+    const result = await run(file, out, () => ({ identity: { synthetic: true }, invoke: async request => {
+      const data = JSON.parse(request.prompt.split('\n').at(-1));
+      if (data.history) return completed(JSON.stringify({ action: 'candidate', parent: data.history[0].hash,
+        hypothesis: 'Synthetic malformed Unicode.', edits: [{ path: 'SKILL.md', content }] }));
+      targetCalls++;
+      if (data.skill['SKILL.md'] !== 'BASE') invalidTargetCalls++;
+      return completed('{"value":"correct"}');
+    } }));
+    const record = readRecord(out);
+    assert.equal(result.outcome, 'inconclusive'); assert.equal(result.stopReason, 'invalid-proposals');
+    assert.equal(result.selectedHash, record.contract.experiment.target.hash);
+    assert.equal(targetCalls, config.cases.length); assert.equal(invalidTargetCalls, 0);
+    assert.equal(record.candidates.length, 0);
+    assert.equal(record.decisions.filter(d => d.status === 'invalid-candidate').length, 1);
+    assert.equal(readFileSync(join(root, 'target', 'SKILL.md'), 'utf8'), 'BASE');
+  }
 });
 
 test('records reject repositories, simultaneous writers, and changed contracts', t => {
@@ -300,6 +379,128 @@ test('source conflicts are detected before writing and external edits are retain
   assert.equal(readFileSync(join(root, 'target', 'SKILL.md'), 'utf8'), 'USER CHANGE');
 });
 
+test('Unicode source conflicts preserve invalid UTF-8 bytes before any replacement', t => {
+  const root = temp(t), first = join(root, 'SKILL.md'), other = join(root, 'other.md');
+  writeFileSync(first, 'BASE'); writeFileSync(other, '\ufffd');
+  const baseline = snapshot({ root, files: ['SKILL.md', 'other.md'] });
+  const candidate = editBundle(baseline, [{ path: 'SKILL.md', content: 'BETTER' }], ['SKILL.md']);
+  const external = Buffer.from([0xff]);
+  writeFileSync(other, external);
+  assert.throws(() => applyBundle(root, baseline, candidate), /Intervening edit/);
+  assert.equal(readFileSync(first, 'utf8'), 'BASE');
+  assert.deepEqual(readFileSync(other), external);
+});
+
+test('Unicode source conflicts are rechecked as bytes immediately before replacement', t => {
+  const root = temp(t), file = join(root, 'SKILL.md');
+  writeFileSync(file, '\ufffd');
+  const baseline = snapshot({ root, files: ['SKILL.md'] });
+  const candidate = editBundle(baseline, [{ path: 'SKILL.md', content: 'BETTER' }], ['SKILL.md']);
+  const external = Buffer.from([0xff]), read = fs.readFileSync;
+  let reads = 0;
+  const reader = t.mock.method(fs, 'readFileSync', (path, ...args) => {
+    if (path === file && ++reads === 2) writeFileSync(file, external);
+    return read(path, ...args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { reader.mock.restore(); syncBuiltinESMExports(); });
+  assert.throws(() => applyBundle(root, baseline, candidate), /Concurrent edit/);
+  assert.deepEqual(read(file), external);
+});
+
+test('Unicode failure recovery restores only byte-identical candidate content', async t => {
+  for (const changedExternally of [false, true]) await t.test(changedExternally ? 'preserve-external-bytes' : 'restore-original-bytes', t => {
+    const root = temp(t), first = join(root, 'SKILL.md'), second = join(root, 'other.md');
+    const original = Buffer.from('\ufeffBASE\r\n'), external = Buffer.from([0xff]);
+    writeFileSync(first, original); writeFileSync(second, 'KEEP');
+    const baseline = snapshot({ root, files: ['SKILL.md', 'other.md'] });
+    const candidate = editBundle(baseline, [{ path: 'SKILL.md', content: '\ufffd' }, { path: 'other.md', content: 'BETTER' }], ['SKILL.md', 'other.md']);
+    const rename = fs.renameSync;
+    const renamer = t.mock.method(fs, 'renameSync', (from, to) => {
+      if (to === second) {
+        if (changedExternally) writeFileSync(first, external);
+        throw new Error('Synthetic later replacement failure.');
+      }
+      return rename(from, to);
+    });
+    syncBuiltinESMExports();
+    t.after(() => { renamer.mock.restore(); syncBuiltinESMExports(); });
+    assert.throws(() => applyBundle(root, baseline, candidate), /Synthetic later replacement failure/);
+    assert.deepEqual(readFileSync(first), changedExternally ? external : original);
+    assert.equal(readFileSync(second, 'utf8'), 'KEEP');
+    assert.deepEqual(readdirSync(root).sort(), ['SKILL.md', 'other.md']);
+  });
+});
+
+test('Unicode application preflights every replacement before writing any file', t => {
+  const root = temp(t);
+  writeFileSync(join(root, 'SKILL.md'), 'BASE'); writeFileSync(join(root, 'other.md'), 'KEEP');
+  const baseline = snapshot({ root, files: ['SKILL.md', 'other.md'] });
+  const files = { 'SKILL.md': 'BETTER', 'other.md': '\ud800' };
+  const writes = t.mock.method(fs, 'writeFileSync');
+  syncBuiltinESMExports();
+  t.after(() => { writes.mock.restore(); syncBuiltinESMExports(); });
+  assert.throws(() => applyBundle(root, baseline, { files, hash: digest(files) }), /Invalid replacement text/);
+  assert.equal(writes.mock.callCount(), 0);
+  assert.equal(readFileSync(join(root, 'SKILL.md'), 'utf8'), 'BASE');
+  assert.equal(readFileSync(join(root, 'other.md'), 'utf8'), 'KEEP');
+  assert.deepEqual(readdirSync(root).sort(), ['SKILL.md', 'other.md']);
+});
+
+test('Unicode malformed candidates retained by an older controller cannot be applied', async t => {
+  const root = temp(t), config = fixture(root); config.cases[1].split = 'explore';
+  const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config);
+  const adapter = fake(); await run(file, out, () => ({ identity: { synthetic: true }, invoke: adapter.invoke }));
+  const record = readRecord(out), final = record.decisions.findLast(d => d.prefix === 'main' && d.final);
+  // A synthetic legacy record bypasses the new proposal validator, as existing records do.
+  final.bundle.files['SKILL.md'] = '\udfff';
+  final.bundle.hash = digest(final.bundle.files); final.selectedHash = final.bundle.hash;
+  saveJson(join(out, 'record.json'), record);
+  assert.throws(() => applyRecord(out, join(root, 'target')), /Invalid replacement text/);
+  assert.equal(readFileSync(join(root, 'target', 'SKILL.md'), 'utf8'), 'BASE');
+  assert.equal(readRecord(out).application.status, 'application-needs-inspection');
+});
+
+test('Unicode valid replacements keep their hash through application and rollback', t => {
+  const root = temp(t), path = join(root, 'SKILL.md'); writeFileSync(path, 'BASE\r\n');
+  const original = readFileSync(path), baseline = snapshot({ root, files: ['SKILL.md'] });
+  for (const content of ['', '日本語 🧪 𠮷 \u{10000} \u{10ffff}', 'literal \\ud800', '\ufffd', 'e\u0301 / é', 'a\r\nb\rc\n']) {
+    const candidate = editBundle(baseline, [{ path: 'SKILL.md', content }], ['SKILL.md']);
+    applyBundle(root, baseline, candidate);
+    assert.deepEqual(readFileSync(path), Buffer.from(content.replace(/\r\n?/g, '\n')));
+    assert.equal(snapshot({ root, files: ['SKILL.md'] }).hash, candidate.hash);
+    applyBundle(root, candidate, baseline); assert.deepEqual(readFileSync(path), original);
+  }
+});
+
+test('BOM generated and supplied candidates keep identity through apply and rollback', async t => {
+  for (const generated of [false, true]) for (const baselineBOM of [false, true]) for (const candidateBOM of [false, true]) {
+    await t.test([generated ? 'generated' : 'supplied', baselineBOM, candidateBOM].join('-'), async t => {
+      const root = temp(t), config = fixture(root, { mode: generated ? 'improve' : 'compare', maxCandidates: 1 });
+      config.cases[1].split = 'explore';
+      if (!generated) config.candidates = [{ root: './candidate', files: ['SKILL.md'] }];
+      const baseline = (baselineBOM ? '\ufeff' : '') + 'BASE\r\n';
+      const candidate = (candidateBOM ? '\ufeff' : '') + 'BETTER\ufeff🧪\n';
+      const source = join(root, 'target', 'SKILL.md');
+      writeFileSync(source, baseline); writeFileSync(join(root, 'candidate', 'SKILL.md'), candidate);
+      const original = readFileSync(source), file = join(root, 'experiment.json'), out = join(root, 'out');
+      saveJson(file, config);
+      const result = await run(file, out, () => ({ identity: { synthetic: true }, invoke: async request => {
+        const data = JSON.parse(request.prompt.split('\n').at(-1));
+        if (data.history) return completed(JSON.stringify({ action: 'candidate', parent: data.history[0].hash,
+          hypothesis: 'Synthetic BOM preservation.', edits: [{ path: 'SKILL.md', content: candidate }] }));
+        return completed(JSON.stringify({ value: data.skill['SKILL.md'] === baseline ? 'wrong' : 'correct' }));
+      } }));
+      assert.equal(result.outcome, 'accept');
+      assert.equal(applyRecord(out, join(root, 'target')).status, 'source-applied');
+      assert.deepEqual(readFileSync(source), Buffer.from(candidate));
+      assert.equal(snapshot({ root: join(root, 'target'), files: ['SKILL.md'] }).hash, result.selectedHash);
+      assert.equal(applyRecord(out, join(root, 'target'), true).status, 'source-restored');
+      assert.deepEqual(readFileSync(source), original);
+    });
+  }
+});
+
 test('adapter records terminal events without retaining reasoning or claiming observed model', () => {
   const reader = createEventReader();
   const records = [
@@ -317,6 +518,29 @@ test('adapter records terminal events without retaining reasoning or claiming ob
   assert.ok(!args.some(x => x.includes('bypass') || x === '--ignore-rules'));
 });
 
+test('CLI event framing preserves results across arbitrary chunks and unterminated lines', () => {
+  const answer = '日本語 🧪\nquoted "text" and \\escape'.repeat(2048);
+  const events = [
+    '', ' \t', JSON.stringify({ type: 'thread.started', thread_id: 'synthetic' }),
+    JSON.stringify(cliMessage('earlier')), 'not-json', JSON.stringify(cliMessage(answer)),
+    JSON.stringify(cliTurn),
+  ];
+  for (const ending of ['\n', '\r\n']) for (const trailing of ['', ending]) {
+    const text = events.join(ending) + trailing;
+    for (const size of [1, 7, 4096, text.length]) {
+      const reader = createEventReader();
+      reader.push('');
+      for (let offset = 0; offset < text.length; offset += size) reader.push(text.slice(offset, offset + size));
+      reader.push('');
+      assert.deepEqual(reader.finish(), {
+        output: answer, usage: cliTurn.usage, threadId: 'synthetic', completed: true,
+        errors: [], eventTypes: ['thread.started', 'item.completed', 'turn.completed'],
+        toolActivity: false, observedModel: null, invalidLines: 1,
+      });
+    }
+  }
+});
+
 test('malformed CLI events stay unscorable and a failed turn cannot become successful', () => {
   const reader = createEventReader();
   const malformed = [null, [], 1, {}, { type: 4 }, { type: 'item.completed', item: { type: 'agent_message', text: { answer: 'wrong type' } } }];
@@ -330,6 +554,64 @@ test('malformed CLI events stay unscorable and a failed turn cannot become succe
   assert.equal(result.output, 'answer');
   assert.equal(result.completed, false);
   assert.deepEqual(result.errors, ['Synthetic failure.']);
+});
+
+test('CLI final response status uses actual invoker events, including empty and absent messages', async t => {
+  const root = temp(t); let response;
+  mockCodex(t, () => response);
+  const adapter = codexInvoker({ model: 'synthetic-test', binary: process.execPath }, root);
+  const reasoning = { type: 'item.completed', item: { type: 'reasoning', text: 'PRIVATE-REASONING' } };
+  for (const [name, events, status, output, extra = {}] of [
+    ['absent', [cliTurn], 'runtime_error', null],
+    ['reasoning-only', [reasoning, cliTurn], 'runtime_error', null],
+    ['empty', [cliMessage(''), cliTurn], 'completed', ''],
+    ['whitespace', [cliMessage(' '), cliTurn], 'completed', ' '],
+    ['normal', [cliMessage('日本語 🧪'), cliTurn], 'completed', '日本語 🧪'],
+    ['missing-completion', [cliMessage('OK')], 'runtime_error', 'OK'],
+    ['invalid-text', [cliMessage(null), cliTurn], 'runtime_error', null],
+    ['failed-turn', [cliMessage('OK'), { type: 'turn.failed', error: { message: 'Failed.' } }, cliTurn], 'runtime_error', 'OK'],
+    ['tool-activity', [{ type: 'item.completed', item: { type: 'command_execution' } }, cliMessage('OK'), cliTurn], 'unsupported', 'OK'],
+    ['nonzero-exit', [cliMessage('OK'), cliTurn], 'runtime_error', 'OK', { code: 1 }],
+    ['process-error', [], 'runtime_error', null, { error: 'Synthetic process error.' }],
+  ]) {
+    const bytes = cliChunks(events)[0];
+    response = { chunks: Array.from(bytes, byte => Buffer.from([byte])), ...extra };
+    const result = await adapter.invoke({ prompt: 'Synthetic task.', timeoutMs: 1000 });
+    assert.equal(result.status, status, name); assert.equal(result.output, output, name);
+    assert.equal(JSON.stringify(result).includes('PRIVATE-REASONING'), false);
+    if (name === 'absent' || name === 'reasoning-only') assert.match(result.reason, /final.*message/i);
+  }
+});
+
+test('CLI missing answers cannot win negative-only checks while explicit empty answers stay scorable', async t => {
+  let candidateText;
+  mockCodex(t, prompt => {
+    const data = JSON.parse(prompt.split('\n').at(-1));
+    return { chunks: cliChunks(data.skill['SKILL.md'] === 'BASE' ? [cliMessage('BAD'), cliTurn]
+      : candidateText === null ? [cliTurn] : [cliMessage(candidateText), cliTurn]) };
+  });
+  for (const text of [null, '']) {
+    candidateText = text;
+    const root = temp(t), config = fixture(root, {
+      mode: 'compare', candidates: [{ root: './candidate', files: ['SKILL.md'] }],
+      runtime: { model: 'synthetic-test', binary: process.execPath },
+      cases: [{ id: 'short-answer', group: 'answer-family', split: 'explore', input: 'Give a short answer without BAD.',
+        checks: [{ kind: 'excludes', value: 'BAD' }, { kind: 'max-chars', value: 20 }],
+        calibration: [{ output: 'OK', pass: true }, { output: 'BAD', pass: false }] }],
+    });
+    const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config);
+    const result = await run(file, out);
+    const record = readRecord(out), final = record.decisions.findLast(d => d.prefix === 'main' && d.final);
+    assert.equal(result.outcome, text === null ? 'inconclusive' : 'accept');
+    const candidate = record.trials.find(trial => JSON.parse(trial.request.prompt.split('\n').at(-1)).skill['SKILL.md'] === 'BETTER');
+    assert.equal(candidate.status, text === null ? 'runtime_error' : 'completed'); assert.equal(candidate.output, text);
+    if (text === null) {
+      assert.equal(result.selectedHash, record.contract.experiment.target.hash);
+      const row = record.candidates[0].rows[0];
+      assert.equal(row.status, 'runtime_error'); assert.equal(row.score, null); assert.equal(row.checks, undefined);
+      assert.ok(final.selected.every(row => row.score === 0));
+    }
+  }
 });
 
 test('nested improvement tasks consume the outer budget and identify the active method', async t => {

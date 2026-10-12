@@ -19,7 +19,8 @@ export function findCodex(explicit) {
     return explicit;
   }
   const native = process.platform === 'win32' ? 'codex.exe' : 'codex';
-  for (const dir of (process.env.PATH || '').split(delimiter).filter(Boolean)) {
+  const directories = (process.env.PATH || '').split(delimiter).filter(Boolean);
+  for (const dir of directories) {
     const file = join(dir, native);
     if (existsSync(file)) return file;
   }
@@ -28,7 +29,7 @@ export function findCodex(explicit) {
   if (process.platform === 'win32') {
     const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
     const triple = arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-msvc';
-    for (const dir of (process.env.PATH || '').split(delimiter).filter(Boolean)) {
+    for (const dir of directories) {
       const packageFile = join(dir, 'node_modules', '@openai', 'codex', 'package.json');
       if (!existsSync(packageFile)) continue;
       const require = createRequire(resolve(packageFile));
@@ -60,7 +61,7 @@ export function codexArguments(runtime, cwd, schemaFile) {
 
 export function createEventReader() {
   let pending = '', invalid = 0, failed = false;
-  const result = { output: '', usage: null, threadId: null, completed: false, errors: [], eventTypes: [], toolActivity: false, observedModel: null };
+  const result = { output: null, usage: null, threadId: null, completed: false, errors: [], eventTypes: [], toolActivity: false, observedModel: null };
   const types = new Set();
   function line(text) {
     if (!text.trim()) return;
@@ -80,7 +81,15 @@ export function createEventReader() {
     // Reasoning items and full tool transcripts are deliberately not retained.
   }
   return {
-    push(chunk) { pending += chunk; const lines = pending.split('\n'); pending = lines.pop(); for (const item of lines) line(item); },
+    push(chunk) {
+      // Scan only new text; a long fragmented line must not be rescanned on every push.
+      let start = 0, end;
+      while ((end = chunk.indexOf('\n', start)) !== -1) {
+        line(pending + chunk.slice(start, end));
+        pending = ''; start = end + 1;
+      }
+      pending += chunk.slice(start);
+    },
     finish() { line(pending); pending = ''; result.eventTypes = [...types]; return { ...result, completed: result.completed && !failed, invalidLines: invalid }; },
   };
 }
@@ -123,9 +132,9 @@ export function codexInvoker(runtime, workRoot) {
           const result = reader.finish();
           let status = 'completed';
           if (termination) status = termination.confirmed ? (termination.interrupted ? 'interrupted' : 'timeout') : 'cleanup_unconfirmed';
-          else if (error || code !== 0 || !result.completed || result.invalidLines) status = 'runtime_error';
+          else if (error || code !== 0 || !result.completed || result.invalidLines || typeof result.output !== 'string') status = 'runtime_error';
           else if (result.toolActivity) status = 'unsupported';
-          const reason = error || (termination ? termination.reason : result.toolActivity ? 'Tool activity is outside the text adapter contract.' : status === 'runtime_error' ? result.errors.at(-1) || stderr.slice(-1600) || 'Missing successful turn completion.' : null);
+          const reason = error || (termination ? termination.reason : result.toolActivity ? 'Tool activity is outside the text adapter contract.' : status === 'runtime_error' ? result.errors.at(-1) || stderr.slice(-1600) || (typeof result.output !== 'string' ? 'Missing final agent message.' : 'Missing successful turn completion.') : null);
           child.stdout?.destroy(); child.stderr?.destroy(); child.stdin?.destroy(); child.unref();
           resolveResult({ status, reason, output: result.output, usage: result.usage, threadId: result.threadId, eventTypes: result.eventTypes, observedModel: result.observedModel, exitCode: code, signal, workspace: cwd });
         };
