@@ -6,7 +6,7 @@ Use for authorized additions, updates, selection changes, comparisons, reproduct
 
 - **Selection or description only:** preserve skill files, source versions, and manifests. Inspect the current INDEX and the entries affected by the request. For an addition or description refresh, read the selected entry's current frontmatter and check its recorded identity and required files. Removing an entry does not require retrieving or repairing that skill. Recheck INDEX before writing, change only the approved membership or descriptions, then validate the resulting selection.
 - **Add or update skill or plugin contents:** use the source and manifest contracts below, followed by **Apply and resume**.
-- **Comparison or reproduction:** use the recorded identity and the checks needed for the requested result. A comparison does not authorize writes; reproduction does not authorize an upgrade.
+- **Comparison or reproduction:** use the recorded identity and the checks needed for the requested result. Comparison leaves adopted skill/plugin contents, INDEX, and provenance unchanged, while reports, temporary source acquisitions, and evidence needed for the requested comparison may be created within the authorized task scope; reproduction does not authorize an upgrade.
 - **Interrupted work:** inspect the actual state and retained intent, then resume only the unfinished part of the authorized operation.
 
 Use the [computer checks](computer-checks.md) that support that operation. INDEX-only work needs no new source acquisition or blanket hash verification of unselected skills.
@@ -66,7 +66,7 @@ Read each selected skill's frontmatter and preserve its **full parsed descriptio
 
 Each UTF-8 JSON file is an object with these required fields:
 
-- `schemaVersion`: integer `1`, independent of plugin version `0.3.0` and old inventory schema 4
+- `schemaVersion`: integer `1`, independent of plugin version `0.4.0` and old inventory schema 4
 - `name`: the skill directory name, lowercase letters/digits and single hyphens, up to 64 characters
 - `source`: object with `repository` (source repository identifier), `path` (repository-relative skill directory or `.`), `ref` (requested ref), and `commit` (resolved full 40- or 64-character lowercase hexadecimal Git commit)
 - `files`: nonempty array of `{ "path": "SKILL.md", "sha256": "<64 lowercase hex digits>" }` records, one per adopted regular file

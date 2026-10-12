@@ -10,7 +10,7 @@ Inspect the selected environment, allowed scope, and relevant existing files bef
 
 Use the actual client-provided `dot-guidelines` and the references needed for this operation, at one identified version. Reuse a current installation check; if availability is unknown, resolve it without assuming absence. When installation is needed, follow the [plugin README](../../../README.md) and verify access from the main dot. A ZIP, repository copy, or local Codex installation is not that evidence. Review and explicitly requested file-only work can continue while plugin-dependent completion is pending. Do not install, reinstall, or upgrade automatically.
 
-Version 0.3 retains common guidance in the plugin. Do not create permanent `/workspace/AGENTS.md` or `/workspace/.codex/dot-setup.md` copies. When old files or inventory are present, use [migration](migrations/0.1-to-0.2.md) before switching their authority. Preserve any supplied edited procedure and source identity; resolve a conflict with the requested version rather than silently replacing it with a newer procedure.
+Version 0.4 retains common guidance in the plugin. Do not create permanent `/workspace/AGENTS.md` or `/workspace/.codex/dot-setup.md` copies. When old files or inventory are present, use [migration](migrations/0.1-to-0.2.md) before switching their authority. Preserve any supplied edited procedure and source identity; resolve a conflict with the requested version rather than silently replacing it with a newer procedure.
 
 ## Optional private inputs
 

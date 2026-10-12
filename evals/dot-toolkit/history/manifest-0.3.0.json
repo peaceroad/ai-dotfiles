@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 2,
+  "kind": "acceptance-definition",
+  "targets": [
+    {
+      "path": "plugins/dot-toolkit/README.md",
+      "sha256": "e7885ff88bd8d3c44edd69d7ff0e122248f23c53b230178b5d0a7c228d71a6da",
+      "bytes": 9771
+    },
+    {
+      "path": "plugins/dot-toolkit/plugin.json",
+      "sha256": "2d77cd84396681a138a073249cb552e37e7cbc53080d49560521ea04c8fad7e6",
+      "bytes": 219
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
+      "sha256": "219bc5ada077479fce764c3221209b5f36c2dc6866857329b9841958a0090019",
+      "bytes": 7127
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
+      "sha256": "26aadd6db4e22a653b956caccd0bc610dca9ae7bbc399572dffda3c4435620e3",
+      "bytes": 7834
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
+      "sha256": "d272e8ca238f690e8ff7faeb9122a633149d25c8d8a9138c9c16cde0d5480495",
+      "bytes": 6630
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
+      "sha256": "c63385e673fa3d152f93ec14e878325f956f883be2e9dd61f059ac50903d3787",
+      "bytes": 13327
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
+      "sha256": "afada4bdd5482de6645f682646ff0802ffccbc39a638eba1b95e4a8ca372cfe1",
+      "bytes": 7712
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs",
+      "sha256": "3dc43469c369e7c27f5964310915935626df1f85f073919141fd70dabf8f4c30",
+      "bytes": 1519
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs",
+      "sha256": "fcf3bddd46270fcbbe71189fb36d7dca3db8e4a39c1f65b6338ccf19f119627a",
+      "bytes": 1806
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs",
+      "sha256": "7b8de560d67ee0548cee5d6354c3ab0cba47503902e581c7081132343c40b6e1",
+      "bytes": 3977
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs",
+      "sha256": "f3a33625deea0a172f6d71f90e96523694f4689ca64b3c908d91e595d346af07",
+      "bytes": 16479
+    }
+  ],
+  "behavioralRuns": "not_run",
+  "limits": [
+    "このmanifestは公開ソースの固定記録であり、導入済みプラグインや実環境の識別記録ではない。",
+    "構造検査、隔離パッケージ実行、合成記録はインストール済み資源へのアクセスや通常のメインdotでの行動を証明しない。",
+    "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
+    "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
+  ],
+  "pluginVersion": "0.3.0",
+  "liveChecks": {
+    "installedEntry": "not_run",
+    "installedReferences": "not_run",
+    "installedScriptsRetrieved": "not_run",
+    "installedScriptsExecuted": "not_run",
+    "ordinaryMainDotContext": "not_run"
+  }
+}
