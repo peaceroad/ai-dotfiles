@@ -1,18 +1,21 @@
 import {
   lstat,
   mkdir,
+  open,
   readFile,
   readdir,
+  realpath,
+  rename,
   rmdir,
   unlink,
-  writeFile,
 } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const REPOSITORY_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const REPOSITORY_ROOT = await realpath(path.dirname(fileURLToPath(import.meta.url)));
 const REPOSITORY_HOME_ROOT = path.join(REPOSITORY_ROOT, "home");
 const CONFIG_PATH = path.join(REPOSITORY_ROOT, "export.yaml");
 const HOME_DIRECTORY = os.homedir();
@@ -571,7 +574,30 @@ function oversizedFileResult(file, size, findings) {
   };
 }
 
-function selectRepositorySkillLinks(content, relativePath) {
+async function resolveDeclaredTarget(targetPath) {
+  const missingSegments = [];
+  let existingPath = targetPath;
+  while (true) {
+    try {
+      await lstat(existingPath);
+      break;
+    } catch (error) {
+      const parentPath = path.dirname(existingPath);
+      if (error.code !== "ENOENT" || parentPath === existingPath) throw error;
+      missingSegments.unshift(path.basename(existingPath));
+      existingPath = parentPath;
+    }
+  }
+  // Declarations may precede installation, but any existing alias must be resolved.
+  // A dangling link or unreadable ancestor fails closed rather than becoming lexical.
+  const resolved = await realpath(existingPath);
+  if (missingSegments.length && !(await lstat(resolved)).isDirectory()) {
+    throw Object.assign(new Error('Skill target ancestor is not a directory'), { code: 'ENOTDIR' });
+  }
+  return path.join(resolved, ...missingSegments);
+}
+
+async function selectRepositorySkillLinks(content, relativePath) {
   let manifest;
   try {
     manifest = JSON.parse(content);
@@ -605,7 +631,13 @@ function selectRepositorySkillLinks(content, relativePath) {
       throw new Error(`${relativePath}: skills.${name} must use a ~/ path`);
     }
 
-    const targetPath = path.resolve(HOME_DIRECTORY, target.slice(2));
+    let targetPath;
+    try {
+      targetPath = await resolveDeclaredTarget(path.resolve(HOME_DIRECTORY, target.slice(2)));
+    } catch (error) {
+      // A ~/ declaration can traverse outside HOME; never echo a raw resolver path.
+      throw new Error(`${relativePath}: could not resolve a skill target (${error.code ?? "filesystem error"})`);
+    }
     const relativeTarget = path.relative(REPOSITORY_ROOT, targetPath);
     if (
       relativeTarget !== "" &&
@@ -734,7 +766,7 @@ async function scanFile(file) {
 
   const decodedContent = decodeText(buffer);
   const content = decodedContent !== null && file.relativePath === SKILL_LINKS_PATH
-    ? selectRepositorySkillLinks(decodedContent, file.relativePath)
+    ? await selectRepositorySkillLinks(decodedContent, file.relativePath)
     : decodedContent;
   if (content === null) {
     if (REQUIRE_SHARED_SECTIONS.has(file.relativePath)) {
@@ -830,10 +862,12 @@ async function scanFile(file) {
 }
 
 async function assertNoDestinationSymbolicLinks(destinationPath) {
+  // Every mutation, including cleanup, must stay beneath the resolved mirror root.
+  resolveContained(REPOSITORY_HOME_ROOT, path.relative(REPOSITORY_HOME_ROOT, destinationPath));
   const relative = path.relative(REPOSITORY_ROOT, destinationPath);
   let currentPath = REPOSITORY_ROOT;
 
-  for (const segment of relative.split(path.sep)) {
+  for (const segment of ["", ...relative.split(path.sep)]) {
     currentPath = path.join(currentPath, segment);
     try {
       if ((await lstat(currentPath)).isSymbolicLink()) {
@@ -847,6 +881,26 @@ async function assertNoDestinationSymbolicLinks(destinationPath) {
       }
       throw error;
     }
+  }
+}
+
+async function assertSourceOutsideMirror(sourcePath, relativePath) {
+  const canonicalSource = await realpath(sourcePath);
+  let canonicalMirror;
+  try {
+    canonicalMirror = await realpath(REPOSITORY_HOME_ROOT);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    canonicalMirror = REPOSITORY_HOME_ROOT;
+  }
+  const overlaps = [
+    path.relative(canonicalMirror, canonicalSource),
+    path.relative(canonicalSource, canonicalMirror),
+  ].some(relative => relative === "" || (
+    relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
+  ));
+  if (overlaps) {
+    throw new Error(`Source overlaps the repository home/ mirror: ${relativePath}`);
   }
 }
 
@@ -924,6 +978,7 @@ async function validateObsoleteEntries(obsoleteFiles, obsoleteDirectories) {
     obsoleteFiles,
     IO_CONCURRENCY,
     async ({ destinationPath, relativePath }) => {
+      await assertNoDestinationSymbolicLinks(destinationPath);
       const metadata = await lstat(destinationPath);
       if (!metadata.isFile() || metadata.isSymbolicLink()) {
         throw new Error(`Obsolete destination is not a file: ${relativePath}`);
@@ -935,6 +990,7 @@ async function validateObsoleteEntries(obsoleteFiles, obsoleteDirectories) {
     obsoleteDirectories,
     IO_CONCURRENCY,
     async ({ destinationPath, relativePath }) => {
+      await assertNoDestinationSymbolicLinks(destinationPath);
       const metadata = await lstat(destinationPath);
       if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
         throw new Error(
@@ -950,15 +1006,61 @@ async function removeObsoleteEntries(obsoleteFiles, obsoleteDirectories) {
   await mapWithConcurrency(
     obsoleteFiles,
     IO_CONCURRENCY,
-    ({ destinationPath }) => unlink(destinationPath),
+    async ({ destinationPath }) => {
+      await assertNoDestinationSymbolicLinks(destinationPath);
+      await unlink(destinationPath);
+    },
   );
 
   for (const { destinationPath } of obsoleteDirectories) {
+    await assertNoDestinationSymbolicLinks(destinationPath);
     await rmdir(destinationPath);
   }
 }
 
-async function writeFiles(files, directorySyncPlan) {
+async function replaceDestinationFile(destinationPath, content) {
+  const parentPath = path.dirname(destinationPath);
+  await assertNoDestinationSymbolicLinks(parentPath);
+  await mkdir(parentPath, { recursive: true });
+  await assertNoDestinationSymbolicLinks(destinationPath);
+  let metadata;
+  try {
+    metadata = await lstat(destinationPath);
+    if (!metadata.isFile()) {
+      throw new Error(`Destination is not a file: ${path.relative(REPOSITORY_ROOT, destinationPath)}`);
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+
+  const temporaryPath = path.join(parentPath, `.export-${randomUUID()}.tmp`);
+  // Never truncate an existing inode: the destination may be a hard link to a source.
+  const handle = await open(temporaryPath, "wx");
+  let committed = false;
+  try {
+    try {
+      await handle.writeFile(content);
+      if (metadata !== undefined) await handle.chmod(metadata.mode & 0o777);
+    } finally {
+      await handle.close();
+    }
+    await assertNoDestinationSymbolicLinks(destinationPath);
+    await rename(temporaryPath, destinationPath);
+    committed = true;
+  } finally {
+    if (!committed) {
+      await assertNoDestinationSymbolicLinks(temporaryPath);
+      await unlink(temporaryPath);
+    }
+  }
+}
+
+async function writeFiles(files, directorySyncPlan, exports) {
+  // Validate all selected roots before the first side effect, even with zero files.
+  for (const { destinationPath, sourcePath, relativePath } of exports) {
+    await assertNoDestinationSymbolicLinks(destinationPath);
+    await assertSourceOutsideMirror(sourcePath, relativePath);
+  }
   const plannedWrites = await mapWithConcurrency(
     files,
     IO_CONCURRENCY,
@@ -983,9 +1085,11 @@ async function writeFiles(files, directorySyncPlan) {
     obsoleteFiles,
   } = directorySyncPlan;
 
+  await mapWithConcurrency(directoriesToCreate, IO_CONCURRENCY, assertNoDestinationSymbolicLinks);
   await removeObsoleteEntries(obsoleteFiles, obsoleteDirectories);
 
   for (const destinationPath of directoriesToCreate) {
+    await assertNoDestinationSymbolicLinks(destinationPath);
     await mkdir(destinationPath, { recursive: true });
   }
 
@@ -993,8 +1097,7 @@ async function writeFiles(files, directorySyncPlan) {
     content,
     destinationPath,
   }) => {
-    await mkdir(path.dirname(destinationPath), { recursive: true });
-    await writeFile(destinationPath, content);
+    await replaceDestinationFile(destinationPath, content);
   });
 
   return {
@@ -1050,6 +1153,8 @@ async function main() {
     async (relativePath) => {
       const sourcePath = resolveContained(HOME_DIRECTORY, relativePath);
       const destinationPath = resolveContained(REPOSITORY_HOME_ROOT, relativePath);
+      await assertNoDestinationSymbolicLinks(destinationPath);
+      await assertSourceOutsideMirror(sourcePath, relativePath);
       const sourceDirectories = new Set();
       const skippedFiles = [];
       const files = await collectFiles(
@@ -1072,6 +1177,7 @@ async function main() {
         directorySyncPlan,
         files,
         sourcePath,
+        relativePath,
         skippedFiles,
       };
     },
@@ -1195,7 +1301,7 @@ async function main() {
     removedFileCount,
     unchangedCount,
     updatedFiles,
-  } = await writeFiles(files, directorySyncPlan);
+  } = await writeFiles(files, directorySyncPlan, exports);
   const updatedCount = updatedFiles.length;
   if (
     updatedCount === 0 &&
