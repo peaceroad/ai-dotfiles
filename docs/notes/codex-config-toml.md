@@ -27,7 +27,7 @@ Permission profileも同じ設定レイヤーに従います。上位の設定�
 
 実際に操作できる範囲は、Permission profileのファイルシステム規則やネットワーク規則で決まります。したがって、`never`を維持したままGit操作を許可する場合は、承認方針を変更せず、使用中のPermission profileへ対象リポジトリの`.git`に対する`write`を追加します。許可された範囲の操作は承認なしで実行されるため、対象パスと依頼する操作の両方を限定します。
 
-Permission profileはベータ機能です。`default_permissions`と`[permissions]`を使う方式は、旧方式の`sandbox_mode`や`[sandbox_workspace_write]`と併用しません。読み込まれる設定やCLI指定に`sandbox_mode`がある場合、Codexは旧方式を使用します。
+Permission profileはベータ機能です。`default_permissions`と`[permissions]`を使う方式は、旧方式の`sandbox_mode`や`[sandbox_workspace_write]`と併用しません。通常は、読み込まれる設定に`sandbox_mode`があるか、CLIで`--sandbox`を指定すると旧方式が優先されます。ただし、Codex 0.138.0以降で管理側の`allowed_permission_profiles`が適用される場合は、名前付きプロファイルが使われます。設定を追記する前に、[管理設定](https://learn.chatgpt.com/docs/enterprise/managed-configuration)と実効値も確認してください。
 
 ## Auto-reviewに承認判断を任せる
 

@@ -39,7 +39,7 @@ Gitが認識する作業ルートと管理ディレクトリが指定先と異�
 
 権限プロファイルは、許可する範囲をまとめた設定です。`default_permissions`で選択済みのプロファイルへ追加し、既存の`default_permissions`や承認方針は変更しません。同じテーブルが既にある場合は、その中へパスの行だけを追加します。
 
-この例は、権限プロファイルが有効な環境を前提とします。読み込まれる設定に旧方式の`sandbox_mode`がある場合などは、そちらが優先されるため、プロファイルへ追記するだけでは反映されません。また、プロジェクト設定は信頼済みのプロジェクトで読み込まれます。[公式の権限説明](https://learn.chatgpt.com/docs/permissions)と[設定の優先順位](https://learn.chatgpt.com/docs/config-file/config-basic)に沿って、有効な設定を確認してください。
+この例は、権限プロファイルが有効な環境を前提とします。通常は、読み込まれる設定に旧方式の`sandbox_mode`があるか、CLIで`--sandbox`を指定すると旧方式が優先され、プロファイルへ追記するだけでは反映されません。ただし、Codex 0.138.0以降で管理側の`allowed_permission_profiles`が適用される場合は、名前付きプロファイルが使われます。また、プロジェクト設定は信頼済みのプロジェクトで読み込まれます。[公式の権限説明](https://learn.chatgpt.com/docs/permissions)と[設定の優先順位](https://learn.chatgpt.com/docs/config-file/config-basic)に沿って、管理設定と実効値も確認してください。
 
 この`write`指定は、`.git`への書き込みを許可するもので、特定のGitコマンドだけを許可する設定ではありません。
 

@@ -23,7 +23,7 @@ Git操作の可否は、Permission profileのファイルシステム規則で�
 
 プロジェクト設定は、信頼済みのプロジェクトで、そのリポジトリを作業ルートにした場合に読み込まれます。設定の優先順位では、プロジェクトの`.codex/config.toml`が`~/.codex/config.toml`より上位です。同じPermission profile名の設定は、必要なエントリーだけを上位レイヤーから追加または置換できます。
 
-Permission profileは、旧方式の`sandbox_mode`や`[sandbox_workspace_write]`と併用しません。いずれかの読み込み済み設定やCLI指定で`sandbox_mode`が有効な場合、このPermission profileの追記だけでは反映されません。
+Permission profileは、旧方式の`sandbox_mode`や`[sandbox_workspace_write]`と併用しません。通常は、読み込まれる設定に`sandbox_mode`があるか、CLIで`--sandbox`を指定すると旧方式が優先され、Permission profileへの追記だけでは反映されません。ただし、Codex 0.138.0以降で管理側の`allowed_permission_profiles`が適用される場合は、名前付きプロファイルが使われます。設定を追記する前に、[管理設定](https://learn.chatgpt.com/docs/enterprise/managed-configuration)と実効値も確認してください。
 
 絶対パスを含む設定は端末固有なので、`.gitignore`へ次を追加します。
 
