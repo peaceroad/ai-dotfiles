@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "agent-eval-tools",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Experimental evaluation and improvement of agent skills and plugins, including improvement methods.",
   "repository": "https://github.com/peaceroad/ai-dotfiles",
   "keywords": ["agents", "evaluation", "skill-improvement"]

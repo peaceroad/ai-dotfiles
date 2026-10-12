@@ -19,7 +19,7 @@ export function validateComparison(value) {
 
 // One frozen pair, two independently reserved calls. Order disagreement is not
 // averaged into a confident win; response strings remain in the ordinary ledger.
-export async function judgePair(store, key, input, a, b, comparison, invoke, budget) {
+export async function judgePair(store, key, input, a, b, comparison, invoke, budget, expected) {
   const judgments = [];
   for (let order = 0; order < 2; order++) {
     const trial = await measuredCall(store, `${key}/preference/${order}`, 'judge', {
@@ -31,8 +31,14 @@ export async function judgePair(store, key, input, a, b, comparison, invoke, bud
     try {
       value = JSON.parse(trial.output);
       if (!value || Object.keys(value).length !== 2 || !winners.includes(value.winner) || typeof value.evidence !== 'string' || !value.evidence.trim()) throw new Error();
-    } catch { return { status: 'grading_error', judgments, reason: 'Invalid comparative verdict.', trial: trial.key }; }
+    } catch {
+      trial.invalidVerdict = true; store.save();
+      return { status: 'grading_error', judgments, reason: 'Invalid comparative verdict.', trial: trial.key };
+    }
     judgments.push({ trial: trial.key, presentedOrder: order, winner: order ? invert(value.winner) : value.winner, evidence: value.evidence });
+    if (expected !== undefined && judgments.at(-1).winner !== expected) {
+      return { status: 'evaluation-invalid', judgments, reason: 'Comparative calibration disagrees with its known label.' };
+    }
   }
   if (judgments[0].winner !== judgments[1].winner) return { status: 'unstable', judgments, reason: 'Swapping response order changed the judgment.' };
   const winner = judgments[0].winner;
@@ -44,7 +50,7 @@ export async function calibrateComparison(store, prefix, comparison, invoke, bud
   if (!comparison) return 'valid';
   const results = [];
   for (const [i, sample] of comparison.calibration.entries()) {
-    const result = await judgePair(store, `${prefix}/comparison-calibration/${i}`, sample.input, sample.a, sample.b, comparison, invoke, budget);
+    const result = await judgePair(store, `${prefix}/comparison-calibration/${i}`, sample.input, sample.a, sample.b, comparison, invoke, budget, sample.winner);
     results.push({ sample: i, expected: sample.winner, labelSource: sample.labelSource, result });
     const matched = result.winner === sample.winner && (result.status === 'graded' || sample.winner === 'uncertain' && result.status === 'uncertain');
     if (!matched) {

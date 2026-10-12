@@ -197,6 +197,7 @@ test('retained records can be read without their original source and reject a ch
   const configFile = join(root, 'experiment.json'), output = join(root, 'out'), retained = join(root, 'retained');
   saveJson(configFile, config);
   const adapter = fake(), first = await run(configFile, output, () => ({ identity: { test: true }, invoke: adapter.invoke }));
+  mkdirSync(retained, { mode: 0o700 });
   cpSync(output, retained, { recursive: true, errorOnExist: true, force: false });
   assert.equal(readFileSync(join(retained, 'record.json'), 'utf8'), readFileSync(join(output, 'record.json'), 'utf8'));
   renameSync(join(root, 'target'), join(root, 'target-unavailable'));
@@ -1139,4 +1140,311 @@ test('chunked semantic calibration and nested tasks share call limits; determini
     await improve(another, 'main', deterministic, async request => { assert.ok(JSON.parse(request.prompt.split('\n').at(-1)).skill); return completed('{"value":"correct"}'); });
     assert.equal(another.state.trials.length, 2);
   } finally { another.close(); }
+});
+
+test('CLI termination requires a successful stop request and observed close, including after restart', { skip: process.platform === 'win32' }, async t => {
+  for (const scenario of [
+    { name: 'accepted-no-close', requested: true, status: 'cleanup_unconfirmed' },
+    { name: 'failed-no-close', requested: false, status: 'cleanup_unconfirmed' },
+    { name: 'failed-with-close', requested: false, close: true, status: 'cleanup_unconfirmed' },
+    { name: 'accepted-with-close', requested: true, close: true, status: 'timeout' },
+    { name: 'interrupt-with-close', requested: true, close: true, interrupt: true, status: 'interrupted' },
+    { name: 'error-without-close', requested: true, error: true, status: 'cleanup_unconfirmed' },
+  ]) await t.test(scenario.name, async t => {
+    const root = temp(t), output = join(root, 'record');
+    const child = new EventEmitter(); child.pid = 999999;
+    child.stdout = new PassThrough(); child.stderr = new PassThrough();
+    child.stdin = new Writable({ write(chunk, encoding, done) { done(); } }); child.unref = () => {};
+    t.mock.method(childProcess, 'spawnSync', () => ({ status: 0, stdout: 'synthetic-codex-test' }));
+    t.mock.method(childProcess, 'spawn', (binary, args, options) => {
+      assert.equal(fs.statSync(options.cwd).mode & 0o777, 0o700);
+      assert.equal(fs.statSync(join(options.cwd, 'response-schema.json')).mode & 0o777, 0o600);
+      return child;
+    });
+    const kill = t.mock.method(process, 'kill', (pid, signal) => {
+      assert.equal(pid, -999999); assert.equal(signal, 'SIGKILL');
+      if (!scenario.requested) throw new Error('Synthetic failed stop request.');
+      return true;
+    });
+    syncBuiltinESMExports();
+    t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const listeners = ['SIGINT', 'SIGTERM'].map(s => process.listenerCount(s));
+    const adapter = codexInvoker({ model: 'synthetic', binary: process.execPath }, join(root, 'work'));
+    let store = openStore(output, { synthetic: true });
+    const pending = measuredCall(store, 'first', 'target', { prompt: 'Synthetic input.', outputSchema: { type: 'string' } }, adapter.invoke, { ...budget, callTimeoutMs: 1 });
+    if (scenario.interrupt) process.emit('SIGINT'); else t.mock.timers.tick(1);
+    assert.equal(kill.mock.callCount(), 1);
+    if (scenario.close) child.emit('close', null, 'SIGKILL');
+    else if (scenario.error) child.emit('error', new Error('Synthetic process error after termination.'));
+    else t.mock.timers.tick(2000);
+    const first = await pending;
+    assert.equal(first.status, scenario.status);
+    assert.deepEqual(first.termination, { requestSucceeded: scenario.requested, closeObserved: Boolean(scenario.close) });
+    assert.deepEqual(['SIGINT', 'SIGTERM'].map(s => process.listenerCount(s)), listeners);
+    if (!scenario.close && !scenario.error) assert.equal(first.reason, 'Termination did not complete.');
+    child.emit('close', null, 'SIGKILL'); // Late evidence must not rewrite an already settled receipt.
+    assert.equal(first.status, scenario.status);
+    store.close(); store = openStore(output, { synthetic: true });
+    let calls = 0;
+    const next = await measuredCall(store, 'second', 'target', { prompt: 'Synthetic next input.' }, async () => { calls++; return completed('OK'); }, budget);
+    assert.equal(calls, scenario.status === 'timeout' ? 1 : 0);
+    assert.equal(next.status, scenario.status === 'timeout' ? 'completed' : 'budget_stopped');
+    assert.equal(store.state.trials[0].status, scenario.status); store.close();
+  });
+});
+
+test('new private records, locks, host packets and atomic temporary files use restrictive modes', { skip: process.platform === 'win32' }, async t => {
+  const root = temp(t); fs.chmodSync(root, 0o755);
+  const previous = process.umask(0o022); t.after(() => process.umask(previous));
+  const output = join(root, 'new-parent', 'record');
+  const store = openStore(output, { synthetic: true });
+  const mode = path => fs.statSync(path).mode & 0o777;
+  assert.equal(mode(root), 0o755); assert.equal(mode(join(root, 'new-parent')), 0o700);
+  assert.equal(mode(output), 0o700); assert.equal(mode(join(output, 'record.json')), 0o600);
+  assert.equal(mode(join(output, 'run.lock')), 0o600);
+  const rename = fs.renameSync;
+  t.mock.method(fs, 'renameSync', (source, target) => { assert.equal(mode(source), 0o600); return rename(source, target); });
+  syncBuiltinESMExports(); t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  store.save();
+  const adapter = hostInvoker({ adapter: 'host', model: 'host-inherited' }, join(output, 'work'));
+  let pending;
+  await assert.rejects(adapter.invoke({ trialKey: 'synthetic', prompt: 'Synthetic input.', timeoutMs: 1000, deadline: Date.now() + 1000 }), error => {
+    pending = error.pending; return error.code === 'HOST_RESPONSE_PENDING';
+  });
+  assert.equal(mode(pending.requestFile), 0o600); assert.equal(mode(pending.inputFile), 0o600);
+  assert.equal(mode(join(output, 'work')), 0o700); assert.equal(mode(join(output, 'work', 'requests')), 0o700);
+  assert.equal(mode(join(pending.requestFile, '..')), 0o700); store.close();
+});
+
+test('existing shared output is refused without chmod or record writes and private output resumes', { skip: process.platform === 'win32' }, t => {
+  const root = temp(t), shared = join(root, 'shared'); mkdirSync(shared); fs.chmodSync(shared, 0o755);
+  assert.throws(() => openStore(shared, {}), /private directory/);
+  assert.equal(fs.statSync(shared).mode & 0o777, 0o755); assert.deepEqual(readdirSync(shared), []);
+  const out = join(root, 'private'); let store = openStore(out, { same: true }); const id = store.state.id; store.close();
+  store = openStore(out, { same: true }); assert.equal(store.state.id, id); store.close();
+});
+
+test('JSON equality rejects unsafe integers and nonfinite numbers at configuration and output boundaries', t => {
+  const root = temp(t), config = fixture(root, { mode: 'compare' });
+  for (const value of [9007199254740992, -9007199254740992, Infinity, -Infinity, NaN, { nested: [9007199254740992] }]) {
+    const invalid = { ...config, cases: [{ ...cases()[0], checks: [{ kind: 'json-equals', pointer: '', value }] }] };
+    assert.throws(() => loadExperiment(invalid, root), /finite numbers and safe integers/);
+  }
+  const equal = (output, value, pointer = '') => checkOutput(output, [{ kind: 'json-equals', pointer, value }])[0].pass;
+  assert.equal(equal('9007199254740993', 9007199254740992), false);
+  assert.equal(equal('-9007199254740993', -9007199254740992), false);
+  assert.equal(equal('1e400', Infinity), false);
+  assert.equal(equal('{"n":9007199254740993,"answer":"OK"}', 'OK', '/answer'), false);
+  for (const value of [Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, 0, 1, -1, 0.5, 0.1, { nested: [1, 0.25] }]) {
+    assert.equal(equal(JSON.stringify(value), value), true);
+  }
+  assert.equal(equal('1.00000000000000001', 1), true); // Deliberately documented binary64 decimal semantics.
+  assert.equal(equal('1e-400', 0), true); // Underflow likewise needs a string for exact decimal claims.
+  assert.equal(equal('"9007199254740993"', '9007199254740993'), true);
+  assert.equal(equal('"9007199254740993"', '9007199254740992'), false);
+});
+
+test('unsafe numeric calibration cannot start target work; supported strings remain precisely comparable', async t => {
+  for (const asString of [false, true]) {
+    const root = temp(t), value = asString ? '9007199254740992' : 1;
+    const c = { ...cases()[0], checks: [{ kind: 'json-equals', pointer: '/id', value }],
+      calibration: [{ output: asString ? '{"id":"9007199254740992"}' : '{"id":9007199254740993}', pass: true }, { output: '{"id":0}', pass: false }] };
+    const config = fixture(root, { mode: 'compare', cases: [c], candidates: [{ root: './candidate', files: ['SKILL.md'] }] });
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'out'), { spec }); let calls = 0;
+    const result = await improve(store, 'main', spec, async () => { calls++; return completed('{"id":"9007199254740993"}'); });
+    assert.equal(result.status, asString ? 'retain' : 'evaluation-invalid'); assert.equal(calls, asString ? 2 : 0);
+    store.close();
+  }
+});
+
+test('incomplete baseline and paired phases stop further calls by default and resume without retry', async t => {
+  for (const paired of [false, true]) for (const status of ['runtime_error', 'unsupported', 'timeout']) {
+    const root = temp(t), config = fixture(root, { mode: 'compare', repeats: 3, ...(paired ? { candidates: [{ root: './candidate', files: ['SKILL.md'] }] } : {}) });
+    const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config); let calls = 0;
+    const factory = () => ({ identity: { synthetic: true }, invoke: async () => { calls++; return { status, reason: 'Synthetic missing result.' }; } });
+    const result = await run(file, out, factory);
+    assert.equal(result.outcome, 'inconclusive'); assert.equal(calls, 1); assert.equal(result.attempted, 1);
+    assert.deepEqual(await run(file, out, factory), result); assert.equal(calls, 1);
+    const record = readRecord(out); assert.equal(record.trials[0].reason, 'Synthetic missing result.');
+    assert.equal(record.trials.length, 1);
+  }
+});
+
+test('failed individual grading stops subsequent target calls but a graded task failure remains valid evidence', async t => {
+  for (const failure of [true, false]) {
+    const root = temp(t), config = fixture(root, { mode: 'compare', cases: semanticCases() });
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let targets = 0;
+    const result = await improve(store, 'main', spec, async request => {
+      const data = JSON.parse(request.prompt.split('\n').at(-1));
+      if (data.skill) { targets++; return completed('ACTUAL'); }
+      if (data.response === 'ACTUAL') return completed(failure ? 'invalid verdict' : '{"pass":false,"evidence":"Synthetic task failure."}');
+      return completed(JSON.stringify({ pass: data.response.includes('correct'), evidence: 'Synthetic calibration.' }));
+    });
+    assert.equal(targets, failure ? 1 : config.cases.length);
+    assert.equal(result.status, failure ? 'inconclusive' : 'retain'); store.close();
+  }
+});
+
+test('an incomplete target suppresses otherwise pending batched judge work', async t => {
+  const root = temp(t), config = fixture(root, { mode: 'compare', cases: semanticCases(), judgeBatchSize: 8 });
+  const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let calls = 0, targets = 0;
+  const result = await improve(store, 'main', spec, async request => {
+    calls++; const data = JSON.parse(request.prompt.split('\n').at(-1));
+    if (data.items) return completed(batchAnswer(data.items));
+    targets++; return targets === 1 ? completed('{"value":"correct"}') : { status: 'runtime_error', reason: 'Synthetic unavailable target.' };
+  });
+  assert.equal(result.status, 'inconclusive'); assert.equal(calls, 3); assert.equal(targets, 2);
+  assert.match(result.baseline.find(row => row.status === 'grading_error').reason, /Grading skipped/);
+  assert.equal(store.state.trials.filter(t => t.role === 'judge').length, 1); store.close();
+});
+
+test('explicit diagnostic continuation is frozen, bounded and cannot bypass unresolved cleanup', async t => {
+  for (const status of ['runtime_error', 'cleanup_unconfirmed']) {
+    const root = temp(t), config = fixture(root, { mode: 'compare', repeats: 2, diagnosticContinuation: 'Inspect whether the synthetic transport failure affects other cases.' });
+    const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config); let calls = 0;
+    const factory = () => ({ identity: { synthetic: true }, invoke: async () => { calls++; return { status, reason: 'Synthetic diagnostic failure.' }; } });
+    const result = await run(file, out, factory);
+    assert.equal(result.outcome, 'inconclusive'); assert.equal(calls, status === 'runtime_error' ? 4 : 1);
+    const record = readRecord(out);
+    assert.equal(record.contract.experiment.diagnosticContinuation, config.diagnosticContinuation);
+    assert.equal(record.decisions.at(-1).diagnosticContinuation, config.diagnosticContinuation);
+    assert.deepEqual(await run(file, out, factory), result);
+    saveJson(file, { ...config, diagnosticContinuation: 'Different diagnostic purpose.' });
+    await assert.rejects(run(file, out, factory), /changed/);
+    for (const reason of ['', ' ', true, null]) assert.throws(() => loadExperiment({ ...config, diagnosticContinuation: reason }, root), /diagnosticContinuation/);
+  }
+});
+
+test('a failed later paired result preserves earlier observations and prevents remaining cases or candidates', async t => {
+  for (const failureAt of [2, 3]) {
+    const root = temp(t), config = fixture(root, { mode: 'compare', repeats: 2, candidates: [{ root: './candidate', files: ['SKILL.md'] }] });
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let calls = 0;
+    const result = await improve(store, 'main', spec, async () => ++calls === failureAt ? { status: 'runtime_error', reason: 'Synthetic partial pair.' } : completed('{"value":"correct"}'));
+    assert.equal(result.status, 'inconclusive'); assert.equal(calls, failureAt);
+    assert.equal(result.selectedHash, spec.target.hash);
+    assert.equal(store.state.trials.filter(t => t.status === 'completed').length, failureAt - 1);
+    assert.equal(store.state.trials.at(-1).reason, 'Synthetic partial pair.');
+    assert.equal(store.state.candidates.length, 1); assert.equal(store.state.candidates[0].status, 'inconclusive'); store.close();
+  }
+});
+
+test('diagnostic continuation remains within the original call budget and can collect pending grades', async t => {
+  for (const maxCalls of [2, 10]) {
+    const root = temp(t), config = fixture(root, { mode: 'compare', cases: semanticCases(), judgeBatchSize: 8,
+      diagnosticContinuation: 'Inspect the successful target alongside a failed target.', budget: { ...budget, maxCalls } });
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let calls = 0, targets = 0;
+    const result = await improve(store, 'main', spec, async request => {
+      calls++; const data = JSON.parse(request.prompt.split('\n').at(-1));
+      if (data.items) return completed(batchAnswer(data.items));
+      targets++; return targets === 1 ? completed('{"value":"correct"}') : { status: 'runtime_error', reason: 'Synthetic target failure.' };
+    });
+    assert.equal(result.status, 'inconclusive'); assert.equal(calls, maxCalls === 2 ? 2 : 4);
+    if (maxCalls === 10) assert.ok(result.baseline.some(row => row.status === 'graded'));
+    else assert.equal(store.state.trials.filter(t => t.attempted).length, 2);
+    store.close();
+  }
+});
+
+test('host-reported infrastructure failure settles the reservation and does not dispatch another worker', async t => {
+  const root = temp(t), config = fixture(root, { runtime: { adapter: 'host', model: 'host-inherited' } });
+  const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config);
+  const pending = await run(file, out);
+  hostOperation(out, 'attach', { requestId: pending.pending.requestId, executionId: 'synthetic-failed-worker' });
+  const result = await run(file, out, undefined, { requestId: pending.pending.requestId, executionId: 'synthetic-failed-worker', status: 'runtime_error', reason: 'Synthetic transport unavailable.' });
+  assert.equal(result.outcome, 'inconclusive'); assert.equal(result.reservedCalls, 1); assert.equal(result.pending, null);
+  assert.deepEqual(await run(file, out), result); assert.equal(readRecord(out).trials.length, 1);
+});
+
+test('a wrong calibration label stops later batches and preserves the observed evaluator defect', async t => {
+  const root = temp(t), config = fixture(root, { mode: 'compare', cases: semanticCases(), judgeBatchSize: 2 });
+  const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let calls = 0;
+  const result = await improve(store, 'main', spec, async request => {
+    calls++; const value = JSON.parse(batchAnswer(JSON.parse(request.prompt.split('\n').at(-1)).items));
+    value.verdicts[0].pass = !value.verdicts[0].pass; return completed(JSON.stringify(value));
+  });
+  assert.equal(result.status, 'evaluation-invalid'); assert.equal(calls, 1);
+  const decision = store.state.decisions.find(d => d.phase === 'batch-calibration');
+  assert.ok(decision.items.some(item => item.result.status === 'graded' && item.result.checks[0].pass !== item.expected));
+  assert.ok(decision.items.some(item => item.result.status === 'grading_error')); store.close();
+});
+
+test('repeated grading stops at disagreement unless continued observations were explicitly requested', async t => {
+  for (const diagnostics of [false, true]) {
+    const root = temp(t), config = fixture(root, { mode: 'compare', cases: semanticCases(), judgeRepeats: 3,
+      ...(diagnostics ? { diagnosticContinuation: 'Measure the remaining declared judgments after disagreement.' } : {}) });
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let actualJudgments = 0, targets = 0;
+    const result = await improve(store, 'main', spec, async request => {
+      const data = JSON.parse(request.prompt.split('\n').at(-1));
+      if (data.skill) { targets++; return completed('ACTUAL'); }
+      const actual = data.response === 'ACTUAL';
+      if (actual) actualJudgments++;
+      return completed(JSON.stringify({ pass: actual ? actualJudgments % 3 !== 2 : data.response.includes('correct'), evidence: 'Synthetic repeated judgment.' }));
+    });
+    assert.equal(result.status, 'inconclusive'); assert.equal(targets, diagnostics ? 2 : 1);
+    assert.equal(actualJudgments, diagnostics ? 6 : 2); store.close();
+  }
+});
+
+test('known-wrong repeated calibration stops at its first mismatch without leaking expected labels', async t => {
+  for (const expected of [true, false]) for (const wrongAt of [1, 2, 3]) for (const diagnostics of [false, true]) {
+    const cs = semanticCases();
+    if (!expected) cs[0].calibration = [{ output: 'wrong', pass: false }, { output: 'correct', pass: true }];
+    const root = temp(t), config = fixture(root, { mode: 'compare', cases: cs, judgeRepeats: 3,
+      ...(diagnostics ? { diagnosticContinuation: 'Collect remaining diagnostic outputs.' } : {}) });
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let calls = 0;
+    const result = await improve(store, 'main', spec, async request => {
+      calls++; const packet = JSON.parse(request.prompt.split('\n').at(-1));
+      assert.deepEqual(Object.keys(packet).sort(), ['response', 'rubric', 'task']);
+      if (calls > wrongAt) return { status: 'runtime_error', reason: 'A forbidden later call would hide the known defect.' };
+      return completed(JSON.stringify({ pass: calls === wrongAt ? !expected : expected, evidence: 'Synthetic known-label boundary.' }));
+    });
+    assert.equal(result.status, 'evaluation-invalid'); assert.equal(calls, wrongAt);
+    const decision = store.state.decisions.find(d => d.status === 'evaluation-invalid' && !d.final);
+    assert.equal(decision.result.checks[0].pass, !expected);
+    assert.equal(decision.result.judgments.length, wrongAt);
+    assert.equal((await improve(store, 'main', spec, () => { throw new Error('Unexpected retry.'); })).status, 'evaluation-invalid');
+    store.close();
+  }
+});
+
+test('outer diagnostics stop on inner invalid calibration or judge packets and keep the inner evidence', async t => {
+  for (const failure of ['wrong-calibration', 'invalid-single-calibration', 'invalid-batch-calibration', 'invalid-single-actual', 'invalid-batch-actual']) {
+    const root = temp(t), inner = fixture(root, { cases: semanticCases(), judgeRepeats: undefined,
+      judgeBatchSize: failure.includes('batch') ? 2 : 1, diagnosticContinuation: 'Inspect remaining inner outputs.' });
+    const config = { schema: 1, mode: 'compare', goal: 'Synthetic nested stop boundary.', target: inner.method, runtime: inner.runtime,
+      budget: { ...budget, maxCalls: 100 }, diagnosticContinuation: 'Inspect remaining outer tasks.',
+      tasks: ['first', 'second'].map(id => ({ id, group: id, split: 'explore', experiment: { ...inner, budget: { ...budget, maxCalls: 100 } } })) };
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let calls = 0, targets = 0;
+    const invoke = async request => {
+      calls++; const packet = JSON.parse(request.prompt.split('\n').at(-1));
+      if (packet.skill) { targets++; return completed('ACTUAL'); }
+      const actual = packet.response === 'ACTUAL' || Boolean(packet.items?.some(item => item.response === 'ACTUAL'));
+      if (failure === 'wrong-calibration') return completed('{"pass":false,"evidence":"Synthetic wrong label."}');
+      if (actual === failure.endsWith('actual')) return completed('invalid judge packet');
+      if (packet.items) return completed(batchAnswer(packet.items));
+      return completed(JSON.stringify({ pass: packet.response.includes('correct'), evidence: 'Synthetic calibration.' }));
+    };
+    const result = await improve(store, 'main', spec, invoke);
+    assert.equal(result.status, 'inconclusive'); assert.equal(result.baseline.length, 1, failure);
+    assert.equal(result.baseline[0].id, 'first');
+    const innerResult = result.baseline[0].evidence.result;
+    if (failure === 'wrong-calibration') assert.equal(innerResult.status, 'evaluation-invalid');
+    else assert.ok(store.state.trials.some(trial => trial.invalidVerdict === true));
+    assert.ok(store.state.decisions.some(decision => decision.prefix === result.baseline[0].evidence.experiment));
+    assert.equal(targets, failure.endsWith('actual') ? failure.includes('batch') ? 2 : 1 : 0);
+    const before = calls;
+    await improve(store, 'main', spec, invoke); assert.equal(calls, before); store.close();
+  }
+});
+
+test('outer diagnostics may still inspect another task after an ordinary inner transport failure', async t => {
+  const root = temp(t), inner = fixture(root);
+  const config = { schema: 1, mode: 'compare', goal: 'Synthetic nested diagnostic preservation.', target: inner.method,
+    runtime: inner.runtime, budget, diagnosticContinuation: 'Check whether other tasks also have a transport failure.',
+    tasks: ['first', 'second'].map(id => ({ id, group: id, split: 'explore', experiment: inner })) };
+  const spec = loadExperiment(config, root), store = openStore(join(root, 'record'), { spec }); let calls = 0;
+  const result = await improve(store, 'main', spec, async () => { calls++; return { status: 'runtime_error', reason: 'Synthetic transport failure.' }; });
+  assert.equal(result.status, 'inconclusive'); assert.equal(result.baseline.length, 2); assert.equal(calls, 2);
+  assert.ok(store.state.trials.every(trial => trial.reason === 'Synthetic transport failure.' && !trial.invalidVerdict)); store.close();
 });

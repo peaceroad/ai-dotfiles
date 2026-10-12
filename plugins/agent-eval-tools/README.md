@@ -75,7 +75,9 @@ Keep the whole plugin directory together, or install the complete `skills/agent-
 
 The runner is self-contained and does not require the `agent` CLI, another plugin cache, an MCP server, or an external Node.js dependency. Keep raw runtime records private by default. Maintain useful, publishable evaluation definitions, reviewed behavioral evidence and rationale with the source they help maintain, following its repository's rules. In this repository, those locations are `evals/` and `docs/`; other projects keep their own evidence. These materials are optional background, not runtime dependencies. Local execution alone does not make a task response confidential, and a public task does not make its entire runtime record suitable for publication.
 
-Choose an explicit evidence location outside a Git working tree for each experiment. The runner creates the specified directory and any missing parents; it does not choose a default home-directory location. Keep later-use evidence separate from disposable transfer files and selective maintenance notes. The [retention contract](skills/agent-improve/references/runtime.md#retained-evidence-and-temporary-work) explains receipt checks, verified archival copies and reading old results without rerunning them.
+Version 0.2 changes incomplete-phase continuation and rejects unsafe numeric comparisons and shared POSIX output roots; review the [runtime contract](skills/agent-improve/references/runtime.md) before reusing earlier configurations.
+
+Choose an explicit evidence location outside a Git working tree for each experiment. The runner creates the specified directory and missing parents with restrictive POSIX modes, refuses shared POSIX output roots without changing them, and does not choose a default home-directory location. Windows ACL privacy requires separate verification. Keep later-use evidence separate from disposable transfer files and selective maintenance notes. The [retention contract](skills/agent-improve/references/runtime.md#retained-evidence-and-temporary-work) explains receipt checks, verified archival copies and reading old results without rerunning them.
 
 ## Design sources
 
