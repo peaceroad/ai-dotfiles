@@ -1,6 +1,6 @@
 ---
 name: dot-guidelines
-description: "Use when acting as the user's main dot assistant, for common guidance and cloud-managed skill selection, including before finding, creating, downloading, editing, or organizing files or choosing work and output locations in dot's own cloud. Also use for explicitly requested cloud setup, inspection, or maintenance. Do not load this skill wholesale in other agents or standalone Codex sessions."
+description: "Use throughout the user's ongoing main dot conversation for common guidance, cloud-managed skill selection, and explicitly requested setup, inspection, or maintenance of dot's own cloud. Apply before finding or working with files or choosing work and output locations there. Do not apply as operating guidance to other agents or standalone Codex sessions."
 ---
 
 # dot-guidelines
@@ -39,7 +39,7 @@ Follow the current request, instruction hierarchy, safety constraints, and app a
 
 Keep source material, installed plugin resources, cloud-managed copies, and private inputs separate. Change only authorized targets; preserve unexplained edits and unknown ownership. If required content, source identity, or authority cannot be verified, stop that part and report what is needed. Do not edit an installed plugin as its source or overwrite source from a derived copy.
 
-Keep private instructions, candidates, source inventories, and actual-environment observations out of public packages, docs, and logs. When delegating, pass the task, relevant conditions, intended project/output locations, and needed task skills. Have the receiving agent verify access to those locations, skill entrypoints, and required references in its environment before dependent work. Task skills remain usable by other agents when their own scope fits; do not load this main-dot policy wholesale there or assume files at the same absolute paths are inherited.
+Keep private instructions, candidates, source inventories, and actual-environment observations out of public packages, docs, and logs. When delegating, pass the task, relevant conditions, intended project/output locations, and needed task skills. Have the receiving agent verify access to those locations, skill entrypoints, and required references in its environment before dependent work. Task skills remain usable by other agents when their own scope fits; do not apply this main-dot policy to them or assume files at the same absolute paths are inherited.
 
 ## Reading and responses
 
@@ -73,16 +73,14 @@ These conventions do not require reorganizing usable existing homes. Requested o
 - `/workspace/shared/outputs/<topic>/`: standalone deliverables prepared for use or handoff
 - `/workspace/shared/downloads/`: retained acquisitions and pinned snapshots
 - `/workspace/shared/tools/`: user-managed tools and runtimes
-- `/workspace/.agents/skills/<name>/`: complete adopted standalone skill folders
-- `/workspace/.agents/plugins/<plugin-name>/`: complete adopted plugin packages
-- `/workspace/.agents/plugins-state/manifests/`: per-plugin provenance
-- `/workspace/.agents/skills-state/`: one selected INDEX for both kinds and standalone per-skill manifests
 
 Keep a project's documents, test/evaluation definitions, publishable evidence, and deliverables in its established layout, including temporary/build locations. Tests are not automatically temporary, nor generated files automatically outputs. Independent trials can use assigned scratch before their longer-term scope is clear. If standalone work becomes a project, gather needed material and editable originals there and update affected references without maintaining competing originals. Use separate working copies only for a concrete purpose, such as isolated testing.
 
 Choose docs versus outputs by role, not duration, completion state, or format alone. A retained plan need not be a project: use `docs/plans/` for a standalone plan or `docs/<topic>/` for related planning materials. Brief disposable planning can stay in the conversation or assigned scratch.
 
-Within each home, group related files by task or topic; add type-based subfolders only when they aid retrieval. Treat each `outputs/<topic>/` as a coherent deliverable bundle, keeping needed editable originals and assets together. Keep images with their document or project; an independently browsed or reused image collection may use `/workspace/shared/images/<collection>/`. These are optional locations, not a folder scaffold to create in advance. Use or deliver files from their existing home when possible, without duplicating them merely for handoff. Environment-specific supporting documents may use `/workspace/.codex/docs/` when needed.
+Within each home, group related files by task or topic; add type-based subfolders only when they aid retrieval. Treat each `outputs/<topic>/` as a coherent deliverable bundle, keeping needed editable originals and assets together. Use or deliver files from their existing home when possible, without duplicating them merely for handoff.
+
+Keep images with their document or project; an independently browsed or reused image collection may use `/workspace/shared/images/<collection>/`. Environment-specific supporting documents may use `/workspace/.codex/docs/` when needed.
 
 For temporary work, reuse a suitable accessible directory for the same task and target; on resumption, verify the current editable original rather than assuming an old scratch copy is current. For new work outside ongoing projects, use a short date-free task name under the assigned directory. Keep meaningful run/snapshot dates and needed comparison results beneath the work location, distinguishing conditions or versions under existing project conventions. Coordinate or isolate concurrent writes to originals, intermediates, and outputs. Do not default to new directories or whole-workspace copies for each run, rename the assigned directory, or add shared categories outside it in scratch. Use `/tmp` only for disposable material, never the sole copy of important work.
 

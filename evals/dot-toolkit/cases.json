@@ -294,7 +294,7 @@
   {
     "id": "ordinary-codex-policy-near-miss",
     "mode": "simulation",
-    "input": "通常のCodexがリポジトリのREADMEを直す依頼を受けています。利用可能なカタログにはdot-guidelinesがあり、クラウドのファイル作業という語も説明に含まれています。実行者はメインdotではなく、dotの設定や保守も依頼されていません。指示の選択と作業場所をどう扱いますか。実操作なしで説明してください。"
+    "input": "通常のCodexがリポジトリのREADMEを直す依頼を受けています。利用可能なカタログにはdot-guidelinesがあり、クラウドのファイル作業という語も説明に含まれています。実行者はメインdotではなく、dotの設定や保守も依頼されていません。指示の選択と作業場所をどう扱いますか。別の依頼としてdot-toolkitのSKILL.md自体をレビューする場合は、本文を読むことと自身の運用への適用をどう扱いますか。実操作なしで説明してください。"
   },
   {
     "id": "delegated-file-work-policy-near-miss",
