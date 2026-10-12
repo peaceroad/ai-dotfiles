@@ -116,31 +116,35 @@ export function codexInvoker(runtime, workRoot) {
     invoke(request) {
       return new Promise(resolveResult => {
         const cwd = join(workRoot, randomUUID());
-        mkdirSync(cwd, { recursive: true });
+        mkdirSync(cwd, { recursive: true, mode: 0o700 });
         const schemaFile = request.outputSchema ? join(cwd, 'response-schema.json') : null;
-        if (schemaFile) writeFileSync(schemaFile, `${JSON.stringify(request.outputSchema)}\n`);
+        if (schemaFile) writeFileSync(schemaFile, `${JSON.stringify(request.outputSchema)}\n`, { mode: 0o600, flag: 'wx' });
         const args = codexArguments(runtime, cwd, schemaFile);
         const reader = createEventReader();
         const decoder = new StringDecoder('utf8');
         const child = spawn(binary, args, { cwd, windowsHide: true, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] });
         let stderr = '', bytes = 0, termination = null, finished = false, emergency;
-        const settle = (code, signal, error) => {
+        const settle = (code, signal, error, closed = false) => {
           if (finished) return;
           finished = true; clearTimeout(timer); clearTimeout(emergency);
           process.removeListener('SIGINT', onInterrupt); process.removeListener('SIGTERM', onTerminate);
           reader.push(decoder.end());
           const result = reader.finish();
           let status = 'completed';
-          if (termination) status = termination.confirmed ? (termination.interrupted ? 'interrupted' : 'timeout') : 'cleanup_unconfirmed';
+          if (termination) status = termination.requestSucceeded && closed ? (termination.interrupted ? 'interrupted' : 'timeout') : 'cleanup_unconfirmed';
           else if (error || code !== 0 || !result.completed || result.invalidLines || typeof result.output !== 'string') status = 'runtime_error';
           else if (result.toolActivity) status = 'unsupported';
           const reason = error || (termination ? termination.reason : result.toolActivity ? 'Tool activity is outside the text adapter contract.' : status === 'runtime_error' ? result.errors.at(-1) || stderr.slice(-1600) || (typeof result.output !== 'string' ? 'Missing final agent message.' : 'Missing successful turn completion.') : null);
           child.stdout?.destroy(); child.stderr?.destroy(); child.stdin?.destroy(); child.unref();
-          resolveResult({ status, reason, output: result.output, usage: result.usage, threadId: result.threadId, eventTypes: result.eventTypes, observedModel: result.observedModel, exitCode: code, signal, workspace: cwd });
+          resolveResult({ status, reason, output: result.output, usage: result.usage, threadId: result.threadId, eventTypes: result.eventTypes, observedModel: result.observedModel, exitCode: code, signal, workspace: cwd,
+            ...(termination ? { termination: { requestSucceeded: termination.requestSucceeded, closeObserved: closed } } : {}) });
         };
         const stop = (reason, interrupted = false) => {
           if (termination || finished) return;
-          termination = { reason, interrupted, confirmed: stopTree(child) };
+          // Signal delivery and terminal observation are separate evidence.
+          termination = { reason, interrupted, requestSucceeded: false };
+          termination.requestSucceeded = stopTree(child);
+          if (finished) return;
           emergency = setTimeout(() => settle(null, null, 'Termination did not complete.'), 2000);
         };
         const onInterrupt = () => stop('Interrupted by SIGINT.', true);
@@ -151,7 +155,7 @@ export function codexInvoker(runtime, workRoot) {
         child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-8192); });
         child.stdin.on('error', () => {});
         child.once('error', e => settle(null, null, e.message));
-        child.once('close', (code, signal) => settle(code, signal));
+        child.once('close', (code, signal) => settle(code, signal, null, true));
         child.stdin.end(request.prompt);
       });
     },

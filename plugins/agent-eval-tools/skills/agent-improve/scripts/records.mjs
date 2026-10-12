@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, renameSync, lstatSync, realpathSync, openSync, closeSync, unlinkSync, chmodSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, renameSync, statSync, lstatSync, realpathSync, openSync, closeSync, unlinkSync, chmodSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export const digest = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
@@ -12,10 +12,10 @@ export function readRecord(root) {
   return state;
 }
 export function saveJson(file, value) {
-  mkdirSync(dirname(file), { recursive: true });
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
-    writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' });
+    writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
     renameSync(temp, file);
   } finally { if (existsSync(temp)) unlinkSync(temp); }
 }
@@ -102,10 +102,15 @@ export function outsideRepositories(path) {
 
 export function openStore(root, contract, { now = Date.now } = {}) {
   outsideRepositories(root);
-  mkdirSync(root, { recursive: true });
+  mkdirSync(root, { recursive: true, mode: 0o700 });
+  // Never silently chmod a caller-owned or shared directory. POSIX modes do
+  // not verify Windows ACLs; those require an owner-controlled location.
+  if (process.platform !== 'win32' && (statSync(root).mode & 0o077)) {
+    throw new Error('Experiment directory permits group or other access. Choose a private directory or review its permissions before continuing.');
+  }
   const lock = join(root, 'run.lock');
   let fd;
-  try { fd = openSync(lock, 'wx'); } catch { throw new Error('Experiment is locked. Verify the prior runner has stopped before removing run.lock.'); }
+  try { fd = openSync(lock, 'wx', 0o600); } catch { throw new Error('Experiment is locked. Verify the prior runner has stopped before removing run.lock.'); }
   const file = join(root, 'record.json');
   const contractHash = digest(contract);
   let state;

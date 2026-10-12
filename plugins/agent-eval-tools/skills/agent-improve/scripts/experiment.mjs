@@ -51,6 +51,7 @@ function validateCases(cases) {
         if (!['json-equals', 'includes', 'excludes', 'max-chars'].includes(check.kind)) throw new Error('Unknown check kind.');
         if (['includes', 'excludes'].includes(check.kind) && typeof check.value !== 'string') throw new Error('Text checks require a string value.');
         if (check.kind === 'max-chars') positive(check.value, 'max-chars value');
+        if (check.kind === 'json-equals' && !supportedJsonNumbers(check.value)) throw new Error('json-equals requires finite numbers and safe integers; encode exact large or high-precision numbers as strings.');
         if (check.kind === 'json-equals' && (typeof check.pointer !== 'string' || (check.pointer && !check.pointer.startsWith('/')) || /~(?:[^01]|$)/.test(check.pointer) || !Object.hasOwn(check, 'value'))) throw new Error('json-equals requires a JSON pointer and value.');
       }
     }
@@ -91,6 +92,7 @@ export function loadExperiment(config, base, depth = 0) {
   positive(judgeRepeats, 'judgeRepeats');
   if (judgeRepeats > 1 && judgeBatchSize > 1) throw new Error('Repeated grading currently uses individual judges; do not combine it with batching.');
   const comparison = validateComparison(config.comparison);
+  if (config.diagnosticContinuation !== undefined && (typeof config.diagnosticContinuation !== 'string' || !config.diagnosticContinuation.trim())) throw new Error('diagnosticContinuation must explain why remaining incomplete-phase results are needed.');
   if (config.tasks && (comparison || config.judgeRepeats !== undefined)) throw new Error('Set comparison and judgeRepeats on ordinary inner experiments.');
   if (config.tasks && config.judgeBatchSize !== undefined) throw new Error('Set judgeBatchSize on each ordinary inner experiment, not the outer task comparison.');
   if (Boolean(config.cases) === Boolean(config.tasks)) throw new Error('Provide cases or improvement tasks, not both.');
@@ -118,6 +120,7 @@ export function loadExperiment(config, base, depth = 0) {
   if ((config.mode === 'improve' || candidates.length > 1) && comparison?.policy === 'sign-test' && !entries.some(c => c.split === 'confirm')) throw new Error('Adaptive or multiple-candidate comparative adoption requires unused confirmation groups; use review for exploratory evidence alone.');
   if (config.evidence !== undefined && typeof config.evidence !== 'string') throw new Error('Optional evidence must be a scoped text summary with references.');
   return { schema: 1, mode: config.mode, goal: config.goal, target, method, proposalMethodFiles: config.proposalMethodFiles ?? null, editable, candidates, repeats, maxCandidates, judgeBatchSize, judgeRepeats, comparison,
+    diagnosticContinuation: config.diagnosticContinuation ?? null,
     cases: config.cases || null, tasks: tasks || null, budget: config.budget, evidence: config.evidence || '',
     requires: config.requires || [], runtime: config.runtime, acceptance: comparison ? 'Required conditions and preservation gates, followed by the frozen comparative policy.' : 'No case or atomic-check regression; strict improvement in at least one paired result.',
     evidenceScope: 'Exploratory; text injection and shared host cannot establish protected held-out generalization.' };
@@ -142,6 +145,18 @@ export function callPlan(spec) {
   return { available: true, calibration, baseline, perCandidate, candidateAttempts, confirmation, baselineAndStop, fullSearchUpperBound,
     maxCalls: spec.budget.maxCalls, coversFullSearch: spec.budget.maxCalls >= fullSearchUpperBound,
     scope: 'Fresh-run model calls before time/token limits; early stop, failures, duplicate candidates and resume can reduce calls. Not a token or elapsed-time estimate.' };
+}
+
+// JSON numbers use binary64 semantics, with unsafe integers and overflow
+// excluded. This intentionally does not claim arbitrary decimal precision.
+function supportedJsonNumbers(value) {
+  const pending = [value];
+  while (pending.length) {
+    const item = pending.pop();
+    if (typeof item === 'number' && (!Number.isFinite(item) || Number.isInteger(item) && !Number.isSafeInteger(item))) return false;
+    if (item && typeof item === 'object') for (const key of Object.keys(item)) pending.push(item[key]);
+  }
+  return true;
 }
 
 function jsonEqual(a, b) {
@@ -180,7 +195,10 @@ export function checkOutput(output, checks) {
     else if (check.kind === 'json-equals') {
       if (!parsed) {
         parsed = true;
-        try { document = JSON.parse(output); } catch { /* Every JSON check fails for invalid output. */ }
+        try {
+          const value = JSON.parse(output);
+          if (supportedJsonNumbers(value)) document = value;
+        } catch { /* Every JSON check fails for invalid output. */ }
       }
       if (document !== undefined) {
         let value = document;
@@ -190,7 +208,7 @@ export function checkOutput(output, checks) {
           }
           value = value[part];
         }
-        pass = value !== undefined && jsonEqual(value, check.value);
+        pass = value !== undefined && supportedJsonNumbers(check.value) && jsonEqual(value, check.value);
       }
     } else throw new Error('Unknown check.');
     return { pass, evidence: check };
@@ -208,16 +226,24 @@ async function gradeOnce(store, key, c, output, invoke, budget) {
     const verdict = JSON.parse(trial.output);
     if (!verdict || Object.keys(verdict).length !== 2 || typeof verdict.pass !== 'boolean' || typeof verdict.evidence !== 'string' || !verdict.evidence.trim()) throw new Error();
     return { status: 'graded', checks: [verdict], trial: trial.key };
-  } catch { return { status: 'grading_error', reason: 'Judge returned an invalid verdict.', trial: trial.key }; }
+  } catch {
+    trial.invalidVerdict = true; store.save();
+    return { status: 'grading_error', reason: 'Judge returned an invalid verdict.', trial: trial.key };
+  }
 }
 
-async function grade(store, key, c, output, invoke, budget, repeats = 1) {
+async function grade(store, key, c, output, invoke, budget, repeats = 1, diagnostics = false, expected) {
   if (c.checks || repeats === 1) return gradeOnce(store, key, c, output, invoke, budget);
   const judgments = [];
   for (let i = 0; i < repeats; i++) {
     const result = await gradeOnce(store, `${key}/rescore/${i}`, c, output, invoke, budget);
     judgments.push(result);
     if (result.status !== 'graded') return { ...result, judgments };
+    // Known labels stay in controller code, never in judge requests.
+    if (typeof expected === 'boolean' && result.checks.every(check => check.pass) !== expected) {
+      return { ...result, status: 'evaluation-invalid', reason: 'Calibration judgment disagrees with its known label.', judgments };
+    }
+    if (!diagnostics && result.checks[0].pass !== judgments[0].checks[0].pass) break;
   }
   if (judgments.some(j => j.checks[0].pass !== judgments[0].checks[0].pass)) return { status: 'grading_error', reason: 'Repeated judgments on the same output disagree.', judgments };
   return { ...judgments[0], judgments };
@@ -244,13 +270,17 @@ async function gradeBatches(store, prefix, items, size, invoke, budget) {
           if (!v || Object.keys(v).length !== 3 || typeof v.id !== 'string' || typeof v.pass !== 'boolean' || typeof v.evidence !== 'string' || !v.evidence.trim() || verdicts.has(v.id) || !chunk.some(x => x.id === v.id)) throw new Error();
           verdicts.set(v.id, { pass: v.pass, evidence: v.evidence });
         }
-      } catch { verdicts = null; reason = 'Judge returned an incomplete or invalid batch; no item in that batch was graded.'; }
+      } catch {
+        verdicts = null; reason = 'Judge returned an incomplete or invalid batch; no item in that batch was graded.';
+        trial.invalidVerdict = true; store.save();
+      }
     }
     for (const item of chunk) results.set(item.key, verdicts
       ? { status: 'graded', checks: [verdicts.get(item.id)], trial: trial.key, item: item.id }
       : { status: 'grading_error', reason, trial: trial.key, item: item.id });
-    // An invalid packet or failed call cannot be repaired by later batches.
-    if (!verdicts) break;
+    // Neither an invalid packet nor a known wrong calibration label can be
+    // repaired by later batches. Preserve the observed verdict before stopping.
+    if (!verdicts || chunk.some(item => typeof item.expected === 'boolean' && verdicts.get(item.id).pass !== item.expected)) break;
   }
   return results;
 }
@@ -260,19 +290,20 @@ async function calibrate(store, prefix, spec, invoke, budget) {
   const batched = [];
   for (const c of spec.cases) for (const [i, sample] of c.calibration.entries()) {
     if (c.rubric && spec.judgeBatchSize > 1) { batched.push({ key: `${prefix}/calibration/${c.id}/${i}`, c, output: sample.output, sample: i, expected: sample.pass }); continue; }
-    const result = await grade(store, `${prefix}/calibration/${c.id}/${i}`, c, sample.output, invoke, budget, spec.judgeRepeats);
+    const result = await grade(store, `${prefix}/calibration/${c.id}/${i}`, c, sample.output, invoke, budget, spec.judgeRepeats, false, sample.pass);
     if (result.status !== 'graded') {
-      store.state.decisions.push({ prefix, status: 'inconclusive', phase: 'calibration', case: c.id, sample: i, result }); store.save(); return 'inconclusive';
+      const status = result.status === 'evaluation-invalid' ? 'evaluation-invalid' : 'inconclusive';
+      store.state.decisions.push({ prefix, status, phase: 'calibration', case: c.id, sample: i, result }); store.save(); return status;
     }
     if (result.checks.every(x => x.pass) !== sample.pass) {
-      store.state.decisions.push({ prefix, status: 'evaluation-invalid', case: c.id, sample: i, result }); store.save(); return 'evaluation-invalid';
+      store.state.decisions.push({ prefix, status: 'evaluation-invalid', phase: 'calibration', case: c.id, sample: i, result }); store.save(); return 'evaluation-invalid';
     }
   }
   if (batched.length) {
     const results = await gradeBatches(store, `${prefix}/calibration`, batched, spec.judgeBatchSize, invoke, budget);
     const items = batched.map(item => ({ case: item.c.id, sample: item.sample, expected: item.expected, result: results.get(item.key) || { status: 'grading_error', reason: 'Earlier batch failed.' } }));
-    const status = items.some(x => x.result.status !== 'graded') ? 'inconclusive'
-      : items.some(x => x.result.checks[0].pass !== x.expected) ? 'evaluation-invalid' : 'calibration-valid';
+    const status = items.some(x => x.result.status === 'graded' && x.result.checks[0].pass !== x.expected) ? 'evaluation-invalid'
+      : items.some(x => x.result.status !== 'graded') ? 'inconclusive' : 'calibration-valid';
     if (!store.state.decisions.some(d => d.prefix === prefix && d.phase === 'batch-calibration')) {
       store.state.decisions.push({ prefix, status, phase: 'batch-calibration', items }); store.save();
     }
@@ -307,23 +338,33 @@ async function evaluateEntry(store, prefix, spec, bundle, entry, repeat, invoke,
     const result = await improve(store, key, { ...entry.experiment, method: bundle }, invoke, scope);
     const baseline = result.baseline || [], selected = result.selected || [];
     const complete = baseline.length > 0 && baseline.every(x => x.status === 'graded') && selected.length === baseline.length && selected.every(x => x.status === 'graded') && !['inconclusive', 'evaluation-invalid', 'unsupported'].includes(result.status);
-    return { id: entry.id, repeat, status: complete ? 'graded' : 'incomplete', score: complete ? (entry.experiment.comparison ? result.qualityGain ?? 0 : selected.filter(x => x.score === 1).length - baseline.filter(x => x.score === 1).length) : null, evidence: { experiment: key, result } };
+    return { id: entry.id, repeat, status: complete ? 'graded' : 'incomplete', score: complete ? (entry.experiment.comparison ? result.qualityGain ?? 0 : selected.filter(x => x.score === 1).length - baseline.filter(x => x.score === 1).length) : null, reason: complete ? undefined : result.reason ?? result.stopReason, evidence: { experiment: key, result } };
   }
   const trial = await measuredCall(store, key, 'target', {
     prompt: `Complete the user's task using the supplied skill bundle. The bundle is included below; no file lookup or tools are needed. Return the requested task result.\n${JSON.stringify({ skill: bundle.files, task: entry.input })}`,
   }, invoke, budget);
   if (trial.status !== 'completed') return { id: entry.id, repeat, status: trial.status, score: null, evidence: trial.key };
   if (deferJudge && entry.rubric) return { id: entry.id, repeat, status: 'awaiting_grade', score: null, output: trial.output, evidence: { target: trial.key, judge: null } };
-  const result = await grade(store, key, entry, trial.output, invoke, budget, spec.judgeRepeats);
+  const result = await grade(store, key, entry, trial.output, invoke, budget, spec.judgeRepeats, Boolean(spec.diagnosticContinuation));
   return { id: entry.id, repeat, status: result.status, score: result.status === 'graded' ? Number(result.checks.every(x => x.pass)) : null, checks: result.checks, reason: result.reason, judgments: result.judgments, evidence: { target: trial.key, judge: result.trial || null } };
+}
+
+function stopIncompletePhase(store, spec, row) {
+  if (['graded', 'awaiting_grade'].includes(row.status)) return false;
+  // An inner calibration failure remains fatal at the outer task boundary.
+  // Malformed judge packets are tagged on the existing trial, keeping output
+  // and provenance intact across nested results and resumed execution.
+  return row.evidence?.result?.status === 'evaluation-invalid' || !spec.diagnosticContinuation
+    || store.state.trials.some(t => t.invalidVerdict || ['cleanup_unconfirmed', 'interrupted', 'not_dispatched', 'budget_stopped'].includes(t.status));
 }
 
 async function completeBatchGrades(store, prefix, spec, rows, invoke, budget) {
   const pending = rows.filter(row => row.status === 'awaiting_grade');
-  const results = await gradeBatches(store, prefix, pending.map(row => ({ key: row.evidence.target,
+  const stopped = rows.some(row => stopIncompletePhase(store, spec, row));
+  const results = stopped ? new Map() : await gradeBatches(store, prefix, pending.map(row => ({ key: row.evidence.target,
     c: spec.cases.find(c => c.id === row.id), output: row.output })), spec.judgeBatchSize, invoke, budget);
   for (const row of pending) {
-    const result = results.get(row.evidence.target) || { status: 'grading_error', reason: 'Earlier batch failed.' };
+    const result = results.get(row.evidence.target) || { status: 'grading_error', reason: stopped ? 'Grading skipped after an incomplete target; comparison cannot be completed.' : 'Earlier batch failed.' };
     delete row.output;
     Object.assign(row, { status: result.status, score: result.status === 'graded' ? Number(result.checks[0].pass) : null,
       checks: result.checks, reason: result.reason, evidence: { target: row.evidence.target, judge: result.trial || null, item: result.item || null } });
@@ -333,11 +374,12 @@ async function completeBatchGrades(store, prefix, spec, rows, invoke, budget) {
 async function paired(store, prefix, spec, baseline, candidate, entries, invoke, budget) {
   const a = [], b = [];
   const comparison = `${prefix}/pair/${baseline.hash}/${candidate.hash}`;
-  for (const [index, entry] of entries.entries()) for (let repeat = 0; repeat < spec.repeats; repeat++) {
+  targets: for (const [index, entry] of entries.entries()) for (let repeat = 0; repeat < spec.repeats; repeat++) {
     const order = (index + repeat) % 2 ? [candidate, baseline] : [baseline, candidate];
     for (const bundle of order) {
       const row = await evaluateEntry(store, comparison, spec, bundle, entry, repeat, invoke, budget, spec.judgeBatchSize > 1);
       (bundle === baseline ? a : b).push(row);
+      if (stopIncompletePhase(store, spec, row)) break targets;
     }
   }
   if (!spec.tasks && spec.judgeBatchSize > 1) await completeBatchGrades(store, comparison, spec, [...a, ...b], invoke, budget);
@@ -375,10 +417,10 @@ export function compareRows(baseline, candidate) {
 export async function improve(store, prefix, spec, invoke, budget = spec.budget) {
   const previous = store.state.decisions.findLast(d => d.prefix === prefix && d.final);
   if (previous) return previous;
-  const finish = result => { store.state.decisions.push({ prefix, final: true, ...result }); store.save(); return result; };
+  const finish = result => { store.state.decisions.push({ prefix, final: true, diagnosticContinuation: spec.diagnosticContinuation, ...result }); store.save(); return result; };
   if (spec.requires.length) return finish({ status: 'unsupported', reason: 'This adapter supports explicit text bundles only; capability-dependent tasks need a verified adapter.' });
   const calibration = await calibrate(store, prefix, spec, invoke, budget);
-  if (calibration !== 'valid') return finish({ status: calibration });
+  if (calibration !== 'valid') return finish({ status: calibration, reason: calibration === 'evaluation-invalid' ? 'Calibration disagreed with a known label.' : 'Calibration could not be completed; inspect its retained judgments.' });
   const entries = spec.tasks || spec.cases;
   const development = entries.filter(c => c.split !== 'confirm');
   const selection = development.some(c => c.split === 'select') ? development.filter(c => c.split === 'select') : development;
@@ -389,11 +431,15 @@ export async function improve(store, prefix, spec, invoke, budget = spec.budget)
   let champion = spec.target;
   const baseline = [];
   if (spec.mode === 'improve' || !spec.candidates.length) {
-    for (const c of development) for (let r = 0; r < spec.repeats; r++) baseline.push(await evaluateEntry(store, prefix, spec, spec.target, c, r, invoke, budget, spec.judgeBatchSize > 1));
+    targets: for (const c of development) for (let r = 0; r < spec.repeats; r++) {
+      const row = await evaluateEntry(store, prefix, spec, spec.target, c, r, invoke, budget, spec.judgeBatchSize > 1);
+      baseline.push(row);
+      if (stopIncompletePhase(store, spec, row)) break targets;
+    }
     if (!spec.tasks && spec.judgeBatchSize > 1) await completeBatchGrades(store, prefix, spec, baseline, invoke, budget);
   }
   baseline.sort((a, b) => `${a.id}/${a.repeat}`.localeCompare(`${b.id}/${b.repeat}`));
-  if (baseline.some(x => x.status !== 'graded')) return finish({ status: 'inconclusive', baseline, selected: baseline, selectedHash: champion.hash });
+  if (baseline.some(x => x.status !== 'graded')) return finish({ status: 'inconclusive', reason: 'A required baseline result is incomplete; remaining phase work stops unless diagnosticContinuation was declared.', baseline, selected: baseline, selectedHash: champion.hash });
   const archive = [{ ...spec.target, parent: null, hypothesis: 'Starting version.', rows: baseline }];
   let stopReason = null;
   let validDecision = spec.mode === 'compare';

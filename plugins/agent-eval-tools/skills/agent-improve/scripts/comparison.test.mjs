@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openStore } from './records.mjs';
 import { loadExperiment, callPlan, improve, compareRows } from './experiment.mjs';
-import { validateComparison, judgePair, signTail, summarizePreference } from './comparison.mjs';
+import { validateComparison, calibrateComparison, judgePair, signTail, summarizePreference } from './comparison.mjs';
 import { run, hostOperation } from './agent-eval.mjs';
 import { readHostInput } from './host-adapter.mjs';
 
@@ -117,14 +117,14 @@ test('a new atomic regression is detected even when both aggregate cases fail', 
   assert.equal(compareRows([{ ...row, checks: [{ pass: true }, { pass: false }] }], [{ ...row, checks: [{ pass: false }, { pass: true }] }]), 'reject');
 });
 
-test('repeated semantic judgments use the same artifact and block on disagreement', async t => {
+test('repeated calibration judgments retain the same artifact and known-label defect', async t => {
   const semantic = { id: 'a', group: 'a', split: 'explore', input: 'task', rubric: 'Must be correct.', calibration: [{ output: 'yes', pass: true }, { output: 'no', pass: false }] };
   const { store, spec } = fixture(t, { candidates: [], comparison: undefined, judgeRepeats: 2, cases: [semantic] });
   let calls = 0;
   const result = await improve(store, 'main', spec, req => {
     calls++; return completed(JSON.stringify({ pass: calls === 1, evidence: 'Inconsistent on the same frozen answer.' }));
   });
-  assert.equal(result.status, 'inconclusive'); assert.equal(calls, 2);
+  assert.equal(result.status, 'evaluation-invalid'); assert.equal(calls, 2);
   const packets = store.state.trials.map(t => data(t.request));
   assert.equal(packets[0].response, packets[1].response);
   assert.equal(callPlan(spec).calibration, 4);
@@ -143,7 +143,7 @@ test('comparison confirmation requires fresh comparative support, not tied failu
 test('wrong comparative calibration stops before any target calls', async t => {
   const { store, spec } = fixture(t);
   const result = await improve(store, 'main', spec, () => completed('{"winner":"tie","evidence":"Incorrect calibration."}'));
-  assert.equal(result.status, 'evaluation-invalid'); assert.equal(store.state.trials.length, 2);
+  assert.equal(result.status, 'evaluation-invalid'); assert.equal(store.state.trials.length, 1);
   assert.ok(store.state.trials.every(t => t.role === 'judge'));
 });
 
@@ -222,4 +222,28 @@ test('comparative inner tasks measure confirmed downstream gain and send only ex
   assert.equal(result.baseline[0].status, 'graded'); assert.equal(result.baseline[0].score, 1);
   assert.equal(result.baseline[0].evidence.result.comparison.effect, 1);
   assert.ok(result.baseline[0].evidence.result.confirmation);
+});
+
+
+test('comparative calibration stops on a normalized mismatch and keeps expected labels controller-only', async t => {
+  const { store } = fixture(t);
+  const invert = winner => winner === 'A' ? 'B' : winner === 'B' ? 'A' : winner;
+  for (const expected of ['A', 'B', 'tie', 'both_bad', 'uncertain']) for (const wrongAt of [0, 1, null]) {
+    let calls = 0;
+    const prefix = `calibration-${expected}-${wrongAt}`;
+    const settings = { rubric: 'Synthetic calibration.', calibration: [{ input: 'Task', a: 'First response', b: 'Second response', winner: expected, labelSource: 'Synthetic known label.' }] };
+    const status = await calibrateComparison(store, prefix, settings, request => {
+      const packet = data(request); assert.deepEqual(Object.keys(packet).sort(), ['A', 'B', 'rubric', 'task']);
+      const order = calls++;
+      if (wrongAt !== null && order > wrongAt) return { status: 'runtime_error', reason: 'A forbidden later call would hide the known defect.' };
+      const normalized = order === wrongAt ? expected === 'tie' ? 'both_bad' : 'tie' : expected;
+      return completed(JSON.stringify({ winner: order ? invert(normalized) : normalized, evidence: 'Synthetic ordered judgment.' }));
+    }, budget);
+    assert.equal(status, wrongAt === null ? 'valid' : 'evaluation-invalid');
+    assert.equal(calls, wrongAt === null ? 2 : wrongAt + 1);
+    const decision = store.state.decisions.find(d => d.prefix === prefix);
+    assert.equal(decision.results[0].expected, expected);
+    assert.equal(decision.results[0].result.judgments.length, calls);
+    if (wrongAt !== null) assert.notEqual(decision.results[0].result.judgments.at(-1).winner, expected);
+  }
 });
