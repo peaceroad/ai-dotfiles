@@ -292,6 +292,11 @@ function displayPath(pathValue) {
   return `[external]/${basename(absolute)}`;
 }
 
+function publicError(error) {
+  const paths = [error.path, error.dest].filter(value => typeof value === "string");
+  return sanitizeOutput(error.message, [...paths.map(value => [value, displayPath(value)]), [HOME_PATH, "~"]]);
+}
+
 function expandPath(pathValue, label) {
   if (typeof pathValue !== "string" || pathValue.trim() === "") fail(`${label} must be a non-empty path string.`);
   if (pathValue === "~") return HOME_PATH;
@@ -355,26 +360,124 @@ function pathKey(pathValue) {
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
-function writeAtomic(pathValue, content) {
+// Resolve an explicitly chosen root once; reject redirects beneath that boundary.
+function canonicalRoot(root) {
+  try { return realpathSync(root); }
+  catch (error) {
+    if (error.code !== "ENOENT" || dirname(root) === root) throw error;
+    return join(canonicalRoot(dirname(root)), basename(root));
+  }
+}
+
+function assertDestinationPath(root, target) {
+  if (!sameOrWithin(root, target)) fail("Managed destination escapes its selected root.");
+  let current = root;
+  const parts = relative(root, target).split(process.platform === "win32" ? "\\" : "/").filter(Boolean);
+  for (let index = -1; index < parts.length; index += 1) {
+    if (index >= 0) current = join(current, parts[index]);
+    const info = fileInfo(current);
+    if (!info) return;
+    if (info.isSymbolicLink() || (index < parts.length - 1 && !info.isDirectory())) {
+      fail(`Managed destination has a redirected or non-directory ancestor: ${displayPath(current)}`);
+    }
+  }
+}
+
+function cleanupPath(root, target, options, primaryError) {
+  try {
+    assertDestinationPath(root, target);
+    rmSync(target, options);
+  } catch (error) {
+    const detail = `Cleanup failed at ${displayPath(target)} (${error.code || "unsafe path"}). Inspect the path before removing any remnant.`;
+    if (primaryError) primaryError.message += `\nAdditionally, ${detail}`;
+    else console.error(`WARNING: ${detail} Completed changes, if any, were retained.`);
+  }
+}
+
+function restorePath(root, backup, destination, primaryError) {
+  try {
+    assertDestinationPath(root, backup);
+    assertDestinationPath(root, destination);
+    renameSync(backup, destination);
+  } catch (error) {
+    primaryError.message += `\nAdditionally, rollback failed (${error.code || "unsafe path"}); preserve ${displayPath(backup)} for recovery.`;
+  }
+}
+
+// A successful final rename is the commit boundary. Cleanup cannot uncommit it.
+function writeAtomic(root, pathValue, content) {
+  assertDestinationPath(root, pathValue);
   const directory = dirname(pathValue);
   mkdirSync(directory, { recursive: true });
   const temporary = join(directory, `.agent-write-${process.pid}-${randomUUID()}.tmp`);
   const backup = join(directory, `.agent-write-${process.pid}-${randomUUID()}.bak`);
-  const existed = existsSync(pathValue);
+  const existed = Boolean(fileInfo(pathValue));
   if (existed && !lstatSync(pathValue).isFile()) fail(`Refusing to replace a non-file: ${displayPath(pathValue)}`);
-  writeFileSync(temporary, content, { encoding: "utf8", flag: "wx" });
+  // Acquire ownership before entering cleanup; EEXIST must preserve that file.
+  const fd = openSync(temporary, "wx");
+  let primaryError;
   try {
+    try { writeFileSync(fd, content, { encoding: "utf8" }); }
+    catch (error) { primaryError = error; throw error; }
+    finally {
+      try { closeSync(fd); }
+      catch (error) {
+        if (!primaryError) throw error;
+        primaryError.message += `\nAdditionally, closing the temporary file failed (${error.code}).`;
+      }
+    }
+    assertDestinationPath(root, pathValue);
+    if (fileInfo(backup)) fail(`Backup path already exists: ${displayPath(backup)}`);
     if (existed) renameSync(pathValue, backup);
     try {
       renameSync(temporary, pathValue);
     } catch (error) {
-      if (existed && existsSync(backup)) renameSync(backup, pathValue);
+      if (existed) restorePath(root, backup, pathValue, error);
       throw error;
     }
-    if (existed) rmSync(backup, { force: true });
+    if (existed) cleanupPath(root, backup, { force: true });
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    rmSync(temporary, { force: true });
+    cleanupPath(root, temporary, { force: true }, primaryError);
   }
+}
+
+function configurationLocation() {
+  // An explicit override selects its parent as a root; the default stays in home.
+  const selectedRoot = process.env.AGENT_DEV_CONFIG ? dirname(CONFIG_PATH) : HOME_PATH;
+  const root = canonicalRoot(selectedRoot);
+  return { root, path: join(root, relative(selectedRoot, CONFIG_PATH)) };
+}
+
+function configurationBytes(path = CONFIG_PATH) {
+  const info = fileInfo(path);
+  if (!info) return null;
+  if (!info.isFile()) fail(`Configuration must be a regular file: ${displayPath(path)}`);
+  return readFileSync(path);
+}
+
+function configurationMatches(path, original) {
+  const current = configurationBytes(path);
+  return current === null ? original === null : original !== null && current.equals(original);
+}
+
+function withConfigurationLock(operation) {
+  const location = configurationLocation();
+  const lock = `${location.path}.lock`;
+  assertDestinationPath(location.root, location.path);
+  assertDestinationPath(location.root, lock);
+  mkdirSync(dirname(lock), { recursive: true });
+  try { mkdirSync(lock); }
+  catch (error) {
+    if (error.code === "EEXIST") fail(`Local configuration is locked. If no writer is running, inspect and remove ${displayPath(lock)}.`);
+    throw error;
+  }
+  let primaryError;
+  try { return operation(location); }
+  catch (error) { primaryError = error; throw error; }
+  finally { cleanupPath(location.root, lock, { recursive: true }, primaryError); }
 }
 
 function emptyConfiguration() {
@@ -714,13 +817,6 @@ function importExistingMarketplace(name, rootValue, config) {
     plugins: [],
     skills: [],
   };
-}
-
-function readConfigurationForConfigure() {
-  if (!existsSync(CONFIG_PATH)) return emptyConfiguration();
-  const config = readJson(CONFIG_PATH, displayPath(CONFIG_PATH));
-  validateConfiguration(config);
-  return config;
 }
 
 function selectTarget(entries, requestedName, label) {
@@ -1063,7 +1159,9 @@ function hasMarketplaceArtifacts(root) {
 }
 
 function acquireMarketplaceLock(root, name) {
+  assertMarketplaceDestinations(root);
   const lockPath = join(root, MARKETPLACE_LOCK_RELATIVE_PATH);
+  assertDestinationPath(root, lockPath);
   mkdirSync(dirname(lockPath), { recursive: true });
   try {
     mkdirSync(lockPath);
@@ -1082,11 +1180,17 @@ function assertMarketplaceUnlocked(root, name) {
   }
 }
 
-function releaseMarketplaceLock(lockPath, operationError) {
-  try { rmSync(lockPath, { recursive: true, force: true }); }
-  catch (error) {
-    if (!operationError) throw error;
-    operationError.message += `\nAdditionally, the Marketplace sync lock could not be removed: ${error.message}`;
+function releaseMarketplaceLock(root, lockPath, operationError) {
+  cleanupPath(root, lockPath, { recursive: true, force: true }, operationError);
+}
+
+function assertMarketplaceDestinations(root) {
+  for (const output of ["plugins", "skills", MARKETPLACE_CONFIG_RELATIVE_PATH,
+    MARKETPLACE_LOCK_RELATIVE_PATH, MARKETPLACE_SKILL_CATALOG_RELATIVE_PATH,
+    join(".agents", "marketplace-development", "state.json"),
+    join(".agents", "marketplace-development", "schema.json"),
+    join(".agents", "plugins", "marketplace.json")]) {
+    assertDestinationPath(root, join(root, output));
   }
 }
 
@@ -1149,14 +1253,18 @@ function acceptedRevision(root) {
   return acceptedRevisionRecord(root)?.revision ?? null;
 }
 
-function acceptRevision(root, revision = marketplaceRevision(root)) {
-  const id = rootId(root);
+function acceptRevision(root, revision = marketplaceRevision(root), identityRoot = root) {
+  const id = rootId(identityRoot);
   const reference = readJson(join(root, MARKETPLACE_CONFIG_RELATIVE_PATH), "Marketplace reference");
   const name = validateMarketplaceName(reference.name, "Marketplace name");
   const previous = findRevisionFile(id);
-  const file = join(REVISION_DIRECTORY, `${name}--${id}.json`);
-  writeAtomic(file, jsonText({ schemaVersion: 1, marketplace: name, rootId: id, revision, acceptedAt: new Date().toISOString() }));
-  if (previous && previous !== file) rmSync(previous);
+  const location = configurationLocation();
+  const file = join(dirname(location.path), "state", "marketplaces", `${name}--${id}.json`);
+  writeAtomic(location.root, file, jsonText({ schemaVersion: 1, marketplace: name, rootId: id, revision, acceptedAt: new Date().toISOString() }));
+  if (previous) {
+    const oldFile = join(dirname(location.path), relative(dirname(CONFIG_PATH), previous));
+    if (oldFile !== file) cleanupPath(location.root, oldFile, { force: true });
+  }
 }
 
 function sameMarketplaceAssignments(shared, local) {
@@ -1293,15 +1401,17 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
       2,
     );
   }
-  const root = expandPath(entry.root, `marketplaces.${name}.root`);
+  const identityRoot = expandPath(entry.root, `marketplaces.${name}.root`);
+  const root = canonicalRoot(identityRoot);
   assertMarketplaceLayoutCurrent(root, name);
   const lockPath = action === "sync" ? acquireMarketplaceLock(root, name) : null;
   if (action === "check") assertMarketplaceUnlocked(root, name);
   let operationError;
   try {
+    assertMarketplaceDestinations(root);
     const scoped = requestedPlugin !== undefined || requestedSkill !== undefined;
     const advanceScopedRevision = action === "sync" && scoped && entry.mode === "authoritative"
-      && acceptedRevision(root) === marketplaceRevision(root);
+      && acceptedRevision(identityRoot) === marketplaceRevision(root);
     const currentMirror = scoped ? readManagedMarketplaceMirror(root, name) : null;
     const materialized = marketplaceMaterialization(name, entry, config, {
       root,
@@ -1320,7 +1430,7 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
       fail(`Refusing to adopt existing Marketplace artifacts without an agent dev configuration: ${name}.`);
     }
     if (!scoped && ["current", "outdated"].includes(mirrorState.status)) {
-      const accepted = acceptedRevision(root);
+      const accepted = acceptedRevision(identityRoot);
       if (accepted === null) {
         const shared = validateManagedMarketplaceReference(mirrorState.reference, "Marketplace reference configuration");
         const matching = sameMarketplaceAssignments(shared, materialized.mirror);
@@ -1368,17 +1478,17 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
     }
     if (status !== 0) return status;
     if (mirrorState.status !== "current") {
-      writeAtomic(mirrorState.path, jsonText(materialized.mirror));
+      writeAtomic(root, mirrorState.path, jsonText(materialized.mirror));
       const change = mirrorState.status === "missing" ? "Created" : "Updated";
       console.log(`${change}: ${MARKETPLACE_CONFIG_RELATIVE_PATH.replaceAll("\\", "/")}`);
     }
-    if (!scoped || advanceScopedRevision) acceptRevision(root);
+    if (!scoped || advanceScopedRevision) acceptRevision(root, undefined, identityRoot);
     return 0;
   } catch (error) {
     operationError = error;
     throw error;
   } finally {
-    if (lockPath) releaseMarketplaceLock(lockPath, operationError);
+    if (lockPath) releaseMarketplaceLock(root, lockPath, operationError);
   }
 }
 
@@ -1429,17 +1539,17 @@ function treeDigestSync(root, expectedDigest) {
   return `${legacy ? "sha256" : "sha256-tree-v2"}:${hash.digest("hex")}`;
 }
 
-function readMarketplaceSkillState() {
-  if (!existsSync(MARKETPLACE_SKILL_STATE_PATH)) {
+function readMarketplaceSkillState(paths) {
+  if (!existsSync(paths.state)) {
     return { $comment: MARKETPLACE_SKILL_STATE_MARKER, schemaVersion: 1, skills: {} };
   }
-  const state = readJson(MARKETPLACE_SKILL_STATE_PATH, displayPath(MARKETPLACE_SKILL_STATE_PATH));
+  const state = readJson(paths.state, displayPath(paths.state));
   if (
     !isObject(state)
     || state.$comment !== MARKETPLACE_SKILL_STATE_MARKER
     || state.schemaVersion !== 1
     || !isObject(state.skills)
-  ) fail(`Refusing invalid or unmanaged Marketplace Skill state: ${displayPath(MARKETPLACE_SKILL_STATE_PATH)}.`);
+  ) fail(`Refusing invalid or unmanaged Marketplace Skill state: ${displayPath(paths.state)}.`);
   for (const [name, entry] of Object.entries(state.skills)) {
     validateSkillName(name, "Installed Marketplace Skill name");
     assertKnownKeys(entry, MARKETPLACE_SKILL_STATE_ENTRY_KEYS, `state.skills.${name}`);
@@ -1505,75 +1615,104 @@ function selectConsumerMarketplace(config, requestedName, preferredName = null) 
   return selectTarget(config.marketplaces, undefined, "marketplace");
 }
 
-function acquireMarketplaceSkillLock() {
-  mkdirSync(dirname(MARKETPLACE_SKILL_LOCK_PATH), { recursive: true });
-  try {
-    mkdirSync(MARKETPLACE_SKILL_LOCK_PATH);
-  } catch (error) {
+function consumerPaths() {
+  const root = canonicalRoot(HOME_PATH);
+  return {
+    root,
+    agents: join(root, ".agents"),
+    skills: join(root, ".agents", "skills"),
+    state: join(root, relative(HOME_PATH, MARKETPLACE_SKILL_STATE_PATH)),
+    lock: join(root, relative(HOME_PATH, MARKETPLACE_SKILL_LOCK_PATH)),
+  };
+}
+
+function assertConsumerDestinations(paths) {
+  for (const target of [paths.skills, paths.state, paths.lock]) assertDestinationPath(paths.root, target);
+}
+
+function acquireMarketplaceSkillLock(paths) {
+  assertConsumerDestinations(paths);
+  mkdirSync(dirname(paths.lock), { recursive: true });
+  try { mkdirSync(paths.lock); }
+  catch (error) {
     if (error.code === "EEXIST") {
-      fail("Another Marketplace Skill change is in progress. If none is running, remove the stale ~/.agents/.marketplace-skill.lock directory.");
+      fail(`Another Marketplace Skill change is in progress. If none is running, inspect and remove ${displayPath(paths.lock)}.`);
     }
     throw error;
   }
-  return MARKETPLACE_SKILL_LOCK_PATH;
+  return paths.lock;
 }
 
-function replaceManagedSkillDirectory(source, destination, name, state, stateEntry) {
-  const agentsRoot = join(HOME_PATH, ".agents");
+function replaceManagedSkillDirectory(paths, source, destination, name, state, stateEntry) {
+  const agentsRoot = paths.agents;
+  assertDestinationPath(paths.root, destination);
   mkdirSync(dirname(destination), { recursive: true });
   const staged = join(agentsRoot, `.marketplace-skill-${process.pid}-${randomUUID()}.tmp`);
   const backup = join(agentsRoot, `.marketplace-skill-${process.pid}-${randomUUID()}.bak`);
   const existed = existsSync(destination);
-  let replaced = false;
+  assertDestinationPath(paths.root, staged);
+  assertDestinationPath(paths.root, backup);
+  if (fileInfo(backup)) fail(`Backup path already exists: ${displayPath(backup)}`);
+  mkdirSync(staged); // Exclusive staging ownership; never reuse an existing directory.
+  let primaryError;
   try {
-    cpSync(source, staged, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
+    for (const entry of readdirSync(source)) {
+      cpSync(join(source, entry), join(staged, entry), {
+        recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true,
+      });
+    }
     if (treeDigestSync(staged, stateEntry.digest) !== stateEntry.digest) fail(`Copied Skill differs from the Marketplace source: ${name}.`);
+    assertDestinationPath(paths.root, destination);
     if (existed) renameSync(destination, backup);
     try {
       renameSync(staged, destination);
     } catch (error) {
-      if (existed) {
-        try { renameSync(backup, destination); }
-        catch (restoreError) { error.message += `\nAdditionally, the previous Skill could not be restored: ${restoreError.message}`; }
-      }
+      if (existed) restorePath(paths.root, backup, destination, error);
       throw error;
     }
-    replaced = true;
     state.skills[name] = stateEntry;
     try {
-      writeAtomic(MARKETPLACE_SKILL_STATE_PATH, jsonText(state));
+      writeAtomic(paths.root, paths.state, jsonText(state));
     } catch (error) {
-      rmSync(destination, { recursive: true, force: true });
-      if (existed) renameSync(backup, destination);
+      cleanupPath(paths.root, destination, { recursive: true, force: true }, error);
+      if (existed) restorePath(paths.root, backup, destination, error);
       throw error;
     }
-    if (existed) rmSync(backup, { recursive: true, force: true });
+    if (existed) cleanupPath(paths.root, backup, { recursive: true, force: true });
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    if (!replaced || existsSync(staged)) rmSync(staged, { recursive: true, force: true });
+    cleanupPath(paths.root, staged, { recursive: true, force: true }, primaryError);
   }
 }
 
-function handleConsumerMarketplaceSkillMutation(action, skillName, requestedMarketplace, config) {
-  const state = readMarketplaceSkillState();
+function handleConsumerMarketplaceSkillMutation(paths, action, skillName, requestedMarketplace, config) {
+  assertConsumerDestinations(paths);
+  const state = readMarketplaceSkillState(paths);
   const name = validateSkillName(skillName, "Skill name");
   const existingState = Object.hasOwn(state.skills, name) ? state.skills[name] : null;
   if (action === "remove") {
     if (!existingState) fail(`Skill ${name} is not managed by agent marketplace.`, 2);
-    const destination = join(HOME_PATH, ".agents", "skills", name);
+    const destination = join(paths.skills, name);
+    assertDestinationPath(paths.root, destination);
     if (!existsSync(destination) || !lstatSync(destination).isDirectory()) fail(`Managed Skill directory is missing: ${name}.`);
     if (treeDigestSync(destination, existingState.digest) !== existingState.digest) {
       fail(`Refusing to remove locally changed Skill: ${name}. Preserve or revert the changes first.`);
     }
-    const backup = join(HOME_PATH, ".agents", `.marketplace-skill-${process.pid}-${randomUUID()}.bak`);
+    const backup = join(paths.agents, `.marketplace-skill-${process.pid}-${randomUUID()}.bak`);
+    assertDestinationPath(paths.root, backup);
+    if (fileInfo(backup)) fail(`Backup path already exists: ${displayPath(backup)}`);
+    assertDestinationPath(paths.root, destination);
     renameSync(destination, backup);
     delete state.skills[name];
     try {
-      writeAtomic(MARKETPLACE_SKILL_STATE_PATH, jsonText(state));
+      writeAtomic(paths.root, paths.state, jsonText(state));
     } catch (error) {
-      renameSync(backup, destination);
+      restorePath(paths.root, backup, destination, error);
       throw error;
     }
-    rmSync(backup, { recursive: true, force: true });
+    cleanupPath(paths.root, backup, { recursive: true, force: true });
     console.log(`Removed Marketplace Skill: ${name}`);
     return 0;
   }
@@ -1584,7 +1723,8 @@ function handleConsumerMarketplaceSkillMutation(action, skillName, requestedMark
   const skills = readMarketplaceSkillCatalog(marketplaceName, marketplace, { verifySkill: name });
   const skill = skills.find((candidate) => candidate.name === name);
   if (!skill) fail(`Marketplace ${marketplaceName} does not contain Skill ${name}.`, 2);
-  const destination = join(HOME_PATH, ".agents", "skills", name);
+  const destination = join(paths.skills, name);
+  assertDestinationPath(paths.root, destination);
   const nextStateEntry = {
     marketplace: marketplaceName,
     digest: skill.digest,
@@ -1597,7 +1737,7 @@ function handleConsumerMarketplaceSkillMutation(action, skillName, requestedMark
     if (currentDigest === skill.digest || (existingState.digest.startsWith("sha256:") && treeDigestSync(destination, skill.digest) === skill.digest)) {
       if (existingState.marketplace !== marketplaceName || existingState.digest !== skill.digest) {
         state.skills[name] = nextStateEntry;
-        writeAtomic(MARKETPLACE_SKILL_STATE_PATH, jsonText(state));
+        writeAtomic(paths.root, paths.state, jsonText(state));
         console.log(`Updated Marketplace Skill metadata: ${name}`);
         return 0;
       }
@@ -1605,7 +1745,7 @@ function handleConsumerMarketplaceSkillMutation(action, skillName, requestedMark
       return 0;
     }
   } else if (action === "update") fail(`Managed Skill directory is missing: ${name}. Use install after resolving its state.`);
-  replaceManagedSkillDirectory(skill.source, destination, name, state, nextStateEntry);
+  replaceManagedSkillDirectory(paths, skill.source, destination, name, state, nextStateEntry);
   console.log(`${existingState ? "Updated" : "Installed"} Marketplace Skill: ${name}`);
   return 0;
 }
@@ -1619,20 +1759,16 @@ function handleConsumerMarketplaceSkill(action, skillName, requestedMarketplace,
     return 0;
   }
 
-  const lockPath = acquireMarketplaceSkillLock();
+  const paths = consumerPaths();
+  const lockPath = acquireMarketplaceSkillLock(paths);
   let operationError;
   try {
-    return handleConsumerMarketplaceSkillMutation(action, skillName, requestedMarketplace, config);
+    return handleConsumerMarketplaceSkillMutation(paths, action, skillName, requestedMarketplace, config);
   } catch (error) {
     operationError = error;
     throw error;
   } finally {
-    try {
-      rmSync(lockPath, { recursive: true });
-    } catch (error) {
-      if (!operationError) throw error;
-      operationError.message += `\nAdditionally, the Marketplace Skill lock could not be removed: ${error.message}`;
-    }
+    cleanupPath(paths.root, lockPath, { recursive: true }, operationError);
   }
 }
 
@@ -2515,11 +2651,12 @@ async function checkMarketplace({ target, pluginTarget, skillTarget, interactive
 }
 
 async function reconcileMarketplace(requestedName) {
-  const original = readFileSync(CONFIG_PATH, "utf8");
+  const original = readFileSync(CONFIG_PATH);
   const config = JSON.parse(original);
   validateConfiguration(config);
   const [name, entry] = selectTarget(config.marketplaces, requestedName, "marketplace");
-  const root = expandPath(entry.root, `marketplaces.${name}.root`);
+  const identityRoot = expandPath(entry.root, `marketplaces.${name}.root`);
+  const root = canonicalRoot(identityRoot);
   assertMarketplaceUnlocked(root, name);
   const revision = marketplaceRevision(root);
   const shared = readManagedMarketplaceMirror(root, name);
@@ -2591,21 +2728,25 @@ async function reconcileMarketplace(requestedName) {
     let operationError;
     try {
       if (marketplaceRevision(root) !== revision) fail("Shared Marketplace changed during review. Run check --interactive again. No changes made.");
-      if (readFileSync(CONFIG_PATH, "utf8") !== original) fail("Local configuration changed during review. Run check --interactive again. No changes made.");
-      writeAtomic(CONFIG_PATH, jsonText(config));
-      acceptRevision(root, revision);
+      withConfigurationLock((location) => {
+        if (!configurationMatches(location.path, original)) fail("Local configuration changed during review. Run check --interactive again. No changes made.");
+        writeAtomic(location.root, location.path, jsonText(config));
+        acceptRevision(root, revision, identityRoot);
+      });
     } catch (error) {
       operationError = error;
       throw error;
-    } finally { releaseMarketplaceLock(lock, operationError); }
+    } finally { releaseMarketplaceLock(root, lock, operationError); }
     console.log(`Reconciled Marketplace ${name}; mode: ${entry.mode}. No packages were synchronized.`);
     return 0;
   } finally { input.close(); }
 }
 
 async function handleConfigure(requestedName) {
-  const existed = existsSync(CONFIG_PATH);
-  const original = readConfigurationForConfigure();
+  const originalBytes = configurationBytes();
+  const existed = originalBytes !== null;
+  const original = existed ? JSON.parse(originalBytes) : emptyConfiguration();
+  validateConfiguration(original);
   const config = JSON.parse(JSON.stringify(original));
   const input = createPromptReader();
   try {
@@ -2682,11 +2823,21 @@ Enter :back in an input form to discard that operation.`);
         return 0;
       } else if (action === "s") {
         validateConfiguration(config);
-        if (existed && canonicalJson(config) === canonicalJson(original)) {
-          console.log("Configuration is current.");
-        } else {
-          writeAtomic(CONFIG_PATH, jsonText(config));
-          console.log(`${existed ? "Updated" : "Created"}: ${displayPath(CONFIG_PATH)}`);
+        try {
+          withConfigurationLock((location) => {
+            if (!configurationMatches(location.path, originalBytes)) {
+              fail("Local configuration changed while configure was open. No settings were overwritten. The draft is still in this menu; review it before canceling and reopening configure.");
+            }
+            if (existed && canonicalJson(config) === canonicalJson(original)) {
+              console.log("Configuration is current.");
+            } else {
+              writeAtomic(location.root, location.path, jsonText(config));
+              console.log(`${existed ? "Updated" : "Created"}: ${displayPath(CONFIG_PATH)}`);
+            }
+          });
+        } catch (error) {
+          console.error(publicError(error));
+          continue;
         }
         console.log("Run agent dev marketplace check or sync explicitly when ready.");
         return 0;
@@ -2861,7 +3012,7 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  console.error(`agent: ${sanitizeOutput(error.message, [[HOME_PATH, "~"]])}`);
+  console.error(`agent: ${publicError(error)}`);
   if (error.exitCode === 2) {
     const scope = helpScope(process.argv.slice(2));
     console.error(`\nRun agent${scope ? ` ${scope}` : ""} --help for usage.`);

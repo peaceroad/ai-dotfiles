@@ -1484,3 +1484,447 @@ syncBuiltinESMExports();
     }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+function consumerFixture(root) {
+  const home = join(root, "home");
+  const marketplace = join(root, "marketplace");
+  const source = join(marketplace, "skills", "sample");
+  const catalogPath = join(marketplace, ".agents", "skills", "catalog.json");
+  const configPath = join(root, "development.json");
+  const statePath = join(home, ".agents", "ai-dotfiles", "state", "skill-installations.json");
+  mkdirSync(home, { recursive: true });
+  mkdirSync(source, { recursive: true });
+  mkdirSync(dirname(catalogPath), { recursive: true });
+  writeJson(configPath, { schemaVersion: 2, skills: {}, plugins: {}, marketplaces: { shared: {
+    root: marketplace, name: "shared", displayName: "Shared", mode: "consumer", plugins: [], skills: [],
+  } } });
+  return { home, marketplace, source, catalogPath, configPath, statePath,
+    installed: join(home, ".agents", "skills", "sample"),
+    env: { AGENT_DEV_HOME: home, AGENT_DEV_CONFIG: configPath },
+  };
+}
+
+async function publishConsumerFixture(fixture, content) {
+  const { createHash } = await import("node:crypto");
+  const text = `---\nname: sample\ndescription: Synthetic sample.\n---\n${content}\n`;
+  writeFileSync(join(fixture.source, "SKILL.md"), text);
+  const fileHash = createHash("sha256").update(text).digest("hex");
+  const digest = `sha256-tree-v2:${createHash("sha256").update(`f\0SKILL.md\0${fileHash}\0`).digest("hex")}`;
+  writeJson(fixture.catalogPath, { $comment: "@plugin-creator-agent-plugins managed-skill-catalog v1", schemaVersion: 1,
+    marketplace: { name: "shared", displayName: "Shared" }, skills: [{ name: "sample", path: "../../skills/sample", digest }] });
+  return digest;
+}
+
+function consumerRun(fixture, action, extraEnv = {}) {
+  return run(CLI, ["marketplace", "skill", action, "sample"], { ...fixture.env, ...extraEnv });
+}
+
+test("consumer rejects redirected destination, state and lock ancestors before writing", async (t) => {
+  const { mkdtempSync, existsSync, renameSync, readdirSync } = await import("node:fs");
+  const targets = [".agents", ".agents/skills", ".agents/ai-dotfiles", ".agents/ai-dotfiles/state",
+    ".agents/ai-dotfiles/state/skill-installations.json", ".agents/ai-dotfiles/state/skill-installations.lock",
+    ".agents/skills/sample"];
+  for (const target of targets) await t.test(target, async (t) => {
+    const root = mkdtempSync(join(tmpdir(), "consumer-boundary-"));
+    try {
+      const fixture = consumerFixture(root);
+      await publishConsumerFixture(fixture, "Original");
+      const redirected = join(fixture.home, target);
+      const outside = join(root, "outside");
+      mkdirSync(dirname(redirected), { recursive: true });
+      const file = target.endsWith(".json");
+      if (file) writeFileSync(outside, "sentinel");
+      else if (existsSync(redirected)) renameSync(redirected, outside);
+      else mkdirSync(outside);
+      if (!file) writeFileSync(join(outside, "sentinel"), "preserve");
+      try { symlinkSync(outside, redirected, file ? "file" : "junction"); }
+      catch (error) {
+        if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+        throw error;
+      }
+      const before = file ? readFileSync(outside) : readdirSync(outside, { recursive: true });
+      const result = consumerRun(fixture, "install");
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /redirected/u);
+      assert.deepEqual(file ? readFileSync(outside) : readdirSync(outside, { recursive: true }), before);
+      if (!file) assert.equal(readFileSync(join(outside, "sentinel"), "utf8"), "preserve");
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});
+
+test("consumer refuses update/remove after an internal redirect and permits a selected home alias", async (t) => {
+  const { mkdtempSync, renameSync, existsSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "consumer-home-alias-"));
+  try {
+    const fixture = consumerFixture(root);
+    await publishConsumerFixture(fixture, "Original");
+    const alias = join(root, "selected-home");
+    try { symlinkSync(fixture.home, alias, "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    fixture.env.AGENT_DEV_HOME = alias;
+    const installed = consumerRun(fixture, "install");
+    assert.equal(installed.status, 0, installed.stderr);
+    const beforeState = readFileSync(fixture.statePath);
+    const skills = dirname(fixture.installed);
+    const outside = join(root, "outside-skills");
+    renameSync(skills, outside);
+    symlinkSync(outside, skills, "junction");
+    for (const action of ["update", "remove"]) {
+      const result = consumerRun(fixture, action);
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /redirected/u);
+      assert.deepEqual(readFileSync(fixture.statePath), beforeState);
+      assert.match(readFileSync(join(outside, "sample", "SKILL.md"), "utf8"), /Original/u);
+    }
+    rmSync(skills);
+    renameSync(outside, skills);
+    assert.equal(consumerRun(fixture, "remove").status, 0);
+    assert.equal(existsSync(fixture.installed), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+async function failurePreload(root) {
+  const { pathToFileURL } = await import("node:url");
+  const preload = join(root, "failure.mjs");
+  writeFileSync(preload, `import fs from "node:fs";
+import { basename } from "node:path";
+import { syncBuiltinESMExports } from "node:module";
+const originalRm = fs.rmSync, originalRename = fs.renameSync;
+function failure() { const error = new Error("Injected filesystem failure"); error.code = "EACCES"; throw error; }
+fs.rmSync = (target, ...args) => {
+  const name = basename(String(target));
+  const mode = process.env.SYNTHETIC_FAILURE;
+  if ((mode === "state-backup-cleanup" && name.startsWith(".agent-write-") && name.endsWith(".bak"))
+    || (mode === "state-temporary-cleanup" && name.startsWith(".agent-write-") && name.endsWith(".tmp"))
+    || (mode === "skill-backup-cleanup" && name.startsWith(".marketplace-skill-") && name.endsWith(".bak"))) failure();
+  return originalRm(target, ...args);
+};
+fs.renameSync = (from, to) => {
+  if (process.env.SYNTHETIC_FAILURE === "state-commit" && basename(String(from)).startsWith(".agent-write-")
+    && String(from).endsWith(".tmp") && basename(String(to)) === "skill-installations.json") failure();
+  return originalRename(from, to);
+};
+syncBuiltinESMExports();\n`);
+  return `--import=${pathToFileURL(preload).href}`;
+}
+
+test("consumer cleanup failures retain committed content and state and allow normal retries", async (t) => {
+  const { mkdtempSync, existsSync } = await import("node:fs");
+  for (const fault of ["state-backup-cleanup", "state-temporary-cleanup", "skill-backup-cleanup"]) {
+    await t.test(fault, async () => {
+      const root = mkdtempSync(join(tmpdir(), "consumer-cleanup-"));
+      try {
+        const fixture = consumerFixture(root);
+        await publishConsumerFixture(fixture, "Original");
+        assert.equal(consumerRun(fixture, "install").status, 0);
+        const digest = await publishConsumerFixture(fixture, "Updated");
+        const faultEnv = { NODE_OPTIONS: await failurePreload(root), SYNTHETIC_FAILURE: fault };
+        const updated = consumerRun(fixture, "update", faultEnv);
+        assert.equal(updated.status, 0, updated.stderr);
+        assert.match(updated.stderr, /WARNING: Cleanup failed/u);
+        assert.match(readFileSync(join(fixture.installed, "SKILL.md"), "utf8"), /Updated/u);
+        assert.equal(JSON.parse(readFileSync(fixture.statePath)).skills.sample.digest, digest);
+        const retry = consumerRun(fixture, "update");
+        assert.equal(retry.status, 0, retry.stderr);
+        assert.match(retry.stdout, /is current/u);
+        const removed = consumerRun(fixture, "remove", faultEnv);
+        assert.equal(removed.status, 0, removed.stderr);
+        assert.match(removed.stderr, /WARNING: Cleanup failed/u);
+        assert.equal(existsSync(fixture.installed), false);
+        assert.equal(Object.hasOwn(JSON.parse(readFileSync(fixture.statePath)).skills, "sample"), false);
+        assert.equal(consumerRun(fixture, "install").status, 0);
+      } finally { rmSync(root, { recursive: true, force: true }); }
+    });
+  }
+});
+
+test("consumer state commit failures roll back install, update and remove consistently", async (t) => {
+  const { mkdtempSync, existsSync } = await import("node:fs");
+  for (const action of ["install", "update", "remove"]) await t.test(action, async () => {
+    const root = mkdtempSync(join(tmpdir(), "consumer-commit-"));
+    try {
+      const fixture = consumerFixture(root);
+      await publishConsumerFixture(fixture, "Original");
+      if (action !== "install") assert.equal(consumerRun(fixture, "install").status, 0);
+      const oldState = existsSync(fixture.statePath) ? readFileSync(fixture.statePath) : null;
+      if (action === "update") await publishConsumerFixture(fixture, "Updated");
+      const result = consumerRun(fixture, action, { NODE_OPTIONS: await failurePreload(root), SYNTHETIC_FAILURE: "state-commit" });
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /Injected filesystem failure/u);
+      assert.deepEqual(existsSync(fixture.statePath) ? readFileSync(fixture.statePath) : null, oldState);
+      if (action === "install") assert.equal(existsSync(fixture.installed), false);
+      else assert.match(readFileSync(join(fixture.installed, "SKILL.md"), "utf8"), /Original/u);
+      const retry = consumerRun(fixture, action);
+      assert.equal(retry.status, 0, retry.stderr);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});
+
+async function configureWithConcurrentChange(fixture, initialInput, pendingText, change, finalInput = "s\ne\n\n\n:back\nq\n") {
+  const { spawn } = await import("node:child_process");
+  return await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [CLI, "dev", "marketplace", "configure"], {
+      env: { ...process.env, ...fixture.env }, stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "", stderr = "", changed = false;
+    const timer = setTimeout(() => { child.kill(); reject(new Error("Synthetic configure timed out")); }, 10000);
+    child.on("error", error => { clearTimeout(timer); reject(error); });
+    child.stdout.on("data", chunk => {
+      stdout += chunk;
+      if (!changed && stdout.includes(pendingText)) {
+        changed = true;
+        try { change(); child.stdin.end(finalInput); }
+        catch (error) { child.kill(); clearTimeout(timer); reject(error); }
+      }
+    });
+    child.stderr.on("data", chunk => { stderr += chunk; });
+    child.on("close", status => { clearTimeout(timer); resolve({ status, stdout, stderr, changed }); });
+    child.stdin.write(initialInput);
+  });
+}
+
+test("configure keeps its draft and refuses changed, deleted or newly created configuration bytes", async (t) => {
+  const { mkdtempSync, existsSync } = await import("node:fs");
+  for (const variant of ["changed", "deleted", "created", "formatting-only", "encoding-only"]) await t.test(variant, async () => {
+    const root = mkdtempSync(join(tmpdir(), "configure-conflict-"));
+    try {
+      const fixture = consumerFixture(root);
+      let expected;
+      const created = variant === "created";
+      if (created) rmSync(fixture.configPath);
+      if (variant === "encoding-only") {
+        const config = JSON.parse(readFileSync(fixture.configPath));
+        config.marketplaces.shared.displayName = "\ufffd";
+        writeJson(fixture.configPath, config);
+      }
+      const result = await configureWithConcurrentChange(fixture,
+        created ? `a\nshared\n${fixture.marketplace}\n\nDraft title\n` : "e\n\n\nDraft title\n",
+        `${created ? "Added" : "Updated"} Marketplace target: shared (pending settings)`, () => {
+          if (variant === "deleted") { rmSync(fixture.configPath); expected = null; }
+          else if (variant === "encoding-only") {
+            const before = readFileSync(fixture.configPath);
+            const index = before.indexOf(Buffer.from("\ufffd"));
+            assert.ok(index >= 0);
+            expected = Buffer.concat([before.subarray(0, index), Buffer.from([0xff]), before.subarray(index + 3)]);
+            assert.equal(expected.toString("utf8"), before.toString("utf8"));
+            writeFileSync(fixture.configPath, expected);
+          }
+          else {
+            const config = created ? { schemaVersion: 2, skills: {}, plugins: {}, marketplaces: {} }
+              : JSON.parse(readFileSync(fixture.configPath));
+            if (variant !== "formatting-only") config.marketplaces.concurrent = {
+              root: join(root, "concurrent"), name: "concurrent", displayName: "Concurrent", mode: "consumer", plugins: [], skills: [],
+            };
+            expected = Buffer.from(`${JSON.stringify(config)}\n\n`);
+            writeFileSync(fixture.configPath, expected);
+          }
+        });
+      assert.equal(result.changed, true);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stderr, /Local configuration changed while configure was open/u);
+      assert.match(result.stdout, /current: Draft title/u);
+      assert.deepEqual(existsSync(fixture.configPath) ? readFileSync(fixture.configPath) : null, expected);
+      assert.equal(existsSync(`${fixture.configPath}.lock`), false);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});
+
+test("configure respects a held configuration lock and does not remove another writer's lock", async () => {
+  const { mkdtempSync, existsSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "configure-lock-"));
+  try {
+    const fixture = consumerFixture(root);
+    const before = readFileSync(fixture.configPath);
+    const lock = `${fixture.configPath}.lock`;
+    mkdirSync(lock);
+    const result = run(CLI, ["dev", "marketplace", "configure"], fixture.env, "e\n\n\nDraft title\ns\nq\n");
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /configuration is locked/u);
+    assert.deepEqual(readFileSync(fixture.configPath), before);
+    assert.equal(existsSync(lock), true);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("consumer verifies both assembler digest formats across multiple read chunks", async (t) => {
+  const { mkdtempSync } = await import("node:fs");
+  const { pathToFileURL } = await import("node:url");
+  const { treeDigest } = await import(pathToFileURL(MARKETPLACE_MANAGER).href);
+  const root = mkdtempSync(join(tmpdir(), "consumer-digest-vector-"));
+  try {
+    const fixture = consumerFixture(root);
+    await publishConsumerFixture(fixture, "Vector");
+    mkdirSync(join(fixture.source, "nested"));
+    writeFileSync(join(fixture.source, "nested", "é.txt"), "unicode\u0000tail");
+    writeFileSync(join(fixture.source, "empty"), Buffer.alloc(0));
+    writeFileSync(join(fixture.source, "Z.bin"), Buffer.from(Array.from({ length: 700003 }, (_, i) => i % 251)));
+    try { symlinkSync("Z.bin", join(fixture.source, "link"), "file"); }
+    catch (error) {
+      if (!["EPERM", "EACCES"].includes(error.code)) throw error;
+      t.diagnostic("Link vector unavailable; other digest vectors still checked");
+    }
+    for (const legacy of [false, true]) {
+      const catalog = JSON.parse(readFileSync(fixture.catalogPath));
+      catalog.skills[0].digest = await treeDigest(fixture.source, legacy);
+      writeJson(fixture.catalogPath, catalog);
+      const installed = consumerRun(fixture, "install");
+      assert.equal(installed.status, 0, installed.stderr);
+      assert.equal(JSON.parse(readFileSync(fixture.statePath)).skills.sample.digest, catalog.skills[0].digest);
+      const removed = consumerRun(fixture, "remove");
+      assert.equal(removed.status, 0, removed.stderr);
+    }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("Marketplace wrapper refuses redirected lock parents before invoking the assembler", async (t) => {
+  const { mkdtempSync, readdirSync, renameSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "wrapper-boundary-"));
+  try {
+    const fixture = consumerFixture(root);
+    const config = JSON.parse(readFileSync(fixture.configPath));
+    config.marketplaces.shared.mode = "authoritative";
+    writeJson(fixture.configPath, config);
+    const outside = join(root, "outside");
+    const redirected = join(fixture.marketplace, ".agents");
+    renameSync(redirected, outside);
+    try { symlinkSync(outside, redirected, "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const runner = join(root, "manager.mjs"), log = join(root, "manager.log");
+    makeRunner(runner, "assembler");
+    const before = readdirSync(outside, { recursive: true });
+    const result = run(CLI, ["dev", "marketplace", "sync"], {
+      ...fixture.env, AGENT_DEV_MARKETPLACE_MANAGER: runner, AGENT_DEV_LOG: log,
+    });
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /redirected/u);
+    assert.deepEqual(readdirSync(outside, { recursive: true }), before);
+    const { existsSync } = await import("node:fs");
+    assert.equal(existsSync(log), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("interactive Marketplace review shares configure's save lock", async () => {
+  const { mkdtempSync, existsSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "reconcile-config-lock-"));
+  try {
+    const fixture = consumerFixture(root);
+    rmSync(fixture.marketplace, { recursive: true });
+    const config = JSON.parse(readFileSync(fixture.configPath));
+    config.marketplaces.shared.mode = "authoritative";
+    writeJson(fixture.configPath, config);
+    const env = { ...fixture.env, AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER };
+    const sync = run(CLI, ["dev", "marketplace", "sync"], env);
+    assert.equal(sync.status, 0, sync.stderr);
+    const before = readFileSync(fixture.configPath);
+    const lock = `${fixture.configPath}.lock`;
+    mkdirSync(lock);
+    const result = run(CLI, ["dev", "marketplace", "check", "--interactive"], env, "2\nnone\ny\n");
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /configuration is locked/u);
+    assert.deepEqual(readFileSync(fixture.configPath), before);
+    assert.equal(existsSync(lock), true);
+    assert.equal(existsSync(join(fixture.marketplace, ".agents", "marketplace-development", "agent-dev-sync.lock")), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("consumer preserves temporary, staging and backup collisions without changing managed state", async (t) => {
+  const { mkdtempSync } = await import("node:fs");
+  const { pathToFileURL } = await import("node:url");
+  for (const kind of ["state-temporary", "state-backup", "skill-staging", "skill-backup"]) await t.test(kind, async () => {
+    const root = mkdtempSync(join(tmpdir(), "consumer-collision-"));
+    try {
+      const fixture = consumerFixture(root);
+      await publishConsumerFixture(fixture, "Original");
+      assert.equal(consumerRun(fixture, "install").status, 0);
+      const before = readFileSync(fixture.statePath);
+      await publishConsumerFixture(fixture, "Updated");
+      const preload = join(root, "collision.mjs"), marker = join(root, "collision-path.txt");
+      writeFileSync(preload, `import fs from "node:fs"; import path from "node:path";
+import crypto from "node:crypto"; import { syncBuiltinESMExports } from "node:module";
+crypto.randomUUID = () => "fixed"; syncBuiltinESMExports();
+const kind = ${JSON.stringify(kind)};
+const directory = kind.startsWith("state-") ? ${JSON.stringify(dirname(fixture.statePath))} : ${JSON.stringify(join(fixture.home, ".agents"))};
+const collision = path.join(directory, kind.startsWith("state-") ? ".agent-write-" + process.pid + "-fixed." + (kind === "state-temporary" ? "tmp" : "bak")
+  : ".marketplace-skill-" + process.pid + "-fixed." + (kind === "skill-staging" ? "tmp" : "bak"));
+const isDirectory = kind.startsWith("skill-");
+if (isDirectory) fs.mkdirSync(collision);
+fs.writeFileSync(isDirectory ? path.join(collision, "sentinel") : collision, "another writer");
+fs.writeFileSync(${JSON.stringify(marker)}, collision);\n`);
+      const result = consumerRun(fixture, "update", { NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` });
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, kind.endsWith("backup") ? /Backup path already exists/u : /EEXIST/u);
+      const collision = readFileSync(marker, "utf8");
+      assert.equal(readFileSync(kind.startsWith("skill-") ? join(collision, "sentinel") : collision, "utf8"), "another writer");
+      assert.deepEqual(readFileSync(fixture.statePath), before);
+      assert.match(readFileSync(join(fixture.installed, "SKILL.md"), "utf8"), /Original/u);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});
+
+test("canonical Marketplace writes preserve the configured revision identity across root aliases", async (t) => {
+  const { mkdtempSync, readdirSync, appendFileSync } = await import("node:fs");
+  const { createHash } = await import("node:crypto");
+  const root = mkdtempSync(join(tmpdir(), "marketplace-revision-alias-"));
+  try {
+    const fixture = consumerFixture(root);
+    const parent = join(root, "physical-parent"), alias = join(root, "selected-parent");
+    mkdirSync(parent);
+    try { symlinkSync(parent, alias, "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const selected = join(alias, "marketplace");
+    const config = JSON.parse(readFileSync(fixture.configPath));
+    config.marketplaces.shared.root = selected;
+    config.marketplaces.shared.mode = "authoritative";
+    writeJson(fixture.configPath, config);
+    const env = { ...fixture.env, AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER };
+    const first = run(CLI, ["dev", "marketplace", "sync"], env);
+    assert.equal(first.status, 0, first.stderr);
+    const id = createHash("sha256").update(process.platform === "win32" ? selected.toLowerCase() : selected).digest("hex");
+    assert.deepEqual(readdirSync(join(root, "state", "marketplaces")), [`shared--${id}.json`]);
+    appendFileSync(join(parent, "marketplace", ".agents", "marketplace-development", "state.json"), "\n");
+    const blocked = run(CLI, ["dev", "marketplace", "sync"], env);
+    assert.equal(blocked.status, 1, blocked.stderr);
+    assert.match(blocked.stderr, /changed since the last accepted revision/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("consumer filesystem errors hide a canonical home reached through an alias", async (t) => {
+  const { mkdtempSync } = await import("node:fs");
+  const { pathToFileURL } = await import("node:url");
+  const root = mkdtempSync(join(tmpdir(), "consumer-private-alias-"));
+  try {
+    const fixture = consumerFixture(root);
+    await publishConsumerFixture(fixture, "Original");
+    const alias = join(root, "selected-home");
+    try { symlinkSync(fixture.home, alias, "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const preload = join(root, "failure.mjs");
+    writeFileSync(preload, `import fs from "node:fs"; import { syncBuiltinESMExports } from "node:module";
+const mkdir = fs.mkdirSync;
+fs.mkdirSync = (target, ...args) => {
+  if (String(target).endsWith("state")) {
+    const error = new Error("EACCES: permission denied, mkdir '" + target + "'");
+    error.code = "EACCES"; error.path = String(target); throw error;
+  }
+  return mkdir(target, ...args);
+};
+syncBuiltinESMExports();\n`);
+    const result = consumerRun(fixture, "install", { HOME: alias, USERPROFILE: alias, AGENT_DEV_HOME: alias,
+      NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /EACCES/u);
+    assert.ok(!result.stderr.includes(root));
+    assert.match(result.stderr, /\[external\]\/state/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
