@@ -149,11 +149,13 @@ export function callPlan(spec) {
 
 // JSON numbers use binary64 semantics, with unsafe integers and overflow
 // excluded. This intentionally does not claim arbitrary decimal precision.
+const supportedJsonNumber = value => Number.isFinite(value) && (!Number.isInteger(value) || Number.isSafeInteger(value));
+
 function supportedJsonNumbers(value) {
   const pending = [value];
   while (pending.length) {
     const item = pending.pop();
-    if (typeof item === 'number' && (!Number.isFinite(item) || Number.isInteger(item) && !Number.isSafeInteger(item))) return false;
+    if (typeof item === 'number' && !supportedJsonNumber(item)) return false;
     if (item && typeof item === 'object') for (const key of Object.keys(item)) pending.push(item[key]);
   }
   return true;
@@ -163,7 +165,10 @@ function jsonEqual(a, b) {
   const pending = [a, b];
   while (pending.length) {
     const right = pending.pop(), left = pending.pop();
-    if (Object.is(left, right)) continue;
+    if (Object.is(left, right)) {
+      if (typeof left === 'number' && !supportedJsonNumber(left)) return false;
+      continue;
+    }
     if (Array.isArray(left) || Array.isArray(right)) {
       if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
       for (let i = 0; i < left.length; i++) pending.push(left[i], right[i]);
@@ -205,7 +210,7 @@ export function checkOutput(output, checks) {
           }
           value = value[part];
         }
-        pass = value !== undefined && supportedJsonNumbers(value) && supportedJsonNumbers(check.value) && jsonEqual(value, check.value);
+        pass = value !== undefined && jsonEqual(value, check.value) && supportedJsonNumbers(check.value);
       }
     } else throw new Error('Unknown check.');
     return { pass, evidence: check };

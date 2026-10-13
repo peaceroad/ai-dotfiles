@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import childProcess, { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { syncBuiltinESMExports } from 'node:module';
 import { PassThrough, Writable } from 'node:stream';
@@ -229,6 +230,37 @@ function mockRecordRename(t, platform, replace) {
     Object.defineProperty(process, 'platform', descriptor);
   });
 }
+
+test('record staging collisions preserve files this save did not create', t => {
+  const root = temp(t), file = join(root, 'record.json'), staged = `${file}.collision.tmp`;
+  writeFileSync(file, '{"value":"old"}\n');
+  writeFileSync(staged, 'OTHER WRITER');
+  const uuid = t.mock.method(crypto, 'randomUUID', () => 'collision');
+  syncBuiltinESMExports();
+  t.after(() => { uuid.mock.restore(); syncBuiltinESMExports(); });
+  assert.throws(() => saveJson(file, { value: 'new' }), { code: 'EEXIST' });
+  assert.equal(readJson(file).value, 'old');
+  assert.equal(readFileSync(staged, 'utf8'), 'OTHER WRITER');
+});
+
+test('record staging write failures close and remove only the incomplete owned file', t => {
+  const root = temp(t), file = join(root, 'record.json');
+  writeFileSync(file, '{"value":"old"}\n');
+  const write = fs.writeFileSync;
+  const failure = Object.assign(new Error('Synthetic disk full'), { code: 'ENOSPC' });
+  let opened;
+  const writer = t.mock.method(fs, 'writeFileSync', (target, content, options) => {
+    opened = target;
+    write(target, content.slice(0, 3), options);
+    throw failure;
+  });
+  syncBuiltinESMExports();
+  t.after(() => { writer.mock.restore(); syncBuiltinESMExports(); });
+  assert.throws(() => saveJson(file, { value: 'new' }), error => error === failure);
+  if (typeof opened === 'number') assert.throws(() => fs.fstatSync(opened), { code: 'EBADF' });
+  assert.equal(readJson(file).value, 'old');
+  assert.deepEqual(readdirSync(root), ['record.json']);
+});
 
 test('record replacement retries transient Windows conflicts without removing the old record', async t => {
   for (const code of ['EPERM', 'EBUSY']) await t.test(code, t => {
@@ -1315,6 +1347,8 @@ test('JSON equality rejects unsafe integers and nonfinite numbers in compared va
   assert.equal(equal('9007199254740993', 9007199254740992), false);
   assert.equal(equal('-9007199254740993', -9007199254740992), false);
   assert.equal(equal('1e400', Infinity), false);
+  assert.equal(equal('{"nested":[9007199254740993]}', { nested: [9007199254740992] }), false);
+  assert.equal(equal('{"nested":[1e400]}', { nested: [Infinity] }), false);
   for (const value of [Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, 0, 1, -1, 0.5, 0.1, { nested: [1, 0.25] }]) {
     assert.equal(equal(JSON.stringify(value), value), true);
   }

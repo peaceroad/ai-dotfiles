@@ -30,7 +30,7 @@ const other = '00000000-0000-4000-8000-000000000003';
 
 function fixture(t) {
   const home = mkdtempSync(join(tmpdir(), 'agent-session-test-'));
-  t.after(() => rmSync(home, { recursive: true, force: true }));
+  t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }));
   mkdirSync(join(home, 'sessions'));
   const path = join(home, 'state_5.sqlite');
   const db = new DatabaseSync(path);
@@ -970,7 +970,7 @@ test('a change to a remaining family stops after already verified roots, with no
 
 function exportParent(t) {
   const output = mkdtempSync(join(tmpdir(), 'agent-export-test-'));
-  t.after(() => rmSync(output, { recursive: true, force: true }));
+  t.after(() => rmSync(output, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }));
   return output;
 }
 

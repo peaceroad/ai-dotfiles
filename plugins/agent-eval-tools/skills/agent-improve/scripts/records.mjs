@@ -2,6 +2,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, renameSync, statSync, lstatSync, realpathSync, openSync, closeSync, unlinkSync, chmodSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
+const recordRetryDelays = [10, 20, 40, 80, 160];
+let recordRetrySignal;
+
 export const digest = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 export const readJson = file => JSON.parse(readFileSync(file, 'utf8'));
 export function readRecord(root) {
@@ -14,20 +17,23 @@ export function readRecord(root) {
 export function saveJson(file, value) {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.${randomUUID()}.tmp`;
+  const fd = openSync(temp, 'wx', 0o600); // Only clean up a file this save created.
+  let published = false;
   try {
-    writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-    const retryDelays = [10, 20, 40, 80, 160];
+    try { writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`); }
+    finally { closeSync(fd); }
     for (let attempt = 0; ; attempt++) {
-      try { renameSync(temp, file); break; }
+      try { renameSync(temp, file); published = true; break; }
       catch (error) {
-        if (process.platform !== 'win32' || !['EPERM', 'EBUSY'].includes(error.code) || attempt >= retryDelays.length) throw error;
+        if (process.platform !== 'win32' || (error.code !== 'EPERM' && error.code !== 'EBUSY') || attempt >= recordRetryDelays.length) throw error;
         // Windows can briefly deny replacement even when both files are writable.
         // Retry only publication of this staged value; never delete the old record
         // or repeat model work. Keep this synchronous store's total wait bounded.
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryDelays[attempt]);
+        recordRetrySignal ??= new Int32Array(new SharedArrayBuffer(4));
+        Atomics.wait(recordRetrySignal, 0, 0, recordRetryDelays[attempt]);
       }
     }
-  } finally { if (existsSync(temp)) unlinkSync(temp); }
+  } finally { if (!published && existsSync(temp)) unlinkSync(temp); }
 }
 
 export function portablePath(value) {
