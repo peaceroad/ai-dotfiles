@@ -2,7 +2,7 @@
 name: plugin-creator-agent-plugins
 description: "Use when creating, revising, validating, or migrating portable Agent Plugins v1 packages, setting up their local development or Codex installation, or assembling filesystem Marketplaces of plugins and standalone Skills. Use skill-creator for standalone Skill authoring and the built-in plugin-creator for a Codex-specific .codex-plugin/plugin.json source."
 metadata:
-  version: "0.7.1"
+  version: "0.7.2"
 ---
 
 # Plugin Creator for Agent Plugins v1

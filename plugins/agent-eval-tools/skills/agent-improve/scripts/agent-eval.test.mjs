@@ -1224,7 +1224,7 @@ test('existing shared output is refused without chmod or record writes and priva
   store = openStore(out, { same: true }); assert.equal(store.state.id, id); store.close();
 });
 
-test('JSON equality rejects unsafe integers and nonfinite numbers at configuration and output boundaries', t => {
+test('JSON equality rejects unsafe integers and nonfinite numbers in compared values', t => {
   const root = temp(t), config = fixture(root, { mode: 'compare' });
   for (const value of [9007199254740992, -9007199254740992, Infinity, -Infinity, NaN, { nested: [9007199254740992] }]) {
     const invalid = { ...config, cases: [{ ...cases()[0], checks: [{ kind: 'json-equals', pointer: '', value }] }] };
@@ -1234,7 +1234,6 @@ test('JSON equality rejects unsafe integers and nonfinite numbers at configurati
   assert.equal(equal('9007199254740993', 9007199254740992), false);
   assert.equal(equal('-9007199254740993', -9007199254740992), false);
   assert.equal(equal('1e400', Infinity), false);
-  assert.equal(equal('{"n":9007199254740993,"answer":"OK"}', 'OK', '/answer'), false);
   for (const value of [Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, 0, 1, -1, 0.5, 0.1, { nested: [1, 0.25] }]) {
     assert.equal(equal(JSON.stringify(value), value), true);
   }
@@ -1242,6 +1241,44 @@ test('JSON equality rejects unsafe integers and nonfinite numbers at configurati
   assert.equal(equal('1e-400', 0), true); // Underflow likewise needs a string for exact decimal claims.
   assert.equal(equal('"9007199254740993"', '9007199254740993'), true);
   assert.equal(equal('"9007199254740993"', '9007199254740992'), false);
+});
+
+test('JSON checks ignore numeric limits outside their selected values', () => {
+  for (const number of ['9007199254740993', '-9007199254740993', '1e400', '-1e400']) {
+    const output = `{"answer":{"text":"OK"},"metrics":[${number}]}`;
+    const results = checkOutput(output, [
+      { kind: 'json-equals', pointer: '/answer/text', value: 'OK' },
+      { kind: 'json-equals', pointer: '/metrics/0', value: 1 },
+      { kind: 'json-equals', pointer: '/answer', value: { text: 'OK' } },
+      { kind: 'json-equals', pointer: '', value: { answer: { text: 'OK' }, metrics: [1] } },
+      { kind: 'includes', value: 'OK' },
+    ]);
+    assert.deepEqual(results.map(result => result.pass), [true, false, true, false, true]);
+  }
+});
+
+test('removing an unscored large identifier cannot create an improvement', async t => {
+  for (const calibrateWithIdentifier of [false, true]) {
+    const root = temp(t), withIdentifier = '{"answer":"OK","traceId":9007199254740993}', withoutIdentifier = '{"answer":"OK"}';
+    const config = fixture(root, { mode: 'compare', candidates: [{ root: './candidate', files: ['SKILL.md'] }], cases: [{
+      id: 'answer', group: 'answer', split: 'explore',
+      input: 'Return a JSON object whose answer field is OK. Additional fields are permitted.',
+      checks: [{ kind: 'json-equals', pointer: '/answer', value: 'OK' }],
+      calibration: [{ output: calibrateWithIdentifier ? withIdentifier : withoutIdentifier, pass: true }, { output: '{"answer":"wrong"}', pass: false }],
+    }] });
+    const spec = loadExperiment(config, root), store = openStore(join(root, 'out'), { spec });
+    try {
+      const result = await improve(store, 'main', spec, async request => {
+        const data = JSON.parse(request.prompt.split('\n').at(-1));
+        return completed(data.skill['SKILL.md'] === 'BASE' ? withIdentifier : withoutIdentifier);
+      });
+      assert.equal(result.status, 'retain');
+      assert.equal(result.selectedHash, spec.target.hash);
+      assert.deepEqual(result.baseline.map(row => row.score), [1]);
+      assert.deepEqual(store.state.candidates[0].rows.map(row => row.score), [1]);
+      assert.equal(store.state.trials.length, 2);
+    } finally { store.close(); }
+  }
 });
 
 test('unsafe numeric calibration cannot start target work; supported strings remain precisely comparable', async t => {

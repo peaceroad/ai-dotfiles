@@ -31,7 +31,7 @@ scripts/
 └── validate-agent-plugin.mjs
 ```
 
-The explicitly selected repository root is resolved to its canonical directory, so selecting a root through an alias is supported. Below that root, generated files and their ancestors must not be symbolic links or junctions, including dangling links. The scaffold checks all managed destinations before copying and rechecks each write. Refresh replaces files through temporary files and rename, so a hardlinked target does not modify its other links. Ownership markers do not override these location checks. These checks reject existing redirects; they do not provide a sandbox against hostile concurrent path replacement.
+The scaffold resolves the selected repository root to its canonical directory, so root aliases are supported. It rejects symbolic links or junctions, including dangling links, at generated files or their ancestors below that root. These location checks run before copying and again at each write, independently of ownership markers. Refresh replaces files through temporary files and rename, so a hardlinked target does not modify its other links. These checks do not provide a sandbox against hostile concurrent path replacement.
 
 The runner, validator, and schema are generated files. Keep repository-specific behavior out of them; their source tests remain in this skill. Refresh when adopting changes to those templates or their generated behavior:
 

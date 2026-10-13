@@ -51,7 +51,7 @@ function validateCases(cases) {
         if (!['json-equals', 'includes', 'excludes', 'max-chars'].includes(check.kind)) throw new Error('Unknown check kind.');
         if (['includes', 'excludes'].includes(check.kind) && typeof check.value !== 'string') throw new Error('Text checks require a string value.');
         if (check.kind === 'max-chars') positive(check.value, 'max-chars value');
-        if (check.kind === 'json-equals' && !supportedJsonNumbers(check.value)) throw new Error('json-equals requires finite numbers and safe integers; encode exact large or high-precision numbers as strings.');
+        if (check.kind === 'json-equals' && !supportedJsonNumbers(check.value)) throw new Error('json-equals requires finite numbers and safe integers; use strings when the task permits, or a suitable external grader.');
         if (check.kind === 'json-equals' && (typeof check.pointer !== 'string' || (check.pointer && !check.pointer.startsWith('/')) || /~(?:[^01]|$)/.test(check.pointer) || !Object.hasOwn(check, 'value'))) throw new Error('json-equals requires a JSON pointer and value.');
       }
     }
@@ -195,10 +195,7 @@ export function checkOutput(output, checks) {
     else if (check.kind === 'json-equals') {
       if (!parsed) {
         parsed = true;
-        try {
-          const value = JSON.parse(output);
-          if (supportedJsonNumbers(value)) document = value;
-        } catch { /* Every JSON check fails for invalid output. */ }
+        try { document = JSON.parse(output); } catch { /* Every JSON check fails for invalid output. */ }
       }
       if (document !== undefined) {
         let value = document;
@@ -208,7 +205,7 @@ export function checkOutput(output, checks) {
           }
           value = value[part];
         }
-        pass = value !== undefined && supportedJsonNumbers(check.value) && jsonEqual(value, check.value);
+        pass = value !== undefined && supportedJsonNumbers(value) && supportedJsonNumbers(check.value) && jsonEqual(value, check.value);
       }
     } else throw new Error('Unknown check.');
     return { pass, evidence: check };
