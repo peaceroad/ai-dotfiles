@@ -77,6 +77,8 @@ The runner is self-contained and does not require the `agent` CLI, another plugi
 
 Version 0.2 changes incomplete-phase continuation and rejects unsafe numeric comparisons and shared POSIX output roots; review the [runtime contract](skills/agent-improve/references/runtime.md) before reusing earlier configurations. Version 0.2.1 limits numeric validation to the value selected by each JSON pointer, so unrelated fields cannot change its grade.
 
+Version 0.2.2 retries transient Windows `EPERM`/`EBUSY` failures when publishing JSON records, with at most five retries and 310 ms of total waiting per save. Retries preserve the previous record and do not repeat model calls or change permissions. Persistent failures still stop the operation.
+
 Choose an explicit evidence location outside a Git working tree for each experiment. The runner creates the specified directory and missing parents with restrictive POSIX modes, refuses shared POSIX output roots without changing them, and does not choose a default home-directory location. It does not verify Windows ACL privacy. Keep later-use evidence separate from disposable transfer files and selective maintenance notes. The [retention contract](skills/agent-improve/references/runtime.md#retained-evidence-and-temporary-work) explains receipt checks, verified archival copies and reading old results without rerunning them.
 
 ## Design sources

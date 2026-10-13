@@ -219,6 +219,87 @@ test('failed atomic replacement preserves the existing destination and removes i
   assert.equal(readFileSync(join(destination, 'keep.txt'), 'utf8'), 'KEEP');
 });
 
+function mockRecordRename(t, platform, replace) {
+  const descriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { ...descriptor, value: platform });
+  const renamer = t.mock.method(fs, 'renameSync', replace);
+  syncBuiltinESMExports();
+  t.after(() => {
+    renamer.mock.restore(); syncBuiltinESMExports();
+    Object.defineProperty(process, 'platform', descriptor);
+  });
+}
+
+test('record replacement retries transient Windows conflicts without removing the old record', async t => {
+  for (const code of ['EPERM', 'EBUSY']) await t.test(code, t => {
+    const root = temp(t), file = join(root, 'record.json');
+    writeFileSync(file, '{"value":"old"}\n');
+    const rename = fs.renameSync;
+    let attempts = 0, staged;
+    mockRecordRename(t, 'win32', (from, to) => {
+      assert.equal(to, file);
+      assert.equal(readJson(file).value, 'old');
+      assert.equal(readJson(from).value, 'new');
+      staged ??= from;
+      assert.equal(from, staged, 'Retry the same staged file, not the evaluation.');
+      if (++attempts <= 2) throw Object.assign(new Error('Synthetic sharing conflict'), { code });
+      return rename(from, to);
+    });
+    saveJson(file, { value: 'new' });
+    assert.ok(attempts >= 3 && attempts <= 6);
+    assert.equal(readJson(file).value, 'new');
+    assert.deepEqual(readdirSync(root), ['record.json']);
+  });
+});
+
+test('record replacement bounds persistent Windows conflicts and preserves the original error and record', t => {
+  const root = temp(t), file = join(root, 'record.json');
+  writeFileSync(file, '{"value":"old"}\n');
+  const denied = Object.assign(new Error('Synthetic persistent denial'), { code: 'EPERM' });
+  let attempts = 0;
+  mockRecordRename(t, 'win32', () => { attempts++; throw denied; });
+  assert.throws(() => saveJson(file, { value: 'new' }), error => error === denied);
+  assert.ok(attempts > 1 && attempts <= 6);
+  assert.equal(readJson(file).value, 'old');
+  assert.deepEqual(readdirSync(root), ['record.json']);
+});
+
+test('record replacement does not retry unrelated errors or change POSIX behavior', async t => {
+  for (const [platform, code] of [['win32', 'ENOSPC'], ['linux', 'EPERM'], ['darwin', 'EBUSY']]) {
+    await t.test(`${platform}-${code}`, t => {
+      const root = temp(t), file = join(root, 'record.json');
+      writeFileSync(file, '{"value":"old"}\n');
+      const failure = Object.assign(new Error('Synthetic non-retryable failure'), { code });
+      let attempts = 0;
+      mockRecordRename(t, platform, () => { attempts++; throw failure; });
+      assert.throws(() => saveJson(file, { value: 'new' }), error => error === failure);
+      assert.equal(attempts, 1);
+      assert.equal(readJson(file).value, 'old');
+      assert.deepEqual(readdirSync(root), ['record.json']);
+    });
+  }
+});
+
+test('record replacement retries never repeat target execution', async t => {
+  const root = temp(t), store = openStore(join(root, 'out'), { fixed: true });
+  const rename = fs.renameSync, rejected = new Set();
+  let calls = 0;
+  mockRecordRename(t, 'win32', (from, to) => {
+    const status = readJson(from).trials[0]?.status;
+    if (status && !rejected.has(status)) {
+      rejected.add(status);
+      throw Object.assign(new Error('Synthetic sharing conflict'), { code: 'EPERM' });
+    }
+    return rename(from, to);
+  });
+  try {
+    await measuredCall(store, 'once', 'target', { prompt: 'task' }, async () => { calls++; return completed('ok'); }, budget);
+    assert.equal(calls, 1);
+    assert.deepEqual([...rejected], ['running', 'completed']);
+    assert.equal(readRecord(store.root).trials[0].status, 'completed');
+  } finally { store.close(); }
+});
+
 test('save failures do not dispatch unrecorded work or silently repeat a completed execution', async t => {
   const root = temp(t), output = join(root, 'out'); let calls = 0;
   const failure = () => { throw new Error('Synthetic storage failure'); };

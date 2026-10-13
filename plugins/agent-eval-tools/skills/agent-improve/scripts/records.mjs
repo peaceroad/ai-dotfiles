@@ -16,7 +16,17 @@ export function saveJson(file, value) {
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
     writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-    renameSync(temp, file);
+    const retryDelays = [10, 20, 40, 80, 160];
+    for (let attempt = 0; ; attempt++) {
+      try { renameSync(temp, file); break; }
+      catch (error) {
+        if (process.platform !== 'win32' || !['EPERM', 'EBUSY'].includes(error.code) || attempt >= retryDelays.length) throw error;
+        // Windows can briefly deny replacement even when both files are writable.
+        // Retry only publication of this staged value; never delete the old record
+        // or repeat model work. Keep this synchronous store's total wait bounded.
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryDelays[attempt]);
+      }
+    }
   } finally { if (existsSync(temp)) unlinkSync(temp); }
 }
 
