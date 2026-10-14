@@ -30,6 +30,8 @@ Choose the normal or JSON form for the consumer; running both is unnecessary. Th
 
 It checks root manifest syntax, allowed keys and basic types; plugin names; immediate skill directories and basic frontmatter; optional MCP configuration including command, cwd, and URL rules; extension namespace syntax; and links escaping the package.
 
+Contained and standalone Skill checks share the same basic `name`/`description` validation. These fields support single-line plain and quoted strings, including doubled single quotes and JSON-style double-quote escapes. Multiline scalars, YAML-specific escapes, tags, and aliases are explicitly unsupported; normalize these fields to a supported form or use a full YAML validator before adapting the package. A pass does not validate other YAML fields.
+
 It is a partial structural validator, not a complete JSON Schema implementation, YAML parser, client-extension validator, secret scanner, or runtime test. It does not establish semantic instruction quality or whether Codex enables and discovers the components. Use applicable skill-specific checks and inspect credentials, packaged resources, or documented extension support when those surfaces change. A schema check cannot sandbox commands launched by the package.
 
 `scripts/manage-local-agent-plugin.mjs validate <plugin-root>` calls this validator. A configured repository runner additionally validates its Marketplace binding and runs its declared checks. The direct manager does not infer application-specific tests; see [repository-management.md](repository-management.md).

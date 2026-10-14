@@ -2,8 +2,10 @@
 
 // @plugin-creator-agent-plugins managed-portable-validator v1
 
-import { lstat, readFile, readdir, realpath } from "node:fs/promises";
+import { lstat, readFile, readdir, realpath, stat } from "node:fs/promises";
 import { isIP } from "node:net";
+import { validateHeaderName, validateHeaderValue } from "node:http";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -22,7 +24,7 @@ function isObject(value) {
 
 function isWithin(root, candidate) {
   const relative = path.relative(root, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 function displayPath(pathValue) {
@@ -30,18 +32,32 @@ function displayPath(pathValue) {
   const home = path.resolve(homedir());
   const relativeToHome = path.relative(home, absolutePath);
   if (relativeToHome === "") return "~";
-  if (!relativeToHome.startsWith("..") && !path.isAbsolute(relativeToHome)) {
+  if (relativeToHome !== ".." && !relativeToHome.startsWith(`..${path.sep}`) && !path.isAbsolute(relativeToHome)) {
     return `~/${relativeToHome.replaceAll(path.sep, "/")}`;
   }
   return `[external]/${path.basename(absolutePath)}`;
 }
 
-function sanitizeError(message) {
+function sanitizeError(message, paths = []) {
   const home = path.resolve(homedir());
-  return String(message)
+  let result = String(message);
+  const replacements = [...new Set(paths.filter((value) => typeof value === "string" && path.isAbsolute(value)))];
+  replacements.sort((a, b) => b.length - a.length);
+  for (const target of replacements) {
+    result = result.replaceAll(`\\\\?\\${target}`, displayPath(target))
+      .replaceAll(target, displayPath(target))
+      .replaceAll(target.replaceAll("\\", "/"), displayPath(target));
+  }
+  return result
     .replaceAll(`\\\\?\\${home}`, "~")
     .replaceAll(home, "~")
     .replaceAll(home.replaceAll("\\", "/"), "~");
+}
+
+async function resolvePackagePath(root, file) {
+  const resolved = await realpath(file);
+  if (!isWithin(root, resolved)) throw new Error(`Path resolves outside the package: ${path.relative(root, file)}`);
+  return resolved;
 }
 
 function parseArgs(argv) {
@@ -69,24 +85,24 @@ Examples:
   return result;
 }
 
-async function readJson(file, errors) {
+async function readJson(root, file, errors) {
   // JSON.parse cannot return undefined; reserve it for read or parse failures.
   let text;
   try {
-    const stat = await lstat(file);
-    if (!stat.isFile() || stat.isSymbolicLink()) {
+    const resolved = await resolvePackagePath(root, file);
+    if (!(await stat(resolved)).isFile()) {
       errors.push(`${path.basename(file)} must be a regular file.`);
       return undefined;
     }
-    text = await readFile(file, "utf8");
+    text = await readFile(resolved, "utf8");
   } catch (error) {
-    errors.push(`Cannot read ${path.basename(file)}: ${error.message}`);
+    errors.push(`Cannot read ${path.basename(file)}: ${sanitizeError(error.message, [error.path, file])}`);
     return undefined;
   }
   try {
     return JSON.parse(text);
-  } catch (error) {
-    errors.push(`${path.basename(file)} is not valid JSON: ${error.message}`);
+  } catch {
+    errors.push(`${path.basename(file)} is not valid JSON: syntax error.`);
     return undefined;
   }
 }
@@ -130,56 +146,113 @@ function validateManifest(manifest, errors, warnings) {
   }
 }
 
-function frontmatterValue(frontmatter, key) {
-  const pattern = new RegExp(`^${key}:\\s*(?:"([^"]*)"|'([^']*)'|([^\\n#]*))`, "m");
-  const match = frontmatter.match(pattern);
-  if (!match) return null;
-  return (match[1] ?? match[2] ?? match[3] ?? "").trim();
+function trimYamlWhitespace(value) {
+  return value.replace(/^[ \t]+|[ \t]+$/gu, "");
+}
+
+function frontmatterValue(lines, key) {
+  const pattern = new RegExp(`^${key}:(?:[ \t]+([^\r\n]*)|)$`, "u");
+  const matches = lines.map((line, index) => ({ match: pattern.exec(line), index }))
+    .filter(({ match }) => match);
+  if (matches.length === 0) return null;
+  if (matches.length > 1) throw new Error(`${key} must not be repeated.`);
+  const { match, index } = matches[0];
+  const continuation = lines.slice(index + 1).find((line) => trimYamlWhitespace(line) && !trimYamlWhitespace(line).startsWith("#"));
+  if (continuation && /^[ \t]/u.test(continuation)) {
+    throw new Error(`${key} uses unsupported multiline YAML; use a single-line string or a full YAML validator.`);
+  }
+  if (/[\u2028\u2029]/u.test(match[1] ?? "")) {
+    throw new Error(`${key} uses unsupported Unicode line separators; use a single-line string.`);
+  }
+  const value = trimYamlWhitespace(match[1] ?? "");
+  if (value.startsWith("'")) {
+    const quoted = /^'((?:[^']|'')*)'(?:[ \t]+#.*)?$/u.exec(value);
+    if (quoted) return quoted[1].replaceAll("''", "'");
+  } else if (value.startsWith('"')) {
+    const quoted = /^("(?:[^"\\]|\\.)*")(?:[ \t]+#.*)?$/u.exec(value);
+    if (quoted) {
+      try { return JSON.parse(quoted[1]); } catch { /* Unsupported YAML escape. */ }
+    }
+  } else {
+    const plain = trimYamlWhitespace(value.replace(/(?:^|[ \t]+)#.*$/u, ""));
+    if (!plain) return "";
+    if (!/^[!&*|>{}\[\],%@`]|^[-?:](?:[ \t]|$)|:(?:[ \t]|$)/u.test(plain)
+      && !/^(?:null|~|true|false|[-+]?(?:0x[0-9a-f]+|0o[0-7]+|(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e[-+]?[0-9]+)?)|[-+]?\.(?:inf|nan))$/iu.test(plain)) return plain;
+  }
+  throw new Error(`${key} must use a supported single-line YAML string (plain, single-quoted, or JSON-style double-quoted).`);
+}
+
+export function validateSkillFrontmatter(text, directoryName, label = "SKILL.md") {
+  const errors = [];
+  if (directoryName.length > 64 || !SKILL_NAME.test(directoryName)) {
+    errors.push(`Skill directory name does not satisfy the Agent Skills rules: ${directoryName}`);
+  }
+  const lines = text.split(/\r?\n/u);
+  if (lines[0] !== "---") return { errors: [...errors, `${label} has no YAML frontmatter.`] };
+  const end = lines.findIndex((line, index) => index > 0 && line === "---");
+  if (end < 0) return { errors: [...errors, `The YAML frontmatter in ${label} is not closed.`] };
+  let name;
+  let description;
+  try {
+    const frontmatter = lines.slice(1, end);
+    name = frontmatterValue(frontmatter, "name");
+    description = frontmatterValue(frontmatter, "description");
+  } catch (error) {
+    return { errors: [...errors, `${label}: ${error.message}`] };
+  }
+  if (name !== directoryName) errors.push(`The name in ${label} does not match its parent directory.`);
+  if (description === null || description.trim() === "") errors.push(`The description in ${label} is empty.`);
+  else if ([...description].length > 1024) errors.push(`The description in ${label} exceeds 1024 characters.`);
+  return { name, description, errors };
 }
 
 async function validateSkills(root, errors, warnings, summary) {
   const skillsDir = path.join(root, "skills");
   let entries;
   try {
-    entries = await readdir(skillsDir, { withFileTypes: true });
+    // A missing component is optional; a present but broken link is invalid.
+    try { await lstat(skillsDir); }
+    catch (error) { if (error.code === "ENOENT") return; throw error; }
+    const resolved = await resolvePackagePath(root, skillsDir);
+    entries = await readdir(resolved, { withFileTypes: true });
   } catch (error) {
-    if (error.code === "ENOENT") return;
-    errors.push(`Cannot read skills/: ${error.message}`);
+    errors.push(`Cannot read skills/: ${sanitizeError(error.message, [error.path])}`);
     return;
   }
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
-      warnings.push(`A non-directory item directly under skills/ is not discovered as a skill: ${entry.name}`);
+    const skillDirectory = path.join(skillsDir, entry.name);
+    try {
+      const resolved = await resolvePackagePath(root, skillDirectory);
+      if (!(await stat(resolved)).isDirectory()) {
+        warnings.push(`A non-directory item directly under skills/ is not discovered as a skill: ${entry.name}`);
+        continue;
+      }
+    } catch (error) {
+      errors.push(`Cannot inspect skills/${entry.name}/: ${sanitizeError(error.message, [error.path])}`);
       continue;
     }
-    const skillFile = path.join(skillsDir, entry.name, "SKILL.md");
+    const skillFile = path.join(skillDirectory, "SKILL.md");
     let text;
     try {
-      const stat = await lstat(skillFile);
-      if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("not a regular file");
-      text = await readFile(skillFile, "utf8");
+      try { await lstat(skillFile); }
+      catch (error) {
+        if (error.code !== "ENOENT") throw error;
+        warnings.push(`skills/${entry.name}/ has no SKILL.md and is not discovered as a skill.`);
+        continue;
+      }
+      const resolved = await resolvePackagePath(root, skillFile);
+      if (!(await stat(resolved)).isFile()) {
+        warnings.push(`skills/${entry.name}/SKILL.md is not a regular file and is not discovered as a skill.`);
+        continue;
+      }
+      text = await readFile(resolved, "utf8");
     } catch (error) {
-      warnings.push(`skills/${entry.name}/ has no SKILL.md and is not discovered as a skill.`);
+      errors.push(`Cannot read skills/${entry.name}/SKILL.md: ${sanitizeError(error.message, [error.path])}`);
       continue;
     }
     summary.skills += 1;
-    if (entry.name.length > 64 || !SKILL_NAME.test(entry.name)) errors.push(`Skill directory name does not satisfy the Agent Skills rules: ${entry.name}`);
-    if (!text.startsWith("---")) {
-      errors.push(`skills/${entry.name}/SKILL.md has no YAML frontmatter.`);
-      continue;
-    }
-    const end = text.indexOf("\n---", 3);
-    if (end < 0) {
-      errors.push(`The YAML frontmatter in skills/${entry.name}/SKILL.md is not closed.`);
-      continue;
-    }
-    const frontmatter = text.slice(3, end);
-    const name = frontmatterValue(frontmatter, "name");
-    const description = frontmatterValue(frontmatter, "description");
-    if (name !== entry.name) errors.push(`The name in skills/${entry.name}/SKILL.md does not match its parent directory.`);
-    if (description === null || description === "") errors.push(`The description in skills/${entry.name}/SKILL.md is empty.`);
-    else if (description.length > 1024) errors.push(`The description in skills/${entry.name}/SKILL.md exceeds 1024 characters.`);
+    errors.push(...validateSkillFrontmatter(text, entry.name, `skills/${entry.name}/SKILL.md`).errors);
   }
 }
 
@@ -275,6 +348,16 @@ function validateMcpServer(name, server, errors, warnings) {
     if (typeof server.url !== "string" || server.url.length === 0) errors.push(`${label}.url must be a non-empty string.`);
     else validateRemoteUrl(server.url, label, errors);
     if ("headers" in server && (!isObject(server.headers) || Object.values(server.headers).some((item) => typeof item !== "string"))) errors.push(`${label}.headers must be an object with string values.`);
+    if (isObject(server.headers)) {
+      const names = new Set();
+      for (const [header, value] of Object.entries(server.headers)) {
+        const normalized = header.toLowerCase();
+        if (names.has(normalized)) errors.push(`${label}.headers contains a case-insensitive duplicate name.`);
+        names.add(normalized);
+        try { validateHeaderName(header); validateHeaderValue(header, value); }
+        catch { errors.push(`${label}.headers contains an invalid HTTP header field.`); }
+      }
+    }
     if (server.type === "sse") warnings.push(`${label} uses legacy HTTP+SSE; client support is optional.`);
   }
 }
@@ -286,7 +369,7 @@ async function validateMcp(root, errors, warnings, summary) {
   } catch (error) {
     if (error.code === "ENOENT") return;
   }
-  const mcp = await readJson(file, errors);
+  const mcp = await readJson(root, file, errors);
   if (mcp === undefined) return;
   summary.hasMcp = true;
   if (!isObject(mcp)) {
@@ -302,7 +385,12 @@ async function validateMcp(root, errors, warnings, summary) {
 async function validateLinks(root, errors) {
   const resolvedRoot = await realpath(root);
   async function visit(directory) {
-    const entries = await readdir(directory, { withFileTypes: true });
+    let entries;
+    try { entries = await readdir(directory, { withFileTypes: true }); }
+    catch (error) {
+      errors.push(`Cannot read package directory ${path.relative(root, directory) || "."}: ${sanitizeError(error.message, [error.path])}`);
+      return;
+    }
     for (const entry of entries) {
       const target = path.join(directory, entry.name);
       if (entry.isSymbolicLink()) {
@@ -310,7 +398,7 @@ async function validateLinks(root, errors) {
           const resolved = await realpath(target);
           if (!isWithin(resolvedRoot, resolved)) errors.push(`Link resolves outside the package: ${path.relative(root, target)}`);
         } catch (error) {
-          errors.push(`Cannot resolve link: ${path.relative(root, target)} (${error.message})`);
+          errors.push(`Cannot resolve link: ${path.relative(root, target)} (${sanitizeError(error.message, [error.path])})`);
         }
       } else if (entry.isDirectory()) {
         await visit(target);
@@ -322,7 +410,7 @@ async function validateLinks(root, errors) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const root = path.resolve(options.root);
+  const root = await realpath(path.resolve(options.root));
   const errors = [];
   const warnings = [];
   const summary = {
@@ -334,24 +422,37 @@ async function main() {
 
   const rootStat = await lstat(root);
   if (!rootStat.isDirectory()) throw new Error("The specified plugin root is not a directory.");
-  const manifest = await readJson(path.join(root, "plugin.json"), errors);
+  const manifest = await readJson(root, path.join(root, "plugin.json"), errors);
   if (manifest !== undefined) validateManifest(manifest, errors, warnings);
   await validateSkills(root, errors, warnings, summary);
   await validateMcp(root, errors, warnings, summary);
   await validateLinks(root, errors);
 
-  const result = { ok: errors.length === 0, ...summary, errors, warnings };
+  const result = {
+    ok: errors.length === 0, ...summary,
+    errors: errors.map((message) => sanitizeError(message, [root])),
+    warnings: warnings.map((message) => sanitizeError(message, [root])),
+  };
   if (options.json) console.log(JSON.stringify(result, null, 2));
   else {
     console.log(`${result.ok ? "OK" : "FAILED"}: ${summary.root}`);
     console.log(`skills: ${summary.skills}, mcp.json: ${summary.hasMcp ? "present" : "absent"}`);
-    for (const warning of warnings) console.log(`WARNING: ${warning}`);
-    for (const error of errors) console.error(`ERROR: ${error}`);
+    for (const warning of result.warnings) console.log(`WARNING: ${warning}`);
+    for (const error of result.errors) console.error(`ERROR: ${error}`);
   }
   if (!result.ok) process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(`validate-agent-plugin: ${sanitizeError(error.message)}`);
-  process.exitCode = 1;
-});
+async function isDirectInvocation() {
+  if (!process.argv[1]) return false;
+  const invoked = await realpath(process.argv[1]).catch(() => path.resolve(process.argv[1]));
+  const script = await realpath(fileURLToPath(import.meta.url));
+  return process.platform === "win32" ? invoked.toLowerCase() === script.toLowerCase() : invoked === script;
+}
+
+if (await isDirectInvocation()) {
+  main().catch((error) => {
+    console.error(`validate-agent-plugin: ${sanitizeError(error.message, [error.path, error.dest])}`);
+    process.exitCode = 1;
+  });
+}

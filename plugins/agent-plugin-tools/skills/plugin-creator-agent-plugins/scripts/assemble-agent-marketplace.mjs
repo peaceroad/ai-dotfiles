@@ -20,6 +20,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateSkillFrontmatter } from "./validate-agent-plugin.mjs";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
@@ -510,27 +511,8 @@ async function inspectSkill(root, entry, {
   const skillFile = path.join(source, "SKILL.md");
   if ((await pathType(skillFile)) !== "file") fail(`Skill source has no SKILL.md: ${displayPath(source)}`);
   const text = await readFile(skillFile, "utf8");
-  const lines = text.split(/\r?\n/u);
-  if (lines[0]?.trim() !== "---") fail(`${displayPath(source)}/SKILL.md must start with YAML frontmatter.`);
-  const end = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
-  if (end < 0) fail(`${displayPath(source)}/SKILL.md has unclosed YAML frontmatter.`);
-  const frontmatter = lines.slice(1, end);
-  const valueFor = (key) => {
-    const match = frontmatter
-      .map((line) => new RegExp(`^${key}:\\s*(.*?)\\s*$`, "u").exec(line))
-      .find(Boolean);
-    if (!match) return null;
-    const value = match[1];
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      return value.slice(1, -1);
-    }
-    return value;
-  };
-  const name = validateSkillName(valueFor("name"), `${displayPath(source)}/SKILL.md name`);
-  if (!valueFor("description")) fail(`${displayPath(source)}/SKILL.md description must be non-empty.`);
-  if (path.basename(source) !== name) {
-    fail(`Skill source directory name must match the name in SKILL.md: ${displayPath(source)}.`);
-  }
+  const { name, errors } = validateSkillFrontmatter(text, path.basename(source), `${displayPath(source)}/SKILL.md`);
+  if (errors.length) fail(errors.join("\n"));
   await assertSourceBoundary(root, source, "skills", name, allowGeneratedSource);
   const skill = { ...entry, source, name };
   if (includeDigest) skill.digest = await treeDigest(source);
