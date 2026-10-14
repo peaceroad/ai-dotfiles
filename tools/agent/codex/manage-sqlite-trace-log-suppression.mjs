@@ -2,7 +2,8 @@
 
 import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
 
 const homePath = homedir();
@@ -657,12 +658,13 @@ function triggerSignature(trigger) {
   return trigger ? normalizeSql(trigger.sql) : null;
 }
 
-async function configureLogRetention(
+export async function configureLogRetention(
   DatabaseSync,
   minimumRetainedLevel,
   command,
+  { open = openDatabase, confirm = confirmMutation } = {},
 ) {
-  const preflightDatabase = openDatabase(DatabaseSync, true);
+  const preflightDatabase = open(DatabaseSync, true);
   let preflightTrigger;
   let needsEvidence;
 
@@ -699,33 +701,35 @@ async function configureLogRetention(
     preflightDatabase.close();
   }
 
-  if (!(await confirmMutation(command, minimumRetainedLevel))) return;
+  if (!(await confirm(command, minimumRetainedLevel))) return;
 
-  const database = openDatabase(DatabaseSync, false);
+  const database = open(DatabaseSync, false);
 
   try {
     database.exec("PRAGMA busy_timeout = 5000;");
 
-    if (minimumRetainedLevel !== "trace") {
-      assertExpectedSchema(database);
-    }
-
-    const currentTrigger = getTrigger(database);
-    assertRecognizedTrigger(currentTrigger);
-
-    if (triggerSignature(currentTrigger) !== triggerSignature(preflightTrigger)) {
-      throw new Error(
-        "The managed trigger changed after confirmation; refusing to modify it.",
-      );
-    }
-
-    if (needsEvidence && !getRecentEvidence(database).qualifies) {
-      throw new Error(
-        "Recent evidence changed after confirmation; refusing new suppression.",
-      );
-    }
-
     runSchemaTransaction(database, () => {
+      // Recheck only after acquiring the write lock. A competing connection
+      // may have changed the schema or policy while confirmation was pending.
+      if (minimumRetainedLevel !== "trace") {
+        assertExpectedSchema(database);
+      }
+
+      const currentTrigger = getTrigger(database);
+      assertRecognizedTrigger(currentTrigger);
+
+      if (triggerSignature(currentTrigger) !== triggerSignature(preflightTrigger)) {
+        throw new Error(
+          "The managed trigger changed after confirmation; refusing to modify it.",
+        );
+      }
+
+      if (needsEvidence && !getRecentEvidence(database).qualifies) {
+        throw new Error(
+          "Recent evidence changed after confirmation; refusing new suppression.",
+        );
+      }
+
       if (currentTrigger) {
         database.exec(`DROP TRIGGER "${triggerName}";`);
       }
@@ -827,9 +831,11 @@ async function main() {
     await restoreLogRetention(DatabaseSync);
   }
 }
-try {
-  await main();
-} catch (error) {
-  console.error(`Error: ${maskHomePath(error.message)}`);
-  process.exitCode = 1;
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(`Error: ${maskHomePath(error.message)}`);
+    process.exitCode = 1;
+  }
 }
