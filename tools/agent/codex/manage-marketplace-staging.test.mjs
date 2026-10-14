@@ -150,13 +150,17 @@ test('partial failure is reported and helper lock released', async t => {
   assert.ok(!fs.existsSync(join(f.root, '.ai-dotfiles-marketplace-staging.lock')));
 });
 
-test('process checks reject running clients and failed or unparseable inventories', () => {
-  if (!process.env.SystemRoot && !process.env.WINDIR) return;
-  const result = stdout => () => ({ status: 0, stdout });
-  assert.doesNotThrow(() => assertClientsClosed({ spawn: result('"System","4","Services","0","0 K"\r\n') }));
-  assert.throws(() => assertClientsClosed({ spawn: result('"codex.exe","123","Console","1","0 K"\r\n') }), /running/);
-  assert.throws(() => assertClientsClosed({ spawn: result('Access denied') }), /could not be parsed/);
-  assert.throws(() => assertClientsClosed({ spawn: () => ({ status: 1 }) }), /inspection failed/);
+test('process checks reject running clients and failed or unparseable inventories on every OS', t => {
+  const f = fixture(t);
+  fs.mkdirSync(join(f.base, 'System32'));
+  fs.writeFileSync(join(f.base, 'System32', 'tasklist.exe'), 'synthetic executable; never run');
+  const options = stdout => ({ platform: 'win32', windowsRoot: f.base, spawn: () => ({ status: 0, stdout }) });
+  assert.doesNotThrow(() => assertClientsClosed(options('"System","4","Services","0","0 K"\r\n')));
+  assert.throws(() => assertClientsClosed(options('"codex.exe","123","Console","1","0 K"\r\n')), /still running/);
+  assert.throws(() => assertClientsClosed(options('"codex-background-writer.exe","123","Console","1","0 K"\r\n')), /still running/);
+  assert.throws(() => assertClientsClosed(options('"System","4","Services","0","0 K"\r\nAccess denied')), /could not be parsed/);
+  assert.throws(() => assertClientsClosed(options('Access denied')), /could not be parsed/);
+  assert.throws(() => assertClientsClosed({ ...options(''), spawn: () => ({ status: 1 }) }), /inspection failed/);
 });
 
 test('CLI validates arguments and OS without writes; missing target stays missing', async t => {
