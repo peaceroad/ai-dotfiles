@@ -400,7 +400,9 @@ stagingのコピー、展開、会話・添付生成、再読hash、source再検
 
 5. 独立修正は既存のNode 24系で非圧縮回帰を行う。圧縮対応版は26.10.0と採用patchで圧縮試験を行い、配布成果物でもNode 24の非圧縮回帰を行う。Windows x64・Linux x64・macOS arm64の読取・export fixture試験を行う。実CLIによる削除互換試験は既存のWindows限定範囲で行う。
 
-[package.jsonのcheck定義](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/package.json)にはrepository独自のexport dry-runも含まれるため、検証環境は実ホームを参照しないように設定します。正常例に加え、危険入力・未検証条件・保存後の変更では削除呼出しが0回になることを必須とします。実CLI互換試験も使い捨てhomeだけを対象にし、対応版・引数・接続方式・結果を記録します。未実施の試験は成功扱いにしません。
+[比較元のcheck定義](https://github.com/peaceroad/ai-dotfiles/blob/d4747236a2d079d96dfc47d71e23783b21e6600c/package.json)には実ホームを参照するexport dry-runも含まれていました。現行の`npm run check`はエクスポートを合成入力で検証し、実ホームの公開前検査は`npm run check:export`へ分離しています。現在の入口と条件は[開発・検証の案内](../../README.md#リポジトリの開発検証)を参照してください。
+
+正常例に加え、危険入力・未検証条件・保存後の変更では削除呼出しが0回になることを必須とします。実CLI互換試験も使い捨てhomeだけを対象にし、対応版・引数・接続方式・結果を記録します。未実施の試験は成功扱いにしません。
 
 ## 段階的な導入順
 

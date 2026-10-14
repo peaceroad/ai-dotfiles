@@ -112,25 +112,25 @@ agent dev skill sync
 マニフェストを変更したら、最初に構造だけを検証します。この段階では、参照先やリンクが存在することを要求しません。
 
 ```powershell
-node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs validate
+node "$HOME/.agents/ai-dotfiles/runtime/manage-skill-links.mjs" validate
 ```
 
 次に、宣言したすべてのリンクについて現在の状態を表示します。`status`は不整合があっても終了コードを失敗にしないため、状況の確認に使えます。
 
 ```powershell
-node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs status
+node "$HOME/.agents/ai-dotfiles/runtime/manage-skill-links.mjs" status
 ```
 
 参照先と`SKILL.md`を確認したうえで、存在しないリンクを作成します。既存の通常ファイル、通常ディレクトリ、異なる参照先を指すリンクは置き換えません。
 
 ```powershell
-node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs sync
+node "$HOME/.agents/ai-dotfiles/runtime/manage-skill-links.mjs" sync
 ```
 
 最後に、すべての宣言が現在の環境で成立していることを終了コードも含めて確認します。
 
 ```powershell
-node ~/.agents/ai-dotfiles/runtime/manage-skill-links.mjs check
+node "$HOME/.agents/ai-dotfiles/runtime/manage-skill-links.mjs" check
 ```
 
 ## このリポジトリから使う

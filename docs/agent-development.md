@@ -83,7 +83,6 @@ Linux／macOSではNode.jsを用意し、リポジトリのルートから実行
 ```sh
 node scripts/install-agent.mjs --dry-run
 node scripts/install-agent.mjs
-agent --help
 ```
 
 共通ランタイムを`~/.agents/ai-dotfiles/runtime/`へコピーし、実行権限を付けた`agent.mjs`への相対シンボリックリンクを`~/.local/bin/agent`に作ります。リンク先はインストール済みコピーなので、実行に元のcheckoutは不要です。Linux／macOSには`agent.cmd`をコピーしません。`--agents-root PATH`と`--bin-dir PATH`で配置先を変更できます。
@@ -93,6 +92,8 @@ agent --help
 ```sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
+
+PATHを確認したら、`agent --help`で起動を確認します。
 
 更新も同じ導入コマンドを再実行します。`--force`は確認済みの管理外の通常ファイルを置き換える指定です。別の`agent`ファイル・リンク、PATH上の別コマンド、配置ルート自体やその内部を転送するリンクは強制指定でも拒否します。上位ディレクトリのリンク（macOSの`/tmp`など）は実体へ解決します。aliasやfunctionとの衝突は検出できないため、起動先が違う場合は`type agent`で確認してください。個々のファイルは一時ファイル経由で置き換えますが、一式全体の更新はトランザクションではありません。途中で失敗した場合は原因を解消して再実行します。
 
@@ -126,6 +127,8 @@ Node.jsの配置先は固定していません。Apple Silicon／Intelとも、�
 
 ### 検証範囲と実環境での確認
 
+リポジトリのルートから実行します。集約チェックの入口と公開前のエクスポート検査は、[READMEの開発・検証](../README.md#リポジトリの開発検証)を参照してください。
+
 ```sh
 npm run check:agent-dev
 ```
@@ -133,6 +136,19 @@ npm run check:agent-dev
 Windowsでは共通テストとPowerShellインストーラーテストを実行します。Linux／macOSでは実行権限、リンク経由の起動、リンク先の保護、上位ディレクトリの別名を経由した再インストールも確認します。macOSではさらに`/bin/zsh`からPATH経由の起動を検証します。対象外のOSでは各テストをスキップします。共通テストだけの入口は`npm run check:agent-dev:common`です。
 
 この対応はWindows環境で実装しました。Ubuntu（WSL2）およびmacOSでの実測は未実施です。実環境では、まず上記テストを実行し、導入、`agent --help`、再インストールを確認してください。Skillのcheck/syncやMarketplace操作は試験用のソースと配布先で確認し、Codexへのplugin syncは実際のインストール操作として別途確認します。特定ディストリビューションのパッケージ管理には依存しませんが、他のLinuxで実測済みとは扱いません。
+
+`check:agent-dev:common`にはセッションのテストも含まれますが、すべての対応条件を1回の実行で確認できるわけではありません。変更に関係する試験を次の条件で実行し、pass・fail・skipを分けて確認してください。スキップや未実施の試験は合格に含めません。
+
+- **非圧縮回帰**：Node.js 24系で通常のチェックを実行します。この版での成功を圧縮経路の検証へ読み替えません。
+- **圧縮回帰**：[圧縮の対応条件](agent-codex.md#圧縮履歴の対応範囲)を満たすNode.js 26.10.0以上の安定版でも`npm run check:agent-dev:common`を実行します。圧縮対応Nodeでなければreader・exportなどの圧縮試験はスキップされます。OS別の追加受入は[圧縮計画の実施方法](plans/ai-dotfiles-compressed-session-plan.md#残る受入試験の実施方法)を参照してください。
+- **公式CLI互換**：Windowsで対応する公式CLIを用意し、`AGENT_TEST_CODEX_COMPAT=1`を明示して実行します。通常はスキップされ、一部は圧縮対応Nodeも必要です。[対応版の追加・互換試験](plans/ai-dotfiles-session-preservation-plan.md#cli対応版の追加)に従い、使い捨てhomeで確認します。
+- **大容量境界**：`AGENT_TEST_LARGE_ROLLOUT=1`を明示した任意試験です。[必要な一時領域と実行手順](plans/ai-dotfiles-compressed-session-plan.md#残る受入試験の実施方法)を確認してください。容量不足によるスキップも未検証です。
+
+Git書込ACLツールを変更した場合は、WindowsのPowerShell 7で次も実行します。これは`npm run check`と`npm run check:agent-dev`には含まれません。メモリ上のACLと使い捨てfixtureを検査し、実ファイルのACLは変更しません。
+
+```powershell
+pwsh -NoProfile -File scripts/test-manage-git-write-acl.ps1
+```
 
 CLIが実行する共通managerは、`~/.agents/skills/`の発見リンクから読み込みません。直接リンクを一時的に外してプラグイン統合を確認する場合もCLI自身の依存が失われず、インストール済みCLIとmanagerの版もそろいます。スキルに同梱したスクリプトは、単独利用とプラグイン側の正本として引き続き保持します。
 
