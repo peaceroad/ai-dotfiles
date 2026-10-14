@@ -1958,10 +1958,10 @@ function standaloneImportFixture(t) {
   };
 }
 
-test('standalone import adopts canonical plugin and Skill identities through parent aliases', { skip: process.platform === 'win32' }, t => {
+test('standalone import adopts canonical plugin and Skill identities through parent aliases', t => {
   const f = standaloneImportFixture(t);
   const alias = join(f.root, 'alias');
-  symlinkSync(f.repository, alias, 'dir');
+  symlinkSync(f.repository, alias, process.platform === 'win32' ? 'junction' : 'dir');
   f.standalone.plugins[0].source = '../alias/plugins/sample-plugin';
   f.standalone.skills[0].source = '../alias/skills/sample-skill';
   f.config.plugins.existing = { repository: alias, pluginRoot: 'plugins/sample-plugin' };
@@ -2049,13 +2049,13 @@ test('failed standalone import leaves no partially added targets', async t => {
   }
 });
 
-test('standalone import rejects generated sources through an aliased parent', { skip: process.platform === 'win32' }, t => {
+test('standalone import rejects generated sources through an aliased parent', t => {
   const f = standaloneImportFixture(t);
   const generated = join(f.marketplace, 'plugins', 'sample-plugin');
   mkdirSync(generated, { recursive: true });
   writeJson(join(generated, 'plugin.json'), { name: 'sample-plugin' });
   const alias = join(f.root, 'shared-alias');
-  symlinkSync(f.marketplace, alias, 'dir');
+  symlinkSync(f.marketplace, alias, process.platform === 'win32' ? 'junction' : 'dir');
   f.standalone.plugins[0].source = join(alias, 'plugins', 'sample-plugin');
   const result = f.connect();
   assert.match(result.stdout + result.stderr, /source inside its generated plugins directory/);
