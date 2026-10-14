@@ -241,6 +241,127 @@ test('normal empty-directory synchronization and file/directory transitions stil
   assert.equal(readFileSync(join(f.destination, '.agents/public-tree/to-directory/child.txt'), 'utf8'), 'now a directory\n');
 });
 
+test('ignored destination metadata retains its ancestors while obsolete siblings are removed', t => {
+  const f = fixture(t);
+  select(f, ['.agents/public-tree']);
+  write(join(f.home, '.agents/public-tree/new.txt'), 'new public content\n');
+  for (const name of ['Desktop.ini', '.DS_Store', 'Thumbs.db']) {
+    write(join(f.destination, `.agents/public-tree/old/${name}`), 'retained metadata\n');
+  }
+  write(join(f.destination, '.agents/public-tree/old/nested/leaf/Desktop.ini'), 'nested metadata\n');
+  write(join(f.destination, '.agents/public-tree/old/nested/obsolete.txt'), 'obsolete\n');
+  write(join(f.destination, '.agents/public-tree/old/removable/obsolete.txt'), 'obsolete\n');
+  const before = files(f.destination);
+  const dry = f.run('--dry-run');
+  assert.equal(dry.status, 0, dry.stdout + dry.stderr);
+  assert.deepEqual(files(f.destination), before);
+  assert.doesNotMatch(dry.stdout, /^  \.agents\/public-tree\/old\/$/m);
+  const result = f.run('--write');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(files(f.destination), [
+    '.agents/public-tree/new.txt', '.agents/public-tree/old/.DS_Store', '.agents/public-tree/old/Desktop.ini',
+    '.agents/public-tree/old/Thumbs.db', '.agents/public-tree/old/nested/leaf/Desktop.ini',
+  ]);
+  assert.equal(existsSync(join(f.destination, '.agents/public-tree/old/removable')), false);
+  assert.equal(readFileSync(join(f.destination, '.agents/public-tree/old/nested/leaf/Desktop.ini'), 'utf8'), 'nested metadata\n');
+  assert.equal(f.run('--write').status, 0, 'retained metadata must also allow a repeated sync');
+});
+
+test('retained metadata type conflicts stop the whole plan before any mutation', t => {
+  for (const transition of ['directory-to-file', 'file-to-directory']) {
+    const f = fixture(t);
+    select(f, ['.agents/public-tree', '.agents/other-tree']);
+    write(join(f.home, '.agents/other-tree/new.txt'), 'new other content\n');
+    write(join(f.destination, '.agents/other-tree/obsolete.txt'), 'preserve until a valid plan\n');
+    if (transition === 'directory-to-file') {
+      write(join(f.home, '.agents/public-tree/entry'), 'replacement file\n');
+      write(join(f.destination, '.agents/public-tree/entry/nested/Desktop.ini'), 'retained metadata\n');
+      write(join(f.destination, '.agents/public-tree/entry/obsolete.txt'), 'preserve on failure\n');
+    } else {
+      write(join(f.home, '.agents/public-tree/Desktop.ini/child.txt'), 'replacement directory content\n');
+      write(join(f.destination, '.agents/public-tree/Desktop.ini'), 'retained metadata\n');
+    }
+    const before = files(f.destination).map(path => [path, readFileSync(join(f.destination, path), 'utf8')]);
+    for (const mode of ['--dry-run', '--write']) {
+      const result = f.run(mode);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Retained OS metadata blocks a destination (file|directory)/);
+      assert.equal(result.stderr.includes(f.home), false);
+      assert.deepEqual(files(f.destination).map(path => [path, readFileSync(join(f.destination, path), 'utf8')]), before);
+    }
+  }
+});
+
+test('selected file destination conflicts stop before cleanup in other roots', t => {
+  for (const conflict of ['directory', 'ancestor-file']) {
+    const f = fixture(t);
+    const selected = conflict === 'directory' ? '.agents/entry' : '.agents/group/entry';
+    select(f, [selected, '.agents/other-tree']);
+    write(join(f.home, selected), 'replacement file\n');
+    write(join(f.home, '.agents/other-tree/new.txt'), 'new other content\n');
+    write(join(f.destination, '.agents/other-tree/obsolete.txt'), 'preserve on failure\n');
+    if (conflict === 'directory') write(join(f.destination, `${selected}/Desktop.ini`), 'retained metadata\n');
+    else write(join(f.destination, '.agents/group'), 'blocking ancestor file\n');
+    const before = files(f.destination).map(path => [path, readFileSync(join(f.destination, path), 'utf8')]);
+    for (const mode of ['--dry-run', '--write']) {
+      const result = f.run(mode);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, conflict === 'directory' ? /File export destination is not a file/ : /File export destination parent is not a directory/);
+      assert.equal(result.stderr.includes(f.home), false);
+      assert.deepEqual(files(f.destination).map(path => [path, readFileSync(join(f.destination, path), 'utf8')]), before);
+    }
+  }
+});
+
+test('shared sections export only their interiors and accept an implicit first start', t => {
+  for (const [source, expected] of [
+    ['# Outside before\n# Shared settings start here.\n###\n# Interior note\nmodel = "fixture"\n###\n# Shared settings end here.\n# Outside after\n',
+      '# Interior note\nmodel = "fixture"\n'],
+    ['\n###\nmodel = "implicit"\n###\n# Shared settings end here.\n# Outside\n# Shared settings start here.\n\nfeature = true\n# Shared settings end here.\n',
+      '###\nmodel = "implicit"\n\nfeature = true\n'],
+  ]) {
+    const f = fixture(t);
+    write(join(f.home, '.codex/config.toml'), source);
+    const result = f.run('--write');
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(readFileSync(join(f.destination, '.codex/config.toml'), 'utf8'), expected);
+    assert.equal(readFileSync(join(f.home, '.codex/config.toml'), 'utf8'), source);
+  }
+});
+
+test('invalid and missing required shared sections fail before changing the destination', t => {
+  for (const [source, reason] of [
+    ['model = "fixture"\n', /markers are required/],
+    ['# Shared settings start here.\nmodel = "fixture"\n', /start marker without an end marker/],
+    ['model = "fixture"\n# Shared settings end here.\n# Shared settings end here.\n', /end marker without a start marker/],
+    ['# Shared settings start here.\n# Shared settings start here.\n# Shared settings end here.\n', /nested Shared settings start/],
+    ['# Shared settings start here.\n\n###\n# Shared settings end here.\n', /section is empty/],
+    ['# Shared settings end here.\n', /section is empty/],
+  ]) {
+    const f = fixture(t);
+    write(join(f.home, '.codex/config.toml'), source);
+    write(join(f.destination, '.codex/AGENTS.md'), 'previous public content\n');
+    for (const mode of ['--dry-run', '--write']) {
+      const result = f.run(mode);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, reason);
+      assert.deepEqual(files(f.destination), ['.codex/AGENTS.md']);
+      assert.equal(readFileSync(join(f.destination, '.codex/AGENTS.md'), 'utf8'), 'previous public content\n');
+    }
+  }
+});
+
+test('export help describes selected-section and retained-metadata boundaries', t => {
+  const f = fixture(t), result = f.run('--help');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /section interiors, omitting the markers and outside comments/);
+  assert.match(result.stdout, /start implicitly/);
+  assert.match(result.stdout, /decoration is preserved/);
+  assert.match(result.stdout, /\.codex\/config\.toml requires Shared settings sections/);
+  assert.match(result.stdout, /Existing destination metadata and its containing directories are retained/);
+  assert.equal(existsSync(f.destination), false);
+});
+
 test('canonical source aliases into the mirror are rejected without changing either tree', t => {
   const f = fixture(t);
   select(f, ['.agents/public-empty']);
