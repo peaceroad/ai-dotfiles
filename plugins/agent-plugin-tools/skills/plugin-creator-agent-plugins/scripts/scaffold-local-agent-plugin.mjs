@@ -674,6 +674,6 @@ function main(argv) {
   }
 }
 
-if (process.argv[1] && comparablePath(process.argv[1]) === comparablePath(SCRIPT_PATH)) {
+if (process.argv[1] && canonicalPath(process.argv[1]) === canonicalPath(SCRIPT_PATH)) {
   main(process.argv.slice(2));
 }
