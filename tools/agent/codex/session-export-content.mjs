@@ -141,20 +141,30 @@ export async function checkDependencySources(checks, home, progress) {
   }
 }
 
-function message(value) {
-  const p = value.payload ?? value;
+const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+function message(value, warn) {
+  if (!object(value)) { warn('unsupported-message-record'); return null; }
+  const p = value.payload === undefined ? value : value.payload;
+  if (!object(p)) { warn('unsupported-message-record'); return null; }
   const item = p.type === 'item_completed' ? p.item : p;
-  if (!item) return null;
+  if (!object(item)) { warn('unsupported-message-record'); return null; }
   if (value.type === 'realtime_item' && item.type === 'transcript_segment' && ['user', 'assistant'].includes(item.role)) {
     return { role: item.role, content: [{ type: 'text', text: item.text }], event: true };
   }
-  if (['user_message', 'userMessage', 'UserMessage'].includes(item.type)) return { role: 'user', content: item.content ?? [
-    { type: 'text', text: item.message ?? '' },
-    ...(item.images ?? []).map(image_url => ({ type: 'image', image_url })),
-    ...(item.local_images ?? []).map(path => ({ type: 'local_image', path })),
-    ...(item.audio ?? []).map(audio_url => ({ type: 'audio', audio_url })),
-    ...(item.local_audio ?? []).map(path => ({ type: 'local_audio', path })),
-  ], event: true };
+  if (['user_message', 'userMessage', 'UserMessage'].includes(item.type)) {
+    const media = (values, type, key) => {
+      if (values === undefined || values === null) return [];
+      if (!Array.isArray(values)) { warn('unsupported-message-media'); return []; }
+      return values.map(value => ({ type, [key]: value }));
+    };
+    return { role: 'user', content: item.content ?? [
+      { type: 'text', text: item.message ?? '' },
+      ...media(item.images, 'image', 'image_url'),
+      ...media(item.local_images, 'local_image', 'path'),
+      ...media(item.audio, 'audio', 'audio_url'),
+      ...media(item.local_audio, 'local_audio', 'path'),
+    ], event: true };
+  }
   if (['agent_message', 'agentMessage', 'AgentMessage'].includes(item.type)) return { role: 'assistant', content: typeof (item.text ?? item.message) === 'string' ? [{ type: 'text', text: item.text ?? item.message }] : item.content, event: true };
   if (item.type === 'message' && ['user', 'assistant'].includes(item.role)) return { role: item.role, content: item.content, event: false };
   return null;
@@ -231,14 +241,15 @@ export async function renderConversation(folder, row, sources, { attachmentRoots
       const formats = new Set();
       try {
         for await (const record of jsonLines(source.path, { progress })) {
-          const m = message(record.value);
+          const origin = `${source.file}:${record.line}`;
+          const m = message(record.value, reason => warnings.push({ kind: 'rendering', reason, origin }));
           if (!m) continue;
           formats.add(m.event ? 'event' : 'response');
           messageCount++;
-          const origin = `${source.file}:${record.line}`;
           yield `## ${messageCount}. ${m.role === 'user' ? 'User' : 'Assistant'}\n\nSource: ${origin}\n\n`;
           if (!Array.isArray(m.content)) { warnings.push({ kind: 'rendering', reason: 'unsupported-message-content', origin }); continue; }
           for (const part of m.content) {
+            if (!object(part)) { warnings.push({ kind: 'rendering', reason: 'unsupported-content-part', origin }); continue; }
             if (['input_text', 'output_text', 'text', 'Text'].includes(part.type) && typeof part.text === 'string') {
               yield textBlock(part.text);
               if (m.role === 'user' && /Files mentioned by the user:|<file\b|<attachment\b/.test(part.text)) warnings.push({ kind: 'attachment', reason: 'unverified-file-mention', origin });

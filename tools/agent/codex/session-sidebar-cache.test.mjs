@@ -91,6 +91,90 @@ test('cache changes during the final process check stop before writing', async t
   assert.equal(existsSync(join(f.home, 'backups')), false);
 });
 
+test('missing host keys and duplicate local rows are rejected before backup or mutation', async t => {
+  for (const table of ['local_thread_catalog_hosts', 'local_thread_catalog_sync_state', 'local_thread_catalog_scan_checkpoints']) {
+    for (const duplicate of [false, true]) {
+      const f = fixture(t);
+      f.sql(`CREATE TABLE replacement AS SELECT * FROM ${table}; DROP TABLE ${table}; ALTER TABLE replacement RENAME TO ${table};
+        ${duplicate ? `INSERT INTO ${table} SELECT * FROM ${table} WHERE host_id='local';` : ''}`);
+      const before = readFileSync(f.path);
+      await assert.rejects(inspectSidebarRefresh(f.home), /Unsupported sidebar cache schema/);
+      await assert.rejects(requestSidebarRefresh(f.home, { closed() { assert.fail('Unsupported schema must fail before process checks'); } }), /Unsupported sidebar cache schema/);
+      assert.deepEqual(readFileSync(f.path), before);
+      assert.equal(existsSync(join(f.home, 'backups')), false);
+    }
+  }
+});
+
+test('column types, generated columns and composite keys are not accepted as a known layout', async t => {
+  for (const definition of [
+    'host_id TEXT PRIMARY KEY, checkpoint BLOB, failed_at INTEGER',
+    'host_id TEXT PRIMARY KEY, checkpoint TEXT, failed_at INTEGER, hidden_value TEXT GENERATED ALWAYS AS (checkpoint) VIRTUAL',
+    'host_id TEXT, checkpoint TEXT, failed_at INTEGER, PRIMARY KEY (host_id, checkpoint)',
+  ]) {
+    const f = fixture(t);
+    f.sql(`DROP TABLE local_thread_catalog_scan_checkpoints; CREATE TABLE local_thread_catalog_scan_checkpoints (${definition});`);
+    const before = readFileSync(f.path);
+    await assert.rejects(requestSidebarRefresh(f.home, { closed() {} }), /Unsupported sidebar cache schema/);
+    assert.deepEqual(readFileSync(f.path), before);
+    assert.equal(existsSync(join(f.home, 'backups')), false);
+  }
+});
+
+test('schema changed at the final process check is rejected inside the mutation transaction', async t => {
+  const f = fixture(t);
+  let before;
+  await assert.rejects(requestSidebarRefresh(f.home, { closed() {
+    f.sql(`CREATE TABLE replacement AS SELECT * FROM local_thread_catalog_scan_checkpoints;
+      DROP TABLE local_thread_catalog_scan_checkpoints; ALTER TABLE replacement RENAME TO local_thread_catalog_scan_checkpoints;
+      INSERT INTO local_thread_catalog_scan_checkpoints VALUES ('local', 'second checkpoint', NULL);`);
+    before = readFileSync(f.path);
+  } }), /Unsupported sidebar cache schema/);
+  assert.deepEqual(readFileSync(f.path), before);
+  assert.equal(existsSync(join(f.home, 'backups')), false);
+});
+
+test('non-null refresh markers cannot replace unbacked remote rows through constraints', async t => {
+  const f = fixture(t);
+  f.sql(`ALTER TABLE local_thread_catalog_sync_state RENAME TO previous_sync;
+    CREATE TABLE local_thread_catalog_sync_state (host_id TEXT PRIMARY KEY, watermark_updated_at INTEGER,
+      initial_build_complete INTEGER, observation_sequence INTEGER,
+      last_full_reconciled_at INTEGER NOT NULL ON CONFLICT REPLACE DEFAULT 999 UNIQUE ON CONFLICT REPLACE);
+    INSERT INTO local_thread_catalog_sync_state SELECT * FROM previous_sync;
+    DROP TABLE previous_sync;`);
+  const before = readFileSync(f.path);
+  await assert.rejects(inspectSidebarRefresh(f.home), /Unsupported sidebar cache schema/);
+  await assert.rejects(requestSidebarRefresh(f.home, { closed() { assert.fail('Unsupported schema must fail before process checks'); } }), /Unsupported sidebar cache schema/);
+  assert.deepEqual(readFileSync(f.path), before);
+  assert.equal(existsSync(join(f.home, 'backups')), false);
+});
+
+test('reported row counts do not replace verification of the pending refresh state', async t => {
+  for (const skippedStatement of ['UPDATE local_thread_catalog_sync_state', 'DELETE FROM local_thread_catalog_scan_checkpoints']) {
+    const f = fixture(t), before = readFileSync(f.path);
+    const original = DatabaseSync.prototype.prepare;
+    const mocked = t.mock.method(DatabaseSync.prototype, 'prepare', function (sql, ...args) {
+      const statement = original.call(this, sql, ...args);
+      return sql.startsWith(skippedStatement) ? { run() { return { changes: 1 }; } } : statement;
+    });
+    try {
+      await assert.rejects(requestSidebarRefresh(f.home, { closed() {} }), /refresh state was not applied/);
+      assert.deepEqual(readFileSync(f.path), before, 'the failed refresh must roll back both mutations');
+      assert.equal((await inspectSidebarRefresh(f.home)).pending, false);
+      assert.equal(readdirSync(join(f.home, 'backups', 'sidebar-refresh')).length, 1);
+    } finally { mocked.mock.restore(); }
+  }
+});
+
+test('a missing local checkpoint is backed up as absent and needs no deleted row', async t => {
+  const f = fixture(t);
+  f.sql("DELETE FROM local_thread_catalog_scan_checkpoints WHERE host_id='local'");
+  const result = await requestSidebarRefresh(f.home, { closed() {} });
+  assert.equal(result.changed, true);
+  assert.equal(JSON.parse(readFileSync(result.backup, 'utf8')).previousState.checkpoint, null);
+  assert.equal((await inspectSidebarRefresh(f.home)).pending, true);
+});
+
 test('cache removed during the final process check is not recreated', async t => {
   const f = fixture(t);
   await assert.rejects(requestSidebarRefresh(f.home, { closed() { rmSync(f.path); } }), /path changed/);
