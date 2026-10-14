@@ -1928,3 +1928,136 @@ syncBuiltinESMExports();\n`);
     assert.match(result.stderr, /\[external\]\/state/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+function standaloneImportFixture(t) {
+  const root = join(tmpdir(), `agent-standalone-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const repository = join(root, 'repository');
+  const plugin = join(repository, 'plugins', 'sample-plugin');
+  const skill = join(repository, 'skills', 'sample-skill');
+  const marketplace = join(root, 'shared');
+  const configPath = join(root, 'development.json');
+  const definition = join(marketplace, '.agents', 'marketplace-development', 'config.json');
+  mkdirSync(join(repository, '.git'), { recursive: true });
+  mkdirSync(plugin, { recursive: true });
+  mkdirSync(skill, { recursive: true });
+  mkdirSync(dirname(definition), { recursive: true });
+  writeJson(join(plugin, 'plugin.json'), { $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'sample-plugin', version: '1.0.0', description: 'Synthetic plugin.' });
+  writeFileSync(join(skill, 'SKILL.md'), '---\nname: sample-skill\ndescription: Synthetic Skill.\n---\n');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const config = { schemaVersion: 2, plugins: {}, skills: {}, marketplaces: {} };
+  const standalone = { schemaVersion: 2, name: 'shared', displayName: 'Shared', plugins: [{ source: plugin, category: 'Tools' }], skills: [{ source: skill }] };
+  const env = { AGENT_DEV_HOME: root, AGENT_DEV_CONFIG: configPath, AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER };
+  return { root, repository, plugin, skill, marketplace, configPath, definition, config, standalone, env,
+    connect() {
+      writeJson(configPath, config);
+      writeJson(definition, standalone);
+      return run(CLI, ['dev', 'marketplace', 'configure'], env, `c\nshared\n${marketplace}\ns\n`);
+    },
+    saved() { return JSON.parse(readFileSync(configPath, 'utf8')); },
+    sync() { return run(CLI, ['dev', 'marketplace', 'sync', 'shared'], env); },
+  };
+}
+
+test('standalone import adopts canonical plugin and Skill identities through parent aliases', { skip: process.platform === 'win32' }, t => {
+  const f = standaloneImportFixture(t);
+  const alias = join(f.root, 'alias');
+  symlinkSync(f.repository, alias, 'dir');
+  f.standalone.plugins[0].source = '../alias/plugins/sample-plugin';
+  f.standalone.skills[0].source = '../alias/skills/sample-skill';
+  f.config.plugins.existing = { repository: alias, pluginRoot: 'plugins/sample-plugin' };
+  f.config.skills.existing = { repository: alias, skillRoot: 'skills/sample-skill' };
+  const connected = f.connect();
+  assert.equal(connected.status, 0, connected.stdout + connected.stderr);
+  assert.doesNotMatch(connected.stdout + connected.stderr, /Could not complete/);
+  const saved = f.saved();
+  assert.deepEqual(saved.marketplaces.shared.plugins, [{ target: 'existing', category: 'Tools' }]);
+  assert.deepEqual(saved.marketplaces.shared.skills, [{ target: 'existing' }]);
+  const synced = f.sync();
+  assert.equal(synced.status, 0, synced.stdout + synced.stderr);
+  assert.equal(JSON.parse(readFileSync(f.definition)).managedBy, 'ai-dotfiles/agent-dev');
+});
+
+test('standalone Skill reuse requires exactly matching provenance without editing existing targets', async t => {
+  for (const [existingUrl, importedUrl] of [[null, null], [null, 'https://example.com/new'], ['https://example.com/old', null], ['https://example.com/same', 'https://example.com/same'], ['https://example.com/old', 'https://example.com/new']]) {
+    await t.test(`${existingUrl ?? 'absent'} to ${importedUrl ?? 'absent'}`, t => {
+      const f = standaloneImportFixture(t);
+      const existing = { repository: f.repository, skillRoot: 'skills/sample-skill', ...(existingUrl ? { sourceUrl: existingUrl } : {}) };
+      f.config.skills['sample-skill'] = existing;
+      if (importedUrl) f.standalone.skills[0].sourceUrl = importedUrl;
+      const result = f.connect();
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.doesNotMatch(result.stdout + result.stderr, /Could not complete/);
+      const saved = f.saved();
+      assert.deepEqual(saved.skills['sample-skill'], existing);
+      const target = saved.marketplaces.shared.skills[0].target;
+      assert.equal(target, existingUrl === importedUrl ? 'sample-skill' : 'sample-skill-2');
+      assert.equal(saved.skills[target].sourceUrl ?? null, importedUrl);
+      const synced = f.sync();
+      assert.equal(synced.status, 0, synced.stdout + synced.stderr);
+    });
+  }
+});
+
+test('standalone import ignores offline and invalid unrelated sources and keeps distinct same-name targets', t => {
+  const f = standaloneImportFixture(t);
+  const other = join(f.root, 'other');
+  mkdirSync(other);
+  writeFileSync(join(other, 'SKILL.md'), 'not frontmatter');
+  writeFileSync(join(other, 'development.json'), 'not json');
+  writeFileSync(join(f.repository, 'invalid-development.json'), 'not json');
+  f.config.plugins = {
+    missingDefinition: { repository: f.repository, developmentConfig: 'missing-development.json' },
+    invalidDefinition: { repository: f.repository, developmentConfig: 'invalid-development.json' },
+    missingRoot: { repository: f.repository, pluginRoot: 'missing-plugin' },
+    offline: { repository: join(f.root, 'offline'), pluginRoot: '.' },
+    invalid: { repository: other, developmentConfig: 'development.json' },
+    'sample-plugin': { repository: other, pluginRoot: '.' },
+  };
+  f.config.skills = {
+    offline: { repository: join(f.root, 'offline'), skillRoot: '.' },
+    invalid: { repository: other, skillRoot: '.' },
+  };
+  const result = f.connect();
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stdout + result.stderr, /Could not complete/);
+  const saved = f.saved();
+  assert.equal(saved.marketplaces.shared.plugins[0].target, 'sample-plugin-2');
+  for (const [name, entry] of Object.entries(f.config.plugins)) assert.deepEqual(saved.plugins[name], entry);
+  for (const [name, entry] of Object.entries(f.config.skills)) assert.deepEqual(saved.skills[name], entry);
+  const synced = f.sync();
+  assert.equal(synced.status, 0, synced.stdout + synced.stderr);
+});
+
+test('failed standalone import leaves no partially added targets', async t => {
+  for (const failure of ['unavailable Skill', 'duplicate plugin', 'ambiguous aliases', 'invalid Skill']) {
+    await t.test(failure, t => {
+      const f = standaloneImportFixture(t);
+      if (failure === 'unavailable Skill') f.standalone.skills[0].source = join(f.root, 'missing-skill');
+      if (failure === 'duplicate plugin') f.standalone.plugins.push({ ...f.standalone.plugins[0] });
+      if (failure === 'ambiguous aliases') {
+        f.config.plugins.first = { repository: f.repository, pluginRoot: 'plugins/sample-plugin' };
+        f.config.plugins.second = { ...f.config.plugins.first };
+      }
+      if (failure === 'invalid Skill') writeFileSync(join(f.skill, 'SKILL.md'), 'invalid');
+      const result = f.connect();
+      assert.match(result.stdout + result.stderr, /Could not complete/);
+      const saved = f.saved();
+      assert.deepEqual(saved.plugins, f.config.plugins);
+      assert.deepEqual(saved.skills, f.config.skills);
+      assert.deepEqual(saved.marketplaces, {});
+    });
+  }
+});
+
+test('standalone import rejects generated sources through an aliased parent', { skip: process.platform === 'win32' }, t => {
+  const f = standaloneImportFixture(t);
+  const generated = join(f.marketplace, 'plugins', 'sample-plugin');
+  mkdirSync(generated, { recursive: true });
+  writeJson(join(generated, 'plugin.json'), { name: 'sample-plugin' });
+  const alias = join(f.root, 'shared-alias');
+  symlinkSync(f.marketplace, alias, 'dir');
+  f.standalone.plugins[0].source = join(alias, 'plugins', 'sample-plugin');
+  const result = f.connect();
+  assert.match(result.stdout + result.stderr, /source inside its generated plugins directory/);
+  assert.deepEqual(f.saved().plugins, {});
+});

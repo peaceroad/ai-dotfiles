@@ -724,17 +724,78 @@ function validateManagedMarketplaceReference(config, label) {
   return config;
 }
 
+// Resolve only declarations that could refer to the imported source. In particular,
+// do not load every plugin configuration or Skill manifest in the local catalog.
+function standaloneTargetLookup(config) {
+  const paths = new Map();
+  const canonical = (value) => {
+    const key = pathKey(value);
+    if (!paths.has(key)) {
+      try { paths.set(key, realpathSync(value)); }
+      catch (error) {
+        if (!["ENOENT", "ENOTDIR"].includes(error.code)) throw error;
+        paths.set(key, null);
+      }
+    }
+    return paths.get(key);
+  };
+  const candidates = new Map();
+  return (kind, source, sourceUrl) => {
+    const matches = [];
+    for (const [target, entry] of Object.entries(config[kind])) {
+      if (kind === "skills" && (entry.sourceUrl ?? null) !== (sourceUrl ?? null)) continue;
+      const key = `${kind}:${target}`;
+      if (!candidates.has(key)) {
+        let candidate;
+        if (entry.installedSkill) candidate = join(HOME_PATH, ".agents", "skills", entry.installedSkill);
+        else {
+          const repository = canonical(expandPath(entry.repository, `${kind}.${target}.repository`));
+          if (!repository || !sameOrWithin(repository, source)) continue;
+          let sourceRoot = entry.pluginRoot ?? entry.skillRoot;
+          if (entry.developmentConfig) {
+            if (!canonical(resolve(repository, entry.developmentConfig))) {
+              candidates.set(key, null);
+              continue;
+            }
+            const definition = resolveRepositoryPath(repository, entry.developmentConfig, `plugins.${target}.developmentConfig`);
+            let parsed;
+            try { parsed = JSON.parse(readFileSync(definition, "utf8")); }
+            catch (error) {
+              if (!(error instanceof SyntaxError)) throw error;
+              candidates.set(key, null);
+              continue;
+            }
+            sourceRoot = parsed?.pluginRoot;
+          }
+          // Final materialization retains lexical and canonical guards for selected
+          // targets. Unrelated declarations need no manifest inspection.
+          if (typeof sourceRoot !== "string") continue;
+          candidate = resolve(repository, sourceRoot);
+        }
+        candidates.set(key, canonical(candidate));
+      }
+      if (candidates.get(key) !== null && pathKey(candidates.get(key)) === pathKey(source)) matches.push(target);
+    }
+    if (matches.length > 1) fail(`More than one local ${kind} target matches the imported source. Review the aliases before connecting.`);
+    return matches[0] ?? null;
+  };
+}
+
 function importStandaloneMarketplace(name, rootValue, config) {
   const root = expandPath(rootValue, `marketplaces.${name}.root`);
   const standalone = validateStandaloneDefinition(
     readJson(join(root, MARKETPLACE_CONFIG_RELATIVE_PATH), `Marketplace ${name} configuration`),
     `Marketplace ${name} configuration`,
   );
-  const sourceTargets = new Map();
-  for (const [target, entry] of Object.entries(config.plugins)) {
-    const context = pluginSourceContext(target, entry);
-    sourceTargets.set(pathKey(context.pluginRoot), target);
-  }
+  const originalConfig = config;
+  config = { ...config, plugins: { ...config.plugins }, skills: { ...config.skills } };
+  const findTarget = standaloneTargetLookup(config);
+  const canonicalMarketplace = canonicalRoot(root);
+  const assertIndependentSource = (source, directory, label) => {
+    if (sameOrWithin(join(canonicalMarketplace, directory), source)) {
+      fail(`Marketplace ${name} has a ${label} source inside its generated ${directory} directory.`);
+    }
+  };
   const assignments = [];
   for (const plugin of standalone.plugins) {
     const source = resolve(root, plugin.source);
@@ -745,7 +806,8 @@ function importStandaloneMarketplace(name, rootValue, config) {
       fail(`Marketplace ${name} has an unavailable plugin source.`);
     }
     const realSource = realpathSync(source);
-    let target = sourceTargets.get(pathKey(realSource));
+    assertIndependentSource(realSource, "plugins", "plugin");
+    let target = findTarget("plugins", realSource);
     if (!target) {
       const manifest = readJson(join(realSource, "plugin.json"), `Marketplace ${name} plugin manifest`);
       const pluginName = validateMarketplaceName(manifest.name, `Marketplace ${name} plugin name`);
@@ -756,14 +818,8 @@ function importStandaloneMarketplace(name, rootValue, config) {
         repository: configuredPath(repository),
         pluginRoot: pluginRoot === "" ? "." : pluginRoot.replaceAll("\\", "/"),
       };
-      sourceTargets.set(pathKey(realSource), target);
     }
     assignments.push({ target, category: plugin.category });
-  }
-  const skillSourceTargets = new Map();
-  for (const [target, entry] of Object.entries(config.skills ?? {})) {
-    const context = skillSourceContext(target, entry);
-    skillSourceTargets.set(pathKey(context.skillRoot), target);
   }
   const skillAssignments = [];
   for (const skill of standalone.skills ?? []) {
@@ -775,7 +831,8 @@ function importStandaloneMarketplace(name, rootValue, config) {
       fail(`Marketplace ${name} has an unavailable Skill source.`);
     }
     const realSource = realpathSync(source);
-    let target = skillSourceTargets.get(pathKey(realSource));
+    assertIndependentSource(realSource, "skills", "Skill");
+    let target = findTarget("skills", realSource, skill.sourceUrl);
     if (!target) {
       const skillName = skillFrontmatter(realSource, `Marketplace ${name} Skill`).name;
       target = uniqueTargetName(skillName, config.skills);
@@ -786,11 +843,10 @@ function importStandaloneMarketplace(name, rootValue, config) {
         skillRoot: skillRoot === "" ? "." : skillRoot.replaceAll("\\", "/"),
         ...(skill.sourceUrl ? { sourceUrl: skill.sourceUrl } : {}),
       };
-      skillSourceTargets.set(pathKey(realSource), target);
     }
     skillAssignments.push({ target });
   }
-  return {
+  const imported = {
     root: rootValue,
     name: standalone.name,
     displayName: standalone.displayName,
@@ -798,6 +854,13 @@ function importStandaloneMarketplace(name, rootValue, config) {
     plugins: assignments,
     skills: skillAssignments,
   };
+  const { effective } = marketplaceMaterialization(name, imported, config);
+  if (!matchesStandaloneMarketplace(root, standalone, effective)) {
+    fail(`Marketplace ${name} could not be imported without changing its source definitions.`);
+  }
+  originalConfig.plugins = config.plugins;
+  originalConfig.skills = config.skills;
+  return imported;
 }
 
 function importExistingMarketplace(name, rootValue, config) {
@@ -1088,18 +1151,27 @@ function matchesStandaloneMarketplace(root, current, effective) {
   if (Object.keys(current).some((key) => !STANDALONE_MARKETPLACE_KEYS.has(key))) return false;
   if (current.name !== effective.name || current.displayName !== effective.displayName) return false;
   if (!Array.isArray(current.plugins) || current.plugins.length !== effective.plugins.length) return false;
+  const sourceIdentity = (source) => {
+    try { return pathKey(realpathSync(resolve(root, source))); }
+    catch (error) {
+      if (["ENOENT", "ENOTDIR"].includes(error.code)) return null;
+      throw error;
+    }
+  };
+  // Materialization already canonicalized the selected sources. Only the
+  // standalone spelling needs resolving again at this adoption boundary.
   const expected = new Map(effective.plugins.map((plugin) => [pathKey(plugin.source), plugin.category]));
   if (expected.size !== effective.plugins.length) return false;
   for (const plugin of current.plugins) {
     if (!isObject(plugin) || Object.keys(plugin).some((key) => !STANDALONE_MARKETPLACE_PLUGIN_KEYS.has(key))) return false;
     if (typeof plugin.source !== "string" || typeof plugin.category !== "string") return false;
-    const source = pathKey(isAbsolute(plugin.source) ? plugin.source : resolve(root, plugin.source));
+    const source = sourceIdentity(plugin.source);
     if (expected.get(source) !== plugin.category) return false;
     expected.delete(source);
   }
   if (expected.size !== 0) return false;
   const currentSkills = current.skills ?? [];
-  if (currentSkills.length !== effective.skills.length) return false;
+  if (!Array.isArray(currentSkills) || currentSkills.length !== effective.skills.length) return false;
   const expectedSkills = new Map(effective.skills.map((skill) => [
     pathKey(skill.source),
     skill.sourceUrl ?? null,
@@ -1108,7 +1180,7 @@ function matchesStandaloneMarketplace(root, current, effective) {
   for (const skill of currentSkills) {
     if (!isObject(skill) || Object.keys(skill).some((key) => !STANDALONE_MARKETPLACE_SKILL_KEYS.has(key))) return false;
     if (typeof skill.source !== "string") return false;
-    const source = pathKey(isAbsolute(skill.source) ? skill.source : resolve(root, skill.source));
+    const source = sourceIdentity(skill.source);
     if (expectedSkills.get(source) !== (skill.sourceUrl ?? null)) return false;
     expectedSkills.delete(source);
   }
