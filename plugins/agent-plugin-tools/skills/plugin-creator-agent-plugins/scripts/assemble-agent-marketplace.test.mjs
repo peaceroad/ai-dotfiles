@@ -674,6 +674,85 @@ test("assembler preflights init output and rejects canonical source/output overl
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("distribution rejects Git metadata before changing Marketplace output", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "marketplace-distribution-boundary-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  const pluginRoot = path.join(tempRoot, "sources", "sample-plugin");
+  const skillRoot = path.join(tempRoot, "sources", "sample-skill");
+  const configPath = path.join(tempRoot, "config.json");
+  try {
+    await createPlugin(pluginRoot, "sample-plugin");
+    await createSkill(skillRoot, "sample-skill");
+    await writeJson(configPath, {
+      schemaVersion: 2,
+      name: "test-marketplace",
+      displayName: "Test Marketplace",
+      plugins: [{ source: pluginRoot, category: "Productivity" }],
+      skills: [{ source: skillRoot }],
+    });
+    const baseline = invoke(["sync", marketplaceRoot, "--config", configPath], tempRoot);
+    assert.equal(baseline.status, 0, baseline.stderr);
+    const before = await treeDigest(marketplaceRoot);
+    for (const [source, scope, name] of [
+      [pluginRoot, "--plugin", "sample-plugin"],
+      [skillRoot, "--skill", "sample-skill"],
+    ]) {
+      for (const kind of ["directory", "worktree-file", "nested-directory"]) {
+        const git = path.join(source, ...(kind === "nested-directory" ? ["nested"] : []), ".git");
+        if (kind === "worktree-file") await writeFile(git, "gitdir: ../synthetic-worktree\n");
+        else {
+          await mkdir(git, { recursive: true });
+          await writeFile(path.join(git, "config"), "synthetic Git metadata\n");
+        }
+        for (const command of ["sync", "check"]) {
+          for (const selected of [[], [scope, name]]) {
+            const result = invoke([command, marketplaceRoot, "--config", configPath, ...selected], tempRoot);
+            assert.equal(result.status, 1, `${kind}: ${result.stdout}${result.stderr}`);
+            assert.match(result.stderr, /Git administrative metadata/u);
+            assert.equal(await treeDigest(marketplaceRoot), before);
+          }
+        }
+        await rm(kind === "nested-directory" ? path.dirname(git) : git, { recursive: true });
+      }
+    }
+    // Ordinary resources are not silently filtered, and the destination may be a repository.
+    await mkdir(path.join(marketplaceRoot, ".git"));
+    await writeFile(path.join(marketplaceRoot, ".git", "config"), "synthetic destination metadata\n");
+    await writeFile(path.join(pluginRoot, ".env"), "PUBLIC_SYNTHETIC_EXAMPLE=yes\n");
+    const allowed = invoke(["sync", marketplaceRoot, "--config", configPath], tempRoot);
+    assert.equal(allowed.status, 0, allowed.stderr);
+    assert.equal(await readFile(path.join(marketplaceRoot, "plugins", "sample-plugin", ".env"), "utf8"), "PUBLIC_SYNTHETIC_EXAMPLE=yes\n");
+    assert.equal(invoke(["check", marketplaceRoot, "--config", configPath], tempRoot).status, 0);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("init and add refuse Git-bearing plugin sources before configuration writes", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "marketplace-config-boundary-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  const pluginRoot = path.join(tempRoot, "sample-plugin");
+  try {
+    await createPlugin(pluginRoot, "sample-plugin");
+    await writeFile(path.join(pluginRoot, ".git"), "gitdir: ../synthetic-worktree\n");
+    const initialized = invoke([
+      "init", marketplaceRoot, "--name", "test-marketplace", "--display-name", "Test Marketplace",
+      "--plugin", pluginRoot, "--category", "Productivity",
+    ], tempRoot);
+    assert.equal(initialized.status, 1);
+    assert.match(initialized.stderr, /Git administrative metadata/u);
+    await assert.rejects(readFile(path.join(marketplaceRoot, ".agents", "marketplace-development", "config.json")), { code: "ENOENT" });
+    assert.equal(invoke(["init", marketplaceRoot, "--name", "test-marketplace", "--display-name", "Test Marketplace"], tempRoot).status, 0);
+    const before = await treeDigest(marketplaceRoot);
+    const added = invoke(["add", marketplaceRoot, pluginRoot, "--category", "Productivity"], tempRoot);
+    assert.equal(added.status, 1);
+    assert.match(added.stderr, /Git administrative metadata/u);
+    assert.equal(await treeDigest(marketplaceRoot), before);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("streamed tree digests match buffered vectors for empty, binary, nested and linked entries", async (t) => {
   const { createHash } = await import("node:crypto");
   const { lstat, readdir, readlink } = await import("node:fs/promises");

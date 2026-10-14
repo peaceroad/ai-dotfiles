@@ -479,9 +479,10 @@ async function inspectPlugin(root, entry, {
   const manifest = await readJson(path.join(source, "plugin.json"), "plugin.json");
   const name = validateName(manifest.name, `${displayPath(source)}/plugin.json.name`);
   await assertSourceBoundary(root, source, "plugins", name, allowGeneratedSource);
-  if (validate) runValidator(source);
   const plugin = { ...entry, source, name };
   if (includeDigest) plugin.digest = await treeDigest(source);
+  else if (validate) await assertDistributionTree(source);
+  if (validate) runValidator(source);
   return plugin;
 }
 
@@ -548,12 +549,26 @@ async function inspectSkills(config, root, inspectionOptions) {
   return skills;
 }
 
+async function distributionEntries(directory, root) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  if (entries.some((entry) => entry.name.toLowerCase() === ".git")) {
+    fail(`Package contains Git administrative metadata: ${displayPath(root)}. Select an explicit distribution root without .git files or directories; no files are silently excluded.`);
+  }
+  return entries;
+}
+
+async function assertDistributionTree(root, directory = root) {
+  for (const entry of await distributionEntries(directory, root)) {
+    if (entry.isDirectory()) await assertDistributionTree(root, path.join(directory, entry.name));
+  }
+}
+
 export async function treeDigest(root, legacy = false) {
   const hash = createHash("sha256");
   const realRoot = await realpath(root);
   const buffer = Buffer.allocUnsafe(256 * 1024);
   async function visit(directory, relativeDirectory) {
-    const entries = await readdir(directory, { withFileTypes: true });
+    const entries = await distributionEntries(directory, root);
     entries.sort((a, b) => legacy ? a.name.localeCompare(b.name, "en") : Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)));
     for (const entry of entries) {
       const relative = path.join(relativeDirectory, entry.name).replaceAll(path.sep, "/");
