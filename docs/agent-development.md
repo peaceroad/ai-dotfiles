@@ -273,6 +273,8 @@ agent dev marketplace configure team
 
 `plugins[].target`と`skills[].target`は、上位に登録したローカル対象を参照します。同じソースパスをMarketplaceごとに重複させず、一つの対象を複数Marketplaceへ割り当てられます。
 
+standalone形式のMarketplaceを接続するときは、親ディレクトリの別名や相対パスを正規化し、同じ実体のソースを照合します。Skillの既存対象を再利用するのは`sourceUrl`の有無と値も一致する場合だけです。来歴が異なる場合は別の対象名を追加し、他のMarketplaceが参照する既存対象を変更しません。無関係な未接続リポジトリの本文は検証せず、取り込む定義全体を再現できた場合だけ対象を追加します。同じソースに複数の再利用候補がある場合は、接続前に対象名の整理を求めます。
+
 `development.json`はschema v2だけを受け付けます。試行段階のschema v1を自動変換する互換コードは持ちません。旧ファイルが残っている場合は別名で退避し、`configure`でv2を作り直してください。既存Marketplaceの構成を引き継ぐ場合は、退避したローカル設定を参照しながら「Connect existing Marketplace」を使います。
 
 `agent.cmd`は、自身の配置先を基準に`../ai-dotfiles/runtime/agent.mjs`をNode.jsで実行するだけで、開発処理を重複実装しません。端末固有の設定とインストール済みコピーをリポジトリの正本に戻さないことで、公開可能なコードとローカル環境の境界を保ちます。
