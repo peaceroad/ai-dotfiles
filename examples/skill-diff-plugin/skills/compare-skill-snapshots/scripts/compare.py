@@ -17,6 +17,15 @@ class ComparisonError(ValueError):
     pass
 
 
+def normalized_path(path):
+    path = os.path.normpath(path)
+    # POSIX permits implementation-defined semantics for exactly two leading
+    # slashes. Descriptor walking from / cannot preserve those semantics.
+    if path.startswith('//'):
+        raise ComparisonError('Paths beginning with exactly two slashes are not supported')
+    return path
+
+
 def directory(path):
     """Open every absolute path component without following links, including ancestors."""
     if '\0' in path:
@@ -27,6 +36,7 @@ def directory(path):
         raise ComparisonError('Path cannot be encoded for this filesystem') from None
     if not os.path.isabs(path) or '..' in path.split('/'):
         raise ComparisonError('Expected an absolute path without parent traversal')
+    path = normalized_path(path)
     fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
     try:
         for part in path.split('/'):
@@ -45,7 +55,7 @@ def snapshot(path, roots):
         raise ComparisonError('Invalid snapshot path')
     if not os.path.isabs(path) or '..' in path.split('/'):
         raise ComparisonError('Expected an absolute path without parent traversal')
-    path = os.path.normpath(path)
+    path = normalized_path(path)
     if not any(os.path.commonpath([root, path]) == root for root in roots):
         raise ComparisonError('Snapshot is outside configured roots')
     files = {}
@@ -119,11 +129,11 @@ def configured_roots():
                 raise ValueError()
             fd = directory(root)
             os.close(fd)
-        return [os.path.normpath(root) for root in roots]
+        return [normalized_path(root) for root in roots]
     except (OSError, ValueError, TypeError):
         if single:
-            raise ComparisonError('Set SKILL_DIFF_ROOT to an existing, absolute, non-root directory without symlinks') from None
-        raise ComparisonError('Set SKILL_DIFF_ROOTS to a JSON list of existing, absolute, non-root directories without symlinks') from None
+            raise ComparisonError('Set SKILL_DIFF_ROOT to an existing, absolute, non-root directory without symlinks or a double-slash prefix') from None
+        raise ComparisonError('Set SKILL_DIFF_ROOTS to a JSON list of existing, absolute, non-root directories without symlinks or double-slash prefixes') from None
 
 
 def compare(local, upstream, base=None):
