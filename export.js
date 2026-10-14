@@ -204,9 +204,11 @@ Direct usage:
 
 The scan checks sensitive filenames and text content for the local username,
 home-directory paths, and common credential patterns. Shared settings boundaries
-export only the selected sections, omitting the markers and decorative boundary
-lines. The first section may start implicitly at the beginning of the file and end
-at the first end marker. On comments starting
+export only section interiors, omitting the markers and outside comments. Blank
+and decorative boundary lines are trimmed. The first section may start implicitly
+at the beginning of the file and end at the first end marker; its leading
+decoration is preserved. .codex/config.toml requires Shared settings sections.
+On comments starting
 with the exact uppercase prefix "# ENV:" or "# NOTE:", an occurrence of the local
 username is treated as intentional.
 Other checks still apply to those lines. Configured directories are synchronized:
@@ -216,6 +218,8 @@ When exporting .agents/ai-dotfiles/skill-links.json, only links whose targets ar
 repository are written to the public copy.
 
 OS metadata files such as Desktop.ini, .DS_Store, and Thumbs.db are skipped.
+Existing destination metadata and its containing directories are retained;
+conflicting file/directory replacements stop the plan before any changes.
 Use --verbose to list the skipped paths.
 
 The command stops before writing or deleting anything when a scan finds a potential
@@ -474,12 +478,10 @@ async function collectDestinationDirectory(
       );
     }
     if (childMetadata.isFile()) {
-      if (isIgnoredOsMetadataFile(childRelativePath)) {
-        continue;
-      }
       files.push({
         destinationPath: childDestinationPath,
         relativePath: childRelativePath,
+        retained: isIgnoredOsMetadataFile(childRelativePath),
       });
       continue;
     }
@@ -922,6 +924,28 @@ async function destinationMatches(destinationPath, content) {
   return (await readFile(destinationPath)).equals(content);
 }
 
+async function assertSelectedFileDestination(destinationPath, relativePath) {
+  // A selected file has no directory sync plan that could remove this conflict.
+  for (let current = destinationPath; ; current = path.dirname(current)) {
+    let metadata;
+    try {
+      metadata = await lstat(current);
+    } catch (error) {
+      if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+    }
+    if (metadata !== undefined) {
+      const target = current === destinationPath;
+      if (metadata.isSymbolicLink() || !(target ? metadata.isFile() : metadata.isDirectory())) {
+        throw new Error(target
+          ? `File export destination is not a file: ${relativePath}`
+          : `File export destination parent is not a directory: ${relativePath}`);
+      }
+      return;
+    }
+    if (current === REPOSITORY_HOME_ROOT) return;
+  }
+}
+
 async function buildDirectorySyncPlan(
   destinationPath,
   relativePath,
@@ -938,6 +962,22 @@ async function buildDirectorySyncPlan(
   const expectedDirectories = new Set(
     [...sourceDirectories].map(pathComparisonKey),
   );
+  const retainedDirectories = new Set();
+  for (const { relativePath: filePath, retained } of destination.files) {
+    if (!retained) continue;
+    if (expectedDirectories.has(pathComparisonKey(filePath))) {
+      throw new Error(`Retained OS metadata blocks a destination directory: ${filePath}`);
+    }
+    for (let parent = path.posix.dirname(filePath); parent !== "."; parent = path.posix.dirname(parent)) {
+      retainedDirectories.add(pathComparisonKey(parent));
+    }
+  }
+  for (const { relativePath: directoryPath } of destination.directories) {
+    const key = pathComparisonKey(directoryPath);
+    if (retainedDirectories.has(key) && expectedFiles.has(key)) {
+      throw new Error(`Retained OS metadata blocks a destination file: ${directoryPath}`);
+    }
+  }
   const existingDirectories = new Set([
     ...(destination.exists ? [relativePath] : []),
     ...destination.directories.map(({ relativePath: directoryPath }) =>
@@ -951,12 +991,13 @@ async function buildDirectorySyncPlan(
       .map((directoryRelativePath) =>
         resolveContained(REPOSITORY_HOME_ROOT, directoryRelativePath)),
     obsoleteFiles: destination.files.filter(
-      ({ relativePath: filePath }) =>
-        !expectedFiles.has(pathComparisonKey(filePath)),
+      ({ relativePath: filePath, retained }) =>
+        !retained && !expectedFiles.has(pathComparisonKey(filePath)),
     ),
     obsoleteDirectories: destination.directories.filter(
       ({ relativePath: directoryRelativePath }) =>
-        !expectedDirectories.has(pathComparisonKey(directoryRelativePath)),
+        !expectedDirectories.has(pathComparisonKey(directoryRelativePath))
+        && !retainedDirectories.has(pathComparisonKey(directoryRelativePath)),
     ),
   };
 }
@@ -1057,9 +1098,10 @@ async function replaceDestinationFile(destinationPath, content) {
 
 async function writeFiles(files, directorySyncPlan, exports) {
   // Validate all selected roots before the first side effect, even with zero files.
-  for (const { destinationPath, sourcePath, relativePath } of exports) {
+  for (const { destinationPath, sourcePath, relativePath, directorySyncPlan: plan, files: selectedFiles } of exports) {
     await assertNoDestinationSymbolicLinks(destinationPath);
     await assertSourceOutsideMirror(sourcePath, relativePath);
+    if (plan === null && selectedFiles.length) await assertSelectedFileDestination(destinationPath, relativePath);
   }
   const plannedWrites = await mapWithConcurrency(
     files,
@@ -1163,6 +1205,9 @@ async function main() {
         sourceDirectories,
         skippedFiles,
       );
+      if (sourceDirectories.size === 0 && files.length) {
+        await assertSelectedFileDestination(destinationPath, relativePath);
+      }
       const directorySyncPlan = sourceDirectories.size > 0
         ? await buildDirectorySyncPlan(
           destinationPath,
