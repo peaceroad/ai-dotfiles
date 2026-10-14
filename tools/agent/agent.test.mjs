@@ -61,6 +61,43 @@ test("default storage uses ai-dotfiles and read-only commands never migrate lega
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
+test('checkout default helpers validate and assemble plugins without manager overrides', async t => {
+  const { mkdtempSync, existsSync } = await import('node:fs');
+  const root = mkdtempSync(join(tmpdir(), 'checkout-helpers-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const repository = join(root, 'repo');
+  const plugin = join(repository, '..local-plugin');
+  const shared = join(root, 'shared');
+  const configPath = join(root, 'development.json');
+  mkdirSync(plugin, { recursive: true });
+  writeJson(join(plugin, 'plugin.json'), { $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json', name: 'sample-plugin', version: '1.0.0', description: 'Synthetic plugin.' });
+  const config = { schemaVersion: 2, plugins: { sample: { repository, pluginRoot: '..local-plugin' } }, marketplaces: {
+    shared: { root: shared, name: 'shared', displayName: 'Shared', mode: 'authoritative', plugins: [{ target: 'sample', category: 'Tools' }] },
+  } };
+  writeJson(configPath, config);
+  const env = { AGENT_DEV_HOME: root, AGENT_DEV_CONFIG: configPath, AGENT_DEV_MARKETPLACE_MANAGER: '', AGENT_DEV_LOCAL_PLUGIN_MANAGER: '' };
+  for (const args of [['dev', 'plugin', 'check', 'sample'], ['dev', 'marketplace', 'sync', 'shared'], ['dev', 'marketplace', 'check', 'shared']]) {
+    const result = run(CLI, args, env);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+  assert.equal(existsSync(join(shared, 'plugins', 'sample-plugin', 'plugin.json')), true);
+  config.plugins.sample.pluginRoot = '../repo-sibling';
+  mkdirSync(join(root, 'repo-sibling'));
+  writeJson(configPath, config);
+  const escaped = run(CLI, ['dev', 'plugin', 'check', 'sample'], env);
+  assert.equal(escaped.status, 1);
+  assert.match(escaped.stderr, /escapes the repository/);
+  if (process.platform !== 'win32') {
+    const redirected = join(repository, 'redirected');
+    symlinkSync(join(root, 'repo-sibling'), redirected, 'dir');
+    config.plugins.sample.pluginRoot = 'redirected';
+    writeJson(configPath, config);
+    const escapedLink = run(CLI, ['dev', 'plugin', 'check', 'sample'], env);
+    assert.equal(escapedLink.status, 1);
+    assert.match(escapedLink.stderr, /resolves outside the repository/);
+  }
+});
+
 test("rejects provenance URLs that could expose credentials", () => {
   const root = join(tmpdir(), `agent-dev-source-url-${process.pid}-${Date.now()}`);
   const home = join(root, "home");

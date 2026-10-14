@@ -23,22 +23,28 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const REPOSITORY_ROOT = resolve(SCRIPT_DIR, "../..");
+const CHECKOUT = SCRIPT_DIR === join(REPOSITORY_ROOT, "tools", "agent")
+  && existsSync(join(REPOSITORY_ROOT, "scripts", "install-agent.mjs"));
+const PLUGIN_TOOLS = CHECKOUT
+  ? join(REPOSITORY_ROOT, "plugins", "agent-plugin-tools", "skills", "plugin-creator-agent-plugins")
+  : join(SCRIPT_DIR, "plugin-tools");
 const HOME_PATH = resolve(process.env.AGENT_DEV_HOME || homedir());
 const DATA_ROOT = join(HOME_PATH, ".agents", "ai-dotfiles");
 const CONFIG_PATH = resolve(process.env.AGENT_DEV_CONFIG || join(DATA_ROOT, "development.json"));
 const SKILL_MANAGER = resolve(process.env.AGENT_DEV_SKILL_MANAGER || join(SCRIPT_DIR, "manage-skill-links.mjs"));
 const MARKETPLACE_MANAGER = resolve(
   process.env.AGENT_DEV_MARKETPLACE_MANAGER
-    || join(SCRIPT_DIR, "plugin-tools", "scripts", "assemble-agent-marketplace.mjs"),
+    || join(PLUGIN_TOOLS, "scripts", "assemble-agent-marketplace.mjs"),
 );
 const LOCAL_PLUGIN_MANAGER = resolve(
   process.env.AGENT_DEV_LOCAL_PLUGIN_MANAGER
-    || join(SCRIPT_DIR, "plugin-tools", "scripts", "manage-local-agent-plugin.mjs"),
+    || join(PLUGIN_TOOLS, "scripts", "manage-local-agent-plugin.mjs"),
 );
 const TOP_LEVEL_KEYS = new Set(["$schema", "schemaVersion", "skills", "plugins", "marketplaces"]);
 const SKILL_KEYS = new Set(["repository", "skillRoot", "installedSkill", "sourceUrl"]);
@@ -288,7 +294,7 @@ function displayPath(pathValue) {
   const absolute = resolve(pathValue);
   const fromHome = relative(HOME_PATH, absolute);
   if (fromHome === "") return "~";
-  if (!fromHome.startsWith("..") && !isAbsolute(fromHome)) return `~/${fromHome.replaceAll("\\", "/")}`;
+  if (isContainedRelativePath(fromHome)) return `~/${fromHome.replaceAll("\\", "/")}`;
   return `[external]/${basename(absolute)}`;
 }
 
@@ -305,9 +311,12 @@ function expandPath(pathValue, label) {
   return resolve(pathValue);
 }
 
+function isContainedRelativePath(value) {
+  return value !== ".." && !value.startsWith(`..${sep}`) && !isAbsolute(value);
+}
+
 function sameOrWithin(parent, candidate) {
-  const fromParent = relative(parent, candidate);
-  return fromParent === "" || (!fromParent.startsWith("..") && !isAbsolute(fromParent));
+  return isContainedRelativePath(relative(parent, candidate));
 }
 
 function resolveRepositoryPath(repository, pathValue, label, type = "file") {
@@ -592,7 +601,7 @@ function configuredPath(pathValue) {
   const absolute = resolve(pathValue);
   const fromHome = relative(HOME_PATH, absolute);
   if (fromHome === "") return "~";
-  if (!fromHome.startsWith("..") && !isAbsolute(fromHome)) return `~/${fromHome.replaceAll("\\", "/")}`;
+  if (isContainedRelativePath(fromHome)) return `~/${fromHome.replaceAll("\\", "/")}`;
   return absolute;
 }
 
@@ -3033,7 +3042,7 @@ async function main() {
     }
     if (args.length && !(process.argv[2] === 'info' && args.length === 1 && args[0] === '--json')) fail('Use agent info [--json] or agent --version.', 2);
     const { printAgentInfo } = await import('./agent-info.mjs');
-    process.exitCode = printAgentInfo({ json: args[0] === '--json', versionOnly: process.argv[2] === '--version' });
+    process.exitCode = await printAgentInfo({ json: args[0] === '--json', versionOnly: process.argv[2] === '--version' });
     return;
   }
   if (process.argv[2] === "codex") {

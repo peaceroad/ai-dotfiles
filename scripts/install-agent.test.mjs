@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { displayPath, installAgent } from './install-agent.mjs';
 import { CODEX_TOOLS } from '../tools/agent/codex/codex.mjs';
 
@@ -261,4 +262,126 @@ test('display paths retain home-relative details and redact custom parents', t =
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ['~', '~/runtime/agent.mjs', '[custom]/agent.mjs', '[custom]/agent.mjs']);
   assert.equal(result.stdout.includes(root), false);
+});
+
+test('runtime identity matches checkout and reports missing payloads without loading the broken registry', async t => {
+  const { runtimePayload } = await import('../tools/agent/agent-info.mjs');
+  const options = { ...fixture(t), platform: 'win32' };
+  installAgent(options);
+  const runtime = join(options.agentsRoot, 'ai-dotfiles', 'runtime');
+  const command = join(runtime, 'agent.mjs');
+  const inspect = path => spawnSync(process.execPath, [path, 'info', '--json'], { encoding: 'utf8' });
+  const checkout = inspect(fileURLToPath(new URL('../tools/agent/agent.mjs', import.meta.url)));
+  const installed = inspect(command);
+  assert.equal(checkout.status, 0, checkout.stderr);
+  assert.equal(installed.status, 0, installed.stderr);
+  assert.equal(JSON.parse(checkout.stdout).runtimeId, JSON.parse(installed.stdout).runtimeId);
+  assert.equal(JSON.parse(installed.stdout).inventoryComplete, true);
+  // The CLI and diagnostic entrypoints must themselves be runnable. Every other
+  // payload entry is inspected without requiring that entry to load successfully.
+  for (const item of runtimePayload(CODEX_TOOLS).filter(item => !['agent.mjs', 'agent-info.mjs'].includes(item.target))) {
+    const path = join(runtime, item.target);
+    const bytes = fs.readFileSync(path);
+    fs.unlinkSync(path);
+    try {
+      const result = inspect(command);
+      assert.equal(result.status, 1, item.target + result.stdout + result.stderr);
+      const info = JSON.parse(result.stdout);
+      assert.equal(info.runtimeId, null);
+      assert.ok(info.unavailableFiles.includes(item.target), item.target);
+      assert.equal(info.inventoryComplete, item.target !== 'codex/codex.mjs');
+    } finally { fs.writeFileSync(path, bytes); }
+  }
+  fs.writeFileSync(join(runtime, 'codex', 'codex.mjs'), 'not valid JavaScript {');
+  fs.unlinkSync(join(runtime, 'manage-skill-links.mjs'));
+  const broken = inspect(command);
+  assert.equal(broken.status, 1, broken.stderr);
+  const info = JSON.parse(broken.stdout);
+  assert.equal(info.runtimeId, null);
+  assert.equal(info.inventoryComplete, false);
+  assert.deepEqual(info.unavailableFiles.sort(), ['codex/codex.mjs', 'manage-skill-links.mjs']);
+});
+
+test('installer preserves colliding temporary files and the primary failure when cleanup also fails', async t => {
+  const crypto = (await import('node:crypto')).default;
+  const mutableFs = (await import('node:fs')).default;
+  const { syncBuiltinESMExports } = await import('node:module');
+  const originalUUID = crypto.randomUUID;
+  const originalRename = mutableFs.renameSync;
+  const originalUnlink = mutableFs.unlinkSync;
+  const options = { ...fixture(t), platform: 'win32' };
+  const directory = join(options.agentsRoot, 'ai-dotfiles', 'runtime', 'codex');
+  fs.mkdirSync(directory, { recursive: true });
+  const temporary = join(directory, '.agent-install-fixed.tmp');
+  const sentinel = 'Another writer owns this file.';
+  fs.writeFileSync(temporary, sentinel);
+  try {
+    crypto.randomUUID = () => 'fixed';
+    syncBuiltinESMExports();
+    assert.throws(() => installAgent(options), { code: 'EEXIST' });
+    assert.equal(fs.readFileSync(temporary, 'utf8'), sentinel);
+    assert.equal(fs.existsSync(join(directory, CODEX_TOOLS[0].file)), false);
+    fs.unlinkSync(temporary);
+    mutableFs.renameSync = () => { throw Object.assign(new Error('Synthetic rename failure'), { code: 'EIO' }); };
+    mutableFs.unlinkSync = () => { throw Object.assign(new Error('Synthetic cleanup failure'), { code: 'EACCES' }); };
+    syncBuiltinESMExports();
+    assert.throws(() => installAgent(options), error => error.code === 'EIO' && /cleanup failed \(EACCES\)/u.test(error.message));
+    assert.equal(fs.existsSync(temporary), true);
+    assert.equal(fs.existsSync(join(directory, CODEX_TOOLS[0].file)), false);
+  } finally {
+    crypto.randomUUID = originalUUID;
+    mutableFs.renameSync = originalRename;
+    mutableFs.unlinkSync = originalUnlink;
+    syncBuiltinESMExports();
+  }
+});
+
+test('runtime diagnostics keep the base inventory when registry exports are missing or malformed', t => {
+  const options = { ...fixture(t), platform: 'win32' };
+  installAgent(options);
+  const runtime = join(options.agentsRoot, 'ai-dotfiles', 'runtime');
+  fs.unlinkSync(join(runtime, 'manage-skill-links.mjs'));
+  for (const source of [
+    '',
+    'export const OTHER = [];',
+    'export const CODEX_TOOLS = {};',
+    'export const CODEX_TOOLS = [null];',
+    'export const CODEX_TOOLS = [{}];',
+    'export const CODEX_TOOLS = [{ file: "" }];',
+    'export const CODEX_TOOLS = [{ file: "tool.mjs", supportFiles: "extra.mjs" }];',
+    'export const CODEX_TOOLS = [{ file: "tool.mjs", supportFiles: [null] }];',
+  ]) {
+    fs.writeFileSync(join(runtime, 'codex', 'codex.mjs'), source);
+    const result = spawnSync(process.execPath, [join(runtime, 'agent.mjs'), 'info', '--json'], { encoding: 'utf8' });
+    assert.equal(result.status, 1, source + result.stdout + result.stderr);
+    assert.equal(result.stderr, '', source);
+    const info = JSON.parse(result.stdout);
+    assert.equal(info.runtimeId, null, source);
+    assert.equal(info.inventoryComplete, false, source);
+    assert.deepEqual(info.unavailableFiles.sort(), ['codex/codex.mjs', 'manage-skill-links.mjs'], source);
+  }
+});
+
+test('installer CLI reports a secondary cleanup failure without exposing local paths', t => {
+  const options = fixture(t);
+  fs.mkdirSync(options.agentsRoot, { recursive: true });
+  const preload = join(options.agentsRoot, 'fault.mjs');
+  fs.writeFileSync(preload, `import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+fs.renameSync = () => { throw Object.assign(new Error('Synthetic rename failure at ' + process.env.HOME), { code: 'EIO' }); };
+fs.unlinkSync = () => { throw Object.assign(new Error('Synthetic cleanup failure at ' + process.env.HOME), { code: 'EACCES' }); };
+syncBuiltinESMExports();\n`);
+  const args = ['--import', pathToFileURL(preload).href, fileURLToPath(new URL('./install-agent.mjs', import.meta.url)), '--agents-root', options.agentsRoot];
+  if (process.platform !== 'win32') args.push('--bin-dir', options.binDir);
+  const result = spawnSync(process.execPath, args, {
+    encoding: 'utf8', env: { ...process.env, HOME: options.agentsRoot, USERPROFILE: options.agentsRoot, PATH: '' },
+  });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stderr, /Installation failed \(EIO\)/u);
+  assert.match(result.stderr, /Temporary file cleanup also failed/u);
+  assert.match(result.stderr, /\.agent-install-\*\.tmp/u);
+  assert.equal(result.stderr.includes(options.agentsRoot), false);
+  const directory = join(options.agentsRoot, 'ai-dotfiles', 'runtime', 'codex');
+  assert.equal(fs.readdirSync(directory).filter(name => name.startsWith('.agent-install-')).length, 1);
+  assert.equal(fs.existsSync(join(directory, CODEX_TOOLS[0].file)), false);
 });

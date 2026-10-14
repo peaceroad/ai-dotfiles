@@ -10,6 +10,8 @@ Codexの状態確認、既知問題の回避、保存済みセッションの整
 
 `agent --version`は、配布対象のコードとスキーマの実際の内容から計算した`sha256:`形式のランタイムIDを表示します。リリース番号やインストール日時ではなく、ソース側とインストール先の内容を比較するための識別値です。`node tools/agent/agent.mjs --version`と`agent --version`が一致すれば、対象ファイルの内容は一致しています。OS別の起動スクリプト、設定、外部CLI、環境変数による管理スクリプトの差し替えは、このIDの対象外です。読み取れない対象ファイルがあればIDを確定せず、終了コード`1`と対象名を返します。IDの一致だけで配布元の真正性や実行環境の互換性を保証するものではありません。
 
+`codex/codex.mjs`の欠落、構文エラー、空ファイルや不正なexportでツール一覧を読み込めない場合も、`agent info --json`は診断結果を返します。この場合は`runtimeId: null`、`inventoryComplete: false`、終了コード`1`になり、読み込めないregistryや基礎ファイルを`unavailableFiles`で示します。registryに依存する全ツールの一覧を確認済みとは扱いません。診断の入口である`agent.mjs`と`agent-info.mjs`自体が動作しない場合は、意図したcheckoutから再導入してください。
+
 ## 管理境界
 
 三つの同期先を分けます。
@@ -25,6 +27,8 @@ Codexの状態確認、既知問題の回避、保存済みセッションの整
 ## 配置とインストール
 
 Windows／Linux／macOSともNode.js 24以降が必要です。インストーラーは要件未満のNode.jsでは書き込み前に停止します。起動用スクリプトとランタイムの改行は、リポジトリの`.gitattributes`でLFに固定しています。
+
+導入前に`node tools/agent/agent.mjs ...`でcheckoutから直接実行する場合、プラグインとMarketplaceのhelperは同じcheckout内の`plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/`から解決します。導入済みランタイムは同梱の`plugin-tools/`を使い、インストール済みSkillやプラグインキャッシュには依存しません。
 
 公開する正本は、このリポジトリの`tools/agent/`と、各管理処理を所有するディレクトリに置きます。利用時はインストーラーが、CLIとその実行に必要なmanager、validator、schemaを同じ版のランタイムとして`~/.agents/`へコピーします。
 

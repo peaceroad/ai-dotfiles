@@ -112,7 +112,7 @@ function validatePortablePath(value, fieldName) {
   if (typeof value !== "string" || !value.startsWith("~/")) {
     throw new Error(`${fieldName} must use a ~/ path`);
   }
-  if (value.split("/").includes("..")) {
+  if (value.split(/[\\/]/u).includes("..")) {
     throw new Error(`${fieldName} must not contain .. segments`);
   }
 }
@@ -150,6 +150,7 @@ function validateManifest(manifest) {
       if (!SKILL_NAME_PATTERN.test(name)) throw new Error(`Invalid skill name: ${name}`);
       validatePortablePath(target, `skills.${name}`);
       const targetPath = expandHome(target, `skills.${name}`);
+      if (!isInside(HOME, targetPath)) throw new Error(`skills.${name} must stay inside your home`);
       if (path.basename(targetPath) !== name) {
         throw new Error(`skills.${name} must target a directory named ${name}`);
       }

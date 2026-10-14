@@ -249,3 +249,22 @@ test("validates, checks, and safely synchronizes declared skill links", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('portable manifests reject traversal with either separator before inspecting or creating links', t => {
+  const { home, manifest, link, env } = fixture(t);
+  const values = ['~/../outside/sample-skill', '~/..\\outside\\sample-skill', '~/nested\\..\\..\\outside/sample-skill'];
+  for (const value of values) {
+    writeJson(manifest, { schemaVersion: 1, linkRoot: '~/.agents/skills', skills: { 'sample-skill': value } });
+    for (const command of ['validate', 'sync']) {
+      const result = run([command], env);
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stderr, /must not contain \.\. segments/);
+      assert.equal(existsSync(link), false);
+    }
+  }
+  // This fixture checks portable path spelling on every host; native Windows
+  // filesystem and junction behavior are covered separately by platform tests.
+  writeJson(manifest, { schemaVersion: 1, linkRoot: '~/.agents/skills', skills: { 'sample-skill': '~/..local/sample-skill' } });
+  assert.equal(run(['validate'], env).status, 0);
+  assert.equal(existsSync(join(home, '.agents', 'skills')), false);
+});
