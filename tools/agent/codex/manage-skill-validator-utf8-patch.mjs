@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   existsSync,
   lstatSync,
+  realpathSync,
 } from "node:fs";
 import {
   mkdir,
@@ -682,7 +683,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try {
     await main();
   } catch (error) {

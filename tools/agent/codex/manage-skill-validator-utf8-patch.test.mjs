@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import { open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { classifyValidator, replaceKnownFile } from './manage-skill-validator-utf8-patch.mjs';
@@ -14,6 +14,16 @@ const manager = join(here, 'manage-skill-validator-utf8-patch.mjs');
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const originalLine = 'content = skill_md.read_text()';
 const patchedLine = 'content = skill_md.read_text(encoding="utf-8")  # Managed by manage-skill-validator-utf8-patch.mjs';
+
+test('validator patch help runs through a linked script directory', t => {
+  const root = fs.mkdtempSync(join(tmpdir(), 'validator-entry-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const linked = join(root, 'linked');
+  fs.symlinkSync(here, linked, process.platform === 'win32' ? 'junction' : 'dir');
+  const result = spawnSync(process.execPath, [join(linked, 'manage-skill-validator-utf8-patch.mjs'), 'help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Usage:/);
+});
 const variants = [
   ['skills', '5347a0a09cfb546bba1c0d1a30dae0a233d9a05f57bd4e7877155c588bcdabf7', '3271802f366bd5bdc3498ac7b2d9805920c0392ca3b6f5f58fa9989448500887'],
   ['preformat', '547af3cec2ae71ac2a4ef606365d23a8c58b586862211e9c7a9be7bfd0e30fbb', '8467d14095ffec0f1e079fd37c8e5768e0164ee66205ec87c91baaffb49807d8'],
@@ -39,7 +49,7 @@ Object.defineProperty(process.stdin, 'isTTY', { value: true });
 Object.defineProperty(process.stdout, 'isTTY', { value: true });\n`);
   const env = { ...process.env, HOME: home, USERPROFILE: home, CODEX_HOME: join(home, '.codex'), PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1' };
   const cli = (command, { answer = 'y', interactive = true } = {}) => spawnSync(process.execPath,
-    [...(interactive ? ['--import', bootstrap] : []), manager, command],
+    [...(interactive ? ['--import', pathToFileURL(bootstrap).href] : []), manager, command],
     { env: { ...env, TEST_CONFIRM: answer }, encoding: 'utf8', cwd: home, timeout: 15000 });
   return { home, path, before, env, cli, read: () => fs.readFileSync(path), replace: (next, options = {}) => replaceKnownFile(sha256(bytes), next, sha256(next), { path, ...options }) };
 }
