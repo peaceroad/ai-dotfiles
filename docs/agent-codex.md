@@ -408,7 +408,7 @@ agent codex marketplace-staging status
 
 問題になるのは、検証処理の`skill_md.read_text()`が、UTF-8のファイルをcp932など別の文字コードとして読む場合です。日本語のスキル自体が不正なのではなく、読み取り時にエラーや文字化けが起きる問題です。Pythonの既定文字コードがUTF-8なら通常この修正は不要で、OS名だけでは必要性を判断できません。文字コード省略時の扱いは[Pythonのテキストエンコーディングの説明](https://docs.python.org/3/library/io.html#text-encoding)を参照してください。
 
-`status`は検証スクリプトの内容を判定するもので、実行時のPython環境を診断するものではありません。確認済みの未修正版であっても、自分の環境でUTF-8の読み取りに問題がなければ、予防的に`apply`する必要はありません。
+`status`は検証スクリプトの内容を判定するもので、実行時のPython環境を診断するものではありません。確認済みの未修正版であっても、自分の環境でUTF-8の読み取りに問題がなければ、予防的に`apply`する必要はありません。未知の版でUTF-8関連の記述を検出しても、実行されない文字列やコメントに含まれる場合があるため、修正済みとは判定しません。`unknown-with-utf8-text`は手動で内容を確認する必要がある状態で、`apply`と`restore`は変更せずに停止します。
 
 この管理スクリプト自体はNode.jsで動作します。`apply`では、修正対象の`~/.codex/skills/.system/skill-creator/scripts/quick_validate.py`を実行して、日本語を含む一時スキルを実際に検証します。`quick_validate.py`が`import yaml`を行うため、この実検証にはPythonとPyYAMLが必要です。管理スクリプトはPythonパッケージを自動インストールしません。
 
@@ -480,7 +480,7 @@ node "$HOME/.agents/ai-dotfiles/runtime/codex/manage-codex-sessions.mjs" list
 
 CodexアプリまたはCLIを更新した後は、設定が維持されている場合もあれば、対象ファイルやデータベースの状態が変わっている場合もあります。利用しているパッチやログ保持設定について、再適用を決める前に対応する`status`で確認します。`git-acl`はGitの書き込みエラーが起きた場合に、`disk-pressure`はWindowsのディスク容量不足やACL状態ファイルの破損が疑われる場合に使います。
 
-- `agent codex skill-validator-utf8 status`が「exact local UTF-8 patch」なら、修正はそのまま有効です。「reviewed unpatched version」の場合は、自分のPython環境でUTF-8の読み取りに問題があるときだけ、安全条件を確認して`apply`を検討します。「unknown version with an explicit UTF-8 fix」または「unknown version requiring review」の場合は手動パッチを適用せず、内容の確認を優先します。
+- `agent codex skill-validator-utf8 status`が「exact local UTF-8 patch」なら、修正はそのまま有効です。「reviewed unpatched version」の場合は、自分のPython環境でUTF-8の読み取りに問題があるときだけ、安全条件を確認して`apply`を検討します。「unknown version containing UTF-8-related text; manual review required」または「unknown version requiring review」の場合は手動パッチを適用せず、内容の確認を優先します。
 - SQLiteの`status`が管理対象ポリシーを`active`と報告するなら、ログ保持設定はすでに有効です。設定を同じレベルへ戻すためだけに`suppress`を再実行する必要はありません。
 
 更新版Codexのログ挙動を再確認したい場合は、SQLiteの抑制がTRACEの発生を隠すため、次の手順で通常ログを観測します。

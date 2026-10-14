@@ -1,9 +1,11 @@
 // @ai-dotfiles agent-dev-runtime managed
 
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import {
   existsSync,
   lstatSync,
+  realpathSync,
 } from "node:fs";
 import {
   mkdir,
@@ -73,7 +75,7 @@ Commands:
   status
     Inspect quick_validate.py without changing it. Reports whether the file is
     a reviewed unpatched version, this script's patched version, an unknown
-    version that already specifies UTF-8, or an unknown version requiring
+    version containing UTF-8-related source text, or an unknown version requiring
     review.
 
   apply
@@ -116,8 +118,10 @@ Safety:
   - Mutating commands require an interactive terminal and a "y" confirmation.
     Pressing Enter or entering any other response cancels without changes.
   - Unknown file versions are never modified.
-  - A version that already specifies UTF-8 is reported as fixed and
-   is not modified.
+  - UTF-8-related text in an unknown version is not proof of an upstream fix;
+    manual review is required and the file is not modified.
+  - Symbolic links, hard links, and changed file identities are rejected.
+    Keep clients closed; concurrent external file changes are unsupported.
   - The file is rewritten in place so its existing Windows ACL is retained.
   - The complete file is verified immediately before and after each write.
   - If writing or post-write verification fails, the previous bytes are
@@ -128,8 +132,8 @@ Safety:
     rolls back the patch.
   - Codex updates may replace this managed file. Run "status" after updates.
   - Reapply only when status reports the reviewed unpatched version.
-    An exact local patch needs no action; an existing UTF-8 fix must not be
-    replaced by this local patch.
+    An exact local patch needs no action; unknown source text must be reviewed
+    before considering a different patch.
 
 Requirements:
   Node.js 18 or newer.
@@ -165,12 +169,12 @@ function maskHomePath(value) {
   return masked;
 }
 
-function assertValidatorExists() {
-  if (!existsSync(validatorPath)) {
+function assertValidatorExists(path = validatorPath) {
+  if (!existsSync(path)) {
     throw new Error(`Validator does not exist: ${validatorDisplayPath}`);
   }
 
-  const stats = lstatSync(validatorPath);
+  const stats = lstatSync(path);
 
   if (stats.isSymbolicLink()) {
     throw new Error(
@@ -180,6 +184,21 @@ function assertValidatorExists() {
 
   if (!stats.isFile()) {
     throw new Error(`Validator path is not a file: ${validatorDisplayPath}`);
+  }
+  if (stats.nlink !== 1) {
+    throw new Error(`Validator has multiple hard links; refusing it: ${validatorDisplayPath}`);
+  }
+
+  return stats;
+}
+
+async function assertTargetIdentity(handle, path, expected) {
+  const held = await handle.stat();
+  const current = assertValidatorExists(path);
+  if (!held.isFile() || held.nlink !== 1
+    || held.dev !== expected.dev || held.ino !== expected.ino || held.birthtimeMs !== expected.birthtimeMs
+    || current.dev !== held.dev || current.ino !== held.ino || current.birthtimeMs !== held.birthtimeMs) {
+    throw new Error("The validator file identity or link count changed; refusing to write it.");
   }
 }
 
@@ -191,7 +210,7 @@ function decodeUtf8(buffer) {
   }
 }
 
-function classifyValidator(buffer) {
+export function classifyValidator(buffer) {
   const hash = sha256(buffer);
   const unpatchedVariant = reviewedVariants.find(
     (variant) => variant.originalHash === hash,
@@ -223,9 +242,9 @@ function classifyValidator(buffer) {
 
   if (text !== null && explicitUtf8Pattern.test(text)) {
     return {
-      description: "unknown version with an explicit UTF-8 fix",
+      description: "unknown version containing UTF-8-related text; manual review required",
       hash,
-      kind: "upstream-fixed",
+      kind: "unknown-with-utf8-text",
     };
   }
 
@@ -253,8 +272,8 @@ async function printStatus() {
     console.log("Action:    consider apply only if UTF-8 skill reading fails in this Python environment");
   } else if (state.kind === "known-patched") {
     console.log("Action:    none; the local patch is active");
-  } else if (state.kind === "upstream-fixed") {
-    console.log("Action:    none; do not apply the local patch");
+  } else if (state.kind === "unknown-with-utf8-text") {
+    console.log("Action:    do not modify; UTF-8-related text alone does not prove a fix; review the source");
   } else {
     console.log("Action:    do not modify; review the new Codex version");
   }
@@ -354,11 +373,15 @@ async function readAllFromHandle(handle) {
   return buffer;
 }
 
-async function replaceKnownFile(expectedHash, nextBuffer, nextHash) {
-  const handle = await open(validatorPath, "r+");
+export async function replaceKnownFile(expectedHash, nextBuffer, nextHash, {
+  path = validatorPath, openFile = open,
+} = {}) {
+  const expectedIdentity = assertValidatorExists(path);
+  const handle = await openFile(path, "r+");
   let previousBuffer;
 
   try {
+    await assertTargetIdentity(handle, path, expectedIdentity);
     previousBuffer = await readAllFromHandle(handle);
 
     if (sha256(previousBuffer) !== expectedHash) {
@@ -367,6 +390,9 @@ async function replaceKnownFile(expectedHash, nextBuffer, nextHash) {
       );
     }
 
+    // Recheck after reading too, before the first byte is written.
+    await assertTargetIdentity(handle, path, expectedIdentity);
+
     try {
       await writeAllAtStart(handle, nextBuffer);
       const writtenBuffer = await readAllFromHandle(handle);
@@ -374,6 +400,7 @@ async function replaceKnownFile(expectedHash, nextBuffer, nextHash) {
       if (sha256(writtenBuffer) !== nextHash) {
         throw new Error("Post-write SHA-256 verification failed.");
       }
+      await assertTargetIdentity(handle, path, expectedIdentity);
     } catch (error) {
       try {
         await writeAllAtStart(handle, previousBuffer);
@@ -496,11 +523,10 @@ async function applyPatch() {
     return;
   }
 
-  if (state.kind === "upstream-fixed") {
-    console.log(
-      "This Codex version already specifies UTF-8; the local patch is unnecessary.",
+  if (state.kind === "unknown-with-utf8-text") {
+    throw new Error(
+      "Unknown validator with UTF-8-related text; refusing to apply the local patch until the source is reviewed.",
     );
-    return;
   }
 
   if (state.kind === "unknown") {
@@ -573,9 +599,9 @@ async function restorePatch() {
     return;
   }
 
-  if (state.kind === "upstream-fixed") {
+  if (state.kind === "unknown-with-utf8-text") {
     throw new Error(
-      "This appears to be an upstream UTF-8 fix; refusing to remove it.",
+      "Unknown validator with UTF-8-related text; refusing to restore an unreviewed version.",
     );
   }
 
@@ -657,9 +683,11 @@ async function main() {
   }
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(`Error: ${maskHomePath(error.message)}`);
-  process.exitCode = 1;
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(`Error: ${maskHomePath(error.message)}`);
+    process.exitCode = 1;
+  }
 }
