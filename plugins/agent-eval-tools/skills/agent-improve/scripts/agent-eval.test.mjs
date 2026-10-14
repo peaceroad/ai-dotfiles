@@ -199,7 +199,7 @@ test('retained records can be read without their original source and reject a ch
   saveJson(configFile, config);
   const adapter = fake(), first = await run(configFile, output, () => ({ identity: { test: true }, invoke: adapter.invoke }));
   mkdirSync(retained, { mode: 0o700 });
-  cpSync(output, retained, { recursive: true, errorOnExist: true, force: false });
+  cpSync(output, retained, { recursive: true, force: false });
   if (process.platform !== 'win32') {
     assert.equal(fs.statSync(output).mode & 0o777, 0o700);
     assert.equal(fs.statSync(retained).mode & 0o777, 0o700);
@@ -837,6 +837,7 @@ test('candidate proposals receive exploration output but no selection or confirm
 });
 
 test('host execution resumes reservations without redispatch, duplicates, or invented usage', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const root = temp(t), config = fixture(root, { runtime: { adapter: 'host', model: 'host-inherited' } });
   config.cases[1].split = 'explore';
   const configFile = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(configFile, config);
@@ -1383,6 +1384,7 @@ test('JSON equality treats signed zero consistently with frozen JSON values', ()
 });
 
 test('signed-zero calibration and host resume preserve contract and grading semantics', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   for (const nested of [false, true]) await t.test(nested ? 'nested' : 'scalar', async t => {
     const root = temp(t), zeros = nested ? ['{"nested":[-0]}', '{"nested":[0]}'] : ['-0', '0'];
     const wrong = nested ? '{"nested":[1]}' : '1';
