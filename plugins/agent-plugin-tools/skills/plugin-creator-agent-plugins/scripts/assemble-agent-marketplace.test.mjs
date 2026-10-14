@@ -115,6 +115,43 @@ test("syncs standalone Skills with optional source provenance", async () => {
   }
 });
 
+test("standalone Skill frontmatter is checked before any distribution writes", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "skill-frontmatter-boundary-"));
+  const marketplaceRoot = path.join(tempRoot, "distribution");
+  const skillRoot = path.join(tempRoot, "sample-skill");
+  const configPath = path.join(tempRoot, "config.json");
+  try {
+    await createSkill(skillRoot, "sample-skill");
+    await writeJson(configPath, {
+      schemaVersion: 2, name: "test-marketplace", displayName: "Test Marketplace",
+      plugins: [], skills: [{ source: skillRoot }],
+    });
+    const initial = invoke(["sync", marketplaceRoot, "--config", configPath], tempRoot);
+    assert.equal(initial.status, 0, initial.stderr);
+    const before = await treeDigest(marketplaceRoot);
+    for (const description of ["", "# comment-only", '""', "x".repeat(1025), "null", "|\n  unsupported block"]) {
+      await createSkill(skillRoot, "sample-skill", description);
+      for (const selected of [[], ["--skill", "sample-skill"]]) {
+        for (const command of ["sync", "check"]) {
+          const result = invoke([command, marketplaceRoot, "--config", configPath, ...selected], tempRoot);
+          assert.equal(result.status, 1, result.stdout + result.stderr);
+          assert.match(result.stderr, /description|unsupported multiline YAML/u);
+          assert.equal(await treeDigest(marketplaceRoot), before);
+        }
+      }
+    }
+    for (const description of ["Use C# tools # comment", "'It''s a Skill' # comment", JSON.stringify('Use "quoted" text'), "x".repeat(1024)]) {
+      await createSkill(skillRoot, "sample-skill", description);
+      const result = invoke(["sync", marketplaceRoot, "--config", configPath], tempRoot);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(invoke(["check", marketplaceRoot, "--config", configPath], tempRoot).status, 0);
+      assert.equal(await readFile(path.join(marketplaceRoot, "skills", "sample-skill", "SKILL.md"), "utf8"), await readFile(path.join(skillRoot, "SKILL.md"), "utf8"));
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("no arguments display read-only help", () => {
   const result = invoke([], scriptRoot);
   assert.equal(result.status, 0, result.stderr);
