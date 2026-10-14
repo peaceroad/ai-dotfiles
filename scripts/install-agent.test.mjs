@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { displayPath, installAgent } from './install-agent.mjs';
 import { CODEX_TOOLS } from '../tools/agent/codex/codex.mjs';
 
@@ -371,7 +371,7 @@ import { syncBuiltinESMExports } from 'node:module';
 fs.renameSync = () => { throw Object.assign(new Error('Synthetic rename failure at ' + process.env.HOME), { code: 'EIO' }); };
 fs.unlinkSync = () => { throw Object.assign(new Error('Synthetic cleanup failure at ' + process.env.HOME), { code: 'EACCES' }); };
 syncBuiltinESMExports();\n`);
-  const args = ['--import', preload, fileURLToPath(new URL('./install-agent.mjs', import.meta.url)), '--agents-root', options.agentsRoot];
+  const args = ['--import', pathToFileURL(preload).href, fileURLToPath(new URL('./install-agent.mjs', import.meta.url)), '--agents-root', options.agentsRoot];
   if (process.platform !== 'win32') args.push('--bin-dir', options.binDir);
   const result = spawnSync(process.execPath, args, {
     encoding: 'utf8', env: { ...process.env, HOME: options.agentsRoot, USERPROFILE: options.agentsRoot, PATH: '' },
