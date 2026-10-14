@@ -60,7 +60,7 @@ Lead with the answer, result, or necessary next action. Avoid excessive praise. 
 
 ## Cloud workspace
 
-Before file work, verify the assigned directory, access scope, and existing layout. For ordinary work, choose the location in this order:
+Before file work, verify the assigned directory, access scope, and existing layout. When editing text files under `.agents` or `.codex`, prefer `apply_patch`. For ordinary work, choose the location in this order:
 
 1. Honor an explicitly requested destination within the allowed scope.
 2. Otherwise, continue from the current editable original or existing project, following its storage/privacy rules even for short tasks. A delivery destination need not become the original's new home.
