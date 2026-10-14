@@ -467,6 +467,55 @@ test('unsupported paginated payloads and inconsistent checkpoints never call del
   }
 });
 
+test('unsupported paginated message shapes retain raw bytes and known text without permitting deletion', async t => {
+  const records = [
+    null, [], 42,
+    { type: 'event_msg', payload: null },
+    { type: 'event_msg', payload: 'future-payload' },
+    { type: 'event_msg', payload: { type: 'item_completed', item: null } },
+    { type: 'event_msg', payload: { type: 'item_completed', item: [] } },
+    { type: 'response_item', payload: { type: 'message', role: 'user', content: [null, 42, 'future-part', [],
+      { type: 'input_text', text: 'Known text beside unsupported parts' }] } },
+    { type: 'response_item', payload: { type: 'message', role: 'assistant', content: 'future-content' } },
+    ...['images', 'local_images', 'audio', 'local_audio'].map(field => ({ type: 'event_msg',
+      payload: { type: 'user_message', message: 'Known text beside unsupported media', [field]: 'future-media' } })),
+  ];
+  for (const record of records) {
+    const f = renderableFixture(t), output = exportParent(t), source = join(f.home, 'sessions', `${parent}.jsonl`);
+    const known = paginatedTurn(parent), extra = record && !Array.isArray(record) && typeof record === 'object'
+      ? { timestamp: known[0].timestamp, ordinal: known.length, ...record } : record;
+    const raw = encodeTurn([...known, extra]);
+    writeFileSync(source, raw);
+    f.update("UPDATE threads SET history_mode = 'paginated' WHERE id = ?", parent);
+    historyFixture(f);
+    const logs = [];
+    assert.equal(await runSessions(['export', parent, '--output', output, '--after', 'keep'], {
+      ...deletionOptions(f), ask: confirmPrompt, log: line => logs.push(line),
+    }), 3, logs.join('\n'));
+    const bundle = listBundles(output).find(bundle => bundle.manifest.session.id === parent);
+    await verifyBundle(bundle);
+    assert.equal(readFileSync(join(bundle.folder, 'rollout.jsonl'), 'utf8'), raw);
+    assert.equal(readFileSync(source, 'utf8'), raw);
+    assert.equal(bundle.manifest.coverage.lineage.status, 'unverified');
+    assert.ok(bundle.manifest.warnings.some(w => w.reason === 'lineage-boundary-unverified'));
+    assert.ok(bundle.manifest.warnings.some(w => w.kind === 'rendering' && w.reason.startsWith('unsupported-')));
+    const conversation = readFileSync(join(bundle.folder, 'conversation.md'), 'utf8');
+    if (record?.payload?.type === 'user_message' || Array.isArray(record?.payload?.content)) {
+      assert.match(conversation, /Known text beside unsupported/);
+    }
+    const search = [];
+    assert.equal(await runHistory(['search', 'Synthetic question', '--in', output], { log: line => search.push(line) }), 3);
+    assert.match(search.join('\n'), /Synthetic question/);
+    assert.equal(readdirSync(output).some(name => name.startsWith('.incomplete-')), false);
+    const batch = listBatches(output)[0];
+    assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 0);
+    // The CLI mock accepts version/help only, so any actual deletion fails this test.
+    assert.equal(await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...deletionOptions(f), ask: confirmPrompt,
+    }), 3);
+  }
+});
+
 test('pinned and sectioned descendants protect the parent plan', async t => {
   const f = fixture(t);
   f.update('UPDATE threads SET is_pinned = 1, thread_section_id = ? WHERE id = ?', 'important', child);

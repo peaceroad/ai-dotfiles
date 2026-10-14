@@ -30,8 +30,13 @@ function cachePath(home) {
 
 function readState(db) {
   for (const [table, columns] of Object.entries(required)) {
-    const found = db.prepare(`PRAGMA table_info(${table})`).all().map(row => row.name);
-    if (found.length !== columns.length || columns.some(column => !found.includes(column))) fail('Unsupported sidebar cache schema; no refresh was scheduled.');
+    const found = db.prepare(`PRAGMA table_xinfo(${table})`).all();
+    if (found.length !== columns.length || found.some((column, index) => column.name !== columns[index]
+      || column.type.toUpperCase() !== (['host_id', 'host_kind', 'checkpoint'].includes(column.name) ? 'TEXT' : 'INTEGER')
+      || column.hidden || column.pk !== (column.name === 'host_id' ? 1 : 0)
+      || (column.name === 'last_full_reconciled_at' && column.notnull))) {
+      fail('Unsupported sidebar cache schema; no refresh was scheduled.');
+    }
   }
   const trigger = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND lower(tbl_name) IN (?, ?) LIMIT 1").get(...mutable);
   const foreignKey = !trigger && db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().some(({ name }) => {
@@ -41,16 +46,21 @@ function readState(db) {
   if (trigger || foreignKey) {
     fail('Unsupported sidebar cache triggers or foreign keys; no refresh was scheduled.');
   }
-  const host = db.prepare('SELECT host_kind FROM local_thread_catalog_hosts WHERE host_id = ?').get('local');
+  const local = table => {
+    const rows = db.prepare(`SELECT * FROM ${table} WHERE host_id = ? LIMIT 2`).all('local');
+    if (rows.length > 1) fail('Unsupported sidebar cache local row count; no refresh was scheduled.');
+    return rows[0] ?? null;
+  };
+  const host = local('local_thread_catalog_hosts');
   if (!host) return null;
   if (host.host_kind !== 'local') fail('Sidebar cache local host has an unsupported kind.');
-  const sync = db.prepare('SELECT * FROM local_thread_catalog_sync_state WHERE host_id = ?').get('local');
+  const sync = local('local_thread_catalog_sync_state');
   if (!sync || ![0, 1].includes(sync.initial_build_complete)
     || !Number.isSafeInteger(sync.observation_sequence) || sync.observation_sequence < 0
     || (sync.last_full_reconciled_at !== null && !Number.isSafeInteger(sync.last_full_reconciled_at))) {
     fail('Unsupported sidebar cache sync state; no refresh was scheduled.');
   }
-  const checkpoint = db.prepare('SELECT * FROM local_thread_catalog_scan_checkpoints WHERE host_id = ?').get('local') ?? null;
+  const checkpoint = local('local_thread_catalog_scan_checkpoints');
   const schema = db.prepare("SELECT type, name, sql FROM sqlite_master WHERE name IN (?, ?, ?) ORDER BY name").all(...Object.keys(required));
   const state = { schema, sync, checkpoint };
   if (Buffer.byteLength(JSON.stringify(state)) > 4 * 1024 * 1024) fail('Sidebar cache refresh state exceeds the supported size.');
@@ -95,8 +105,16 @@ export async function requestSidebarRefresh(home, { closed, expectedToken } = {}
     writeFileSync(backup, `${JSON.stringify({ format: 'ai-dotfiles/sidebar-refresh-v1', previousState: current }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
     // The app performs the full authoritative scan on its next startup. Do not
     // delete catalog entries, thread histories, projects, or worktree records.
-    db.prepare('UPDATE local_thread_catalog_sync_state SET last_full_reconciled_at = NULL WHERE host_id = ?').run('local');
-    db.prepare('DELETE FROM local_thread_catalog_scan_checkpoints WHERE host_id = ?').run('local');
+    const updated = db.prepare('UPDATE local_thread_catalog_sync_state SET last_full_reconciled_at = NULL WHERE host_id = ?').run('local');
+    const removed = db.prepare('DELETE FROM local_thread_catalog_scan_checkpoints WHERE host_id = ?').run('local');
+    if (updated.changes !== 1 || removed.changes !== (current.checkpoint ? 1 : 0)) {
+      fail('Sidebar cache row count changed; no refresh was scheduled.');
+    }
+    const refreshed = db.prepare('SELECT last_full_reconciled_at FROM local_thread_catalog_sync_state WHERE host_id = ?').get('local');
+    const checkpoint = db.prepare('SELECT 1 FROM local_thread_catalog_scan_checkpoints WHERE host_id = ?').get('local');
+    if (refreshed?.last_full_reconciled_at !== null || checkpoint) {
+      fail('Sidebar cache refresh state was not applied; no refresh was scheduled.');
+    }
     db.exec('COMMIT'); inTransaction = false;
     return { available: true, pending: true, changed: true, backup };
   } finally {
