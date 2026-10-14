@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'skills/compare-skill-snapshots/scripts'
 sys.path.insert(0, str(SCRIPTS))
-from compare import ComparisonError, compare, MAX_ENTRIES, MAX_FILE
+from compare import ComparisonError, compare, configured_roots, directory, MAX_ENTRIES, MAX_FILE
 
 
 class ComparisonTests(unittest.TestCase):
@@ -90,6 +90,44 @@ class ComparisonTests(unittest.TestCase):
         for roots in ([], ['/'], ['/.'], ['//'], ['///.']):
             with self.subTest(roots=roots), patch.dict(os.environ, {'SKILL_DIFF_ROOTS': json.dumps(roots)}), self.assertRaises(ComparisonError):
                 self.call()
+
+    def test_core_root_normalization_and_sibling_boundary(self):
+        for prefix in ('/', '///'):
+            for suffix in ('', '/', '/.'):
+                root = prefix + str(self.root).lstrip('/') + suffix
+                paths = {key: prefix + value.lstrip('/') + suffix
+                         for key, value in self.paths.items()}
+                for variable, value in (('SKILL_DIFF_ROOT', root),
+                                        ('SKILL_DIFF_ROOTS', json.dumps([root]))):
+                    with self.subTest(prefix=prefix, suffix=suffix, variable=variable), \
+                         patch.dict(os.environ, {variable: value}):
+                        self.assertEqual(compare(**paths)['changes'], [])
+        allowed = self.root/'allowed'
+        allowed.mkdir()
+        sibling = self.root/'allowed-sibling'
+        shutil.copytree(self.paths['local'], sibling)
+        with patch.dict(os.environ, {'SKILL_DIFF_ROOTS': json.dumps([str(allowed)])}), \
+             self.assertRaisesRegex(ComparisonError, 'outside configured roots'):
+            compare(str(sibling), str(sibling))
+
+    def test_core_reject_double_slash_roots_before_access(self):
+        root = '/' + str(self.root)
+        for variable, value in (('SKILL_DIFF_ROOT', root),
+                                ('SKILL_DIFF_ROOTS', json.dumps([root]))):
+            with self.subTest(variable=variable), \
+                 patch.dict(os.environ, {variable: value}), \
+                 patch('compare.os.open', side_effect=AssertionError('must not open ambiguous paths')), \
+                 self.assertRaisesRegex(ComparisonError, 'double-slash'):
+                configured_roots()
+        with patch('compare.os.open', side_effect=AssertionError('must not open ambiguous paths')), \
+             self.assertRaisesRegex(ComparisonError, 'exactly two slashes'):
+            directory(root)
+
+    def test_core_reject_double_slash_snapshot_arguments(self):
+        for side in self.paths:
+            with self.subTest(side=side), \
+                 self.assertRaisesRegex(ComparisonError, 'exactly two slashes'):
+                compare(**{**self.paths, side: '/' + self.paths[side]})
 
     def test_core_reject_link_and_special_entries(self):
         p = Path(self.paths['local'])/'bad'
