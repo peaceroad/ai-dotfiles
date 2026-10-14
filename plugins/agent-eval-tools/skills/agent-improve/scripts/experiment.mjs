@@ -165,7 +165,8 @@ function jsonEqual(a, b) {
   const pending = [a, b];
   while (pending.length) {
     const right = pending.pop(), left = pending.pop();
-    if (Object.is(left, right)) {
+    // JSON serialization gives both signed zeros the same contract identity.
+    if (left === right) {
       if (typeof left === 'number' && !supportedJsonNumber(left)) return false;
       continue;
     }
