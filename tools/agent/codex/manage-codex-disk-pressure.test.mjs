@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { inspectAclState, inspectSetupError, repairAclState } from './manage-codex-disk-pressure.mjs';
 import { assertTasklistClientsClosed } from './manage-codex-processes.mjs';
 
@@ -11,6 +13,16 @@ const systemRow = '"System","4","Services","0","0 K"';
 const empty = { status: 0, stdout: `${systemRow}\r\n` };
 const response = name => ({ status: 0, stdout: `${systemRow}\r\n"${name}","123","Console","1","1,234 K"\r\n` });
 const guard = (result, windowsRoot) => () => assertTasklistClientsClosed({ platform: 'win32', windowsRoot, spawn: () => result });
+
+test('disk pressure help runs through a linked script directory', t => {
+  const root = fs.mkdtempSync(join(tmpdir(), 'disk-pressure-entry-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const linked = join(root, 'linked');
+  fs.symlinkSync(fileURLToPath(new URL('.', import.meta.url)), linked, process.platform === 'win32' ? 'junction' : 'dir');
+  const result = spawnSync(process.execPath, [join(linked, 'manage-codex-disk-pressure.mjs'), 'help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Usage:/);
+});
 
 function fixture(t, contents = '{') {
   const home = fs.mkdtempSync(join(tmpdir(), 'disk-pressure-test-'));

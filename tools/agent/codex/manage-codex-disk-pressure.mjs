@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import {
   existsSync,
   lstatSync,
+  realpathSync,
   statfsSync,
 } from "node:fs";
 import {
@@ -12,7 +13,7 @@ import {
   rename,
 } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
 import { assertTasklistClientsClosed } from "./manage-codex-processes.mjs";
@@ -540,7 +541,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try {
     await main();
   } catch (error) {
