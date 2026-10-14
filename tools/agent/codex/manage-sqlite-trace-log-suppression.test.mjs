@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -15,6 +17,16 @@ const warnSql = triggerSql(['TRACE', 'DEBUG', 'INFO']);
 const unknownSql = `CREATE TRIGGER ${triggerName} AFTER INSERT ON logs BEGIN SELECT 42; END;`;
 const policy = db => db.prepare("SELECT sql FROM sqlite_schema WHERE type = 'trigger' AND name = ?").get(triggerName)?.sql ?? null;
 const rowCount = db => Number(db.prepare('SELECT count(*) AS n FROM logs').get().n);
+
+test('log policy help runs through a linked script directory', t => {
+  const root = mkdtempSync(join(tmpdir(), 'log-policy-entry-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const linked = join(root, 'linked');
+  symlinkSync(fileURLToPath(new URL('.', import.meta.url)), linked, process.platform === 'win32' ? 'junction' : 'dir');
+  const result = spawnSync(process.execPath, [join(linked, 'manage-sqlite-trace-log-suppression.mjs'), 'help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Usage:/);
+});
 
 function fixture(t, { active = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'log-policy-test-'));

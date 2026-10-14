@@ -1,8 +1,8 @@
 // @ai-dotfiles agent-dev-runtime managed
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
 
@@ -831,7 +831,7 @@ async function main() {
     await restoreLogRetention(DatabaseSync);
   }
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try {
     await main();
   } catch (error) {
