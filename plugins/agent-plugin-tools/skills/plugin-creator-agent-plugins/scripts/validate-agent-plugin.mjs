@@ -101,8 +101,8 @@ async function readJson(root, file, errors) {
   }
   try {
     return JSON.parse(text);
-  } catch (error) {
-    errors.push(`${path.basename(file)} is not valid JSON: ${error.message}`);
+  } catch {
+    errors.push(`${path.basename(file)} is not valid JSON: syntax error.`);
     return undefined;
   }
 }

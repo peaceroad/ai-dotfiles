@@ -57,6 +57,14 @@ async function createPlugin(name, options = {}) {
 }
 
 try {
+  for (const file of ["plugin.json", "mcp.json"]) {
+    const root = await createPlugin(`private-json-${file}`);
+    await writeFile(path.join(root, file), 'synthetic-private-token: invalid JSON');
+    run(`${file} parse errors do not quote input`, root, { status: 1, errorIncludes: "is not valid JSON", forbiddenText: "synthetic-private-token" });
+    const result = spawnSync(process.execPath, [script, root], { encoding: "utf8" });
+    assert.equal(result.status, 1);
+    assert.doesNotMatch(result.stdout + result.stderr, /synthetic-private-token/);
+  }
   const invalidRoots = [
     ["null", null],
     ["false", false],
