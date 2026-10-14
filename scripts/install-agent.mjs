@@ -6,6 +6,7 @@ import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { runtimePayload } from '../tools/agent/agent-info.mjs';
+import { CODEX_TOOLS } from '../tools/agent/codex/codex.mjs';
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const marker = '@ai-dotfiles agent-dev-runtime managed';
@@ -55,7 +56,7 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
   const runtime = join(agentsRoot, 'ai-dotfiles', 'runtime');
   const payload = [];
   const add = (source, target, markers = coreMarkers) => payload.push({ source: join(repository, source), target: join(agentsRoot, target), markers });
-  for (const item of runtimePayload()) add(item.source, `ai-dotfiles/runtime/${item.target}`, item.markers);
+  for (const item of runtimePayload(CODEX_TOOLS)) add(item.source, `ai-dotfiles/runtime/${item.target}`, item.markers);
   if (platform === 'win32') add('tools/agent/agent.cmd', 'scripts/agent.cmd');
   for (const item of payload) {
     assertParents(item.target, checkedParents);
@@ -97,10 +98,35 @@ export function installAgent({ agentsRoot = join(homedir(), '.agents'), binDir =
     }
     fs.mkdirSync(dirname(item.target), { recursive: true });
     const temporary = join(dirname(item.target), `.agent-install-${randomUUID()}.tmp`);
+    // Acquire ownership before cleanup: an EEXIST collision belongs to someone else.
+    const fd = fs.openSync(temporary, 'wx', 0o644);
+    let primaryError;
+    let renamed = false;
     try {
-      fs.writeFileSync(temporary, item.content, { flag: 'wx', mode: 0o644 });
+      try { fs.writeFileSync(fd, item.content); }
+      catch (error) { primaryError = error; throw error; }
+      finally {
+        try { fs.closeSync(fd); }
+        catch (error) {
+          if (!primaryError) throw error;
+          primaryError.message += `\nAdditionally, closing the temporary file failed (${error.code}).`;
+        }
+      }
       fs.renameSync(temporary, item.target);
-    } finally { if (stat(temporary)) fs.unlinkSync(temporary); }
+      renamed = true;
+    } catch (error) { primaryError = error; throw error; }
+    finally {
+      if (!renamed) {
+        try { fs.unlinkSync(temporary); }
+        catch (error) {
+          if (error.code !== 'ENOENT') {
+            if (!primaryError) throw error;
+            primaryError.temporaryCleanupFailed = true;
+            primaryError.message += `\nAdditionally, temporary file cleanup failed (${error.code}).`;
+          }
+        }
+      }
+    }
     log(`${item.existed ? 'Updated' : 'Installed'}: ${displayPath(item.target)}`);
   }
   if (platform !== 'win32') {
@@ -139,6 +165,9 @@ if (process.argv[1] && same(process.argv[1], fileURLToPath(import.meta.url))) {
   try { main(process.argv.slice(2)); } catch (error) {
     // Node filesystem errors embed absolute paths. Do not expose local paths.
     console.error(error.code ? `Installation failed (${error.code}); check destination permissions and file types.` : error.message);
+    if (error.code && error.temporaryCleanupFailed) {
+      console.error('Temporary file cleanup also failed; inspect .agent-install-*.tmp in the installation destination before retrying.');
+    }
     process.exitCode = 1;
   }
 }
