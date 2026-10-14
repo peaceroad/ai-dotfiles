@@ -483,6 +483,121 @@ test('runner resumes the same contract, applies and restores only an accepted bu
   assert.equal(readFileSync(join(root, 'target', 'unrelated.txt'), 'utf8'), 'KEEP');
 });
 
+async function appliedFixture(t) {
+  const root = temp(t), files = ['SKILL.md', 'reference.md'];
+  const config = fixture(root, { mode: 'compare', target: { root: './target', files }, candidates: [{ root: './candidate', files }] });
+  config.cases[1].split = 'explore';
+  writeFileSync(join(root, 'target', 'reference.md'), 'REFERENCE');
+  writeFileSync(join(root, 'candidate', 'reference.md'), 'UPDATED REFERENCE');
+  const file = join(root, 'experiment.json'), out = join(root, 'out'), source = join(root, 'target');
+  saveJson(file, config);
+  assert.equal((await run(file, out, () => ({ identity: { synthetic: true }, invoke: fake().invoke }))).outcome, 'accept');
+  assert.equal(applyRecord(out, source).status, 'source-applied');
+  return { source, out, first: join(source, 'SKILL.md'), second: join(source, 'reference.md'), application: readRecord(out).application };
+}
+
+test('rollback persists its intent before replacing source files', async t => {
+  const { source, out, first, second, application } = await appliedFixture(t), rename = fs.renameSync;
+  let replacements = 0;
+  const renamer = t.mock.method(fs, 'renameSync', (from, to) => {
+    if ([first, second].includes(to)) {
+      assert.deepEqual(readRecord(out).application, { ...application, status: 'restoring' });
+      replacements++;
+    }
+    return rename(from, to);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { renamer.mock.restore(); syncBuiltinESMExports(); });
+  assert.equal(applyRecord(out, source, true).status, 'source-restored');
+  assert.equal(replacements, 2);
+  assert.equal(readFileSync(first, 'utf8'), 'BASE');
+  assert.equal(readFileSync(second, 'utf8'), 'REFERENCE');
+});
+
+test('rollback intent write failures cannot change source', async t => {
+  for (const persistent of [false, true]) await t.test(persistent ? 'persistent-write-failure' : 'intent-write-failure', async t => {
+    const { source, out, first, second, application } = await appliedFixture(t), rename = fs.renameSync;
+    const failure = Object.assign(new Error('Synthetic rollback intent write failure.'), { code: 'ENOSPC' });
+    let failures = 0;
+    const renamer = t.mock.method(fs, 'renameSync', (from, to) => {
+      if (to === join(out, 'record.json')) {
+        const status = readJson(from).application?.status;
+        if (status === 'restoring' || (persistent && status === 'restoration-needs-inspection')) { failures++; throw failure; }
+      }
+      return rename(from, to);
+    });
+    syncBuiltinESMExports();
+    t.after(() => { renamer.mock.restore(); syncBuiltinESMExports(); });
+    assert.throws(() => applyRecord(out, source, true), error => error === failure);
+    assert.equal(failures, persistent ? 2 : 1);
+    assert.equal(readFileSync(first, 'utf8'), 'BETTER');
+    assert.equal(readFileSync(second, 'utf8'), 'UPDATED REFERENCE');
+    const saved = readRecord(out).application;
+    if (persistent) assert.deepEqual(saved, application);
+    else {
+      assert.equal(saved.status, 'restoration-needs-inspection');
+      assert.equal(saved.reason, failure.message);
+    }
+    assert.equal(existsSync(join(out, 'run.lock')), false);
+  });
+});
+
+test('rollback source failures retain inspection state and preserve intervening edits', async t => {
+  for (const external of [false, true]) await t.test(external ? 'external-edit-during-restore' : 'compensated-restore', async t => {
+    const { source, out, first, second } = await appliedFixture(t), rename = fs.renameSync;
+    const failure = new Error('Synthetic later rollback replacement failure.');
+    const renamer = t.mock.method(fs, 'renameSync', (from, to) => {
+      if (to === second) {
+        if (external) writeFileSync(first, 'EXTERNAL EDIT');
+        throw failure;
+      }
+      return rename(from, to);
+    });
+    syncBuiltinESMExports();
+    t.after(() => { renamer.mock.restore(); syncBuiltinESMExports(); });
+    assert.throws(() => applyRecord(out, source, true), error => error === failure);
+    const state = readRecord(out);
+    assert.equal(state.application.status, 'restoration-needs-inspection');
+    assert.equal(state.application.reason, failure.message);
+    assert.equal(readFileSync(first, 'utf8'), external ? 'EXTERNAL EDIT' : 'BETTER');
+    assert.equal(readFileSync(second, 'utf8'), 'UPDATED REFERENCE');
+    assert.deepEqual(readdirSync(source).sort(), ['SKILL.md', 'reference.md']);
+    assert.throws(() => applyRecord(out, source, true), /No matching source application/);
+    assert.equal(readFileSync(first, 'utf8'), external ? 'EXTERNAL EDIT' : 'BETTER');
+  });
+});
+
+test('rollback final receipt failure retains the durable restoration intent', async t => {
+  const { source, out, first, second, application } = await appliedFixture(t), rename = fs.renameSync;
+  const failure = Object.assign(new Error('Synthetic rollback receipt write failure.'), { code: 'ENOSPC' });
+  let failed = false;
+  const renamer = t.mock.method(fs, 'renameSync', (from, to) => {
+    if (to === join(out, 'record.json') && readJson(from).application?.status === 'source-restored') { failed = true; throw failure; }
+    return rename(from, to);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { renamer.mock.restore(); syncBuiltinESMExports(); });
+  assert.throws(() => applyRecord(out, source, true), error => error === failure);
+  assert.equal(failed, true);
+  assert.equal(readFileSync(first, 'utf8'), 'BASE');
+  assert.equal(readFileSync(second, 'utf8'), 'REFERENCE');
+  assert.deepEqual(report(readRecord(out)).application, { ...application, status: 'restoring' });
+  assert.equal(existsSync(join(out, 'run.lock')), false);
+  assert.throws(() => applyRecord(out, source, true), /No matching source application/);
+  assert.throws(() => applyRecord(out, source), /Application already recorded/);
+  assert.equal(readFileSync(first, 'utf8'), 'BASE');
+  assert.equal(readFileSync(second, 'utf8'), 'REFERENCE');
+});
+
+test('rollback preflight refuses external edits before any source replacement', async t => {
+  const { source, out, first, second } = await appliedFixture(t);
+  writeFileSync(second, 'EXTERNAL EDIT');
+  assert.throws(() => applyRecord(out, source, true), /Intervening edit/);
+  assert.equal(readFileSync(first, 'utf8'), 'BETTER');
+  assert.equal(readFileSync(second, 'utf8'), 'EXTERNAL EDIT');
+  assert.equal(readRecord(out).application.status, 'restoration-needs-inspection');
+});
+
 test('source conflicts are detected before writing and external edits are retained', t => {
   const root = temp(t); fixture(root);
   const start = snapshot({ root: 'target', files: ['SKILL.md'] }, root);
