@@ -10,7 +10,9 @@ model = "gpt-6-astra"
 # "none"、"minimal"、"low"、"medium"、"high"、"xhigh"、"max"、"ultra"
 model_reasoning_effort = "medium"
 
-# コミュニケーションスタイル。他に "friendly"、"pragmatic"、"none"
+# 旧版向けの互換値。現行Codexでは "friendly" と "pragmatic" はスタイルを選択しない。
+# "none" は組み込みPersonality節を省くが、明示的なカスタムベース指示は変更しない。
+# https://learn.chatgpt.com/docs/config-file/config-basic#communication-style
 personality = "pragmatic"
 
 # リクエストの処理速度・料金クラス。利用可能な値はモデルやログイン方式によって異なる。
@@ -110,12 +112,12 @@ chronicle = false
 # 43062・43103は、この実験機能が原因か未確認。
 experimental_mode = false
 
-# CodexアプリのWindows環境におけるサンドボックス設定
-# elevated: 管理者権限でセットアップする、Codex推奨のWindows隔離方式。
+# CodexのWindowsサンドボックス設定。対応端末・クライアント・組織ポリシーではMXCが推奨される。
+# elevated: MXCが利用不可・無効の場合に優先するlegacy fallback。管理者承認のセットアップが必要。
 # エージェントのコマンド自体を管理者として実行する意味ではない。
-# unelevated: 管理者権限を使えない場合や、elevatedのセットアップに失敗する場合のフォールバック。
+# unelevated: 組織ポリシーが許可し、elevatedのセットアップを利用できない場合の次のフォールバック。
 # ユーザープロファイル以下の開発ツールは、必要な読み取り・書き込み先をPermission profileで許可する。
-# elevatedでも、エージェントのコマンドに管理者権限が付与されるわけではない。
+# MXCの選択条件・互換性: https://learn.chatgpt.com/docs/windows/windows-sandbox#mxc-compatibility
 [windows]
 sandbox = "elevated"
 
