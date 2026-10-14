@@ -3,7 +3,8 @@
 
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import { existsSync, lstatSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export class ProcessError extends Error {}
@@ -144,6 +145,41 @@ export const blocksMaintenance = item => !(item.role === 'sandbox-provisioning-s
 export function assertClientsClosed(options = {}) {
   const items = inspectProcesses(options).filter(blocksMaintenance);
   if (items.length) fail(`Close Codex/ChatGPT, CLI sessions, IDE integrations, and background writers first. Detected ${items.length}:\n${items.map(processDescription).join('\n')}\nRun agent codex process status in an external terminal. Unknown helpers remain blockers; they are not automatically stopped.`);
+}
+
+// Legacy maintenance needs only Windows' built-in tasklist, not PowerShell 7.
+// Validate every row: a partial/unknown response is not proof that clients exited.
+// This name inventory cannot identify a Codex CLI hosted by node.exe. Keep the
+// explicit requirement to close all clients; do not treat this as full identity.
+export function assertTasklistClientsClosed({
+  platform = process.platform, spawn = spawnSync,
+  windowsRoot = process.env.SystemRoot || process.env.WINDIR,
+} = {}) {
+  if (platform !== 'win32') fail('Process verification is implemented only for Windows.');
+  if (!windowsRoot) fail('Cannot locate Windows process inventory; maintenance refused.');
+  const executable = join(windowsRoot, 'System32', 'tasklist.exe');
+  if (!existsSync(executable)) fail('%SystemRoot%\\System32\\tasklist.exe was not found.');
+  const stats = lstatSync(executable);
+  if (!stats.isFile() || stats.isSymbolicLink()) fail('Windows process inventory is not a regular executable; maintenance refused.');
+  const result = spawn(executable, ['/FO', 'CSV', '/NH'], {
+    encoding: 'utf8', windowsHide: true, timeout: 15000,
+  });
+  if (result.error || result.status !== 0 || String(result.stderr ?? '').trim()) fail('Process inspection failed or timed out; maintenance refused.');
+  const lines = typeof result.stdout === 'string' ? result.stdout.trim().split(/\r?\n/) : [];
+  if (!lines.length || !lines[0]) fail('Process inventory could not be parsed; maintenance refused.');
+  const names = [];
+  const seenPids = new Set();
+  for (const line of lines) {
+    const match = line.match(/^"((?:[^"\r\n]|"")+)","(\d+)","((?:[^"\r\n]|"")*)","(\d+)","((?:[^"\r\n]|"")*)"$/);
+    if (!match || /[\x00-\x1f\x7f-\x9f]/.test(line)
+      || !Number.isSafeInteger(Number(match[2])) || !Number.isSafeInteger(Number(match[4]))
+      || seenPids.has(Number(match[2]))) fail('Process inventory could not be parsed; maintenance refused.');
+    seenPids.add(Number(match[2]));
+    names.push(match[1].replaceAll('""', '"').toLowerCase());
+  }
+  if (names.some(name => /^(?:codex|chatgpt)(?:[.-]|$)/.test(name))) {
+    fail('Codex/ChatGPT clients or helpers are still running. Close Desktop, CLI, IDE clients and background helpers before this maintenance operation. The session-only provisioning-service exception does not apply. No process was stopped.');
+  }
 }
 
 const sameProcess = (a, b) => a.pid === b.pid && a.created === b.created && a.started === b.started && a.name === b.name && a.parentPid === b.parentPid;

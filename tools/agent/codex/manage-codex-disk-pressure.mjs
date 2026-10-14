@@ -12,9 +12,10 @@ import {
   rename,
 } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
-import { spawnSync } from "node:child_process";
+import { assertTasklistClientsClosed } from "./manage-codex-processes.mjs";
 
 const homePath = homedir();
 const codexHomePath = join(homePath, ".codex");
@@ -58,7 +59,9 @@ Safety:
   - "status" is read-only and can run while Codex is open.
   - "repair" requires at least ${formatBytes(minimumRepairFreeBytes)} free.
   - Fully exit ChatGPT/Codex before running "repair".
-  - "repair" verifies that ChatGPT.exe and Codex.exe are not running.
+  - "repair" verifies process names with the built-in Windows tasklist.
+    Codex/ChatGPT clients and helpers, including sandbox services, block repair.
+    Names alone cannot identify node-hosted CLI clients; close all clients manually.
   - "repair" requires an interactive "y" confirmation.
   - A corrupt state file is renamed, never deleted or overwritten.
   - Missing or valid state files are left unchanged.
@@ -134,8 +137,8 @@ function formatBytes(bytes) {
   return `${value.toFixed(digits)} ${units[unitIndex]} (${bytes} bytes)`;
 }
 
-function getDiskSpace() {
-  const stats = statfsSync(codexHomePath, { bigint: true });
+function getDiskSpace(path = codexHomePath) {
+  const stats = statfsSync(path, { bigint: true });
   const freeBytesBigInt = stats.bsize * stats.bavail;
   const totalBytesBigInt = stats.bsize * stats.blocks;
   const maximumSafeInteger = BigInt(Number.MAX_SAFE_INTEGER);
@@ -167,8 +170,8 @@ function assertRegularFile(path, displayPath) {
   return stats;
 }
 
-async function inspectAclState() {
-  if (!existsSync(statePath)) {
+export async function inspectAclState(path = statePath) {
+  if (!existsSync(path)) {
     return {
       description: "missing; Codex may create it on the next sandbox start",
       kind: "missing",
@@ -176,7 +179,7 @@ async function inspectAclState() {
     };
   }
 
-  const stats = assertRegularFile(statePath, stateDisplayPath);
+  const stats = assertRegularFile(path, stateDisplayPath);
 
   if (stats.size === 0) {
     return {
@@ -188,7 +191,7 @@ async function inspectAclState() {
     };
   }
 
-  const buffer = await readFile(statePath);
+  const buffer = await readFile(path);
   const contents = buffer.toString("utf8");
   const snapshot = {
     fingerprint: sha256(buffer),
@@ -212,25 +215,25 @@ async function inspectAclState() {
       kind: "valid",
       ...snapshot,
     };
-  } catch (error) {
+  } catch {
     return {
-      description: `INVALID JSON: ${error.message}`,
+      description: "INVALID JSON: syntax error",
       kind: "invalid",
       ...snapshot,
     };
   }
 }
 
-async function inspectSetupError() {
-  if (!existsSync(setupErrorPath)) {
+export async function inspectSetupError(path = setupErrorPath) {
+  if (!existsSync(path)) {
     return {
       description: "not present",
       kind: "missing",
     };
   }
 
-  const stats = assertRegularFile(setupErrorPath, setupErrorDisplayPath);
-  const contents = await readFile(setupErrorPath, "utf8");
+  const stats = assertRegularFile(path, setupErrorDisplayPath);
+  const contents = await readFile(path, "utf8");
 
   try {
     const parsed = JSON.parse(contents);
@@ -246,10 +249,10 @@ async function inspectSetupError() {
         `${code}: ${message}; ${stats.size} bytes; modified ${stats.mtime.toISOString()}`,
       kind: "valid",
     };
-  } catch (error) {
+  } catch {
     return {
       description:
-        `invalid JSON: ${error.message}; ${stats.size} bytes; modified ${stats.mtime.toISOString()}`,
+        `invalid JSON: syntax error; ${stats.size} bytes; modified ${stats.mtime.toISOString()}`,
       kind: "invalid",
     };
   }
@@ -333,61 +336,6 @@ async function printStatus() {
   }
 }
 
-function getRunningCodexProcesses() {
-  if (process.platform !== "win32") {
-    throw new Error("Process verification is implemented only for Windows.");
-  }
-
-  const windowsRoot = process.env.SystemRoot ?? process.env.WINDIR;
-  if (!windowsRoot) {
-    throw new Error(
-      "Cannot locate %SystemRoot%\\System32\\tasklist.exe because SystemRoot is unavailable.",
-    );
-  }
-
-  const tasklistPath = join(windowsRoot, "System32", "tasklist.exe");
-  const tasklistDisplayPath = "%SystemRoot%\\System32\\tasklist.exe";
-
-  if (!existsSync(tasklistPath)) {
-    throw new Error(`${tasklistDisplayPath} was not found.`);
-  }
-
-  assertRegularFile(tasklistPath, tasklistDisplayPath);
-
-  const result = spawnSync(
-    tasklistPath,
-    ["/FO", "CSV", "/NH"],
-    {
-      encoding: "utf8",
-      windowsHide: true,
-    },
-  );
-
-  if (result.error) {
-    throw new Error(`Could not start tasklist.exe: ${result.error.message}`);
-  }
-
-  if (result.status !== 0) {
-    throw new Error(
-      `tasklist.exe failed with exit code ${result.status}; refusing repair.`,
-    );
-  }
-
-  const targetNames = new Set(["chatgpt.exe", "codex.exe"]);
-  const runningNames = new Set();
-
-  for (const line of result.stdout.split(/\r?\n/)) {
-    const match = line.match(/^"([^"]+)"/);
-    const name = match?.[1]?.toLowerCase();
-
-    if (name && targetNames.has(name)) {
-      runningNames.add(name);
-    }
-  }
-
-  return [...runningNames].sort();
-}
-
 async function confirmRepair(state, freeBytes) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error(
@@ -418,13 +366,13 @@ async function confirmRepair(state, freeBytes) {
   return true;
 }
 
-function createBackupPath() {
+function createBackupPath(sandbox = sandboxPath) {
   const timestamp = new Date()
     .toISOString()
     .replace(/\.\d{3}Z$/, "Z")
     .replaceAll(":", "")
     .replaceAll("-", "");
-  return join(sandboxPath, `${backupPrefix}${timestamp}`);
+  return join(sandbox, `${backupPrefix}${timestamp}`);
 }
 
 function fileSnapshotsMatch(left, right) {
@@ -435,12 +383,16 @@ function fileSnapshotsMatch(left, right) {
   );
 }
 
-async function repairAclState() {
-  if (!existsSync(codexHomePath)) {
+export async function repairAclState({
+  home = codexHomePath, diskSpace = () => getDiskSpace(home),
+  closed = assertTasklistClientsClosed, confirm = confirmRepair,
+} = {}) {
+  const target = join(home, ".sandbox", "deny_read_acl_state.json");
+  if (!existsSync(home)) {
     throw new Error(`Codex home does not exist: ${codexHomeDisplayPath}`);
   }
 
-  const disk = getDiskSpace();
+  const disk = diskSpace();
 
   if (disk.freeBytes < minimumRepairFreeBytes) {
     throw new Error(
@@ -448,7 +400,7 @@ async function repairAclState() {
     );
   }
 
-  const state = await inspectAclState();
+  const state = await inspectAclState(target);
 
   if (state.kind === "missing") {
     console.log(
@@ -464,27 +416,15 @@ async function repairAclState() {
     return;
   }
 
-  const runningProcesses = getRunningCodexProcesses();
+  closed();
 
-  if (runningProcesses.length > 0) {
-    throw new Error(
-      `ChatGPT/Codex is still running (${runningProcesses.join(", ")}). Fully exit it before repair.`,
-    );
-  }
-
-  if (!(await confirmRepair(state, disk.freeBytes))) {
+  if (!(await confirm(state, disk.freeBytes))) {
     return;
   }
 
-  const recheckedRunningProcesses = getRunningCodexProcesses();
+  closed();
 
-  if (recheckedRunningProcesses.length > 0) {
-    throw new Error(
-      `ChatGPT/Codex started after confirmation (${recheckedRunningProcesses.join(", ")}). Close it and retry.`,
-    );
-  }
-
-  const recheckedDisk = getDiskSpace();
+  const recheckedDisk = diskSpace();
 
   if (recheckedDisk.freeBytes < minimumRepairFreeBytes) {
     throw new Error(
@@ -492,7 +432,7 @@ async function repairAclState() {
     );
   }
 
-  const recheckedState = await inspectAclState();
+  const recheckedState = await inspectAclState(target);
 
   if (
     recheckedState.kind !== "invalid"
@@ -503,7 +443,7 @@ async function repairAclState() {
     );
   }
 
-  const backupPath = createBackupPath();
+  const backupPath = createBackupPath(join(home, ".sandbox"));
 
   if (existsSync(backupPath)) {
     throw new Error(
@@ -511,10 +451,10 @@ async function repairAclState() {
     );
   }
 
-  await rename(statePath, backupPath);
+  await rename(target, backupPath);
 
   try {
-    if (existsSync(statePath) || !existsSync(backupPath)) {
+    if (existsSync(target) || !existsSync(backupPath)) {
       throw new Error("source or backup existence verification failed");
     }
 
@@ -532,11 +472,11 @@ async function repairAclState() {
       throw new Error("backup content verification failed");
     }
   } catch (error) {
-    if (!existsSync(statePath) && existsSync(backupPath)) {
+    if (!existsSync(target) && existsSync(backupPath)) {
       let rollbackError = null;
 
       try {
-        await rename(backupPath, statePath);
+        await rename(backupPath, target);
       } catch (caughtError) {
         rollbackError = caughtError;
       }
@@ -600,9 +540,11 @@ async function main() {
   }
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(`Error: ${maskHomePath(error.message)}`);
-  process.exitCode = 1;
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(`Error: ${maskHomePath(error.message)}`);
+    process.exitCode = 1;
+  }
 }

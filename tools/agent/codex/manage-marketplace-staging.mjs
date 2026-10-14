@@ -5,7 +5,8 @@ import * as fs from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { assertTasklistClientsClosed as assertClientsClosed } from './manage-codex-processes.mjs';
+export { assertClientsClosed };
 import { createInterface } from 'node:readline/promises';
 
 export const MIN_AGE_MS = 24 * 60 * 60 * 1000;
@@ -88,17 +89,6 @@ export function inspect(home, now = Date.now(), { retainNodes = false } = {}) {
   return { root, entries, refreshLocked: !!stat(join(root, refreshLock)), cleanupLocked: !!stat(join(root, cleanupLock)) };
 }
 
-export function assertClientsClosed({ spawn = spawnSync } = {}) {
-  const windowsRoot = process.env.SystemRoot || process.env.WINDIR;
-  if (!windowsRoot) fail('Cannot locate Windows process inventory.');
-  const result = spawn(join(windowsRoot, 'System32', 'tasklist.exe'), ['/FO', 'CSV', '/NH'], { encoding: 'utf8', windowsHide: true, timeout: 15000 });
-  if (result.error || result.status !== 0) fail('Process inspection failed; cleanup refused.');
-  const names = [...result.stdout.matchAll(/^"([^"\r\n]+)","\d+",/gm)].map(m => m[1].toLowerCase());
-  if (!names.length) fail('Process inventory could not be parsed; cleanup refused.');
-  if (names.some(n => ['codex.exe', 'chatgpt.exe', 'codex-app-server.exe', 'codex-desktop.exe'].includes(n))) {
-    fail('Codex/ChatGPT is running. Close Desktop, CLI and IDE Codex clients; retry from an external terminal.');
-  }
-}
 
 function assertIdle(root, closed) {
   closed();
@@ -181,7 +171,8 @@ clean: permanently delete only openai-bundled.staging-<UUID> under .tmp/bundled-
 Only real directory trees with no links and no file/directory created or modified in the last 24 hours qualify.
 Close Codex/ChatGPT Desktop, CLI and IDE clients; keep them closed until completion.
 An external interactive terminal and y confirmation are required. No --yes/force option.
-Process checks fail closed; refresh/cleanup locks block cleaning. Stale locks need manual review.
+Process-name checks fail closed; refresh/cleanup locks block cleaning.
+The name inventory cannot identify node-hosted CLI clients; close all clients manually. Stale locks need manual review.
 Confirmation is followed by metadata rechecks. The helper lock does not coordinate with Codex itself;
 do not restart clients or modify the tree during cleanup. Concurrent external mutations are unsupported.
 Canonical marketplace, plugin caches, sessions, credentials and user skill links are outside the target.
