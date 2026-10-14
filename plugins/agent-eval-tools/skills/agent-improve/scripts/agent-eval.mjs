@@ -89,6 +89,9 @@ export function applyRecord(output, root, rollback = false) {
     const start = state.contract.experiment.target;
     if (rollback) {
       if (state.application?.status !== 'source-applied' || state.application.root !== resolve(root)) throw new Error('No matching source application to restore.');
+      // Retain the restore direction even if its final receipt cannot be saved.
+      state.application = { ...state.application, status: 'restoring' };
+      store.save();
       const files = applyBundle(root, final.bundle, start);
       state.application = { ...state.application, status: 'source-restored', files, activeVersion: 'unverified' };
     } else {
@@ -102,8 +105,8 @@ export function applyRecord(output, root, rollback = false) {
     store.save();
     return { status: state.application.status, files: state.application.files, activeVersion: 'unverified' };
   } catch (e) {
-    if (store.state.application?.status === 'applying') {
-      store.state.application.status = 'application-needs-inspection';
+    if (['applying', 'restoring'].includes(store.state.application?.status)) {
+      store.state.application.status = store.state.application.status === 'restoring' ? 'restoration-needs-inspection' : 'application-needs-inspection';
       store.state.application.reason = e.message; store.save();
     }
     throw e;
