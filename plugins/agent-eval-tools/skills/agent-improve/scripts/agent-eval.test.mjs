@@ -198,7 +198,12 @@ test('retained records can be read without their original source and reject a ch
   const configFile = join(root, 'experiment.json'), output = join(root, 'out'), retained = join(root, 'retained');
   saveJson(configFile, config);
   const adapter = fake(), first = await run(configFile, output, () => ({ identity: { test: true }, invoke: adapter.invoke }));
-  cpSync(output, retained, { recursive: true, errorOnExist: true, force: false });
+  mkdirSync(retained, { mode: 0o700 });
+  cpSync(output, retained, { recursive: true, force: false });
+  if (process.platform !== 'win32') {
+    assert.equal(fs.statSync(output).mode & 0o777, 0o700);
+    assert.equal(fs.statSync(retained).mode & 0o777, 0o700);
+  }
   assert.equal(readFileSync(join(retained, 'record.json'), 'utf8'), readFileSync(join(output, 'record.json'), 'utf8'));
   renameSync(join(root, 'target'), join(root, 'target-unavailable'));
   renameSync(join(root, 'method'), join(root, 'method-unavailable'));
@@ -832,6 +837,7 @@ test('candidate proposals receive exploration output but no selection or confirm
 });
 
 test('host execution resumes reservations without redispatch, duplicates, or invented usage', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const root = temp(t), config = fixture(root, { runtime: { adapter: 'host', model: 'host-inherited' } });
   config.cases[1].split = 'explore';
   const configFile = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(configFile, config);
@@ -1356,6 +1362,75 @@ test('JSON equality rejects unsafe integers and nonfinite numbers in compared va
   assert.equal(equal('1e-400', 0), true); // Underflow likewise needs a string for exact decimal claims.
   assert.equal(equal('"9007199254740993"', '9007199254740993'), true);
   assert.equal(equal('"9007199254740993"', '9007199254740992'), false);
+});
+
+test('JSON equality treats signed zero consistently with frozen JSON values', () => {
+  for (const value of [0, -0]) {
+    for (const output of ['0', '-0', '0.0', '-0.0', '-1e-400']) {
+      for (const [text, expected, pointer] of [
+        [output, value, ''],
+        [`{"value":${output}}`, value, '/value'],
+        [`{"nested":[${output}]}`, { nested: [value] }, ''],
+      ]) {
+        const check = { kind: 'json-equals', pointer, value: expected };
+        const saved = JSON.parse(JSON.stringify(check));
+        assert.equal(checkOutput(text, [check])[0].pass, true);
+        assert.equal(checkOutput(text, [saved])[0].pass, true);
+        assert.equal(digest(check), digest(saved));
+      }
+    }
+  }
+  assert.equal(checkOutput('"-0"', [{ kind: 'json-equals', pointer: '', value: '0' }])[0].pass, false);
+});
+
+test('signed-zero calibration and host resume preserve contract and grading semantics', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  for (const nested of [false, true]) await t.test(nested ? 'nested' : 'scalar', async t => {
+    const root = temp(t), zeros = nested ? ['{"nested":[-0]}', '{"nested":[0]}'] : ['-0', '0'];
+    const wrong = nested ? '{"nested":[1]}' : '1';
+    const config = fixture(root, { mode: 'compare', runtime: { adapter: 'host', model: 'host-inherited' },
+      candidates: [{ root: './candidate', files: ['SKILL.md'] }], cases: [{
+        id: 'zero', group: 'zero', split: 'explore', input: 'Return numeric zero in the requested JSON structure.',
+        checks: [{ kind: 'json-equals', pointer: '', value: nested ? { nested: [0] } : 0 }],
+        calibration: [...zeros.map(output => ({ output, pass: true })), { output: wrong, pass: false }],
+      }] });
+    const file = join(root, 'experiment.json'), out = join(root, 'out');
+    const positiveConfig = JSON.stringify(config);
+    const negativeConfig = positiveConfig.replace(nested ? '"nested":[0]' : '"value":0', nested ? '"nested":[-0]' : '"value":-0');
+    assert.notEqual(negativeConfig, positiveConfig);
+    writeFileSync(file, negativeConfig);
+    let result = await run(file, out), dispatches = 0;
+    assert.equal(result.outcome, 'needs-host-response');
+    const contractHash = result.contractHash;
+    while (result.outcome === 'needs-host-response') {
+      writeFileSync(file, positiveConfig);
+      const resumed = await run(file, out);
+      assert.equal(resumed.contractHash, contractHash);
+      assert.deepEqual(resumed.pending, result.pending);
+      assert.equal(resumed.reservedCalls, result.reservedCalls);
+      const executionId = `synthetic-zero-${++dispatches}`;
+      hostOperation(out, 'attach', { requestId: result.pending.requestId, executionId });
+      const job = readJson(result.pending.requestFile), data = JSON.parse(job.prompt.split('\n').at(-1));
+      hostOperation(out, 'receive', { requestId: result.pending.requestId, executionId,
+        ...completed(data.skill['SKILL.md'] === 'BASE' ? wrong : zeros[0]) });
+      writeFileSync(file, negativeConfig);
+      result = await run(file, out);
+      assert.ok(dispatches <= 2);
+    }
+    assert.equal(result.outcome, 'accept');
+    assert.equal(result.contractHash, contractHash);
+    assert.equal(dispatches, 2);
+    const record = readRecord(out), check = record.contract.experiment.cases[0].checks[0];
+    assert.equal(Object.is(nested ? check.value.nested[0] : check.value, -0), false);
+    assert.ok(zeros.every(output => checkOutput(output, [check])[0].pass));
+    const saved = readFileSync(join(out, 'record.json'), 'utf8');
+    writeFileSync(file, positiveConfig);
+    assert.deepEqual(await run(file, out), result);
+    assert.equal(readFileSync(join(out, 'record.json'), 'utf8'), saved);
+    config.cases[0].checks[0].value = 1;
+    saveJson(file, config);
+    await assert.rejects(() => run(file, out), /Contract, source, model, or controller version changed/);
+  });
 });
 
 test('JSON checks ignore numeric limits outside their selected values', () => {
