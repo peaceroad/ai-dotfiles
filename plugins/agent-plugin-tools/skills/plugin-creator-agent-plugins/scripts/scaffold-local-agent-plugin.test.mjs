@@ -646,3 +646,47 @@ test("scaffold redacts known source paths in captured validator failures", async
     assert.ok(!result.stderr.includes(root));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+test("source Skill aliases run scaffold help, init, and refresh", async (t) => {
+  const { symlink } = await import("node:fs/promises");
+  const root = await mkdtemp(path.join(os.tmpdir(), "scaffold-entrypoint-alias-"));
+  try {
+    const skillLink = path.join(root, "skill-link");
+    try { await symlink(path.dirname(scriptRoot), skillLink, "junction"); }
+    catch (error) {
+      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+      throw error;
+    }
+    const linkedScaffold = path.join(skillLink, "scripts", "scaffold-local-agent-plugin.mjs");
+    const linkedInvoke = (args) => spawnSync(process.execPath, [linkedScaffold, ...args], {
+      cwd: root, encoding: "utf8", shell: false,
+    });
+    const help = linkedInvoke(["--help"]);
+    assert.equal(help.status, 0, help.stderr);
+    assert.equal(help.stdout, invoke(["--help"], root).stdout);
+    assert.match(help.stdout, /Usage:/u);
+    const repository = await scaffoldFixture(root);
+    const initialized = linkedInvoke(["init", repository, "plugins/sample-plugin", "--keep-version"]);
+    assert.equal(initialized.status, 0, initialized.stderr);
+    const config = path.join(repository, ".agents", "plugin-development", "sample-plugin.json");
+    const before = await readFile(config, "utf8");
+    assert.equal(JSON.parse(before).versionPolicy, "keep");
+    const runner = path.join(repository, "scripts", "local-plugin.mjs");
+    await appendFile(runner, "\n// synthetic stale managed content\n");
+    const check = linkedInvoke(["refresh", repository, "--check"]);
+    assert.equal(check.status, 1, check.stderr);
+    assert.match(check.stderr, /Changed: scripts\/local-plugin\.mjs/u);
+    assert.match(await readFile(runner, "utf8"), /synthetic stale managed content/u);
+    const refreshed = linkedInvoke(["refresh", repository]);
+    assert.equal(refreshed.status, 0, refreshed.stderr);
+    assert.match(refreshed.stdout, /Refreshed: scripts\/local-plugin\.mjs/u);
+    assert.equal(await readFile(runner, "utf8"), await readFile(path.join(scriptRoot, "manage-local-agent-plugin.mjs"), "utf8"));
+    assert.equal(await readFile(config, "utf8"), before);
+    const current = linkedInvoke(["refresh", repository, "--check"]);
+    assert.equal(current.status, 0, current.stderr);
+    assert.match(current.stdout, /Managed files are current/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
