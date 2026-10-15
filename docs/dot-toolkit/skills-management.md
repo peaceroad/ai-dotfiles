@@ -43,7 +43,7 @@ INDEXがない状態、正しい形式で選択が空の状態、以前の一覧
 
 単体スキルのmanifestは0.2と同じ`schemaVersion: 1`のJSONです。`name`、取得元を示す`source`の`repository`・`path`・`ref`・`commit`、ファイルごとの`path`・`sha256`を記録します。必要な場合だけ、`localChanges`と`verification`で簡潔な変更・検証情報を添えます。詳細は[manifestの定義](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#per-skill-manifest-schema-1)を参照してください。
 
-プラグインの版`0.4.0`、manifestの形式番号、スキルの取得元コミットは、それぞれ別のものを特定します。
+プラグインの版`0.4.1`、manifestの形式番号、スキルの取得元コミットは、それぞれ別のものを特定します。
 
 ハッシュは、生のバイト列を採用時の記録と比べるために使います。意味、実行権限、所有者、外部依存物、コードの安全性まで証明するものではありません。更新前の差分保護と再現の進め方は[変更手順](#追加更新選択変更を依頼する)にまとめています。
 

@@ -47,6 +47,8 @@ Upgrading from 0.3 to 0.4 requires no data conversion. When the user reports an 
 
 ## Updates and maintenance
 
+Version 0.4.1 distinguishes the already-merged [PR #33](https://github.com/peaceroad/ai-dotfiles/pull/33) preference for `apply_patch` when making authorized text edits under `.agents` or `.codex` from earlier 0.4.0 packages. This version bump adds no new behavior or permissions and requires no data migration.
+
 Ask for the specific instructions, package, standalone skill, or selection change you want. dot compares current files against their adoption records before changing them, pins the source to a resolved commit, and preserves unexplained edits. A retry uses that same commit. Hashes detect byte differences; they cannot recover lost content or prove code safety.
 
 Plugin updates replace the package as a coordinated unit, while selection stays per skill. New bundled skills are not selected automatically. If an update removes or renames a selected skill, dot confirms how to handle that selection before applying the update. Selection-only changes leave package contents and adopted versions unchanged. Dependencies outside the package are considered separately.
@@ -80,10 +82,10 @@ Use the maintainer's specified tag or commit, or the commit containing this guid
 ```sh
 git rev-parse HEAD
 git show HEAD:plugins/dot-toolkit/plugin.json
-git archive --format=zip --output=../dot-toolkit-0.4.0.zip HEAD:plugins/dot-toolkit
+git archive --format=zip --output=../dot-toolkit-0.4.1.zip HEAD:plugins/dot-toolkit
 ```
 
-Confirm version `0.4.0` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files.
+Confirm version `0.4.1` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files.
 
 ## Scope and background
 

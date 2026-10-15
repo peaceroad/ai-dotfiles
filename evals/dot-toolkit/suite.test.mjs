@@ -261,7 +261,7 @@ test('the source manifest requires the content-hash schema and acceptance kind',
 
 test('source definitions keep installed-resource access and ordinary main-dot checks unrun', () => {
   const required = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
-  assert.equal(manifest.pluginVersion, '0.4.0');
+  assert.equal(manifest.pluginVersion, '0.4.1');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert.deepEqual(Object.keys(manifest.liveChecks).sort(), required.sort());
   for (const name of required) {
@@ -275,7 +275,7 @@ test('source definitions keep installed-resource access and ordinary main-dot ch
   for (const liveChecks of [undefined, null, [], 'not_run']) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.liveChecks = liveChecks; })), /must be an object/);
   }
-  for (const pluginVersion of [undefined, '0.1.0', '0.2.0', '0.3.0', 0.4]) {
+  for (const pluginVersion of [undefined, '0.1.0', '0.2.0', '0.3.0', '0.4.0', 0.4]) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.pluginVersion = pluginVersion; })), /targets plugin version/);
   }
   for (const behavioralRuns of ['pass', 'fail', null]) {

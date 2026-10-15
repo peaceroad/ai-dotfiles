@@ -66,7 +66,7 @@ Read each selected skill's frontmatter and preserve its **full parsed descriptio
 
 Each UTF-8 JSON file is an object with these required fields:
 
-- `schemaVersion`: integer `1`, independent of plugin version `0.4.0` and old inventory schema 4
+- `schemaVersion`: integer `1`, independent of plugin version `0.4.1` and old inventory schema 4
 - `name`: the skill directory name, lowercase letters/digits and single hyphens, up to 64 characters
 - `source`: object with `repository` (source repository identifier), `path` (repository-relative skill directory or `.`), `ref` (requested ref), and `commit` (resolved full 40- or 64-character lowercase hexadecimal Git commit)
 - `files`: nonempty array of `{ "path": "SKILL.md", "sha256": "<64 lowercase hex digits>" }` records, one per adopted regular file

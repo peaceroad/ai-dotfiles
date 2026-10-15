@@ -39,4 +39,4 @@
 - [受け入れ確認](../../evals/dot-toolkit/README.md)：開発・検証担当者向けのケースと証拠の扱い
 - OpenAIの[dotの始め方](https://help.openai.com/en/articles/20001530-getting-started-with-your-dot)と[プライバシー・セキュリティ・安全性FAQ](https://help.openai.com/en/articles/20001529-dots-privacy-security-and-safety-faqs)：製品自体の説明
 
-このガイドのファイル配置と保守方法はdot-toolkit独自の運用です。リポジトリ上の文書とインストール済みパッケージでは、版が異なる場合があります。
+このガイドはdot-toolkit 0.4.1を対象にしています。ファイル配置と保守方法はdot-toolkit独自の運用です。リポジトリ上の文書とインストール済みパッケージでは、版が異なる場合があります。
