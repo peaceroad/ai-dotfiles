@@ -11,6 +11,9 @@ import { compactedTurn } from './fixtures/compacted-turn.mjs';
 import { developmentTurn } from './fixtures/development-turn.mjs';
 import { persistedTurn } from './fixtures/persisted-turn.mjs';
 import { zstdCompressSync } from 'node:zlib';
+import { compatibilityTurn } from './fixtures/compatibility-turn.mjs';
+import { jsonLines } from './session-export-storage.mjs';
+import { historyRecordIssue } from './session-record-schema.mjs';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const ancestor = '00000000-0000-4000-8000-000000000002';
@@ -19,6 +22,35 @@ const meta = (base, owner = id) => ({ timestamp: stamp, ordinal: base?.end_ordin
   payload: { id: owner, timestamp: stamp, cwd: 'fixture', originator: 'fixture', cli_version: '0.159.2', history_mode: 'paginated', ...(base ? { history_base: base } : {}) } });
 const msg = ordinal => ({ timestamp: stamp, ordinal, type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '日本語🙂' }] } });
 const lines = values => values.map(value => JSON.stringify(value) + '\n').join('');
+
+test('0.162.1 typed additions validate in plain/zstd and reject future fields and invalid nested types', async t => {
+  const f = fixture(t), records = compatibilityTurn(), raw = encodeTurn(records);
+  assert.equal((await f.check(raw, records.length)).status, 'verified');
+  if (supportsZstdRuntime()) {
+    const path = f.path + '.zst'; writeFileSync(path, zstdCompressSync(raw));
+    assert.equal((await validateHistoryPrefix(path, { owner: id, endOrdinal: records.length })).status, 'verified');
+  }
+  const cases = [
+    [r => r.find(x => x.payload.type === 'task_started').payload.turn_attribution, 'turn_id', 1, '$.payload.turn_attribution.turn_id'],
+    [r => r.find(x => x.payload.type === 'token_count').payload.rate_limits, 'plan_type', 'future-plan', '$.payload.rate_limits.plan_type'],
+    [r => r.find(x => x.type === 'response_item').metadata, 'guardian_review_ids', [1], '$.metadata.guardian_review_ids[0]'],
+    [r => r.find(x => x.type === 'compacted').payload.resume_metadata.turn_attribution, 'initiating_agent_path', '/bad root', '$.payload.resume_metadata.turn_attribution.initiating_agent_path'],
+    [r => r.at(-1).payload.error.codex_error_info.response_stream_disconnected, 'http_status_code', 65536, '$.payload.error.codex_error_info.response_stream_disconnected.http_status_code'],
+    [r => r.at(-1).payload, 'future_field', 'PRIVATE_SCALAR', '$.payload.future_field'],
+  ];
+  for (const [target, key, value, expectedPath] of cases) {
+    const changed = JSON.parse(JSON.stringify(records)); target(changed)[key] = value;
+    assert.equal((await f.check(encodeTurn(changed), changed.length)).status, 'unverified');
+    const issues = [];
+    for await (const record of jsonLines(f.path, { numberTokens: true })) {
+      const issue = historyRecordIssue(record); if (issue) issues.push(issue);
+    }
+    assert.equal(issues[0].path, expectedPath);
+    assert.doesNotMatch(JSON.stringify(issues), /PRIVATE_SCALAR|future-plan|bad root/);
+  }
+  const invalidInteger = raw.replace('"http_status_code":503', '"http_status_code":5.03e2');
+  assert.equal((await f.check(invalidInteger, records.length)).status, 'unverified');
+});
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'agent-lineage-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -260,7 +292,8 @@ test('unverified diagnostics are bounded, retain source lines, and cannot be cle
   records[7].ordinal = undefined;
   const result = await f.check(encodeTurn(records), 100);
   assert.equal(result.status, 'unverified');
-  assert.deepEqual(result.issues, [{ reason: 'unsupported-record-schema', line: 6 }, { reason: 'missing-ordinal', line: 8 }]);
+  assert.deepEqual(result.issues, [{ reason: 'unsupported-record-schema', line: 6,
+    detail: { path: '$.payload.future', expected: 'known-field', actual: 'boolean' } }, { reason: 'missing-ordinal', line: 8 }]);
 });
 
 test('reviewed nested variants share the closed schema and reject added fields', async t => {

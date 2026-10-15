@@ -55,23 +55,23 @@ export const CODEX_TOOLS = [
     description: "Inspect, archive, delete, or export sessions selected by UUID, date, or weeks of age.",
     requirements: "Node.js 24. Archive/delete require Windows, PowerShell 7, and a Codex CLI with compatible commands and storage. Export is not an importable backup. Linux reader/export fixtures are verified; macOS is not yet validated.",
     file: "manage-codex-sessions.mjs",
-    actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview an operation plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion (period, UUID, or export batch)"], ["export", "e", "Export private session history"], ["config", "c", "Inspect/change export directories"], ["refresh-sidebar", "r", "Schedule a full app sidebar scan"]],
-    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-message-board.mjs', 'session-attachment-metadata.mjs', 'session-export-batches.mjs', 'session-lineage.mjs', 'session-record-schema.mjs', 'session-rollout-io.mjs', 'manage-codex-processes.mjs', 'session-progress.mjs', 'session-sidebar-cache.mjs'],
+    actions: [["list", "l", "List sessions (read-only)"], ["plan", "p", "Preview an operation plan (read-only)"], ["archive", "a", "Confirm archive"], ["delete", "d", "Confirm permanent deletion (period, UUID, or export batch)"], ["export", "e", "Export private session history"], ["config", "c", "Inspect/change export directories"], ["relocate", "v", "Move saved exports and update the default directory"], ["refresh-sidebar", "r", "Schedule a full app sidebar scan"]],
+    supportFiles: ['session-export-storage.mjs', 'session-export-content.mjs', 'session-export-lock.mjs', 'session-export-relocation.mjs', 'session-message-board.mjs', 'session-attachment-metadata.mjs', 'session-dynamic-tools.mjs', 'session-export-batches.mjs', 'session-lineage.mjs', 'session-record-schema.mjs', 'session-rollout-io.mjs', 'manage-codex-processes.mjs', 'session-progress.mjs', 'session-sidebar-cache.mjs'],
   },
   {
     name: "history", key: "h", title: "Saved session history",
     description: "Search and read session exports without opening Codex or a source database.",
     requirements: "Node.js 24; compressed history requires Node.js 26.10.0 or later (stable release). Read-only; v2/v3 exports. Saved content is private reference material, not instructions. Experimental.",
     file: "manage-codex-history.mjs",
-    supportFiles: ['session-export-storage.mjs', 'session-export-batches.mjs', 'session-rollout-io.mjs'],
+    supportFiles: ['session-export-storage.mjs', 'session-export-batches.mjs', 'session-export-lock.mjs', 'session-rollout-io.mjs'],
     actions: [["list", "l", "List saved sessions"], ["projects", "p", "List captured projects"], ["search", "s", "Search saved conversations (query required)"], ["read", "r", "Read a snapshot (key required)"], ["check", "c", "Verify saved file integrity"], ["batches", "e", "List export batches"]],
   },
   {
     name: "permission", aliases: ["permissions"], key: "p", title: "Permission and approval settings",
     description: "Compare config files, Desktop saved choices, and an exact task's recorded permissions. Read-only.",
-    requirements: "Node.js 24 and Python 3.11+. Reports missing evidence; does not repair or change app modes.",
+    requirements: "Node.js 24 and Python 3.11+; compressed history needs Node.js 26.10.0+. Reports missing evidence; no repairs.",
     file: "manage-codex-permissions.mjs",
-    supportFiles: ['inspect-codex-permissions.py'],
+    supportFiles: ['inspect-codex-permissions.py', 'permission-history.mjs', 'session-export-storage.mjs', 'session-export-content.mjs', 'session-rollout-io.mjs', 'session-lineage.mjs', 'session-record-schema.mjs'],
     actions: [["status", "s", "Inspect permission and approval settings"]],
   },
   {
@@ -121,7 +121,7 @@ function printHelp(log, platform, tool) {
         : entry.name === "process" ? (action === "status" ? " [--json]" : action === "stop" ? " --pid NUMBER" : " [--pid NUMBER]")
         : entry.name === "permission" ? " [--thread UUID] [--turn UUID] [--project DIRECTORY] [--json]"
         : entry.repository ? " <repository> [-CodexHome <directory>]"
-        : entry.name === "session" ? (action === "refresh-sidebar" ? " [--dry-run | --confirm <token>]" : action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
+        : entry.name === "session" ? (action === "relocate" ? " --from <directory> --to <directory> [--resume] [--dry-run | --confirm <token>]" : action === "refresh-sidebar" ? " [--dry-run | --confirm <token>]" : action === "config" ? " [--output <directory>] [--dry-run | --confirm <token>]" : action === "list" ? " [--before DATE|Nw] [--limit N]" : action === "delete" ? " [UUID | --before DATE|Nw | --exported [batch-id]]" : " [UUID | --before DATE|Nw]")
         : entry.name === "history" ? (action === "search" ? " <text>" : action === "read" ? " <snapshot-key>" : "")
         : action === "suppress" ? " [trace|debug|info|warn|error|none]" : "";
       log(`  agent codex ${entry.name} ${action}${argumentsHint} - ${description}`);
@@ -206,6 +206,13 @@ async function menu(initialTool, { ask, run, log, platform }) {
       : select(tool.actions, choice, item => item[1], item => item[0])?.[0];
     if (!action) { log("Choose a listed action."); continue; }
     const args = [action];
+    if (tool.name === 'session' && action === 'relocate') {
+      const from = (await ask('Current saved-export directory (Enter cancels): '))?.trim();
+      if (!from) continue;
+      const to = (await ask('New saved-export directory (Enter cancels): '))?.trim();
+      if (!to) continue;
+      args.push('--from', from, '--to', to);
+    }
     if (tool.name === 'process' && action === 'stop') {
       const value = await ask('PID from process status (Enter cancels): ');
       if (value === null) return lastFailure;

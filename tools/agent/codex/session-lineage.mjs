@@ -3,7 +3,7 @@
 // Unknown schemas are retained but cannot establish an ordinal boundary.
 import { jsonLines, reject, UUID, bundleFile } from './session-export-storage.mjs';
 import { createHash } from 'node:crypto';
-import { knownHistoryRecord } from './session-record-schema.mjs';
+import { historyRecordIssue } from './session-record-schema.mjs';
 
 export const LINEAGE_POLICY = 'rollout-prefix-v2';
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -34,15 +34,15 @@ function historyMetadata(record, owner) {
 }
 
 // Validate exactly the retained prefix, never count records after its byte boundary.
-export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, progress }) {
+export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, progress, root, onRecord }) {
   if ((endByte !== undefined && (!Number.isSafeInteger(endByte) || endByte <= 0))
     || (endOrdinal !== undefined && (!Number.isSafeInteger(endOrdinal) || endOrdinal < 1))) reject('Invalid inherited history boundary.');
   const digest = createHash('sha256');
   let bytes = 0;
   let expected, baseOrdinal, verified = true, first = true;
   const issues = new Map();
-  const unverified = (reason, line) => { verified = false; if (!issues.has(reason)) issues.set(reason, { reason, line }); };
-  for await (const record of jsonLines(path, { endByte, numberTokens: true, onChunk(chunk) { bytes += chunk.length; digest.update(chunk); progress?.(bytes, endByte); } })) {
+  const unverified = (reason, line, detail) => { verified = false; if (!issues.has(reason)) issues.set(reason, { reason, line, ...(detail ? { detail } : {}) }); };
+  for await (const record of jsonLines(path, { root, endByte, numberTokens: true, onChunk(chunk) { bytes += chunk.length; digest.update(chunk); progress?.(bytes, endByte); } })) {
     const value = record.value;
     if (first) {
       first = false;
@@ -52,7 +52,8 @@ export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, 
       if (baseOrdinal >= Number.MAX_SAFE_INTEGER || (endOrdinal !== undefined && endOrdinal <= baseOrdinal)) reject('Inconsistent inherited history ordinals.');
       expected = baseOrdinal + 1;
       const ordinal = integer(record, value, 'ordinal', false);
-      if (!knownHistoryRecord(record)) unverified('unsupported-session-metadata', record.line);
+      const issue = historyRecordIssue(record);
+      if (issue) unverified('unsupported-session-metadata', record.line, issue);
       if (ordinal === null) unverified('missing-ordinal', record.line);
       else if (ordinal !== baseOrdinal) reject('History metadata ordinal does not match its base.');
     } else {
@@ -63,14 +64,18 @@ export async function validateHistoryPrefix(path, { owner, endByte, endOrdinal, 
       else if (verified && ordinal !== expected) unverified('noncontiguous-ordinal', record.line);
       // The first schema issue is sufficient: later payload checks cannot improve
       // either coverage or this bounded diagnostic. JSON/integer checks still run.
-      if (!issues.has('unsupported-record-schema') && (!knownHistoryRecord(record) || value.type === 'session_meta')) {
-        unverified('unsupported-record-schema', record.line);
+      if (!issues.has('unsupported-record-schema')) {
+        const issue = historyRecordIssue(record);
+        if (issue || value.type === 'session_meta') unverified('unsupported-record-schema', record.line, issue);
       }
       if (verified) {
         if (expected === Number.MAX_SAFE_INTEGER) reject('History ordinal overflow.');
         expected++;
       }
     }
+    // Synchronous read-only visitor. Evidence is provisional until EOF and the
+    // final verified result; callers must discard it on failure/unverified input.
+    onRecord?.(record);
   }
   if (first) reject('Inherited history has no session metadata.');
   if (endByte !== undefined && bytes !== endByte) reject('Inherited history changed while validating.');

@@ -13,8 +13,8 @@ Usage: agent codex permission status [--thread UUID] [--turn UUID]
 Alias: agent codex permissions
 
 In a terminal, status without options opens a picker for up to 12 recent sessions.
-It shows project, title, and session-record update time (not last-viewed time).
-Lists sessions/ records, excluding archived_sessions/. Choose m for manual entry.
+It shows project, title, and state-index recency (not file compression time).
+Lists active indexed sessions; without a usable index choose m for manual entry.
 Enter/q cancels. Explicit options and redirected input/output never open a picker.
 
 Compares config.toml, Desktop saved choices, and one exact session's turn_context.
@@ -25,6 +25,11 @@ not evidence of the running app's selected profile. CODEX_HOME overrides ~/.code
 Paths under the user's home are displayed as ~. Conversation bodies are never printed.
 
 Requires Node.js 24 and Python 3.11+ (python on PATH; standard-library TOML parser).
+Compressed history requires stable Node.js 26.10.0 or later. Indexed current
+generations take precedence; duplicate physical variants are never guessed.
+Inherited parent permissions are not attributed to the child. Rollback events
+require a supported projection and are reported as unavailable. SQLite read-only
+connections may create WAL/SHM coordination files.
 No app-server is started, no network is used, and no permissions are changed.
 App feature flags, runtime management requirements, launch overrides, and model-facing
 instructions are not collected. Differences do not prove corruption or their cause.
@@ -35,7 +40,8 @@ Exit codes: 0 = help; 1 = inspection/runtime failure; 2 = invalid arguments;
 `;
 function runPython(args) {
   return spawnSync('python', ['-B', '-X', 'utf8', fileURLToPath(new URL('inspect-codex-permissions.py', import.meta.url)), ...args], {
-    encoding: 'utf8', shell: false, timeout: 60000, maxBuffer: 4 * 1024 * 1024,
+    encoding: 'utf8', shell: false, timeout: 70000, maxBuffer: 4 * 1024 * 1024,
+    env: { ...process.env, AGENT_CODEX_PERMISSION_NODE: process.execPath },
   });
 }
 
@@ -62,7 +68,7 @@ export async function pickSession({ ask, log, run }) {
       for (const note of data.notes ?? []) log(safeText(note));
     } catch { log('Recent-session metadata is unavailable; use manual entry.'); }
   } else log('Recent-session metadata is unavailable; use manual entry.');
-  log('Recent sessions — session-record update time (sessions/ only):');
+  log('Recent sessions — state-index recency (active indexed sessions):');
   sessions.forEach((row, index) => {
     const project = row.project.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) ?? row.project;
     log(`  ${index + 1}. ${safeText(project)} / ${safeText(row.title).slice(0, 100)} [${row.id.slice(0, 8)}]`);

@@ -1,10 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
+import { zstdCompressSync } from 'node:zlib';
+import { permissionSessionEvidence, recentPermissionSessions } from './permission-history.mjs';
+import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
+import { supportsZstdRuntime } from './session-rollout-io.mjs';
 import { runPermission } from './manage-codex-permissions.mjs';
 
 const script = fileURLToPath(new URL('manage-codex-permissions.mjs', import.meta.url));
@@ -30,7 +37,7 @@ function fixture(t) {
   const rows = [
     { type: 'session_meta', payload: { id: thread, cwd: project, cli_version: 'fixture-version', secret: 'DO_NOT_PRINT' } },
     { type: 'response_item', payload: { message: 'DO_NOT_PRINT' } },
-    ...[first, second].map((id, i) => ({ type: 'turn_context', timestamp: `fixture-${i}`, payload: { turn_id: id, cwd: project, approval_policy: i ? 'on-request' : 'never', approvals_reviewer: 'auto_review', sandbox_policy: { type: 'workspace-write', writable_roots: [join(homedir(), '.agents')], network_access: true }, permission_profile: { type: 'managed', network: 'enabled' } } })),
+    ...[first, second].map((id, i) => ({ type: 'turn_context', timestamp: `fixture-${i}`, payload: { turn_id: id, cwd: project, approval_policy: i ? 'on-request' : 'never', approvals_reviewer: 'auto_review', sandbox_policy: { type: 'workspace-write', writable_roots: [join(homedir(), '.agents')], network_access: true }, permission_profile: { type: 'managed', network: 'enabled', file_system: { type: 'unrestricted' } } } })),
   ];
   const save = () => writeFileSync(session, rows.map(x => JSON.stringify(x)).join('\n') + '\n');
   save();
@@ -142,13 +149,10 @@ with patch.object(pathlib.Path, 'read_bytes', side_effect=PermissionError('PRIVA
     result = m.read_document(pathlib.Path('fixture'), json.loads)
     assert result == {'status': 'denied'}
     assert reader.call_count == 1
-def denied_walk(root, **options):
-    options['onerror'](PermissionError('PRIVATE_ERROR'))
-    return []
-with patch.object(m.os, 'walk', side_effect=denied_walk) as walk:
+with patch.object(m.subprocess, 'run', side_effect=PermissionError('PRIVATE_ERROR')) as run:
     result = m.session_evidence(pathlib.Path('fixture'), '${thread}', None, pathlib.Path('repo'))
-    assert result['status'] == 'denied'
-    assert walk.call_count == 1
+    assert result['reason'] == 'history-helper-failed'
+    assert run.call_count == 1
 with patch.object(pathlib.Path, 'home', return_value=pathlib.Path('/fixture/user')) as home:
     result = m.public_output({'/fixture/user/key': ['/fixture/user/.agents', '/fixture/user-extra', None]})
     assert result == {'~/key': ['~/.agents', '/fixture/user-extra', None]}
@@ -161,10 +165,12 @@ print('denied-without-retry')
   assert.doesNotMatch(r.stdout, /PRIVATE_ERROR/);
 });
 
-test('recent candidates use only metadata, sort by activity, and cap at 12 without writes', t => {
+test('recent candidates use the state index, sort by recency, and never parse conversation bodies', t => {
   const f = fixture(t);
   rmSync(f.session);
   const titles = [], paths = [];
+  const db = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+  db.exec('CREATE TABLE threads(id TEXT PRIMARY KEY, rollout_path TEXT, archived INTEGER, title TEXT, cwd TEXT, recency_at_ms INTEGER)');
   for (let i = 0; i < 14; i++) {
     const id = `abcdefab-1111-4111-8111-${String(i).padStart(12, '0')}`;
     titles.push({ id, thread_name: `Title ${i}` });
@@ -172,7 +178,9 @@ test('recent candidates use only metadata, sort by activity, and cap at 12 witho
     writeFileSync(path, JSON.stringify({ type: 'session_meta', payload: { id, cwd: f.project } }) + '\nDO_NOT_READ_INVALID_CONVERSATION_BODY');
     utimesSync(path, 1700000000 + i, 1700000000 + i);
     paths.push(path);
+    db.prepare('INSERT INTO threads VALUES (?, ?, 0, ?, ?, ?)').run(id, path, `Title ${i}`, f.project, (1700000000 + i) * 1000);
   }
+  db.close();
   writeFileSync(join(f.home, 'session_index.jsonl'), titles.map(x => JSON.stringify(x)).join('\n') + '\n');
   mkdirSync(join(f.home, 'archived_sessions'));
   writeFileSync(join(f.home, 'archived_sessions', `rollout-${thread}.jsonl`), JSON.stringify({ type: 'session_meta', payload: { id: thread, cwd: f.project } }));
@@ -184,13 +192,174 @@ test('recent candidates use only metadata, sort by activity, and cap at 12 witho
   assert.equal(result.sessions[0].title, 'Title 13');
   assert.equal(result.sessions.at(-1).title, 'Title 2');
   assert.equal(result.sessions[0].project, f.project.replaceAll('\\', '/').replace(homedir().replaceAll('\\', '/'), '~'));
-  assert.equal(result.activitySource, 'session-record-mtime');
+  assert.equal(result.activitySource, 'state-index');
   assert.deepEqual(paths.map(p => readFileSync(p)), before);
   assert.doesNotMatch(r.stdout, /DO_NOT_READ/);
-  rmSync(join(f.home, 'session_index.jsonl'));
+  rmSync(join(f.home, 'state_5.sqlite'));
   const missing = JSON.parse(f.run('--recent').stdout);
-  assert.equal(missing.sessions[0].title, '(untitled)');
+  assert.equal(missing.sessions.length, 0);
   assert.ok(missing.notes.length);
+});
+
+function indexThread(f, path) {
+  const db = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+  db.exec('CREATE TABLE threads(id TEXT PRIMARY KEY, rollout_path TEXT, archived INTEGER)');
+  db.prepare('INSERT INTO threads VALUES (?, ?, 0)').run(thread, path); db.close();
+}
+
+test('compressed archived history and indexed current generation produce exact permission evidence', { skip: !supportsZstdRuntime() }, t => {
+  const f = fixture(t);
+  const archived = join(f.home, 'archived_sessions'); mkdirSync(archived);
+  const path = join(archived, `rollout-${thread}_${first}.jsonl`);
+  writeFileSync(path + '.zst', zstdCompressSync(readFileSync(f.session)));
+  // Keep an older owned generation; the current state row resolves the choice.
+  indexThread(f, path);
+  let r = JSON.parse(f.run().stdout);
+  assert.equal(r.executionRecord.status, 'read');
+  assert.equal(r.executionRecord.turn.turn_id, second);
+  assert.ok(r.executionRecord.path.endsWith('.jsonl.zst'));
+  writeFileSync(path, readFileSync(f.session));
+  r = JSON.parse(f.run().stdout);
+  assert.equal(r.executionRecord.reason, 'ambiguous-session');
+  rmSync(path); writeFileSync(path + '.zst', Buffer.from('broken'));
+  r = JSON.parse(f.run().stdout);
+  assert.equal(r.executionRecord.status, 'invalid');
+  assert.equal(r.executionRecord.turn, undefined);
+});
+
+test('inherited generations honor byte/ordinal boundaries and do not attribute parent settings to children', async t => {
+  const f = fixture(t);
+  for (const owner of [thread, first]) {
+    const old = join(f.home, 'sessions', `rollout-${owner}_${second}.jsonl`);
+    const parent = paginatedTurn(owner, f.project);
+    const raw = encodeTurn(parent);
+    writeFileSync(old, raw);
+    const child = [{ timestamp: parent[0].timestamp, ordinal: parent.length, type: 'session_meta', payload: {
+      ...parent[0].payload, id: thread, history_base: { thread_id: second, end_byte_offset: Buffer.byteLength(raw), end_ordinal_exclusive: parent.length },
+    } }];
+    writeFileSync(f.session, encodeTurn(child));
+    indexThread(f, f.session);
+    const options = { home: f.home, thread, project: f.project };
+    const evidence = await permissionSessionEvidence(options);
+    assert.equal(evidence.status, owner === thread ? 'read' : 'unavailable');
+    if (owner !== thread) assert.equal(evidence.reason, 'inherited-context-only');
+    child[0].payload.history_base.end_ordinal_exclusive++;
+    writeFileSync(f.session, encodeTurn(child));
+    assert.equal((await permissionSessionEvidence(options)).status, 'invalid');
+    child[0].payload.history_base.end_ordinal_exclusive--;
+    const encoded = encodeTurn(child).replace(`"end_byte_offset":${Buffer.byteLength(raw)}`, `"end_byte_offset":${Buffer.byteLength(raw)}e0`);
+    writeFileSync(f.session, encoded);
+    assert.equal((await permissionSessionEvidence(options)).reason, 'invalid-inherited-boundary');
+    rmSync(old); rmSync(join(f.home, 'state_5.sqlite'));
+  }
+});
+
+test('rollback and unsupported permission variants cannot publish stale recorded settings', t => {
+  const f = fixture(t);
+  f.rows.push({ type: 'event_msg', payload: { type: 'thread_rolled_back', num_turns: 1 } }); f.save();
+  assert.equal(JSON.parse(f.run().stdout).executionRecord.reason, 'rollback-history-needs-projection');
+  f.rows.pop(); f.rows.at(-1).payload.sandbox_policy.type = 'future'; f.save();
+  assert.equal(JSON.parse(f.run().stdout).executionRecord.reason, 'unsupported-turn-context');
+});
+
+test('inherited evidence is read once, excludes later turns, and still rejects unknown schemas and broken final frames', { skip: !supportsZstdRuntime() }, async t => {
+  for (const compressed of [false, true]) {
+    const f = fixture(t), parent = paginatedTurn(thread, f.project);
+    const context = parent.find(r => r.type === 'turn_context');
+    context.payload.turn_id = first;
+    const raw = encodeTurn(parent);
+    const old = join(f.home, 'sessions', `rollout-${thread}_${second}.jsonl${compressed ? '.zst' : ''}`);
+    const trailing = encodeTurn([{ ...context, payload: { ...context.payload, turn_id: second } }]);
+    writeFileSync(old, compressed ? zstdCompressSync(raw + trailing) : raw + trailing);
+    const child = [{ timestamp: parent[0].timestamp, ordinal: parent.length, type: 'session_meta', payload: {
+      ...parent[0].payload, history_base: { thread_id: second, end_byte_offset: Buffer.byteLength(raw), end_ordinal_exclusive: parent.length },
+    } }];
+    writeFileSync(f.session, encodeTurn(child)); indexThread(f, f.session);
+    const options = { home: f.home, thread, project: f.project };
+    const open = fs.openSync;
+    let opens = 0;
+    const spy = t.mock.method(fs, 'openSync', function(path, ...args) {
+      if (path === old) opens++;
+      return open.call(this, path, ...args);
+    });
+    syncBuiltinESMExports();
+    try {
+      const evidence = await permissionSessionEvidence(options);
+      assert.equal(evidence.status, 'read');
+      assert.equal(evidence.turn.turn_id, first);
+      assert.equal(opens, 1, 'Inherited extraction and boundary validation must share the same physical read');
+    } finally { spy.mock.restore(); syncBuiltinESMExports(); }
+    parent.at(-1).payload.future = true;
+    const unknown = encodeTurn(parent);
+    child[0].payload.history_base.end_byte_offset = Buffer.byteLength(unknown);
+    writeFileSync(f.session, encodeTurn(child));
+    writeFileSync(old, compressed ? zstdCompressSync(unknown) : unknown);
+    const unverified = await permissionSessionEvidence(options);
+    assert.equal(unverified.reason, 'unsupported-inherited-history');
+    assert.equal(unverified.turn, undefined);
+    if (compressed) {
+      child[0].payload.history_base.end_byte_offset = Buffer.byteLength(raw);
+      writeFileSync(f.session, encodeTurn(child));
+      writeFileSync(old, Buffer.concat([zstdCompressSync(raw), zstdCompressSync(trailing).subarray(0, -1)]));
+      const invalid = await permissionSessionEvidence(options);
+      assert.equal(invalid.status, 'invalid'); assert.equal(invalid.turn, undefined);
+    }
+  }
+});
+
+test('streamed selection retains latest and exact turns and rejects duplicates across generations', async t => {
+  const f = fixture(t), parent = paginatedTurn(thread, f.project);
+  parent.find(r => r.type === 'turn_context').payload.turn_id = first;
+  const raw = encodeTurn(parent);
+  writeFileSync(join(f.home, 'sessions', `rollout-${thread}_${second}.jsonl`), raw);
+  f.rows[0].payload.history_base = { thread_id: second, end_byte_offset: Buffer.byteLength(raw), end_ordinal_exclusive: parent.length };
+  f.rows.splice(1, f.rows.length - 1, ...Array.from({ length: 2000 }, (_, i) => ({ type: 'turn_context',
+    payload: { ...f.rows.at(-1).payload, turn_id: second, approval_policy: i === 1999 ? 'never' : 'on-request' } })));
+  f.save(); indexThread(f, f.session);
+  const options = { home: f.home, thread, project: f.project };
+  assert.equal((await permissionSessionEvidence(options)).turn.approval_policy, 'never');
+  assert.equal((await permissionSessionEvidence({ ...options, turn: first })).turn.turn_id, first);
+  assert.equal((await permissionSessionEvidence({ ...options, turn: second })).reason, 'ambiguous-turn');
+  f.rows.push({ type: 'turn_context', payload: { ...f.rows.at(-1).payload, turn_id: first } }); f.save();
+  assert.equal((await permissionSessionEvidence({ ...options, turn: first })).reason, 'ambiguous-turn');
+});
+
+test('an exact session reads only its indexed rows and still refuses duplicate identities', async t => {
+  const f = fixture(t);
+  const db = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+  db.exec('CREATE TABLE threads(id TEXT, rollout_path TEXT, archived INTEGER, cwd TEXT, updated_at INTEGER)');
+  db.prepare('INSERT INTO threads VALUES (?, ?, 0, ?, 1)').run(thread, f.session, f.project);
+  db.prepare('INSERT INTO threads VALUES (?, ?, 0, ?, 9223372036854775807)').run(first, 'unrelated', f.project);
+  const options = { home: f.home, thread, project: f.project };
+  try {
+    assert.equal((await permissionSessionEvidence(options)).status, 'read');
+    db.prepare('DELETE FROM threads WHERE id=?').run(first);
+    db.prepare('INSERT INTO threads SELECT * FROM threads WHERE id=?').run(thread);
+    assert.equal((await permissionSessionEvidence(options)).reason, 'ambiguous-session');
+    assert.deepEqual((await recentPermissionSessions(options)).sessions, []);
+  } finally { db.close(); }
+});
+
+test('a changed indexed generation during history reading discards provisional permission evidence', async t => {
+  const f = fixture(t); indexThread(f, f.session);
+  const open = fs.openSync;
+  let changed = false;
+  const spy = t.mock.method(fs, 'openSync', function(path, ...args) {
+    if (path === f.session && !changed) {
+      changed = true;
+      const db = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+      try { db.prepare('UPDATE threads SET rollout_path=? WHERE id=?').run('changed-generation', thread); }
+      finally { db.close(); }
+    }
+    return open.call(this, path, ...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    const evidence = await permissionSessionEvidence({ home: f.home, thread, project: f.project });
+    assert.ok(changed);
+    assert.equal(evidence.reason, 'session-index-changed');
+    assert.equal(evidence.turn, undefined);
+  } finally { spy.mock.restore(); syncBuiltinESMExports(); }
 });
 
 test('interactive picker forwards selected identity and project, sanitizes titles, and preserves exit', async () => {

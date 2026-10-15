@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ExportError, reject, listBundles, readBundle, verifyBundle, bundleFile, readExportDirectory, safeText } from './session-export-storage.mjs';
 import { listBatches } from './session-export-batches.mjs';
+import { assertExportAvailable } from './session-export-lock.mjs';
 
 const help = `Read saved Codex session exports. No source database, network, Codex server, import, or deletion.
 Usage: agent codex history <command> [arguments]
@@ -76,6 +77,7 @@ export async function runHistory(args, { log = console.log } = {}) {
   try {
     const directory = options.directory ?? readExportDirectory();
     if (!directory) reject('Export directory is not configured; use --in or session config.');
+    assertExportAvailable(directory);
     if (options.action === 'batches') {
       const batches = listBatches(directory), results = batches.slice(0, options.limit).map(batch => ({ id: batch.id, createdAt: batch.createdAt, sessions: batch.entries.length, selection: batch.selection }));
       if (options.json) log(JSON.stringify({ scope: 'export-receipts-only', action: 'batches', total: batches.length, truncated: results.length < batches.length, results }));

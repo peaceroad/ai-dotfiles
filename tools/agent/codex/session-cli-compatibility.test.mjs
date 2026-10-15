@@ -1,12 +1,13 @@
 // Opt-in: invokes the installed official CLI only in disposable synthetic homes.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, utimesSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, utimesSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { MAINTENANCE_CLI_VERSIONS, runOfficialCodex, inspectSessions, exportSessions, selectPlan, parseSessionArgs, runSessions } from './manage-codex-sessions.mjs';
+import * as productionRuntime from './manage-codex-sessions.mjs';
 import { supportsZstdRuntime, rolloutChunks } from './session-rollout-io.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { createInterface } from 'node:readline';
@@ -15,9 +16,31 @@ import { paginatedTurn, encodeTurn } from './fixtures/paginated-turn.mjs';
 import { compactedTurn } from './fixtures/compacted-turn.mjs';
 import { developmentTurn } from './fixtures/development-turn.mjs';
 import { persistedTurn } from './fixtures/persisted-turn.mjs';
+import { compatibilityTurn } from './fixtures/compatibility-turn.mjs';
+import { dynamicToolsFixture } from './fixtures/dynamic-tools.mjs';
 import { attachmentMetadataFixture } from './fixtures/attachment-metadata.mjs';
 import { boardFixture } from './fixtures/message-board.mjs';
 import { listBundles, verifyBundle } from './session-export-storage.mjs';
+
+// Candidate admission is confined to a disposable copy used by this opt-in test.
+// No production command honors this environment variable or weakens its guard.
+let runtime = productionRuntime;
+const candidate = process.env.AGENT_TEST_CODEX_CANDIDATE;
+if (candidate) {
+  assert.equal(process.env.AGENT_TEST_CODEX_COMPAT, '1');
+  assert.equal(candidate, '0.162.1', 'Review the candidate source before changing this test allowlist');
+  const root = mkdtempSync(join(tmpdir(), 'agent-candidate-runtime-'));
+  after(() => rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
+  cpSync(fileURLToPath(new URL('.', import.meta.url)), root, { recursive: true });
+  const path = join(root, 'manage-codex-sessions.mjs');
+  const source = readFileSync(path, 'utf8');
+  const declaration = /export const MAINTENANCE_CLI_VERSIONS = Object\.freeze\(\[[^\n]+\]\);/g;
+  assert.equal([...source.matchAll(declaration)].length, 1);
+  writeFileSync(path, source.replace(declaration,
+    `export const MAINTENANCE_CLI_VERSIONS = Object.freeze(${JSON.stringify([...new Set([...productionRuntime.MAINTENANCE_CLI_VERSIONS, candidate])])});`));
+  runtime = await import(pathToFileURL(path));
+}
+const { MAINTENANCE_CLI_VERSIONS, runOfficialCodex, inspectSessions, exportSessions, selectPlan, parseSessionArgs, runSessions } = runtime;
 
 function indexSyntheticThread(home, path, id) {
   const db = new DatabaseSync(join(home, 'state_5.sqlite'));
@@ -136,7 +159,8 @@ test('official projection reads reviewed paginated fixtures before verified expo
   assert.ok(MAINTENANCE_CLI_VERSIONS.some(candidate => version === `codex-cli ${candidate}`), 'Review and register the candidate startup profile before acceptance testing');
   t.diagnostic(`Official CLI under test: ${version}`);
   const id = '00000000-0000-4000-8000-000000000101', missing = '00000000-0000-4000-8000-000000000199';
-  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn, persistedTurn]) for (const compressed of [false, true]) {
+  for (const makeTurn of [paginatedTurn, compactedTurn, developmentTurn, persistedTurn,
+    ...(version === 'codex-cli 0.162.1' ? [compatibilityTurn] : [])]) for (const compressed of [false, true]) {
     const variant = `${makeTurn.name}-${compressed ? 'zstd' : 'plain'}`;
     const home = join(root, variant), output = join(root, `saved-${variant}`);
     mkdirSync(join(home, 'sessions'), { recursive: true }); mkdirSync(output);
@@ -164,17 +188,34 @@ test('official projection reads reviewed paginated fixtures before verified expo
       // initialize includes the PowerShell launcher and server cold start. Other
       // RPCs keep the shorter deadline; this is compatibility, not a startup benchmark.
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Fixture RPC timed out: ${variant} ${method}; ${stderr}`)); }, method === 'initialize' ? 30000 : 10000);
-      pending.set(id, message => { clearTimeout(timer); pending.delete(id); message.error ? reject(new Error(JSON.stringify(message.error))) : resolve(message.result); });
+      pending.set(id, message => { clearTimeout(timer); pending.delete(id); message.error ? reject(new Error(`${variant} ${method}: ${JSON.stringify(message.error)}`)) : resolve(message.result); });
       server.stdin.write(JSON.stringify({ id, method, params }) + '\n');
     });
     try {
       await request('initialize', { clientInfo: { name: 'fixture', version: '1' }, capabilities: { experimentalApi: true } });
       server.stdin.write(JSON.stringify({ method: 'initialized' }) + '\n');
-      for (let i = 0; i < 30; i++) {
-        if (JSON.parse(readFileSync(plain, 'utf8').split('\n')[0]).payload.history_mode === 'paginated') break;
-        await delay(200);
+      // The file rewrite precedes the metadata commit. Official list_turns gates
+      // on state DB history_mode, so wait for both instead of racing migration.
+      const metadata = new DatabaseSync(join(home, 'state_5.sqlite'), { readOnly: true });
+      try {
+        const mode = metadata.prepare('SELECT history_mode FROM threads WHERE id=?');
+        let ready = false;
+        for (let i = 0; i < 30; i++) {
+          if (JSON.parse(readFileSync(plain, 'utf8').split('\n')[0]).payload.history_mode === 'paginated'
+            && mode.get(id)?.history_mode === 'paginated') { ready = true; break; }
+          await delay(200);
+        }
+        assert.ok(ready, `${variant}: official migration did not finish its file and metadata updates; ${stderr}`);
+      } finally { metadata.close(); }
+      if (makeTurn === compatibilityTurn) {
+        const migrated = readFileSync(plain, 'utf8').trim().split('\n').map(JSON.parse);
+        const started = migrated.find(r => r.payload.type === 'task_started');
+        assert.deepEqual(started.payload.turn_attribution, records.find(r => r.payload.type === 'task_started').payload.turn_attribution);
+        assert.ok(migrated.some(r => r.payload.rate_limits?.plan_type === 'prolite'));
+        assert.ok(migrated.some(r => r.metadata?.guardian_review_ids?.includes('synthetic-review')));
+        assert.deepEqual(migrated.find(r => r.type === 'compacted').payload.resume_metadata.turn_attribution, started.payload.turn_attribution);
+        assert.deepEqual(migrated.find(r => r.payload.type === 'task_complete').payload.error, records.at(-1).payload.error);
       }
-      assert.equal(JSON.parse(readFileSync(plain, 'utf8').split('\n')[0]).payload.history_mode, 'paginated');
       if (makeTurn === persistedTurn) {
         const migrated = readFileSync(plain, 'utf8').trim().split('\n').map(line => JSON.parse(line));
         for (const original of records.filter(record => ['realtime_item', 'security_risk_score'].includes(record.type)
@@ -201,6 +242,13 @@ test('official projection reads reviewed paginated fixtures before verified expo
     if (compressed) { writeFileSync(path, zstdCompressSync(readFileSync(plain))); rmSync(plain); }
     const bytes = readFileSync(path);
     if (makeTurn === persistedTurn) attachmentMetadataFixture(home).put(id);
+    let dynamicTools;
+    if (makeTurn === compatibilityTurn) {
+      dynamicTools = dynamicToolsFixture(home);
+      indexSyntheticThread(home, join(home, 'sessions', `${missing}.jsonl`), missing);
+      writeFileSync(join(home, 'sessions', `${missing}.jsonl`), encodeTurn(paginatedTurn(missing, home)));
+      dynamicTools.put(id); dynamicTools.put(missing);
+    }
     let board;
     if (makeTurn === developmentTurn) {
       board = boardFixture(home);
@@ -209,8 +257,9 @@ test('official projection reads reviewed paginated fixtures before verified expo
       }
     }
     const snapshot = await inspectSessions(home);
-    const exported = await exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', id])), output, { log() {} });
-    assert.equal(exported.partial, false);
+    const exportLogs = [];
+    const exported = await exportSessions(snapshot, selectPlan(snapshot, parseSessionArgs(['export', id])), output, { log: line => exportLogs.push(line) });
+    assert.equal(exported.partial, false, `${variant}: ${exportLogs.join('\n')} ${JSON.stringify(listBundles(output).map(bundle => bundle.manifest.coverage))}`);
     assert.deepEqual(readFileSync(path), bytes, 'Export must preserve original rollout bytes');
     if (board) {
       const [bundle] = listBundles(output);
@@ -222,7 +271,14 @@ test('official projection reads reviewed paginated fixtures before verified expo
       home, interactive: true, log: line => logs.push(line), closed() {}, ask: async prompt => /^Type (.+) to /.exec(prompt)?.[1] ?? '',
     }), 0, logs.join('\n'));
     assert.equal(existsSync(path), false);
-    assert.equal((await inspectSessions(home)).sessions.length, 0);
+    assert.equal((await inspectSessions(home)).sessions.length, dynamicTools ? 1 : 0);
+    if (dynamicTools) {
+      const db = new DatabaseSync(join(home, 'state_5.sqlite'), { readOnly: true });
+      try {
+        assert.equal(db.prepare('SELECT count(*) AS n FROM thread_dynamic_tools WHERE thread_id=?').get(id).n, 0);
+        assert.equal(db.prepare('SELECT count(*) AS n FROM thread_dynamic_tools WHERE thread_id=?').get(missing).n, 1);
+      } finally { db.close(); }
+    }
     if (board) {
       const db = new DatabaseSync(board.path, { readOnly: true });
       try {
@@ -234,4 +290,35 @@ test('official projection reads reviewed paginated fixtures before verified expo
       } finally { db.close(); }
     }
   }
+});
+
+test('official archive moves a real synthetic target and retains its bytes and owned tools', {
+  skip: process.platform !== 'win32' || process.env.AGENT_TEST_CODEX_COMPAT !== '1',
+}, async t => {
+  assert.ok(!process.env.CODEX_EXEC_SERVER_URL && !process.env.CODEX_SQLITE_HOME);
+  const home = mkdtempSync(join(tmpdir(), 'agent-archive-compat-'));
+  t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
+  mkdirSync(join(home, 'sessions'));
+  const id = '00000000-0000-4000-8000-000000000101';
+  const version = runOfficialCodex(['--version'], home).stdout?.trim();
+  assert.equal(runOfficialCodex(['archive', id], home, spawnSync, version).status, 1);
+  const path = join(home, 'sessions', `rollout-2000-01-01T00-00-00-${id}.jsonl`);
+  const records = paginatedTurn(id, home);
+  records[0].payload.history_mode = 'legacy';
+  for (const record of records) delete record.ordinal;
+  const raw = encodeTurn(records); writeFileSync(path, raw);
+  indexSyntheticThread(home, path, id); dynamicToolsFixture(home).put(id);
+  const logs = [];
+  assert.equal(await runSessions(['archive', id], {
+    home, interactive: true, log: line => logs.push(line), closed() {},
+    ask: async prompt => /^Type (.+) to /.exec(prompt)?.[1] ?? '',
+  }), 0, logs.join('\n'));
+  assert.equal(existsSync(path), false);
+  const db = new DatabaseSync(join(home, 'state_5.sqlite'), { readOnly: true });
+  try {
+    const row = db.prepare('SELECT archived, rollout_path FROM threads WHERE id=?').get(id);
+    assert.equal(row.archived, 1);
+    assert.equal(readFileSync(row.rollout_path, 'utf8'), raw);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM thread_dynamic_tools WHERE thread_id=?').get(id).n, 1);
+  } finally { db.close(); }
 });

@@ -49,6 +49,16 @@ export function verifyAttachmentMetadataCoverage(manifest) {
   if (fingerprint(coverage) !== fingerprint(attachmentMetadataCoverage(manifest.session.id, !!file))
     || (file && (!Number.isSafeInteger(file.records) || file.records < 0))) reject('Invalid attachment metadata coverage.');
 }
+export const dynamicToolsCoverage = (id, present) => ({ policy: 'thread-dynamic-tools-v1', id,
+  tables: ['thread_dynamic_tools'], integers: 'tagged-decimal', present, member: present ? 'dynamic-tools.jsonl' : null });
+export function verifyDynamicToolsCoverage(manifest) {
+  const coverage = manifest.coverage?.dynamicTools;
+  if (coverage === undefined) return;
+  const file = manifest.files.find(file => file.file === 'dynamic-tools.jsonl');
+  if (fingerprint(coverage) !== fingerprint(dynamicToolsCoverage(manifest.session.id, !!file))
+    || (file && (!Number.isSafeInteger(file.records) || file.records < 0))) reject('Invalid dynamic tool coverage.');
+}
+
 export function indexedHistoryCoverage(ids, present) {
   return { policy: 'owned-rollout-ids-v1', ids, tables: HISTORY_TABLES, present, member: present ? 'history.jsonl' : null };
 }
@@ -282,6 +292,7 @@ export async function verifyBundle(bundle, progress) {
   verifyIndexedHistory(bundle.manifest);
   verifyBoardCoverage(bundle.manifest);
   verifyAttachmentMetadataCoverage(bundle.manifest);
+  verifyDynamicToolsCoverage(bundle.manifest);
   const verified = bundle.manifest.schemaVersion === 3 ? await verifyArtifacts(bundle, progress) : new Set();
   // Bound disk pressure and await both workers even if one fails. No background
   // verification can continue after this function returns or throws.

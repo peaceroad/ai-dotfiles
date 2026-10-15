@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import subprocess
 import tomllib
 
 CONFIG_KEYS = ('approval_policy', 'approvals_reviewer', 'default_permissions', 'sandbox_mode', 'profile')
@@ -100,118 +101,31 @@ def app_evidence(home, thread):
     return result
 
 
-def rollout_files(home, folders):
-    roots = tuple(home / folder for folder in folders)
-    def fail(error):
-        if isinstance(error, FileNotFoundError) and Path(error.filename) in roots:
-            return
-        raise error
-    for root in roots:
-        # Do not traverse directory symlinks or silently ignore denied directories.
-        for parent, _, files in os.walk(root, onerror=fail, followlinks=False):
-            for name in files:
-                if name.endswith('.jsonl'):
-                    yield Path(parent, name)
+def history_evidence(home, thread=None, turn=None, project=None, recent=False):
+    # Node owns bounded plain/zstd decoding and current-generation resolution.
+    # No child inherits commands from archived content. The helper only reads.
+    node = os.environ.get('AGENT_CODEX_PERMISSION_NODE', 'node')
+    helper = Path(__file__).with_name('permission-history.mjs')
+    request = {'home': str(home), 'thread': thread, 'turn': turn,
+               'project': str(project) if project else None, 'recent': recent}
+    try:
+        result = subprocess.run([node, '--disable-warning=ExperimentalWarning', str(helper)], input=json.dumps(request),
+                                encoding='utf-8', capture_output=True, timeout=55, check=False)
+        if result.returncode != 0 or result.stderr:
+            raise ValueError
+        return json.loads(result.stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        if recent:
+            return {'sessions': [], 'notes': ['History helper unavailable; use manual entry.']}
+        return {'status': 'unavailable', 'reason': 'history-helper-failed'}
 
 
-def recent_sessions(home, limit=12):
-    """Picker metadata only: never inspect conversation bodies or launch SQLite."""
-    titles = {}
-    notes = []
-    index = home / 'session_index.jsonl'
-    try:
-        with index.open(encoding='utf-8') as stream:
-            for line in stream:
-                try:
-                    row = json.loads(line)
-                    if isinstance(row, dict) and UUID.fullmatch(str(row.get('id', ''))) and isinstance(row.get('thread_name'), str):
-                        titles[row['id'].lower()] = row['thread_name']
-                except ValueError:
-                    notes.append('Title index contains an incomplete or invalid entry.')
-    except (OSError, UnicodeError):
-        notes.append('Title index is unavailable; some titles may be missing.')
-    candidates = []
-    skipped = 0
-    try:
-        for path in rollout_files(home, ('sessions',)):
-            try:
-                candidates.append((path.stat().st_mtime_ns, path))
-            except OSError:
-                skipped += 1
-    except OSError:
-        # A partial directory scan cannot establish the most recent sessions.
-        return {'sessions': [], 'notes': ['Session discovery failed; use manual entry.']}
-    selected = []
-    seen = set()
-    for modified, path in sorted(candidates, key=lambda item: (item[0], str(item[1])), reverse=True):
-        try:
-            with path.open(encoding='utf-8') as stream:
-                # session_meta must be first. Bound the read and never seek into conversation bodies.
-                line = stream.readline(1024 * 1024 + 1)
-            if len(line) > 1024 * 1024:
-                raise ValueError
-            record = json.loads(line)
-            meta = record.get('payload', {})
-            identity = meta.get('id', '')
-            cwd = meta.get('cwd')
-            if record.get('type') != 'session_meta' or not isinstance(identity, str) or not UUID.fullmatch(identity) or identity.lower() not in path.name.lower() or not isinstance(cwd, str) or not cwd:
-                raise ValueError
-            identity = identity.lower()
-            if identity in seen:
-                continue
-            seen.add(identity)
-            selected.append({'id': identity, 'project': cwd, 'title': titles.get(identity) or '(untitled)', 'updatedAt': datetime.fromtimestamp(modified / 1e9, timezone.utc).isoformat()})
-            if len(selected) == limit:
-                break
-        except (OSError, ValueError, UnicodeError, AttributeError):
-            skipped += 1
-    if skipped:
-        notes.append(f'{skipped} unavailable or unsupported session records skipped.')
-    return {'sessions': selected, 'notes': list(dict.fromkeys(notes)), 'activitySource': 'session-record-mtime', 'sourceDirectory': 'sessions'}
+def recent_sessions(home):
+    return history_evidence(home, recent=True)
 
 
 def session_evidence(home, thread, turn, project):
-    if not thread:
-        return {'status': 'unavailable', 'reason': 'no-thread-id'}
-    thread = thread.lower()
-    turn = turn.lower() if turn else None
-    try:
-        paths = [path for path in rollout_files(home, ('sessions', 'archived_sessions')) if thread in path.name.lower()]
-    except PermissionError:
-        return {'status': 'denied', 'reason': 'session-discovery'}
-    except OSError:
-        return {'status': 'unavailable', 'reason': 'session-discovery'}
-    if len(paths) != 1:
-        return {'status': 'unavailable', 'reason': 'missing-session' if not paths else 'ambiguous-session', 'candidateCount': len(paths)}
-    path = paths[0]
-    meta = None
-    selected = None
-    matches = 0
-    try:
-        with path.open(encoding='utf-8') as stream:
-            for line_no, line in enumerate(stream, 1):
-                record = json.loads(line)
-                value = record.get('payload', {})
-                if record.get('type') == 'session_meta':
-                    if meta is not None:
-                        return {'status': 'invalid', 'reason': 'duplicate-session-meta'}
-                    meta = pick(value, ('id', 'cwd', 'cli_version', 'originator'))
-                    if str(meta.get('id', '')).lower() != thread:
-                        return {'path': str(path), 'status': 'invalid', 'reason': 'session-id-mismatch'}
-                if record.get('type') == 'turn_context' and (not turn or str(value.get('turn_id', '')).lower() == turn):
-                    matches += 1
-                    selected = {'line': line_no, 'timestamp': record.get('timestamp'), **pick(value, ('turn_id', 'cwd', 'approval_policy', 'approvals_reviewer', 'sandbox_policy', 'permission_profile'))}
-    except PermissionError:
-        return {'path': str(path), 'status': 'denied'}
-    except (ValueError, UnicodeError, AttributeError):
-        return {'path': str(path), 'status': 'invalid', 'reason': 'invalid-or-incomplete-jsonl'}
-    except OSError:
-        return {'path': str(path), 'status': 'unavailable'}
-    if not meta:
-        return {'path': str(path), 'status': 'invalid', 'reason': 'session-id-mismatch'}
-    if turn and matches > 1:
-        return {'path': str(path), 'status': 'invalid', 'reason': 'ambiguous-turn'}
-    return {'path': str(path), 'status': 'read' if selected else 'unavailable', 'selection': 'exact-turn' if turn else 'latest-recorded-turn', 'session': meta, 'turn': selected, 'projectMatches': path_key((selected or meta).get('cwd', '')) == path_key(project)}
+    return history_evidence(home, thread, turn, project)
 
 
 def inspect(home, project, thread=None, turn=None, profile=None):
@@ -301,7 +215,8 @@ def show_text(report):
     saved = report['appSaved'].get('threadPermissions', {})
     print('  task: ' + json.dumps(pick(saved, ('approvalPolicy', 'approvalsReviewer', 'activePermissionProfile')), ensure_ascii=False))
     record = report['executionRecord']
-    print('\nExecution record: ' + record['status'] + ' (' + record.get('selection', record.get('reason', 'unavailable')) + ')')
+    detail = record.get('selection', 'recorded') if record['status'] == 'read' else record.get('reason', 'unavailable')
+    print('\nExecution record: ' + record['status'] + ' (' + detail + ')')
     print('  ' + json.dumps(record.get('session'), ensure_ascii=False))
     turn = record.get('turn') or {}
     print('  ' + json.dumps(pick(turn, ('turn_id', 'timestamp', 'line', 'approval_policy', 'approvals_reviewer')), ensure_ascii=False))

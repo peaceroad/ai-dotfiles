@@ -21,6 +21,8 @@ import { developmentTurn } from './fixtures/development-turn.mjs';
 import { persistedTurn } from './fixtures/persisted-turn.mjs';
 import { attachmentMetadataFixture } from './fixtures/attachment-metadata.mjs';
 import { openAttachmentMetadataReader } from './session-attachment-metadata.mjs';
+import { dynamicToolsFixture } from './fixtures/dynamic-tools.mjs';
+import { openDynamicToolsReader } from './session-dynamic-tools.mjs';
 import fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 
@@ -48,6 +50,84 @@ function fixture(t) {
   db.close();
   return { home, update(sql, ...args) { const db = new DatabaseSync(path); try { db.prepare(sql).run(...args); } finally { db.close(); } } };
 }
+
+test('dynamic tool rows are preserved, rechecked, and required for deletion and retry', async t => {
+  const f = renderableFixture(t), output = exportParent(t), tools = dynamicToolsFixture(f.home);
+  tools.put(parent); tools.put(other);
+  const snapshot = await inspectDeletionReferences(await inspectSessions(f.home));
+  assert.match(makePlan(snapshot, parent).problems.join('\n'), /dynamic tools/);
+  assert.deepEqual(makePlan(snapshot, child).problems, []);
+  const { batch } = await saveBatch(f, output);
+  const bundle = listBundles(output).find(b => b.manifest.session.id === parent);
+  await verifyBundle(bundle);
+  const rows = readFileSync(join(bundle.folder, 'dynamic-tools.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(rows.length, 1); assert.equal(rows[0].row.thread_id, parent);
+  assert.equal(rows[0].row.input_schema, '\ufeffopaque schema\0');
+  assert.deepEqual(rows[0].row.defer_loading, { $integer: '1' });
+  assert.equal(rows[0].row.namespace, null);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
+  tools.run('UPDATE thread_dynamic_tools SET input_schema=? WHERE thread_id=?', 'changed', parent);
+  assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 0);
+  for (const id of [parent, child]) { f.update('DELETE FROM threads WHERE id=?', id); rmSync(join(f.home, 'sessions', `${id}.jsonl`)); }
+  f.update('DELETE FROM thread_spawn_edges');
+  const orphan = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+  try { orphan.exec('PRAGMA foreign_keys=OFF'); orphan.prepare('INSERT INTO thread_dynamic_tools VALUES (?, 0, ?, ?, ?, 0, NULL)').run(parent, 'orphan', '', '{}'); }
+  finally { orphan.close(); }
+  const absent = await planExportedDeletion(await inspectSessions(f.home), output, batch.id);
+  assert.match(absent.skipped[0].problems.join('\n'), /dynamic tools remain/);
+});
+
+test('dynamic tool schema/value drift and concurrent writes fail before preservation is claimed', async t => {
+  for (const change of [m => m.run('ALTER TABLE thread_dynamic_tools ADD COLUMN future TEXT'),
+    m => m.run("UPDATE thread_dynamic_tools SET input_schema=CAST(x'ff' AS TEXT)"),
+    m => m.run('UPDATE thread_dynamic_tools SET defer_loading=0.5')]) {
+    const f = fixture(t), tools = dynamicToolsFixture(f.home); tools.put(parent); change(tools);
+    await assert.rejects(async () => { const reader = await openDynamicToolsReader(f.home);
+      try { [...reader.lines(parent)]; reader.check(); } finally { reader.close(); } });
+  }
+  const f = fixture(t), tools = dynamicToolsFixture(f.home); tools.put(parent); tools.run('PRAGMA journal_mode=WAL');
+  const reader = await openDynamicToolsReader(f.home);
+  try { [...reader.lines(parent)]; tools.run('UPDATE thread_dynamic_tools SET description=?', 'changed'); assert.throws(() => reader.check(), /changed during operation/); }
+  finally { reader.close(); }
+});
+
+test('dynamic tools added at confirmation or left by successful CLI deletion cannot pass', async t => {
+  for (const mode of ['confirmation', 'residual']) {
+    const f = renderableFixture(t), output = exportParent(t), tools = dynamicToolsFixture(f.home);
+    const { batch } = await saveBatch(f, output), base = deletionOptions(f), calls = [];
+    const code = await runSessions(['delete', '--exported', batch.id, '--in', output], {
+      ...base, ask: async prompt => { if (mode === 'confirmation') tools.put(parent); return confirmPrompt(prompt); },
+      cli: args => {
+        if (args[0] === '--version' || args.at(-1) === '--help') return base.cli(args);
+        calls.push(args);
+        const db = new DatabaseSync(join(f.home, 'state_5.sqlite'));
+        try {
+          db.exec('PRAGMA foreign_keys=OFF');
+          for (const id of [parent, child]) {
+            db.prepare('DELETE FROM threads WHERE id=?').run(id); rmSync(join(f.home, 'sessions', `${id}.jsonl`));
+          }
+          db.exec('DELETE FROM thread_spawn_edges');
+          db.prepare('INSERT INTO thread_dynamic_tools VALUES (?, 0, ?, ?, ?, 0, NULL)').run(parent, 'residual', '', '{}');
+        } finally { db.close(); }
+        return { status: 0 };
+      },
+    });
+    assert.equal(code, 1, mode); assert.equal(calls.length, mode === 'confirmation' ? 0 : 1);
+  }
+});
+
+test('unreviewed state ownership blocks mutation without blocking raw export', async t => {
+  const f = renderableFixture(t);
+  f.update('CREATE TABLE future_records(id TEXT, owner TEXT REFERENCES threads(id) ON DELETE CASCADE)');
+  f.update('INSERT INTO future_records VALUES (?, ?)', 'synthetic', parent);
+  const snapshot = await inspectSessions(f.home);
+  assert.match(snapshot.issues.join('\n'), /Unreviewed thread-owned/);
+  assert.deepEqual(snapshot.exportIssues, []);
+  assert.match(makePlan(snapshot, parent).problems.join('\n'), /Unreviewed thread-owned/);
+  f.update('DELETE FROM future_records');
+  f.update('CREATE TRIGGER future_cleanup AFTER DELETE ON threads BEGIN DELETE FROM future_records; END');
+  assert.match((await inspectSessions(f.home)).issues.join('\n'), /trigger/);
+});
 
 test('attachment metadata export scopes exact rows, rechecks changes and protects direct deletion', async t => {
   const f = renderableFixture(t), output = exportParent(t), metadata = attachmentMetadataFixture(f.home);
@@ -252,7 +332,7 @@ test('board changes and legacy exports without board coverage never authorize da
       }), 3);
     }
   }
-  for (const kind of ['messageBoard', 'attachmentMetadata']) {
+  for (const kind of ['messageBoard', 'attachmentMetadata', 'dynamicTools']) {
     const f = renderableFixture(t), output = exportParent(t);
     const { batch } = await saveBatch(f, output);
     // An old, otherwise valid receipt lacks the newer metadata coverage.
@@ -269,7 +349,8 @@ test('board changes and legacy exports without board coverage never authorize da
     assert.equal((await planExportedDeletion(await inspectSessions(f.home), output, batch.id)).sessions.length, 2);
     const earlier = await inspectDeletionReferences(await inspectSessions(f.home));
     if (kind === 'messageBoard') boardFixture(f.home).put('posts', parent);
-    else attachmentMetadataFixture(f.home).put(parent);
+    else if (kind === 'attachmentMetadata') attachmentMetadataFixture(f.home).put(parent);
+    else dynamicToolsFixture(f.home).put(parent);
     const plan = await planExportedDeletion(earlier, output, batch.id);
     assert.equal(plan.sessions.length, 0);
     assert.match(plan.skipped[0].problems.join(' '), /lacks .* coverage/);

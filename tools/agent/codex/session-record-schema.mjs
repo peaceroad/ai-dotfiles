@@ -4,8 +4,13 @@
 // {lib,rollout_payload,retained_context,guardian_history}.rs and ext/items/src/.
 // Closed objects deliberately reject new fields/variants instead of guessing how
 // the official typed rollout decoder counts them. No archived settings are applied.
+// Additions reviewed against rust-v0.162.1 (092d3acd): protocol/{account,
+// turn_input,codex_error_info,protocol,items}.rs and history/{lib,guardian_history,
+// compaction_resume_metadata}.rs. Unknown variants remain outside this subset.
 import { UUID } from './session-export-storage.mjs';
 
+const rules = new WeakMap();
+const described = (check, rule) => { rules.set(check, rule); return check; };
 const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const text = v => typeof v === 'string';
 const bool = v => typeof v === 'boolean';
@@ -13,17 +18,17 @@ const json = v => v !== undefined; // Explicit JSON values or documented decoder
 const number = v => typeof v === 'number' && Number.isFinite(v);
 const float32 = v => number(v) && Number.isFinite(Math.fround(v));
 const uuid = v => text(v) && UUID.test(v);
-const choice = (...values) => { const set = new Set(values); return v => set.has(v); };
-const maybe = check => (v, tokens, parent, key) => v == null || check(v, tokens, parent, key);
-const array = check => (v, tokens) => Array.isArray(v) && v.every((item, i) => check(item, tokens, v, String(i)));
-const either = (...checks) => (v, tokens, parent, key) => checks.some(check => check(v, tokens, parent, key));
-const dictionary = (keyCheck, valueCheck) => (v, tokens) => object(v)
-  && Object.keys(v).every(key => keyCheck(key) && valueCheck(v[key], tokens, v, key));
+const choice = (...values) => { const set = new Set(values); return described(v => set.has(v), { kind: 'enum' }); };
+const maybe = check => described((v, tokens, parent, key) => v == null || check(v, tokens, parent, key), { kind: 'optional', check });
+const array = check => described((v, tokens) => Array.isArray(v) && v.every((item, i) => check(item, tokens, v, String(i))), { kind: 'array', check });
+const either = (...checks) => described((v, tokens, parent, key) => checks.some(check => check(v, tokens, parent, key)), { kind: 'union', checks });
+const dictionary = (keyCheck, valueCheck) => described((v, tokens) => object(v)
+  && Object.keys(v).every(key => keyCheck(key) && valueCheck(v[key], tokens, v, key)), { kind: 'dictionary', keyCheck, valueCheck });
 const noRoleAliasConflict = v => !object(v) || !(Object.hasOwn(v, 'agent_role') && Object.hasOwn(v, 'agent_type'));
 // Decimal lexemes avoid accepting rounded/fractional JSON numbers as Rust integers.
 const integer = (min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER) => {
   const lexeme = min >= 0 ? /^(0|[1-9]\d*)$/ : /^-?(0|[1-9]\d*)$/;
-  return (v, tokens, parent, key) => Number.isSafeInteger(v) && v >= min && v <= max && lexeme.test(tokens?.get(parent)?.[key] ?? '');
+  return described((v, tokens, parent, key) => Number.isSafeInteger(v) && v >= min && v <= max && lexeme.test(tokens?.get(parent)?.[key] ?? ''), { kind: 'integer-token' });
 };
 const int = integer(), uint = integer(0), positive = integer(1), int32 = integer(-(2 ** 31), 2 ** 31 - 1), uint32 = integer(0, 2 ** 32 - 1);
 function shape(required = {}, optional = {}, defaults = {}) {
@@ -32,8 +37,8 @@ function shape(required = {}, optional = {}, defaults = {}) {
   const requiredKeys = Object.keys(required);
   // Parsed JSON has own data properties. Missing optional/default fields need no
   // validator call, while present nulls and unknown keys must still be checked.
-  return (v, tokens) => object(v) && requiredKeys.every(key => Object.hasOwn(v, key))
-    && Object.keys(v).every(key => fields.get(key)?.(v[key], tokens, v, key) ?? false);
+  return described((v, tokens) => object(v) && requiredKeys.every(key => Object.hasOwn(v, key))
+    && Object.keys(v).every(key => fields.get(key)?.(v[key], tokens, v, key) ?? false), { kind: 'object', fields, requiredKeys });
 }
 function tagged(variants, tag = 'type') {
   const checks = new Map(Object.entries(variants).map(([name, rule]) => {
@@ -41,15 +46,15 @@ function tagged(variants, tag = 'type') {
     const [required, optional, defaults] = rule;
     return [name, shape({ [tag]: choice(name), ...required }, optional, defaults)];
   }));
-  return (v, tokens) => object(v) && (checks.get(v[tag])?.(v, tokens) ?? false);
+  return described((v, tokens) => object(v) && (checks.get(v[tag])?.(v, tokens) ?? false), { kind: 'tagged-object', checks, tag });
 }
 const external = variants => {
   const checks = new Map(Object.entries(variants));
-  return (v, tokens) => {
+  return described((v, tokens) => {
     if (!object(v)) return false;
     const keys = Object.keys(v);
     return keys.length === 1 && (checks.get(keys[0])?.(v[keys[0]], tokens, v, keys[0]) ?? false);
-  };
+  }, { kind: 'external-enum', checks });
 };
 const strings = array(text), phase = choice('commentary', 'partial_answer', 'final_answer');
 const detail = choice('auto', 'low', 'high', 'original');
@@ -85,13 +90,21 @@ const managedFs = tagged({ restricted: [{ entries: fsEntries }, { glob_scan_max_
 const permissions = tagged({ managed: [{ file_system: managedFs, network }], disabled: [{}], external: [{ network }] });
 const activeProfile = shape({ id: text }, { extends: text });
 const rawFs = shape({ kind: choice('restricted', 'unrestricted', 'external-sandbox') }, { glob_scan_max_depth: uint }, { entries: fsEntries });
-const turnContext = shape({ cwd: absolute, approval_policy: approval, sandbox_policy: sandbox, model: text, summary }, {
+const turnContext = shape({ cwd: absolute, approval_policy: approval, sandbox_policy: sandbox, model: text }, {
+  summary,
   turn_id: text, root_turn_id: text, disabled_plugin_ids: strings, workspace_roots: array(absolute), current_date: text, timezone: text,
   approvals_reviewer: reviewer, permission_profile: permissions, active_permission_profile: activeProfile,
   network: shape({ allowed_domains: strings, denied_domains: strings }), file_system_sandbox_policy: rawFs,
   comp_hash: text, personality, collaboration_mode: collaboration, multi_agent_version: multiAgent,
   multi_agent_mode: choice('explicit_request_only', 'proactive'), realtime_active: bool, cyber_access_program: cyberProgram, effort,
 });
+const permissionContext = shape({}, { turn_id: text, cwd: absolute, approval_policy: approval,
+  approvals_reviewer: reviewer, sandbox_policy: sandbox, permission_profile: permissions });
+export const knownPermissionContext = (value, tokens, source) => {
+  // Projection changes the containing object; preserve numeric token provenance.
+  if (tokens?.has(source)) tokens.set(value, tokens.get(source));
+  return permissionContext(value, tokens);
+};
 const threadSettings = shape({ model: text, model_provider_id: text, approval_policy: approval, approvals_reviewer: reviewer,
   permission_profile: permissions, cwd: absolute, collaboration_mode: collaboration }, {
   service_tier: text, active_permission_profile: activeProfile, runtime_workspace_roots: array(absolute), reasoning_effort: effort,
@@ -137,9 +150,10 @@ const retainedSource = shape({ id: shape({ message_id: text, turn_id: text, role
 const senderFields = { receiver_turn_id: text, receiver_message_id: text, text };
 const harness = shape({}, { fallback_token_limit_override: uint, delivered_assistant_message: text, compaction_model_hash: text,
   user_input_order: uint, retained_source: retainedSource, sender_user_messages: shape(senderFields),
+  guardian_retained_omissions: shape({ user_instructions: bool, assistant_context: bool }),
   // The official checkpoint decoder maps invalid JSON values to an error checkpoint.
   // Retain those bytes without interpreting them as provenance or authorization.
-  mcp_attribution: json }, { client_authored: bool, guardian_source_order_guidance: bool, guardian_sources: array(retainedSource),
+  mcp_attribution: json }, { client_authored: bool, guardian_source_order_guidance: bool, guardian_sources: array(retainedSource), guardian_review_ids: strings,
   harness_authored_configuration: bool, compaction_output: bool, inherited_user_message: bool });
 const guardianEntry = tagged(Object.fromEntries(Object.entries(responseVariants).map(([name, [required, optional, defaults]]) =>
   [name, [required, { ...optional, guardian_metadata: harness }, defaults]])));
@@ -193,7 +207,7 @@ const turnItem = tagged({
   CollabAgentToolCall: [{ id: text, tool: choice('spawn_agent', 'send_input', 'resume_agent', 'wait', 'close_agent', 'send_message', 'followup_task', 'interrupt_agent', 'list_agents'),
     status: choice('in_progress', 'completed', 'failed', 'interrupted'), sender_thread_id: uuid },
     { prompt: text, model: text, reasoning_effort: effort }, { receiver_thread_ids: array(uuid), receiver_agents: array(checkedAgentRef), agents_states: dictionary(uuid, agentStatus) }],
-  SubAgentActivity: [{ id: text, kind: activity, agent_thread_id: uuid, agent_path: agentPath }],
+  SubAgentActivity: [{ id: text, kind: activity, agent_thread_id: uuid, agent_path: agentPath }, { model: text, reasoning_effort: effort }],
   WebSearch: [{ id: text, query: text, action: webAction('open_page', 'find_in_page') }, { results: array(json) }],
   ImageView: [{ id: text, path: fileUri }],
   ImageGeneration: [{ id: text, status: text, result: text }, { revised_prompt: text, saved_path: absolute }],
@@ -226,26 +240,36 @@ const retainedEvent = tagged({
   verified_answer: [answerFields, { acceptance_order: uint }],
   delivered_assistant_message: [{ ...retainedMessageFields, acceptance_order: uint }, retainedMessageOptions, retainedMessageDefaults],
 });
+const turnAttribution = shape({ turn_id: text }, { turn_trigger: text, parent_turn_id: text, initiating_agent_path: agentPath, root_turn_id: text });
 const compacted = shape({ message: text }, {
   replacement_history: array(response), replacement_history_metadata: array(harness), guardian_history: array(guardianEntry), retained_context: retainedContext,
   mcp_resource_origins: shape({ origins: array(shape({ call_id: text, tool: text, connector_id: text, uri: text },
     { turn_id: text, link_id: text }, { ambiguous_account: bool })), turns: strings }, { current_turn_id: text }),
   window_number: uint, first_window_id: text, previous_window_id: text, window_id: either(text, uint), compaction_response_id: text,
-  latest_token_usage_record: usageRecord, resume_metadata: shape({}, { multi_agent_version: multiAgent, last_started_turn_id: text,
+  latest_token_usage_record: usageRecord, resume_metadata: shape({}, { multi_agent_version: multiAgent, last_started_turn_id: text, turn_attribution: turnAttribution,
     previous_turn_settings: shape({ model: text }, { cyber_access_program: cyberProgram, comp_hash: text, realtime_active: bool }) }),
 });
-const checkedCompacted = (v, tokens) => compacted(v, tokens) && (v.replacement_history_metadata == null
-  || (Array.isArray(v.replacement_history) && v.replacement_history.length === v.replacement_history_metadata.length));
+const checkedCompacted = described((v, tokens) => compacted(v, tokens) && (v.replacement_history_metadata == null
+  || (Array.isArray(v.replacement_history) && v.replacement_history.length === v.replacement_history_metadata.length)), { kind: 'consistent-checkpoint', check: compacted });
 const window = shape({ used_percent: number }, { window_minutes: int, resets_at: int });
 const rateLimits = shape({}, { limit_id: text, limit_name: text, normal_model_slug: text, primary: window, secondary: window,
   credits: shape({ has_credits: bool, unlimited: bool }, { balance: text }),
   individual_limit: shape({ limit: text, used: text, remaining_percent: int32, resets_at: int }), spend_control_reached: bool,
   // Account plan enums evolve independently. Unsupported values remain unverified.
-  plan_type: choice('free', 'plus', 'pro', 'team', 'business', 'enterprise', 'edu'),
+  plan_type: choice('free', 'go', 'plus', 'pro', 'prolite', 'promax', 'team', 'self_serve_business_prolite',
+    'self_serve_business_usage_based', 'business', 'ent26', 'enterprise_cbp_automation', 'enterprise_cbp_usage_based',
+    'enterprise', 'edu', 'edu_plus', 'edu_pro', 'unknown'),
   rate_limit_reached_type: choice('rate_limit_reached', 'workspace_owner_credits_depleted', 'workspace_member_credits_depleted', 'workspace_owner_usage_limit_reached', 'workspace_member_usage_limit_reached'),
 });
-const terminal = { last_agent_message: text, started_at: int, completed_at: int, duration_ms: int, time_to_first_token_ms: int };
-const started = [{ turn_id: text }, { root_turn_id: text, trace_id: text, started_at: int, model_context_window: int }, { collaboration_mode_kind: mode }];
+const errorInfo = either(choice('context_window_exceeded', 'session_budget_exceeded', 'usage_limit_exceeded', 'rate_limit_exceeded',
+  'flex_unavailable', 'server_overloaded', 'cyber_policy', 'bio_policy', 'misalignment_policy_violation', 'too_many_denials',
+  'internal_server_error', 'unauthorized', 'bad_request', 'invalid_prompt', 'sandbox_error', 'thread_rollback_failed', 'other'),
+  external({ ...Object.fromEntries(['http_connection_failed', 'response_stream_connection_failed', 'response_stream_disconnected',
+    'response_too_many_failed_attempts'].map(name => [name, shape({}, { http_status_code: integer(0, 65535) })])),
+    active_turn_not_steerable: shape({ turn_kind: choice('review', 'compact') }) }));
+const errorEvent = shape({ message: text }, { codex_error_info: errorInfo });
+const terminal = { root_turn_id: text, error: errorEvent, last_agent_message: text, started_at: int, completed_at: int, duration_ms: int, time_to_first_token_ms: int };
+const started = [{ turn_id: text }, { root_turn_id: text, trace_id: text, turn_attribution: turnAttribution, started_at: int, model_context_window: int }, { collaboration_mode_kind: mode }];
 const events = tagged({
   thread_goal_updated: [{ threadId: uuid, goal: shape({ threadId: uuid, objective: text,
     status: choice('active', 'paused', 'blocked', 'usageLimited', 'budgetLimited', 'complete'),
@@ -265,13 +289,13 @@ const events = tagged({
   item_completed: [{ thread_id: uuid, turn_id: text, item: turnItem }, { started_at_ms: int }, { completed_at_ms: int }],
   thread_settings_applied: [{ thread_settings: threadSettings }, { thread_id: uuid }],
   thread_rolled_back: [{ num_turns: uint32 }], turn_aborted: [{ reason: choice('interrupted', 'replaced', 'review_ended', 'budget_limited') },
-    { turn_id: text, started_at: int, completed_at: int, duration_ms: int }],
+    { turn_id: text, root_turn_id: text, error: errorEvent, started_at: int, completed_at: int, duration_ms: int }],
   agent_message: [{ message: text }, agentOptional], agent_reasoning: [{ text }], agent_reasoning_raw_content: [{ text }],
   user_message: [{ message: text }, { client_id: text, images: strings, file_ids: strings, audio: strings },
     { local_images: strings, local_audio: strings, text_elements: textElements, image_details: array(maybe(detail)),
       file_id_details: array(maybe(detail)), local_image_details: array(maybe(detail)), image_order: array(choice('inline', 'file')) }],
   context_compacted: [{}],
-  sub_agent_activity: [{ event_id: text, agent_thread_id: uuid, agent_path: agentPath, kind: activity }, {}, { occurred_at_ms: int }],
+  sub_agent_activity: [{ event_id: text, agent_thread_id: uuid, agent_path: agentPath, kind: activity }, { model: text, reasoning_effort: effort }, { occurred_at_ms: int }],
 });
 
 const subagent = either(choice('review', 'compact', 'memory_consolidation'), external({ other: text,
@@ -325,3 +349,46 @@ const record = tagged({
 });
 export const knownHistoryRecord = ({ value, numberTokens, scalarStrings, finiteNumbers }) => scalarStrings !== false && finiteNumbers !== false && record(value, numberTokens)
   && (value.type !== 'session_meta' || (noRoleAliasConflict(value.payload) && noRoleAliasConflict(value.payload.source?.subagent?.thread_spawn)));
+
+// Diagnostics contain schema locations and types only, never scalar values. The
+// predicate remains authoritative; this traversal runs only for a rejected record.
+export function historyRecordIssue(input) {
+  return knownHistoryRecord(input) ? null : describeRejectedRecord(input);
+}
+function describeRejectedRecord(input) {
+  const actual = v => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+  const issue = (path, expected, v) => ({ path, expected, actual: actual(v) });
+  const field = key => /^[a-zA-Z_][a-zA-Z_0-9]{0,79}$/.test(key) ? key : '[field]';
+  function explain(check, v, path = '$', parent, key) {
+    if (check(v, input.numberTokens, parent, key)) return null;
+    const rule = rules.get(check);
+    if (!rule) return issue(path, check === text ? 'string' : check === bool ? 'boolean' : check === number ? 'finite-number' : 'supported-value', v);
+    if (rule.kind === 'optional' || rule.kind === 'consistent-checkpoint') return explain(rule.check, v, path, parent, key) ?? issue(path, rule.kind, v);
+    if (rule.kind === 'union') return rule.checks.map(c => explain(c, v, path, parent, key)).sort((a, b) => b.path.length - a.path.length)[0];
+    if (rule.kind === 'tagged-object' && object(v)) return rule.checks.has(v[rule.tag])
+      ? explain(rule.checks.get(v[rule.tag]), v, path, parent, key) : issue(`${path}.${rule.tag}`, 'known-variant', v[rule.tag]);
+    if (rule.kind === 'object' && object(v)) {
+      for (const name of rule.requiredKeys) if (!Object.hasOwn(v, name)) return issue(`${path}.${name}`, 'required-field', undefined);
+      for (const name of Object.keys(v)) {
+        if (!rule.fields.has(name)) return issue(`${path}.${field(name)}`, 'known-field', v[name]);
+        const found = explain(rule.fields.get(name), v[name], `${path}.${name}`, v, name);
+        if (found) return found;
+      }
+    }
+    if (rule.kind === 'array' && Array.isArray(v)) {
+      for (let i = 0; i < v.length; i++) { const found = explain(rule.check, v[i], `${path}[${i}]`, v, String(i)); if (found) return found; }
+    }
+    if (rule.kind === 'dictionary' && object(v)) {
+      for (const name of Object.keys(v)) {
+        if (!rule.keyCheck(name)) return issue(`${path}[key]`, 'supported-key', name);
+        const found = explain(rule.valueCheck, v[name], `${path}[entry]`, v, name); if (found) return found;
+      }
+    }
+    if (rule.kind === 'external-enum' && object(v) && Object.keys(v).length === 1 && rule.checks.has(Object.keys(v)[0])) {
+      const name = Object.keys(v)[0]; return explain(rule.checks.get(name), v[name], `${path}.${name}`, v, name);
+    }
+    return issue(path, rule.kind, v);
+  }
+  if (input.scalarStrings === false || input.finiteNumbers === false) return issue('$', 'valid-json-scalars', input.value);
+  return explain(record, input.value) ?? issue('$', 'consistent-metadata-aliases', input.value);
+}

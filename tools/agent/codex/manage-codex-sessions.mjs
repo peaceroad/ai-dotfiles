@@ -8,22 +8,25 @@ import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, regularFile, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, verifyIndexedHistory, boardCoverage, attachmentMetadataCoverage, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, syncExportBundle, syncExportFile, syncExportDirectory, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines, inspectRollout, pathIdentity } from './session-export-storage.mjs';
+import { FORMAT, MAX_MANIFEST_BYTES, UUID, filesystemPath, rolloutIdentity, regularFile, exists, fingerprint as hash, snapshotDigest, indexedHistoryCoverage, verifyIndexedHistory, boardCoverage, attachmentMetadataCoverage, dynamicToolsCoverage, safeText as displayText, ExportError, digestFile, digestChunks, writeVerifiedFile, listBundles, readBundle, verifyBundle, syncExportBundle, syncExportFile, syncExportDirectory, readExportSettings, readExportDirectory, writeExportDirectory, jsonLines, inspectRollout, pathIdentity } from './session-export-storage.mjs';
 import { collectDependencies, collectOwnedRollouts, ownedRollouts, ownedHistoryIds, checkDependencySources, checkAttachmentSources, createRolloutIndex, renderConversation } from './session-export-content.mjs';
 import { LINEAGE_POLICY, validateSavedLineage } from './session-lineage.mjs';
 import { ROLLOUT_POLICY, rolloutChunks, rolloutCodec, digestRollout, assertZstdRuntime, withRolloutBudget } from './session-rollout-io.mjs';
 import { openBoardReader } from './session-message-board.mjs';
 import { openAttachmentMetadataReader } from './session-attachment-metadata.mjs';
+import { openDynamicToolsReader, stateDeletionIssues } from './session-dynamic-tools.mjs';
 import { writeBatch, readBatch, listBatches, sourceIdentity, openHistoryReader } from './session-export-batches.mjs';
 import { ProcessError, assertClientsClosed as checkClientsClosed } from './manage-codex-processes.mjs';
 import { createProgress } from './session-progress.mjs';
 import { SidebarCacheError, inspectSidebarRefresh, requestSidebarRefresh, sidebarRefreshError } from './session-sidebar-cache.mjs';
+import { acquireExportLock, assertExportAvailable } from './session-export-lock.mjs';
+import { runRelocation, relocationHelp } from './session-export-relocation.mjs';
 
 const bytes = value => `${(value / 1024 ** 2).toFixed(2)} MiB`;
 class SessionError extends Error {}
 const fail = message => { throw new SessionError(message); };
 // Extend only after source review and isolated startup/deletion acceptance tests.
-export const MAINTENANCE_CLI_VERSIONS = Object.freeze(['0.159.2', '0.160.1']);
+export const MAINTENANCE_CLI_VERSIONS = Object.freeze(['0.159.2', '0.160.1', '0.162.1']);
 const RETAINED_RAW_WARNINGS = new Set([
   'rendering/multiple-record-representations', 'rendering/unsupported-content-part',
   'rendering/unsupported-message-content', 'rendering/no-supported-messages',
@@ -40,6 +43,7 @@ export { displayText };
 
 const isHelp = value => ['help', '--help', '-h'].includes(value);
 const actionHelp = {
+  relocate: relocationHelp,
   list: `Usage: agent codex session list [--before DATE|Nw] [--limit N]
 Example: agent codex session list --before 4w --limit 0
 Read-only metadata, largest rollouts first. Default limit: 20; 0 means all.
@@ -56,6 +60,7 @@ Save private reference copies; originals remain. This is not an importable backu
 New exports use v3: original .jsonl or .jsonl.zst bytes plus readable conversation.md.
 Root-owned agent message boards are saved separately as message-board.jsonl.
 Thread attachment metadata is saved as attachment-metadata.jsonl; linked payloads are not followed.
+Thread dynamic tool definitions are saved as dynamic-tools.jsonl without executing tools.
 Saved files are flushed to the OS before publication/reuse and confirmed exported deletion.
 Flush failures block deletion. Windows directory sync and physical power-loss durability are not guaranteed.
 Compressed history requires Node.js 26.10.0 or later (stable release); old v2 snapshots remain readable.
@@ -87,7 +92,7 @@ Compressed history requires v3 export and a v2 batch receipt; direct archive/del
 Verified deletion schedules a full local app sidebar scan on its next startup when the cache is supported.
 Exported deletion requires owned-rollout indexed history coverage; older snapshots must be exported again.
 Roots with message-board content require a matching board export; direct deletion is blocked.
-The same protection applies to thread attachment metadata.
+The same protection applies to thread attachment metadata and dynamic tool definitions.
 Confirmed exported deletion flushes saved files to the OS; a flush error stops before deletion.
 Protected, changed, or incompletely exported families remain excluded; exit 3 reports exclusions or sidebar refresh issues.`,
   archive: `Usage: agent codex session archive <UUID | --before DATE|Nw> [--confirm <token>]
@@ -117,6 +122,7 @@ For non-interactive use: review --dry-run, then pass its --confirm token.`,
 const actions = Object.keys(actionHelp);
 
 function help(log, action) {
+  if (action === 'relocate') { log(relocationHelp); return; }
   if (action) {
     log(`${actionHelp[action]}
 
@@ -128,7 +134,7 @@ Full requirements and safety boundaries: agent codex session help`);
   }
   log(`Inspect, archive, delete, or export local Codex sessions, including spawned descendants.
 Experimental local storage integration; compatibility checks do not guarantee future Codex formats.
-Usage: agent codex session <list|plan|archive|delete|export|config|refresh-sidebar> [arguments]
+Usage: agent codex session <list|plan|archive|delete|export|config|relocate|refresh-sidebar> [arguments]
 Standalone: node <runtime>/codex/manage-codex-sessions.mjs <command> [arguments]
 
   list [--before DATE|Nw] [--limit N]
@@ -138,6 +144,7 @@ Standalone: node <runtime>/codex/manage-codex-sessions.mjs <command> [arguments]
   export <selection> [--output <directory>] Save one reference folder per session snapshot.
   delete --exported [batch-id] [--in <directory>]  Review/delete exactly one export batch.
   config [--output <directory>] [--dry-run | --confirm <token>]  Inspect/change destinations.
+  relocate --from <directory> --to <directory> [--resume] [--dry-run | --confirm <token>]  Move saved exports and update the default.
   refresh-sidebar [--dry-run | --confirm <token>]  Schedule a full app sidebar scan.
   help                                    Show this help.
   <action> --help                          Show focused help without starting an operation.
@@ -367,6 +374,7 @@ export async function inspectSessions(home, { progress = () => {} } = {}) {
       for (const root of db.prepare('SELECT project_id, path FROM project_roots ORDER BY position').all()) projects.get(root.project_id)?.roots.push(root.path);
     }
     edges = db.prepare('SELECT parent_thread_id AS parent, child_thread_id AS child FROM thread_spawn_edges ORDER BY parent_thread_id, child_thread_id').all();
+    protectionIssues.push(...stateDeletionIssues(db));
     db.exec('COMMIT');
   } finally { db.close(); }
   for (const folder of ['', 'sqlite']) {
@@ -466,7 +474,7 @@ export async function inspectSessions(home, { progress = () => {} } = {}) {
 export const inspectDeletionReferences = (...args) => withRolloutBudget(() => inspectDeletionReferencesWithinBudget(...args));
 async function inspectDeletionReferencesWithinBudget(snapshot, { progress = () => {} } = {}) {
   const references = [], issues = [];
-  let boardOwners, attachmentMetadataOwners;
+  let boardOwners, attachmentMetadataOwners, dynamicToolOwners;
   try {
     const reader = await openBoardReader(snapshot.home);
     try { boardOwners = reader.owners(); reader.check(); } finally { reader.close(); }
@@ -481,6 +489,13 @@ async function inspectDeletionReferencesWithinBudget(snapshot, { progress = () =
   } catch (error) {
     const reason = error instanceof ExportError ? error.message : errorTag(error);
     issues.push(`Attachment metadata could not be inspected: ${reason}; deletion is blocked.`);
+  }
+  try {
+    const reader = await openDynamicToolsReader(snapshot.home);
+    try { dynamicToolOwners = reader.owners(); reader.check(); } finally { reader.close(); }
+  } catch (error) {
+    const reason = error instanceof ExportError ? error.message : errorTag(error);
+    issues.push(`Dynamic tools could not be inspected: ${reason}; deletion is blocked.`);
   }
   const owners = new Map(snapshot.sessions.map(row => [rolloutIdentity(row.path)?.rollout ?? row.id, row.id]));
   const indexedPaths = new Map(snapshot.sessions.map(row => [row.id, row.path]));
@@ -532,7 +547,7 @@ async function inspectDeletionReferencesWithinBudget(snapshot, { progress = () =
     issues.push(`Fork history references could not be inspected${inspectingId ? ` for rollout ${inspectingId}` : ''}: ${reason}; deletion is blocked.`);
   }
   references.sort((a, b) => a.target.localeCompare(b.target) || a.rollout.localeCompare(b.rollout) || a.source.localeCompare(b.source));
-  return { ...snapshot, deletionReferences: references, deletionIssues: issues, deletionIssuesBySession, deletionRollouts, boardOwners, attachmentMetadataOwners };
+  return { ...snapshot, deletionReferences: references, deletionIssues: issues, deletionIssuesBySession, deletionRollouts, boardOwners, attachmentMetadataOwners, dynamicToolOwners };
 }
 
 function indexSnapshot(snapshot) {
@@ -568,6 +583,7 @@ export function makePlan(snapshot, root, operation = 'delete', index = indexSnap
   if (operation === 'delete') {
     problems.push(...snapshot.deletionIssues ?? []);
     if (!index.verifyOwnedRollouts) for (const id of selected) if (snapshot.attachmentMetadataOwners?.has(id)) problems.push(`Session ${id} owns attachment metadata; use verified exported deletion.`);
+    if (!index.verifyOwnedRollouts) for (const id of selected) if (snapshot.dynamicToolOwners?.has(id)) problems.push(`Session ${id} owns dynamic tools; use verified exported deletion.`);
     if (!index.verifyOwnedRollouts) for (const id of selected) if (snapshot.boardOwners?.has(id)) problems.push(`Session ${id} owns agent message-board data; use verified exported deletion to preserve and compare it.`);
     if (!index.verifyOwnedRollouts) for (const id of selected) if (snapshot.deletionIssuesBySession?.has(id)) problems.push('Additional rollout files belong to this session; use verified exported deletion to cover all files deleted by Codex.');
     for (const id of selected) for (const reference of index.checkExternalReferences === false ? [] : referencesByTarget.get(id) ?? []) {
@@ -740,7 +756,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
   }
   const space = statfsSync(destination, { bigint: true });
   if (space.bavail * space.bsize < BigInt(plan.size) + 64n * 1024n ** 2n) fail('Insufficient export space for measured rollouts and 64 MiB headroom. Indexed history needs additional space.');
-  let reader, boards, attachmentMetadata;
+  let reader, boards, attachmentMetadata, dynamicTools;
   const staged = [], folders = [], skipped = [], entries = [];
   const warningSessionsByReason = new Map();
   let warningSessions = 0;
@@ -762,6 +778,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
     if (edge.child !== edge.parent) edgesBySession.get(edge.child)?.push(edge);
   }
   const existing = new Map();
+  const releaseExport = acquireExportLock(destination);
   try {
     progress.phase('Inspect saved snapshot metadata');
     for (const bundle of listBundles(destination)) {
@@ -777,6 +794,8 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
     context.phase = 'read attachment metadata';
     progress.phase('Read attachment metadata');
     attachmentMetadata = await openAttachmentMetadataReader(snapshot.home);
+    context.phase = 'read dynamic tools';
+    dynamicTools = await openDynamicToolsReader(snapshot.home);
     let prepared = 0;
     for (const row of plan.sessions) {
       progress.phase('Prepare session exports', prepared, plan.sessions.length);
@@ -808,6 +827,11 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
         context.phase = 'copy attachment metadata';
         progress.phase('Copy and verify attachment metadata', prepared, plan.sessions.length);
         metadataFile = await writeCountedLines(attachmentMetadata.lines(row.id), join(folder, 'attachment-metadata.jsonl'), read => progress.bytes(read));
+      }
+      let toolsFile = null;
+      if (dynamicTools.present) {
+        context.phase = 'copy dynamic tools';
+        toolsFile = await writeCountedLines(dynamicTools.lines(row.id), join(folder, 'dynamic-tools.jsonl'), read => progress.bytes(read));
       }
       context.phase = 'collect inherited history';
       progress.phase('Collect inherited history', prepared, plan.sessions.length);
@@ -846,7 +870,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
         warningSessionsByReason.set(reason, (warningSessionsByReason.get(reason) ?? 0) + 1);
         log(`Warning: session ${row.id}; ${warning.kind}/${warning.reason}; count ${count}${warning.origin ? `; first source ${warning.origin}` : ''}${warning.message ? `; ${warning.message}` : ''}`);
       }
-      const files = [rollout, ...(history ? [history] : []), ...(messageBoard ? [messageBoard] : []), ...(metadataFile ? [metadataFile] : []), ...inherited.files, ...rendered.files];
+      const files = [rollout, ...(history ? [history] : []), ...(messageBoard ? [messageBoard] : []), ...(metadataFile ? [metadataFile] : []), ...(toolsFile ? [toolsFile] : []), ...inherited.files, ...rendered.files];
       const session = { id: row.id, title: row.title, updated: row.updated, archived: row.archived,
         historyMode: row.historyMode, project: row.project ?? null, cwd: row.cwd ?? null };
       const spawnEdges = edgesBySession.get(row.id);
@@ -865,7 +889,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
         exportedAt: new Date().toISOString(), session, files,
         coverage: { history: inherited.warnings.length ? 'partial' : 'collected', attachments: 'supported-inputs-only', conversation: 'record-view-not-exact-ui',
           indexedHistory: indexedHistoryCoverage(historyIds, reader.present), messageBoard: boardCoverage(row.id, boards.present),
-          attachmentMetadata: attachmentMetadataCoverage(row.id, attachmentMetadata.present), lineage },
+          attachmentMetadata: attachmentMetadataCoverage(row.id, attachmentMetadata.present), dynamicTools: dynamicToolsCoverage(row.id, dynamicTools.present), lineage },
         sources: inherited.sources.map(({ path, ...source }) => source), attachments: rendered.attachments, warnings,
         spawnEdges, sourceArtifacts, artifactSetDigest: hash(sourceArtifacts),
         validation: { policy: ROLLOUT_POLICY, decoder: 'node-zstd-strict', node: process.versions.node } };
@@ -902,6 +926,8 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
     boards.check();
     context.phase = 'revalidate attachment metadata';
     attachmentMetadata.check();
+    context.phase = 'revalidate dynamic tools';
+    dynamicTools.check();
     let published = 0;
     for (const stage of staged) {
       progress.phase('Publish verified exports', published, staged.length);
@@ -953,7 +979,7 @@ async function exportSessionsWithinBudget(snapshot, plan, output, { inspect = in
     const reason = error instanceof SessionError || error instanceof ExportError ? error.message
       : `Storage operation failed (${errorTag(error)}). ${hint}`;
     throw new ExportError(`Export failed (${context.session ? `session ${context.session}; ` : ''}phase ${context.phase}${error?.exportSource ? `; source ${error.exportSource}` : ''}): ${reason}`, { cause: error });
-  } finally { progress.clear(); reader?.close(); boards?.close(); attachmentMetadata?.close(); }
+  } finally { try { progress.clear(); reader?.close(); boards?.close(); attachmentMetadata?.close(); dynamicTools?.close(); } finally { releaseExport(); } }
 }
 
 // Tokens bind the selected data and destination, not a moving relative cutoff.
@@ -970,7 +996,7 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
   if (batch.source !== sourceIdentity(snapshot.home)) fail('Export batch belongs to a different Codex home.');
   const entries = new Map(batch.entries.map(entry => [entry.id, entry]));
   const groups = [], skipped = [];
-  let absentHistory, boards, attachmentMetadata;
+  let absentHistory, boards, attachmentMetadata, dynamicTools;
   const progress = createProgress(log);
   log = progress.log;
   try {
@@ -984,6 +1010,8 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
     boards = await openBoardReader(snapshot.home);
     attachmentMetadata = await openAttachmentMetadataReader(snapshot.home);
     const currentAttachmentOwners = attachmentMetadata.owners();
+    dynamicTools = await openDynamicToolsReader(snapshot.home);
+    const currentToolOwners = dynamicTools.owners();
     const currentBoardOwners = boards.owners();
     index.checkExternalReferences = false;
     const selected = onlyRoot ? batch.groups.filter(group => group.root === onlyRoot) : batch.groups;
@@ -993,6 +1021,7 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
       const present = saved.ids.filter(id => index.byId.has(id));
       try {
         if (!present.length) {
+          if (saved.ids.some(id => currentToolOwners.has(id))) fail('Absent from the local index, but dynamic tools remain; deletion is not verified.');
           if (saved.ids.some(id => currentAttachmentOwners.has(id))) fail('Absent from the local index, but attachment metadata remains; deletion is not verified.');
           if (saved.ids.some(id => currentBoardOwners.has(id))) fail('Absent from the local index, but agent message-board data remains; deletion is not verified.');
           const remaining = saved.ids.filter(id => ownedRollouts(getIndex(), id).length);
@@ -1026,6 +1055,14 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
             const savedHistory = bundle.manifest.coverage?.indexedHistory;
             if (!savedHistory) fail('Export lacks owned-rollout indexed history coverage; export again before deletion.');
             if (hash(savedHistory) !== hash(indexedHistoryCoverage(historyIds, reader.present))) fail('Indexed history coverage or owned rollout IDs changed; export again before deletion.');
+            const savedTools = bundle.manifest.coverage?.dynamicTools;
+            if (savedTools) {
+              if (hash(savedTools) !== hash(dynamicToolsCoverage(row.id, dynamicTools.present))) fail('Dynamic tool coverage changed; export again before deletion.');
+              if (dynamicTools.present) {
+                const file = bundle.manifest.files.find(file => file.file === 'dynamic-tools.jsonl');
+                if (!file || await digestChunks(dynamicTools.lines(row.id), read => progress.bytes(read, file.bytes)) !== file.sha256) fail('Dynamic tools changed after export; export again before deletion.');
+              }
+            } else if (currentToolOwners.has(row.id)) fail('Export lacks dynamic tool coverage; export again before deletion.');
             const savedMetadata = bundle.manifest.coverage?.attachmentMetadata;
             if (savedMetadata) {
               if (hash(savedMetadata) !== hash(attachmentMetadataCoverage(row.id, attachmentMetadata.present))) fail('Attachment metadata coverage changed; export again before deletion.');
@@ -1086,14 +1123,14 @@ async function planExportedDeletionWithinBudget(snapshot, directory, batchId, on
         skipped.push({ root: saved.root, problems: [error instanceof SessionError || error instanceof ExportError ? error.message : 'Export verification failed; inspect saved files and source state.'] });
       } finally { progress.phase('Verify exported deletion families', ++checked, selected.length); }
     }
-    absentHistory?.check(); boards.check(); attachmentMetadata.check();
+    absentHistory?.check(); boards.check(); attachmentMetadata.check(); dynamicTools.check();
     groups.splice(0, groups.length, ...orderDeletionGroups(snapshot, groups, skipped));
     const sessions = groups.flatMap(group => group.sessions), problems = [...snapshot.issues, ...(snapshot.deletionIssues ?? [])];
     if (new Set(sessions.map(row => row.id)).size !== sessions.length) problems.push('Overlapping descendant groups.');
     return { operation: 'delete', groups, sessions, problems, skipped, batchDigest: batch.digest,
       size: groups.reduce((sum, group) => sum + group.size, 0),
       fingerprint: hash({ batch: batch.digest, groups: groups.map(group => group.fingerprint), skipped, problems }) };
-  } finally { absentHistory?.close(); boards?.close(); attachmentMetadata?.close(); progress.clear(); }
+  } finally { absentHistory?.close(); boards?.close(); attachmentMetadata?.close(); dynamicTools?.close(); progress.clear(); }
 }
 
 // Only the reviewed Windows process check and CLI invocation are enabled for archive/delete.
@@ -1192,7 +1229,9 @@ export async function runSessions(args, {
   log = console.log, ask = askTerminal, inspect = inspectSessions,
   closed = assertClientsClosed, cli = runOfficialCodex,
 } = {}) {
+  if (args[0] === 'relocate') return runRelocation(args.slice(1), { home, interactive, log, ask });
   let options, reviewedPlan, operationStarted = false, sidebarRefreshAttempted = false, sidebarAttention = false;
+  let releaseExports;
   const completed = [];
   const progress = createProgress(log);
   log = progress.log;
@@ -1245,7 +1284,9 @@ export async function runSessions(args, {
         if (!interactive) fail('Review config --output <directory> --dry-run, then pass its --confirm token.');
         if ((await ask('Type SET EXPORT DIRECTORY to save this local setting: '))?.trim() !== 'SET EXPORT DIRECTORY') { log('Cancelled; configuration unchanged.'); return 0; }
       }
-      const changed = writeExportDirectory(options.output, undefined, hash(settings));
+      const release = acquireExportLock(options.output);
+      let changed;
+      try { changed = writeExportDirectory(options.output, undefined, hash(settings)); } finally { release(); }
       log(changed ? 'Default export directory saved.' : 'Default export directory unchanged.'); return 0;
     }
     const mutation = ['archive', 'delete'].includes(options.action);
@@ -1264,6 +1305,8 @@ export async function runSessions(args, {
       options.directory = options.directory ?? readExportDirectory();
       if (!options.directory) fail('Export directory is not configured; use --in <directory>.');
       options.directory = realpathSync(options.directory);
+      assertExportAvailable(options.directory);
+      if (mutation) releaseExports = acquireExportLock(options.directory);
       if (options.batch === true) {
         if (!interactive) fail('An explicit batch ID is required; use agent codex history batches --in <directory>.');
         const batches = listBatches(options.directory);
@@ -1420,7 +1463,7 @@ export async function runSessions(args, {
       const byId = new Map(current.sessions.map(row => [row.id, row]));
       if (options.action === 'delete' && (!current.deletionRollouts || current.deletionIssues.length)) fail(`Deletion returned success but remaining storage could not be verified. ${current.deletionIssues.join(' ')} No retry was attempted.`);
       const incomplete = group.sessions.find(row => options.action === 'delete'
-        ? byId.has(row.id) || exists(row.path) || ownedRollouts(current.deletionRollouts, row.id).length || current.boardOwners?.has(row.id) || current.attachmentMetadataOwners?.has(row.id)
+        ? byId.has(row.id) || exists(row.path) || ownedRollouts(current.deletionRollouts, row.id).length || current.boardOwners?.has(row.id) || current.attachmentMetadataOwners?.has(row.id) || current.dynamicToolOwners?.has(row.id)
         : !byId.get(row.id)?.archived || byId.get(row.id)?.size !== row.size || byId.get(row.id)?.size === null ||
           relative(snapshot.home, byId.get(row.id).path).split(sep)[0] !== 'archived_sessions' || (!row.archived && exists(row.path)));
       if (incomplete) fail(`Official operation returned success but descendant verification is incomplete for session ${incomplete.id}. No retry was attempted.`);
@@ -1457,7 +1500,7 @@ export async function runSessions(args, {
     if (reviewedPlan) printExclusions(reviewedPlan, log);
     if (operationStarted) log(`Next: agent codex session list --limit 0, then review a fresh ${options.action} plan for the remaining intended targets.`);
     return 1;
-  } finally { progress.clear(); }
+  } finally { try { releaseExports?.(); } finally { progress.clear(); } }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

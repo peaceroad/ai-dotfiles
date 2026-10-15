@@ -330,11 +330,11 @@ test('menu supports descriptions, back, cancellation, and explicit operations', 
 test('menu maps each displayed action without implicit changes', async () => {
   for (const tool of CODEX_TOOLS) {
     for (const [index, [action]] of tool.actions.entries()) {
-      const answers = [String(index + 1), ...(tool.repository || (tool.name === 'history' && ['search', 'read'].includes(action)) ? ['fixture'] : []), ...(tool.name === 'process' && action === 'stop' ? ['1234'] : []), 'q'];
+      const answers = [String(index + 1), ...(tool.repository || (tool.name === 'history' && ['search', 'read'].includes(action)) ? ['fixture'] : []), ...(tool.name === 'process' && action === 'stop' ? ['1234'] : []), ...(tool.name === 'session' && action === 'relocate' ? ['old-exports', 'new-exports'] : []), 'q'];
       let count = 0;
       assert.equal(await runCodex([tool.name], {
         interactive: true, platform: 'win32', log() {}, ask: async () => answers.shift(),
-        run: (selected, args) => { count++; assert.equal(selected, tool); assert.equal(args[0], action); return 0; },
+        run: (selected, args) => { count++; assert.equal(selected, tool); assert.equal(args[0], action); if (tool.name === 'session' && action === 'relocate') assert.deepEqual(args, ['relocate', '--from', 'old-exports', '--to', 'new-exports']); return 0; },
       }), 0);
       assert.equal(count, 1);
       assert.equal(answers.length, 0);

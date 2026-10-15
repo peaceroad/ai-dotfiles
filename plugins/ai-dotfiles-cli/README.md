@@ -111,6 +111,8 @@ Session export/archive/delete remain experimental because they depend on interna
 
 For command details and validation limits, see [Codex maintenance](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-codex.md) and [session-management notes](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-session-management.md). These human-facing guides are not required reading for every skill invocation; execution guidance is bundled in the relevant skill references.
 
+For an authorized move of saved exports within one filesystem, use `agent codex session relocate --from <directory> --to <directory> --dry-run`. Confirmation approves both the move and the default-directory update. The command preserves snapshots, batch receipts, and unfinished output; it compares every file's hash before and after moving. Stop other saved-export operations first. After interruption, keep both locations intact and review the same paths with `--resume --dry-run`. Unknown entries, changed contents, links, collisions, and cross-filesystem moves stop the operation. Relocation does not repair old coverage or authorize deleting original sessions.
+
 ## Maintenance
 
 Runtime code stays in `tools/agent/`. Generic manager/validator/assembler sources stay with `agent-plugin-tools`; the CLI installer takes its own version-matched runtime copies and never imports an installed plugin cache. User settings, revision state, exports, and private paths do not belong in this package.
