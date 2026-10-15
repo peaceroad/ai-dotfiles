@@ -102,7 +102,7 @@ node --test --test-concurrency=1 tools/agent/codex/session-cli-compatibility.tes
 - **権限診断：実装済み。** Nodeの共通readerでplain/zstd、state DBの現行世代、archive、同じ所有者の継承prefixを扱います。別所有者の親から子の権限を推定しません。rollbackの投影は未対応で、理由付きの未取得として停止します。
 - **公式CLIの隔離受入：候補版と更新後の本番adapterで、それぞれ3試験を通過。** migration・compressionの正負対照、5種類のfixtureをplain/zstdの計10条件で移行・投影・保存後削除する試験、実在するfixtureのarchiveを確認しました。動的ツールを含む対象行の削除と無関係な定義の保持も確認します。Node.js 26.10.0を使用するWindowsの条件であり、他OSや将来版までの検証ではありません。
 - **回帰と配布：検証済み。** `npm run check:agent-dev`、調査スクリプトの5試験、`npm run check:plugins`を通過しました。インストーラーの合成試験は補助ファイル一式の配布とruntime一致を検証します。実際の配布前にも既存runtimeを退避し、配布後に`agent info`のruntime IDでcheckoutとの一致を確認する手順を使います。
-- **実環境での最終確認：継続。** 更新したruntimeの配布後、書き込み元を閉じた環境で再診断します。保存先が利用できない間は、既存exportの再検査・再exportを完了扱いにしません。旧保存物は保持し、不足するcoverageを新しいスナップショットで補う作業と、実データの削除は別操作です。
+- **個別環境での最終確認：導入先ごとに実施。** 更新したruntimeの配布後、書き込み元を閉じた環境で再診断します。個別環境での完了状況と診断結果は非公開の記録で管理します。保存先が利用できない間は、既存exportの再検査・再exportを完了扱いにしません。旧保存物は保持し、不足するcoverageを新しいスナップショットで補う作業と、実データの削除は別操作です。
 
 ## 課題の分類と現在の状態
 
