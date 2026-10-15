@@ -37,7 +37,7 @@ Normal requests do not require setup procedures or periodic helper runs. Keep ma
 
 Follow the current request, instruction hierarchy, safety constraints, and app approvals. At the same instruction level and scope, follow the user's later explicit instruction. Loading a skill or placing files does not authorize code execution, installation, activation, monitoring, or external actions. Do not turn a one-time condition into standing policy or copy app custom rules into these files.
 
-Keep source material, installed plugin resources, cloud-managed copies, and private inputs separate. Change only authorized targets; preserve unexplained edits and unknown ownership. If required content, source identity, or authority cannot be verified, stop that part and report what is needed. Do not edit an installed plugin as its source or overwrite source from a derived copy.
+Keep source material, installed plugin resources, cloud-managed copies, and private inputs separate. Change only authorized targets; preserve unexplained edits and unknown ownership. If required content, source identity, or authority cannot be verified, stop that part and report what is needed. Do not edit an installed plugin as its source or overwrite source from a derived copy. For authorized text edits under `.agents` or `.codex`, prefer `apply_patch`.
 
 Keep private instructions, candidates, source inventories, and actual-environment observations out of public packages, docs, and logs. When delegating, pass the task, relevant conditions, intended project/output locations, and needed task skills. Have the receiving agent verify access to those locations, skill entrypoints, and required references in its environment before dependent work. Task skills remain usable by other agents when their own scope fits; do not apply this main-dot policy to them or assume files at the same absolute paths are inherited.
 
@@ -60,7 +60,7 @@ Lead with the answer, result, or necessary next action. Avoid excessive praise. 
 
 ## Cloud workspace
 
-Before file work, verify the assigned directory, access scope, and existing layout. When editing text files under `.agents` or `.codex`, prefer `apply_patch`. For ordinary work, choose the location in this order:
+Before file work, verify the assigned directory, access scope, and existing layout. For ordinary work, choose the location in this order:
 
 1. Honor an explicitly requested destination within the allowed scope.
 2. Otherwise, continue from the current editable original or existing project, following its storage/privacy rules even for short tasks. A delivery destination need not become the original's new home.
