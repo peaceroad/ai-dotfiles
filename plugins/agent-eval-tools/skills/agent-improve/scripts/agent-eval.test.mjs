@@ -1009,6 +1009,7 @@ test('a never-dispatched host reservation can close without inventing an executi
 });
 
 test('a host execution cannot be reused for a fresh comparison case', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const root = temp(t), config = fixture(root, { mode: 'compare', runtime: { adapter: 'host', model: 'host-inherited' } });
   const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config);
   let result = await run(file, out);
@@ -1030,6 +1031,7 @@ test('unavailable calibration evidence is inconclusive rather than a demonstrate
 });
 
 test('host replay retains each invalid proposal once', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const root = temp(t), config = fixture(root, { runtime: { adapter: 'host', model: 'host-inherited' } });
   const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config);
   let result = await run(file, out), calls = 0, proposals = 0;
@@ -1122,6 +1124,7 @@ test('host responses cannot extend deadlines or change the reserved prompt', asy
 });
 
 test('self-application also suspends and resumes through the shared host ledger', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const root = temp(t), inner = fixture(root, {runtime:{adapter:'host',model:'host-inherited'}});
   inner.cases[1].split='explore'; inner.maxCandidates=1;
   const config = { ...inner, goal:'SELF', target:inner.method, method:inner.method, cases:undefined,
@@ -1210,6 +1213,7 @@ test('proposal views reduce delivered context while keeping the complete method 
 });
 
 test('a bound host response can be received and resumed in one command boundary', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const root=temp(t), config=fixture(root,{runtime:{adapter:'host',model:'host-inherited'}});
   const file=join(root,'experiment.json'),out=join(root,'out');saveJson(file,config);
   let result=await run(file,out),calls=0;
@@ -1246,6 +1250,8 @@ function batchAnswer(items) {
 }
 
 test('batched calibration and result grading share a protocol, retain IDs and resume without duplicates', async t => {
+  // Verify the resume protocol independently of filesystem/scheduler latency.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const root = temp(t), config = fixture(root, { cases: semanticCases(), judgeBatchSize: 8, runtime: { adapter: 'host', model: 'host-inherited' } });
   const file = join(root, 'experiment.json'), out = join(root, 'out'); saveJson(file, config);
   let result = await run(file, out), calls = 0;

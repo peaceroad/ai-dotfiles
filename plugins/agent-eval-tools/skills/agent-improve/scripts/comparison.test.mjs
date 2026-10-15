@@ -169,6 +169,8 @@ test('adaptive comparative adoption requires confirmation and cannot silently mu
 });
 
 test('host comparative judgments suspend and resume both orderings exactly once', async t => {
+  // Verify the resume protocol independently of filesystem/scheduler latency.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const { root, config } = fixture(t, { runtime: { adapter: 'host', model: 'host-inherited' } });
   const configFile = join(root, 'experiment.json'), out = join(root, 'host-out');
   writeFileSync(configFile, JSON.stringify(config));
