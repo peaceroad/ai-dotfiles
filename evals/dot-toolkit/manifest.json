@@ -29,8 +29,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "4b542b67baa98225e771571348ac219ff4eefc55e2a02fd4b0609f9a5779acae",
-      "bytes": 14819
+      "sha256": "25c23d0a799da5dfe84a537ab37570d5f4f8c9909d93a0a6d4a514fbda0b0034",
+      "bytes": 14951
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
