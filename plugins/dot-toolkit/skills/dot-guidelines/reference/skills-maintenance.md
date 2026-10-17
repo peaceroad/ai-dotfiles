@@ -92,6 +92,8 @@ Use the same fields, raw-byte hash rules, optional informational metadata, and v
 5. Apply authorized file and manifest changes, then update only affected INDEX descriptions or approved membership. Keep incomplete/mixed-version targets out of use while their files and records disagree. Do not silently fall back to another version.
 6. Read back and compare files and records. Run the relevant read-only [computer checks](computer-checks.md), inspect required references and descriptions, and report remaining differences. Return a skill to use only when its affected checks agree.
 
+For larger text updates, you may generate a patch in the dedicated `apply_patch` tool’s accepted format in an authorized writable location, review its target paths and changes, and submit it to that tool.
+
 There is no multi-file atomicity or recovery-engine guarantee. After interruption, inspect actual files, manifests, INDEX, and any retained intent before continuing only unfinished authorized work. Preserve newer edits. If the source SHA, selection, or intended local change is unknown, pause only that target. A readable file is not evidence of write permission; verify each authorized write separately. Keep the original source resolution through retries, and do not report failed or unverified updates as complete.
 
 For reproduction, obtain recorded sources and any retained content needed for local edits, then compare every expected file and unexpected extra against the manifest. A backup is optional, not assumed. Claim only the file/content identity actually verified, not an identical execution environment. No helper performs updates, restores files, or selects skills for you.

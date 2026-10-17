@@ -172,6 +172,16 @@ test('workspace scope and handoff boundaries remain synthetic decision cases', (
   }
 });
 
+test('text editing routes and approval boundaries remain synthetic decision cases', () => {
+  for (const id of [
+    'dedicated-text-edit-route', 'text-edit-tool-unsuitable', 'editing-route-startup-failure',
+    'editing-route-explicit-denial', 'large-text-update-patch',
+  ]) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', id);
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
+  }
+});
+
 test('ordinary file requests remain extractable without loading cues or synthetic fixtures', () => {
   for (const id of ['find-existing-draft', 'continue-project-document', 'save-standalone-guide']) {
     assert.equal(cases.find(item => item.id === id)?.mode, 'main-dot', id);
