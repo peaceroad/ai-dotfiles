@@ -4,8 +4,8 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "6b9d1107bf94f11834cd57dc1909bb11edfecc3b881abfc92d8ce91d074c5e90",
-      "bytes": 11091
+      "sha256": "fd16c46c99cbcd83a6317321211b1190c5d83ceb22e8541bfec99d33d0459940",
+      "bytes": 11143
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",

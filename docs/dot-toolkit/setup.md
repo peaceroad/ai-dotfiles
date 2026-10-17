@@ -119,7 +119,7 @@ dotは[移行手順](../../plugins/dot-toolkit/skills/dot-guidelines/reference/m
 
 #### 0.4.0から0.4.1へ更新する場合
 
-0.4.1は、すでに取り込まれた[PR #33](https://github.com/peaceroad/ai-dotfiles/pull/33)の「`.agents`・`.codex`内で許可されたテキスト編集には`apply_patch`を優先する」という方針を、それ以前の0.4.0パッケージと版番号で区別する更新です。今回の版番号更新で新しい動作や権限を加えるものではなく、データ移行も不要です。
+0.4.1には、[PR #33](https://github.com/peaceroad/ai-dotfiles/pull/33)で追加した、`.agents`・`.codex`配下の許可されたテキスト編集で`apply_patch`を優先する方針が含まれます。この方針を含むパッケージを、それ以前の0.4.0と版番号で区別できます。権限や保存データの形式は変わらず、データ移行は不要です。
 
 #### 0.3から0.4へ更新する場合
 
