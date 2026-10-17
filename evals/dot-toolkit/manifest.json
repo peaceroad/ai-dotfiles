@@ -4,12 +4,12 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "87561e9c9d21bfe82f7aa4cb07539c52f009feb9ca419cab99f0e4a60981f1d2",
-      "bytes": 11522
+      "sha256": "c17693f75188bbd40d8366f37a7761f543828d3280d9b8de822c30867663074f",
+      "bytes": 12080
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
-      "sha256": "2429331130045d02d015f47e555d832389d754c73edcf70196c30e8d6da58317",
+      "sha256": "8e5510baa57faab8dcef7cab7169cb163b67ed5c8f6b5b6772814a151ac9582f",
       "bytes": 219
     },
     {
@@ -29,8 +29,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "c9330f6516b13f693aa05276f620717780533424a28b67f2a1c6d3b1100f4c3c",
-      "bytes": 13721
+      "sha256": "25c23d0a799da5dfe84a537ab37570d5f4f8c9909d93a0a6d4a514fbda0b0034",
+      "bytes": 14951
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
@@ -70,7 +70,7 @@
     "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
     "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
   ],
-  "pluginVersion": "0.4.1",
+  "pluginVersion": "0.4.2",
   "liveChecks": {
     "installedEntry": "not_run",
     "installedReferences": "not_run",

@@ -47,6 +47,8 @@ Upgrading from 0.3 to 0.4 requires no data conversion. When the user reports an 
 
 ## Updates and maintenance
 
+Version 0.4.2 clarifies pre-update preservation for cloud-managed skills and plugins. Full backups are normally skipped when the current package matches a fixed upstream commit and the exact content is verified retrievable. Previous provenance and any necessary selection information remain available; local edits, configuration, and extra files that upstream cannot reproduce are preserved. Existing backups are not deleted. See the [maintenance procedure](skills/dot-guidelines/reference/skills-maintenance.md#apply-and-resume) for the decision boundary.
+
 Version 0.4.1 builds on the editing guidance introduced in [PR #33](https://github.com/peaceroad/ai-dotfiles/pull/33): prefer the dedicated `apply_patch` tool for authorized text-file changes in dot's own cloud when available and suitable. The guidance also distinguishes tool availability, startup or filesystem errors, and approval procedures without bypassing explicit access or policy denials. The version number distinguishes this guidance from earlier 0.4.0 packages. Permissions and stored data formats are unchanged; no data migration is required.
 
 Ask for the specific instructions, package, standalone skill, or selection change you want. dot compares current files against their adoption records before changing them, pins the source to a resolved commit, and preserves unexplained edits. A retry uses that same commit. Hashes detect byte differences; they cannot recover lost content or prove code safety.
@@ -82,10 +84,10 @@ Use the maintainer's specified tag or commit, or the commit containing this guid
 ```sh
 git rev-parse HEAD
 git show HEAD:plugins/dot-toolkit/plugin.json
-git archive --format=zip --output=../dot-toolkit-0.4.1.zip HEAD:plugins/dot-toolkit
+git archive --format=zip --output=../dot-toolkit-0.4.2.zip HEAD:plugins/dot-toolkit
 ```
 
-Confirm version `0.4.1` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files. Candidate packages can share a version label; retain the source commit and ZIP SHA-256 to distinguish their contents and keep verification results tied to the candidate actually checked.
+Confirm version `0.4.2` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files. Candidate packages can share a version label; retain the source commit and ZIP SHA-256 to distinguish their contents and keep verification results tied to the candidate actually checked.
 
 ## Scope and background
 

@@ -66,7 +66,7 @@ Read each selected skill's frontmatter and preserve its **full parsed descriptio
 
 Each UTF-8 JSON file is an object with these required fields:
 
-- `schemaVersion`: integer `1`, independent of plugin version `0.4.1` and old inventory schema 4
+- `schemaVersion`: integer `1`, independent of plugin version `0.4.2` and old inventory schema 4
 - `name`: the skill directory name, lowercase letters/digits and single hyphens, up to 64 characters
 - `source`: object with `repository` (source repository identifier), `path` (repository-relative skill directory or `.`), `ref` (requested ref), and `commit` (resolved full 40- or 64-character lowercase hexadecimal Git commit)
 - `files`: nonempty array of `{ "path": "SKILL.md", "sha256": "<64 lowercase hex digits>" }` records, one per adopted regular file
@@ -84,6 +84,10 @@ Hashes cannot restore content. If a lost local edit is absent from retained file
 Use the same fields, raw-byte hash rules, optional informational metadata, and validation constraints as the standalone manifest above, with these differences: require `"kind": "plugin"`; `name` is the plugin name; `source.path` identifies the package root; file paths are relative to that root and include `plugin.json` and every adopted package file. This is a separate dot-toolkit provenance file, never an edit to upstream `plugin.json`. It records the complete package and fixed source commit, not selected skills. No `selected`, `enabled`, or selection list belongs in either provenance format.
 
 ## Apply and resume
+
+For upstream updates of cloud-managed skills and plugins, normally skip a full pre-update backup when the complete current file inventory and raw bytes match a known fixed upstream commit and that exact content is verified retrievable. A version label or recorded hash alone is insufficient. Honor an explicit backup request. Before overwriting records, retain enough previous provenance to identify and verify the prior state: source repository/path/commit and file hashes, plus affected selection information when needed. This does not require a new snapshot or logging framework for every update.
+
+Preserve local edits, configuration, and extra files that the fixed upstream source cannot reproduce, including unexplained differences. Retain their actual content or a recoverable patch with its available base; hashes and descriptions cannot restore it. If prior content is not retrievable, preserve the content needed for recovery before an authorized replacement, or pause that target. Pause replacement while differences or its authorization remain unresolved; a backup does not authorize overwriting unexplained changes. Leave existing backups and restoration materials intact; an update does not authorize their cleanup.
 
 1. Inspect the current INDEX, affected manifests, full file differences, and source commit for this operation. Keep unrelated managed skills and packages intact; unselected files within an approved whole-package update remain part of that update. For legacy inventory, use [migration](migrations/0.1-to-0.2.md).
 2. Prepare the requested complete standalone skill or plugin contents. Read selected entrypoints and placement/verification references; check terms, dependencies, required resources, and code requirements. Confirm references are accessible within the agreed placement scope. Do not acquire unrequested dependencies to hide a packaging problem.
