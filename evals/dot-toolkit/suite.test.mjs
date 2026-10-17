@@ -271,7 +271,7 @@ test('the source manifest requires the content-hash schema and acceptance kind',
 
 test('source definitions keep installed-resource access and ordinary main-dot checks unrun', () => {
   const required = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
-  assert.equal(manifest.pluginVersion, '0.4.1');
+  assert.equal(manifest.pluginVersion, '0.4.2');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert.deepEqual(Object.keys(manifest.liveChecks).sort(), required.sort());
   for (const name of required) {
