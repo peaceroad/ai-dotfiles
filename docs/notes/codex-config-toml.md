@@ -42,6 +42,10 @@ approvals_reviewer = "auto_review"
 
 自動レビューで承認されれば作業は続行します。拒否された場合は、より安全な代替手段で進めるか、ユーザーに確認します。すでに許可された範囲内の操作は審査対象外であり、この設定だけで書き込み先や通信先の許可範囲が広がるわけではありません。Computer Useのアプリへのアクセス承認など、直接ユーザーに確認するものも残ります。詳細は[Auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review)を参照してください。
 
+追加権限を求めるコマンド実行ツールでは、エージェントが実行時の引数に`sandbox_permissions = "require_escalated"`を指定する場合があります。Auto-reviewはその承認要求を審査します。この指定はツールの引数であり、`config.toml`へ追加するキーではありません。
+
+Auto-reviewを有効にしても、通常の実行に必要な読み取り権限が不要になるわけではありません。たとえば、`:root`や`:minimal`はファイルシステムのアクセス範囲を定める項目で、承認要求の審査とは役割が異なります。サンドボックスの準備段階で停止し、承認要求まで進めない場合は、Auto-reviewによる解決を期待できません。
+
 ### ポリシーの追加と置き換え
 
 通常は`[auto_review]`を指定せず、標準ポリシーを使います。カスタマイズする場合、`extra_policy`は主ポリシーに追加する指示、`policy`は既存のレビューポリシーを置き換える本文です。どちらもMarkdownの文字列で、管理者設定に対応するポリシーがある場合はそちらが優先されます。[公式設定リファレンス](https://learn.chatgpt.com/docs/config-file/config-reference)で適用条件を確認してください。
@@ -114,7 +118,48 @@ default_permissions = "workspace-with-agents"
 
 `git status`や`git diff`は読み取り操作なので、それだけでは書き込み権限を確認できません。確認用のGit変更を行う場合も、作業ファイルと履歴を元の状態へ戻せる内容に限定します。
 
+## WindowsでMXCを優先する
+
+Microsoft Execution Containers（MXC）は、Windowsのプロセス隔離機能を使うサンドボックスの実行方式です。2026年10月25日時点の[公式Windows sandboxガイド](https://learn.chatgpt.com/docs/windows/windows-sandbox)では、対応端末での利用を推奨しています。従来の`elevated`方式と異なり、管理者承認を伴うセットアップ、専用Windowsアカウント、ローカルのファイアウォールルールを必要としません。
+
+MXCを優先し、利用条件を満たさない場合は`elevated`を使う例です。
+
+```toml
+[features]
+# 端末と管理ポリシーが対応していればMXCを優先する。
+prefer_mxc = true
+
+[windows]
+# MXCを利用できない場合に使う従来方式。
+sandbox = "elevated"
+```
+
+既存の`[features]`と`[windows]`があれば、それぞれの中へキーを追加・更新します。同じテーブルを重複して定義しないでください。`prefer_mxc`は`[features]`に属するキーなので、次のテーブル宣言より前に置きます。
+
+デスクトップアプリは、個人向けアカウントと対応端末ではMXCを自動的に優先します。したがって、保存済みの`windows.sandbox = "elevated"`だけから、実行方式も`elevated`だとは判断できません。単体CLIではMXC優先は既定で無効です。また、MXCで開始したコマンドの失敗を理由に、従来方式で再実行する設定ではありません。[設定リファレンス](https://learn.chatgpt.com/docs/config-file/config-reference)も参照してください。
+
+### 対応状況を確認する
+
+Codex CLI 0.162.0以降では、PowerShellで対象プロジェクトへ移動し、次のコマンドでMXCによる起動を確認できます。
+
+```powershell
+codex -c windows.sandbox=mxc sandbox --include-managed-config --permission-profile :workspace -- cmd.exe /d /c echo MXC_OK
+$LASTEXITCODE
+```
+
+`MXC_OK`が表示され、終了コードが`0`なら、その実行は成功です。保存済みの設定は変更しません。この確認は組み込みの`:workspace`プロファイルと管理設定での起動を対象とし、独自プロファイルやバックグラウンドサーバーまで検証するものではありません。
+
+常にMXCを必須にする場合は、既存の`[windows]`で`sandbox = "mxc"`を指定します。端末が非対応、または管理ポリシーで禁止されていればエラーになります。管理側の`requirements.toml`で`[windows]`に`allow_mxc = false`が指定されている場合は、自動選択と明示指定の両方が禁止されます。
+
+### アクセス範囲と運用上の条件
+
+MXCは実行方式であり、読み書きできる範囲はPermission profileなどで別に定めます。Auto-reviewも別の設定です。実行方式を変えたことだけを理由に、読み取り規則を削除したり、書き込み先を広げたりしません。
+
+MXCでは、実行したコマンドが終了すると残っている子プロセスも停止します。コマンドから開発サーバーを起動して残す運用では、この条件を確認します。ネットワークをプロキシで管理する場合は、実効的な`allow_local_binding = true`が必要です。詳しい通信条件は[公式ガイドの互換性の説明](https://learn.chatgpt.com/docs/windows/windows-sandbox#mxc-compatibility)を参照してください。
+
 ## Windowsで`:root`の読み取り権限不足によりタスクを開始できない場合
+
+以下は従来の`elevated`方式に関する診断です。MXCにも同じ制約があるという説明ではありません。
 
 タスクの作成・再開時に`AGENTS.md`の読み込みが失敗し、``elevated Windows sandbox requires effective `:root` read access``と表示された場合は、使用中の権限プロファイルにルートの読み取り権限があるか確認します。
 
@@ -152,6 +197,24 @@ Windowsでは、設定を有効にしても、以前に付与された拒否ACL�
 2026年9月7日、Windows上のリポジトリで、プロジェクト設定による`.git`の書き込み許可と、残存していた拒否ACLの修復後に動作を確認しました。CodexからGit参照を書き込み、ファイルを含まないコミットを作成して履歴から取り除く操作が成功し、作業ファイルの状態も維持されました。
 
 この結果は、確認時点の環境で書き込みが復旧したことを示します。将来のCodex更新後の動作や、別のPermission profile、旧方式のサンドボックス設定でも同じ結果になることは保証しません。
+
+## 実験的コンテキスト管理と関連Issueの調査メモ
+
+2026年10月25日時点の[設定リファレンス](https://learn.chatgpt.com/docs/config-file/config-reference)では、`features.context_management.experimental_mode`が対象とする機能は現在利用不可とされています。これは通常のコンテキスト管理全体が利用できないという意味ではなく、この実験機能の提供状態です。設定が無視されるかどうかまで、同リファレンスは説明していません。
+
+このノートでは、有効化のための設定例は示しません。利用不可の機能を明示的に無効化するためだけに`experimental_mode = false`を残す必要はないと判断し、関連する調査情報を設定コメントではなく、この節にまとめます。設定の省略は、次の不具合が修正されたことを根拠とするものではありません。
+
+同日に公開Issueの状態、コメント、タイムラインを確認した結果、次の5件はすべてOpenでした。確認した範囲では、これらを解決したと判断できるCodex本体のマージ済み修正PRは見つかりませんでした。
+
+- [#42918](https://github.com/openai/codex/issues/42918)：リマインダー閾値だけの上書きで、モデル由来の引き継ぎ指示やフォールバック設定が失われる報告。設定解決処理の追加分析があります。
+- [#42693](https://github.com/openai/codex/issues/42693)：圧縮後に未完了の作業を継続せず停止する報告。重複候補と利用者による改善提案があります。
+- [#42449](https://github.com/openai/codex/issues/42449)：必要とされるnotes/historyツールがなく、作業を反復する報告。第三者によるMCPの回避策はありますが、Desktopでの適合性は未検証とされています。
+- [#43062](https://github.com/openai/codex/issues/43062)：Windows版Astraで圧縮が長時間停止し、停止操作後にも再発する報告。10月11日にも異なるモデル・ホストから類似報告がありますが、原因の一致は未確認です。
+- [#43103](https://github.com/openai/codex/issues/43103)：Astraが途中で終了したり、圧縮・修正・検証を反復したりして作業が完了しない報告。実験機能が原因かどうかは確定していません。
+
+#43062に関連付けられた[T3 CodeのPR #17265](https://github.com/pingdotgg/t3code/pull/17265)は10月20日にマージされています。これはターン終了時に未完了の圧縮項目を処理するT3 Code側の修正であり、Codex本体の圧縮停止を解決した証拠ではありません。
+
+Openであることだけから、最新バージョンのすべての環境で再現するとは判断できません。機能の提供再開が案内された場合、または圧縮後の停止・作業反復が再発した場合に、公式の提供条件、Issueの解決理由、関連PRのマージと利用する製品への収録を改めて確認します。
 
 ## 参考資料
 

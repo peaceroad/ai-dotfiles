@@ -50,6 +50,8 @@ approval_policy = "on-request"
 # "auto_review": 別のレビュー用エージェントが審査し、承認されれば自動で続行する
 # on-requestなど、承認要求が発生するポリシーと組み合わせる。neverでは審査されない。
 # 許可範囲内の操作は審査対象外。この設定自体はファイルや通信の許可範囲を変更しない。
+# エージェントがコマンド実行時に sandbox_permissions = "require_escalated" で追加権限を求めると、
+# auto_reviewが承認・拒否を審査する。この指定は実行ツールの引数で、config.tomlの設定項目ではない。
 # 注意：拒否され、安全な代替手段でも進められない場合は、ユーザーへの確認が必要になる。
 # Computer Useのアプリへのアクセス承認など、自動レビューで代替されない確認もある。
 # ポリシーのカスタマイズ例は、後述の[auto_review]を参照する。
@@ -80,6 +82,11 @@ default_permissions = "workspace-with-agents"
 # """
 
 [features]
+# 端末と管理ポリシーが対応していれば、WindowsサンドボックスにMXCを優先して使う。
+# 利用できない場合は、[windows] の sandbox = "elevated" にフォールバックする。
+# https://learn.chatgpt.com/docs/windows/windows-sandbox
+prefer_mxc = true
+
 # タスク（セッション）をまたいで知識を保存・再利用するメモリ機能を無効/有効にする。
 # 公開実装では安定機能（Stable）に分類され、既定で無効。
 # https://learn.chatgpt.com/docs/customization/memories
@@ -91,29 +98,18 @@ memories = false
 # https://github.com/openai/codex/blob/main/codex-rs/features/src/lib.rs
 chronicle = false
 
-# 機能フラグの設定場所として残す。fast_modeやmulti_agentなど、既定で有効な機能は追加指定しない。
-# js_replは削除済みの機能フラグなので記載しない。
-# 許可ドメインの強制にはnetwork_proxyが必要（管理者設定で有効になる場合を除く）。
-# 実験的なため、アプリでの実効設定と通信を確認してから有効にする。
+# コマンドの通信先を許可リストに限定する設定（実験的・既定は無効）。
+# trueにすると、後述のnetwork.domainsで許可したサイトにだけ接続できる。
+# Web検索・Apps・MCPの通信は、この設定の対象外。
+#
+# 通信先を固定の許可リストに限定しないため、ここでは有効にしない。
+# 後述の[permissions.workspace-with-agents.network.domains]には許可先を列挙しているが、
+# この設定または管理者設定でプロキシを有効にしない限り、その一覧で通信先は制限されない。
+# 有効に切り替えた場合は、必要な通信が成功し、許可リスト外への通信が拒否されることを確認する。
 # network_proxy = true
 
-[features.context_management]
-# 実験的コンテキスト管理。2026-10-12確認の公式リファレンスでは利用不可。
-# 再有効化を検討する場合は、その時点の提供状況と対応クライアントを確認する。
-# https://learn.chatgpt.com/docs/config-file/config-reference
-
-# 安定性を優先して無効化した（2026-09-06）。以下は当時の判断に使ったIssue。
-# 閾値の上書きで引き継ぎ指示が欠落: https://github.com/openai/codex/issues/42918
-# 圧縮後に未完了の作業が停止: https://github.com/openai/codex/issues/42693
-# notes/historyツール不足で作業を反復: https://github.com/openai/codex/issues/42449
-# Windows版Astraで圧縮が停止・再発: https://github.com/openai/codex/issues/43062
-# Astraで途中停止・圧縮・修正を反復: https://github.com/openai/codex/issues/43103
-# 42918は閾値を上書きしない現在の設定では条件外。42693・42449は別モデルまたは旧版の報告。
-# 43062・43103は、この実験機能が原因か未確認。
-experimental_mode = false
-
 # CodexのWindowsサンドボックス設定。対応端末・クライアント・組織ポリシーではMXCが推奨される。
-# elevated: MXCが利用不可・無効の場合に優先するlegacy fallback。管理者承認のセットアップが必要。
+# elevated: MXCを利用できない場合に使う従来方式。管理者承認を伴うセットアップが必要。
 # エージェントのコマンド自体を管理者として実行する意味ではない。
 # unelevated: 組織ポリシーが許可し、elevatedのセットアップを利用できない場合の次のフォールバック。
 # ユーザープロファイル以下の開発ツールは、必要な読み取り・書き込み先をPermission profileで許可する。
