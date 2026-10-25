@@ -39,7 +39,7 @@ Report planned, attempted, completed, and graded trials, with reasons for omissi
 
 Budget for candidate generation, target runs, judges, retries, and evidence curation using observable work counts and elapsed time, adding measured usage when available. These bound the work; they do not establish a monetary or compute-cost limit. Nested improvement tasks share the outer allowance. Enforce the limits the runtime supports; post-run token usage is not a strict in-flight token cap. An unconfirmed child-process stop is not a clean budget stop.
 
-Compare quality and preservation constraints first, then useful cost changes. Set tolerances before inspecting outcomes. Critical regressions cannot be canceled by an unrelated score gain. Keep the current version when the relevant difference is unresolved.
+Judge the intended gain using its declared evidence, with quality and preservation constraints checked before useful cost changes. Set tolerances before inspecting outcomes. Critical regressions cannot be canceled by an unrelated score gain. Keep the current version when the relevant difference is unresolved; a successful preservation check alone is not an adoption reason. This deployment decision does not prohibit a bounded exploration from a valid candidate under the [improvement contract](improvement.md#search-from-a-goal-or-evidence).
 
 ## Retain enough to reason later
 

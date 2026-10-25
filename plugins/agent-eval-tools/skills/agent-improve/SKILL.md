@@ -19,7 +19,7 @@ Size the work for the requested decision. Coordinate directly unless a separate 
 
 Read [experiments](references/experiments.md) when designing or running an evaluation or comparison. Read [measurement](references/measurement.md) when choosing evaluation methods, repetitions, or quality/cost criteria. Read [runtime](references/runtime.md) before using the bundled runner to check supported behavior and request counts.
 
-Prefer the host's existing subagent tools when working in an agent session that supports and permits delegation. Let scripts freeze conditions, reserve calls, grade results, and retain records; let fresh subagents execute the requested model work. Use [host execution](references/host-execution.md) for the handoff and recovery contract. The optional Codex CLI adapter serves standalone or manually launched experiments. CLI authentication is not a prerequisite for host-based evaluation.
+Choose the execution route using [measurement](references/measurement.md#choose-the-execution-route). Existing project checks or a bounded parent-coordinated comparison can serve the claim without the bundled runner. When model trials need fresh workers and delegation is supported and permitted, prefer the host's existing subagent tools. Read [host execution](references/host-execution.md) only for the bundled host adapter's reservation, delivery and recovery contract. The optional Codex CLI adapter serves standalone or manually launched experiments; CLI authentication is not a prerequisite for host-based evaluation.
 
 ## Choose the work that answers the request
 

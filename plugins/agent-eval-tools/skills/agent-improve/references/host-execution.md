@@ -1,6 +1,6 @@
-# Execute trials with the host's subagents
+# Execute bundled-runner trials with the host's subagents
 
-Use this when the active agent session provides subagent tools and delegation is authorized. No separate CLI login is needed. The parent coordinates existing runtime tools; the script does not launch agents or add a daemon. Comparisons, candidate search, grading, budgets, and lineage use the same controller as the optional CLI adapter.
+Use this after choosing the bundled runner's host adapter, when the active agent session provides subagent tools and delegation is authorized. Project-native checks and parent-coordinated comparisons use the [project execution contract](measurement.md#choose-the-execution-route), not these request commands. No separate CLI login is needed. The parent coordinates existing runtime tools; the script does not launch agents or add a daemon. Comparisons, candidate search, grading, budgets, and lineage use the same controller as the optional CLI adapter.
 
 ## Deliver one reserved request
 

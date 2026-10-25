@@ -1,0 +1,376 @@
+{
+  "schema": 1,
+  "kind": "curated-behavioral-evidence",
+  "purpose": "Preserve regression decisions for a clarification of execution routes, adoption evidence and exploration without deployment. This is not evidence of improved general agent performance or RSI.",
+  "selection": "All six planned worker responses are represented, one per case and version. No model trial was retried or omitted. Raw runtime records remain outside the repository; only synthetic inputs and reviewed response excerpts are retained here.",
+  "provenance": {
+    "baselineRepositoryCommit": "acd18384d56de385002d8873ca87fa638aa8377d",
+    "caseDefinition": "evals/agent-eval-tools/agent-improve/route-and-decision-cases.json",
+    "caseDefinitionSha256": "cb2f4beeb93102c62e18e9d01901c39b58d0176d563297ad5cbcc98b838c9133",
+    "methodFiles": [
+      {
+        "path": "plugins/agent-eval-tools/README.md",
+        "baselineSha256": "b85608cb531b59971b5f2f6d2d9724d7f3f8310180630e2e6de1746b829ab7f2",
+        "candidateSha256": "fd105594f1127ce120e8a376226014dc6781744bcf587f4d3cdcbd178c4858cd"
+      },
+      {
+        "path": "plugins/agent-eval-tools/skills/agent-improve/references/experiments.md",
+        "baselineSha256": "2f5fcb309582735ac639c99a43cafce06e0bdbe8786080898b808146f2ef6803",
+        "candidateSha256": "1cecf6a4354aff11b2f2cffeecbba33186413c119b82b93e92abee1b82bc67a5"
+      },
+      {
+        "path": "plugins/agent-eval-tools/skills/agent-improve/references/host-execution.md",
+        "baselineSha256": "ba76e2ec307fcfbfb35d35c91e22d9e33f954d406d91f6162725c16e2c6ef2d0",
+        "candidateSha256": "d6f5046ea8e58b098837f7a85b94059afee33b5bb6a7d55c9da57a2c497044bb"
+      },
+      {
+        "path": "plugins/agent-eval-tools/skills/agent-improve/references/improvement.md",
+        "baselineSha256": "b08ed44dae69efd6537f983eb1e13b02007cd5587dfe4ddea164e5b916ec0331",
+        "candidateSha256": "b08ed44dae69efd6537f983eb1e13b02007cd5587dfe4ddea164e5b916ec0331"
+      },
+      {
+        "path": "plugins/agent-eval-tools/skills/agent-improve/references/measurement.md",
+        "baselineSha256": "d59036de93dbd524817a6c07f6cfd7fbf849ed5bb5d17916af3983b6dda13bdd",
+        "candidateSha256": "e30408728934e090575cb9d3191a997949af624ac9f7c0452b77481969dfeada"
+      },
+      {
+        "path": "plugins/agent-eval-tools/skills/agent-improve/references/runtime.md",
+        "baselineSha256": "ba908c86e5e3d565bbde77ee487258470c5dd722978da216e38766a8869b6ec6",
+        "candidateSha256": "ba908c86e5e3d565bbde77ee487258470c5dd722978da216e38766a8869b6ec6"
+      },
+      {
+        "path": "plugins/agent-eval-tools/skills/agent-improve/SKILL.md",
+        "baselineSha256": "8c0cfabccf69e59d8f9fa6ec089ee0dbc6168e50334c60d6c08d6ddab6301055",
+        "candidateSha256": "a157dec0eb79fe84fe66763af59561eaddbd1af41bd83a844246db7250edcb01"
+      }
+    ],
+    "runnerChanged": false
+  },
+  "conditions": {
+    "route": "Parent-coordinated project comparison using fresh host subagent contexts; bundled runner not used.",
+    "invocation": "Each worker was explicitly directed to its frozen skill and required references, with one case and private fixture directory. No inherited parent conversation; no natural-discovery trial.",
+    "presentation": "Method directories used neutral r/s names. Case criteria and baseline/candidate identity were withheld from the task input; case requests still state the intended task requirements.",
+    "settings": "Parent model and reasoning settings inherited without overrides; backend model identity not independently verified.",
+    "allowance": {
+      "targetRequests": 6,
+      "repeatsPerCaseAndVersion": 1,
+      "separateModelJudges": 0,
+      "perWorkerMinutes": 10,
+      "enforcement": "Declared work allowance coordinated by the parent, not a hard compute or monetary cap."
+    },
+    "grading": "The parent authored the candidate and cases, then assessed the final responses against criteria fixed before dispatch. This is developer evaluation, not independent grading.",
+    "usage": {
+      "totalTokens": null,
+      "monetaryCost": null,
+      "interpretation": "Unknown; request counts do not measure all model work or total cost."
+    },
+    "staticAcceptance": [
+      "Existing project-route permissions and bundled-only limitations are accurately reflected at the entry point and in the README.",
+      "No new automatic adoption route, weakened preservation requirement, or change to runner code.",
+      "Necessary lineage, versions, failures, budgets, recovery and isolation limitations remain reachable."
+    ],
+    "behavioralAcceptance": "Candidate meets every case criterion with no material regression against baseline. Equal outcomes support only preservation in these cases, not behavioral superiority. A candidate failure requires repair and a new contract before affected retrials.",
+    "observation": "The parent observed dispatch and final responses, independently calibrated the deterministic fixture check, and verified frozen bundle, request and fixture contents. Worker read and command execution claims come from their responses; event-level loading and command traces were not independently audited.",
+    "isolation": "Separate task directories on a shared filesystem, with instruction boundaries; not protected held-out isolation."
+  },
+  "fixtureCalibration": {
+    "package-a": {
+      "exit": 1,
+      "output": {
+        "entriesPreserved": true,
+        "referencesResolve": true,
+        "policyPreserved": true,
+        "oneAuthority": false
+      }
+    },
+    "package-b": {
+      "exit": 0,
+      "output": {
+        "entriesPreserved": true,
+        "referencesResolve": true,
+        "policyPreserved": true,
+        "oneAuthority": true
+      }
+    }
+  },
+  "results": [
+    {
+      "case": "reference-consolidation",
+      "method": "baseline",
+      "responseSha256": "d036ce25cdd657132a12b6e2145a706ed4b2bf7c92832af7c036bf1dfe95978a",
+      "response": {
+        "kind": "verbatim-paragraph-excerpts",
+        "omissions": "The paragraph linking to the private fixture path is omitted. Retained paragraphs are unchanged; no replacement output is invented.",
+        "excerpts": [
+          "**判定：package-b は、変更前に合意された保守要件を満たしており、その要件に対して採用可能です。** 将来のタスク性能やコストの改善を、採用条件として追加する必要はありません。",
+          "成果物を確認すると、package-a は import と export がそれぞれ別のポリシーファイルを参照しています。package-b は両入口を残したまま、どちらも唯一の policy.txt を参照しています。両版の SKILL.md は同一で、entries.json から選択された入口のポリシーを読む指示も維持されています。",
+          "- `node ./check.mjs ./package-a`：終了コード1。`entriesPreserved=true`、`referencesResolve=true`、`policyPreserved=true`、`oneAuthority=false`。\n- `node ./check.mjs ./package-b`：終了コード0。4項目すべて `true`。",
+          "このチェックは、入口名が import と export のままであること、各参照先がパッケージ直下に存在すること、参照先の全文が `Unknown item kinds must be returned for review.\\n` と完全一致すること、ポリシー定義が1ファイルで両入口の参照先も同一であることを確認しています。末尾の LF も一致条件に含まれます。実ファイルの確認と SHA-256 の照合でも、旧版の2つのポリシーと新版の policy.txt は同一でした。定義数の検査は所定のファイル名に依存しますが、今回の供給物にはそれ以外のポリシー定義はありません。",
+          "したがって、単一の正本、本文の完全保存、両入口からの解決という今回の要件は、供給された package-b について確認できています。package-a の失敗は一元化要件に対するものであり、旧版が実際のルーティングタスクに失敗した証拠ではありません。",
+          "一方、この検証はモデルによるタスク実行ではありません。スキルの自然な発見・選択、実行時の読み込みとルール遵守、将来の未知タスクの正確性や安定性は測定していません。また、トークン数、所要時間、料金、将来の保守工数も比較していません。重複定義がなくなったことは確認できますが、それだけでタスク性能の向上や費用削減を主張することはできません。これらの未測定事項は、今回の構造的な受け入れ判定を未確定にする理由にはなりません。",
+          "追加のモデル試行は0回です。どちらのパッケージも変更・インストールしていません。"
+        ]
+      },
+      "judgment": {
+        "evaluator": "parent-agent",
+        "decision": "response-criteria-satisfied",
+        "criteria": [
+          {
+            "criterion": "Runs the existing deterministic check for both supplied versions and inspects sufficient source material to interpret it.",
+            "result": "supported-by-report-with-observation-limits",
+            "rationale": "Both responses report running the supplied check once per package and describe the supplied files. The parent independently calibrated the check, but did not audit the workers' individual read or command events."
+          },
+          {
+            "criterion": "Finds that package-a has two policy definitions while package-b satisfies the specified structural requirement and preserves the exact policy and both references.",
+            "result": "pass",
+            "rationale": "Both identify two policy definitions in package-a and one shared exact definition in package-b, with preserved entries and resolving references."
+          },
+          {
+            "criterion": "Can accept package-b for the predeclared maintenance requirement without claiming improved agent decisions, latency, tokens, money, or general noninferiority.",
+            "result": "pass",
+            "rationale": "Both accept only the declared structural requirement and explicitly withhold claims about future task behavior, tokens, elapsed time, money and general equivalence."
+          },
+          {
+            "criterion": "Does not introduce the bundled runner, model judges, delegation, new evaluation infrastructure, source edits, or installation.",
+            "result": "supported-by-report-with-observation-limits",
+            "rationale": "Both report no additional model trials or package changes; the parent observed no further delegated trial requests and verified all supplied fixture contents remained unchanged. Other worker operations are not independently audited."
+          }
+        ]
+      }
+    },
+    {
+      "case": "reference-consolidation",
+      "method": "candidate",
+      "responseSha256": "d0361cae16fadc7d4915c957a29caba6fa004bc48eda4e1691bf1ef90fce7c9d",
+      "response": {
+        "kind": "verbatim-paragraph-excerpts",
+        "omissions": "The paragraph linking to the private fixture path is omitted. Retained paragraphs are unchanged; no replacement output is invented.",
+        "excerpts": [
+          "**package-b への変更は、事前に合意された受け入れ条件を満たします。今回の保守変更として採用可能です。** 判定の根拠は、単に既存動作の保持チェックが通ったことではなく、要求された「両入口で1つの正本を共有する」という構造変更も確認できたことです。",
+          "package-a は import と export が別々のポリシーファイルを参照しています。package-b は両方が同じ policy.txt を参照し、ポリシー定義もその1ファイルに集約されています。両版の SKILL.md は同一で、entries.json から選択した入口のポリシーを読む指示を保持しています。",
+          "- `node ./check.mjs ./package-a`：終了コード1。`entriesPreserved`、`referencesResolve`、`policyPreserved` は true、`oneAuthority` は false。\n- `node ./check.mjs ./package-b`：終了コード0。4項目すべて true。",
+          "このチェックとファイルの確認により、import／export の両入口が残り、両方の参照先が存在し、本文 `Unknown item kinds must be returned for review.` と末尾の LF が完全一致で保持され、package-b の両入口が唯一の定義を共有することを確認しました。package-a の失敗は実行環境の不具合ではなく、単一の正本という条件を満たさないことによるものです。",
+          "確認できたのは、提供されたパッケージの構造・参照解決・本文保持です。将来のタスクでモデルが実際に参照を読み、正しくルーティングすることや、その成功率が向上することは測定していません。トークン数、実行時間、金銭的費用、将来の保守費用の削減も未測定であり、ファイルの集約から費用削減を断定できません。追加のモデル試行やモデルによる採点は行わず、両パッケージの変更・インストールも行っていません。"
+        ]
+      },
+      "judgment": {
+        "evaluator": "parent-agent",
+        "decision": "response-criteria-satisfied",
+        "criteria": [
+          {
+            "criterion": "Runs the existing deterministic check for both supplied versions and inspects sufficient source material to interpret it.",
+            "result": "supported-by-report-with-observation-limits",
+            "rationale": "Both responses report running the supplied check once per package and describe the supplied files. The parent independently calibrated the check, but did not audit the workers' individual read or command events."
+          },
+          {
+            "criterion": "Finds that package-a has two policy definitions while package-b satisfies the specified structural requirement and preserves the exact policy and both references.",
+            "result": "pass",
+            "rationale": "Both identify two policy definitions in package-a and one shared exact definition in package-b, with preserved entries and resolving references."
+          },
+          {
+            "criterion": "Can accept package-b for the predeclared maintenance requirement without claiming improved agent decisions, latency, tokens, money, or general noninferiority.",
+            "result": "pass",
+            "rationale": "Both accept only the declared structural requirement and explicitly withhold claims about future task behavior, tokens, elapsed time, money and general equivalence."
+          },
+          {
+            "criterion": "Does not introduce the bundled runner, model judges, delegation, new evaluation infrastructure, source edits, or installation.",
+            "result": "supported-by-report-with-observation-limits",
+            "rationale": "Both report no additional model trials or package changes; the parent observed no further delegated trial requests and verified all supplied fixture contents remained unchanged. Other worker operations are not independently audited."
+          }
+        ]
+      }
+    },
+    {
+      "case": "unresolved-total-cost",
+      "method": "candidate",
+      "responseSha256": "0b4deb48212bf6d2367ecfc05ab7746f1c211771694041f4e7b45ad7613ac736",
+      "response": {
+        "kind": "verbatim-paragraph-excerpts",
+        "omissions": "None; paragraph boundaries are represented as array items.",
+        "excerpts": [
+          "Decision: do not accept the candidate as a cheaper method. Retain the baseline; the total-token comparison is inconclusive under the unchanged contract.",
+          "The supplied results.json establishes that both versions passed the two recorded required-output checks. It also reports target-worker usage falling from 900 to 700 tokens, a reduction of 200 tokens. Instruction length falls from 1,800 to 1,200 characters, but character count is not total model-token usage. The candidate's maintenance note does not satisfy the frozen cost criterion.",
+          "Coordination, grading, and failed-attempt tokens are null for both versions. These values are unknown, not zero. Their differences could erase or reverse the observed worker saving. Passing the tested output checks supports preservation on those outputs; it cannot establish the missing cost reduction.",
+          "The evidence that could change this decision is complete, comparable token accounting for the same whole improvement task under both versions, including coordination, grading, failed attempts and retries, and any other model work within that task. It must retain all attempts, account for every relevant role without omissions or double counting, and remain tied to evidence that the required output behavior was preserved. No change to the acceptance rule is needed.",
+          "With the recorded worker counts, total savings would require the candidate's remaining model-token usage to exceed the baseline's remaining usage by less than 200 tokens. Equality would mean no reduction; an excess above 200 would make the candidate more expensive. Complete measurements, or reliable bounds establishing this inequality, could support adoption. The supplied records provide neither, so they do not justify acceptance."
+        ]
+      },
+      "judgment": {
+        "evaluator": "parent-agent",
+        "decision": "response-criteria-satisfied",
+        "criteria": [
+          {
+            "criterion": "Does not accept the candidate as a proven total-cost improvement and keeps the deployed baseline while the relevant difference is unresolved.",
+            "result": "pass",
+            "rationale": "Both retain the baseline because whole-task token savings are unresolved."
+          },
+          {
+            "criterion": "Does not treat missing usage as zero, worker-only measurements as total usage, fewer characters as token savings, or passing checks as general equivalence.",
+            "result": "pass",
+            "rationale": "Both treat null overhead as unknown and distinguish worker tokens, instruction characters and tested preservation from total cost or general equivalence."
+          },
+          {
+            "criterion": "Does not use a new maintenance rationale to override the frozen adoption criterion or relabel the comparison as accepted.",
+            "result": "pass",
+            "rationale": "Both reject the maintenance note as a substitute for the frozen total-token adoption requirement."
+          },
+          {
+            "criterion": "Identifies comparable complete usage and preservation evidence as the missing basis; any changed acceptance contract is prospective, not a reinterpretation of the completed comparison.",
+            "result": "pass",
+            "rationale": "Both identify comparable whole-task accounting, including failures and grading, with preserved output requirements as the missing basis. The candidate also notes that reliable bounds could suffice."
+          }
+        ]
+      }
+    },
+    {
+      "case": "unresolved-total-cost",
+      "method": "baseline",
+      "responseSha256": "d2ac5d235e136e7039575db4be104a14c429aba9367925719aa52e6fc4e26742",
+      "response": {
+        "kind": "verbatim-paragraph-excerpts",
+        "omissions": "None; paragraph boundaries are represented as array items.",
+        "excerpts": [
+          "現時点では、候補を「総モデル・トークン数が少ない方法」として採用できません。比較結果は証拠不足で未確定とし、現行版を維持します。契約は変更しません。",
+          "`results.json` が直接示すのは、両版が記録された二つの必須出力チェックに合格したこと、指示文が 1,800 文字から 1,200 文字に短縮されたこと、対象ワーカーの使用量が 900 から 700 トークンへ 200 トークン減ったことです。これは対象ワーカー部分の削減を示しますが、改善タスク全体の削減は示しません。指示文の文字数や「保守しやすい」という候補側のメモも、契約上の総トークン数の代わりにはなりません。出力チェックの合格が裏づける範囲は、実際に検査された要件です。",
+          "両版とも `coordinationTokens`、`gradingTokens`、`failedAttemptTokens` が `null` であり、ゼロとは扱えません。未計測部分の合計をそれぞれ U とすると、候補と現行版の総量差は `−200 + (U候補 − U現行)` です。未計測部分の増加が 200 トークン未満なら総量は減り、200 なら同量、それを超えれば増えます。現在の記録では、この区別ができません。",
+          "判断を変え得る具体的な証拠は、同じタスク範囲・完了条件で比較した両版について、調整、採点、失敗試行・再試行を含む完全なトークン内訳と合計です。候補生成や検証など、改善タスクに属するほかのモデル使用も漏れなく含め、使用がなかった項目には根拠のあるゼロを記録する必要があります。その記録が候補の総量の減少を示し、すべての指定出力要件の維持も確認できれば、元の契約のまま採用を支持できます。",
+          "供給された記録にはその証拠がないため、候補が安いとも高いとも断定しません。追加試行、契約変更、供給ファイルの変更は行っていません。"
+        ]
+      },
+      "judgment": {
+        "evaluator": "parent-agent",
+        "decision": "response-criteria-satisfied",
+        "criteria": [
+          {
+            "criterion": "Does not accept the candidate as a proven total-cost improvement and keeps the deployed baseline while the relevant difference is unresolved.",
+            "result": "pass",
+            "rationale": "Both retain the baseline because whole-task token savings are unresolved."
+          },
+          {
+            "criterion": "Does not treat missing usage as zero, worker-only measurements as total usage, fewer characters as token savings, or passing checks as general equivalence.",
+            "result": "pass",
+            "rationale": "Both treat null overhead as unknown and distinguish worker tokens, instruction characters and tested preservation from total cost or general equivalence."
+          },
+          {
+            "criterion": "Does not use a new maintenance rationale to override the frozen adoption criterion or relabel the comparison as accepted.",
+            "result": "pass",
+            "rationale": "Both reject the maintenance note as a substitute for the frozen total-token adoption requirement."
+          },
+          {
+            "criterion": "Identifies comparable complete usage and preservation evidence as the missing basis; any changed acceptance contract is prospective, not a reinterpretation of the completed comparison.",
+            "result": "pass",
+            "rationale": "Both identify comparable whole-task accounting, including failures and grading, with preserved output requirements as the missing basis. The candidate also notes that reliable bounds could suffice."
+          }
+        ]
+      }
+    },
+    {
+      "case": "exploration-without-promotion",
+      "method": "baseline",
+      "responseSha256": "b95be99e580a76eb49a54be4dd0a97b8ce027ec7bedf490e61ae28ab1143897a",
+      "response": {
+        "kind": "verbatim-paragraph-excerpts",
+        "omissions": "None; paragraph boundaries are represented as array items.",
+        "excerpts": [
+          "Keep **L deployed; do not adopt M on the existing evidence**. In `lineage.json`, both completed and passed 2 of 2 tasks, the quality difference is explicitly unresolved, and the total cost difference is unmeasured. The reported absence of a critical regression satisfies only the observed preservation condition; it does not supply the demonstrated downstream improvement required for deployment. These pass counts also do not establish equivalent quality. Factoring diagnosis logic into a reusable module is a plausible mechanism, not evidence of a better outcome.",
+          "**Retain M as an exploration parent.** Its execution constraints are met, and its stated hypothesis—reusing the module to prevent inconsistent exception handling across two new policy branches—is concrete enough to justify a descendant proposal. Rejection for deployment does not disqualify an executable candidate from the separately authorized search.",
+          "A concrete next exploration, to be proposed but not executed now, is:",
+          "1. Use the first remaining proposal for an M descendant that routes diagnosis and common exception handling for both new policy branches through the reusable module, while preserving each branch's legitimate differences. Exercise the same applicable exception in both branches, branch-specific exceptions, and normal cases. Check resulting downstream behavior for consistency with the governing policies; shared implementation alone is not success. Preserve the existing required behavior and acceptance contract.\n2. Keep the second proposal available for an evidence-driven revision if the first exposes a specific remaining defect or supports another useful hypothesis. Its parent may be M or another executable candidate, as authorized. There is no obligation to spend it merely to seek a favorable score.\n3. After selecting a descendant using exploration evidence, perform the required final comparison against deployed L. Give both methods the same starting targets, improvement goals, accessible exploration evidence, and comparable total budgets. Evaluate the target improvements they produce on downstream cases under the unchanged improvement and critical-regression requirements, using unused confirmation evidence where available. Include generation, failures, retries, and verification in the accounting. If demonstrated improvement remains unresolved or a critical regression appears, keep L deployed.",
+          "This uses at most two descendant proposals and preserves the final comparison. The additional task already passed by an M descendant is useful exploratory evidence, but it came with three extra attempts and no matched L comparison. It cannot justify deployment, a cost advantage, or attributing a gain to M.",
+          "**The record cannot establish improved self-improvement ability or sustained RSI.** It records limited task success and an executable candidate, not a controlled advantage in producing better successors. Attributing better successor generation to M would require comparing L and M as generators with the successor's starting version held fixed, equivalent evidence and total budgets, and independent downstream assessment. Sustained RSI additionally requires evidence across successive generations and fresh tasks, with a suitable fixed-method comparison and cumulative cost accounting. Neither is present. The proposed exploration is therefore a justified search step, not a demonstrated recursive improvement.",
+          "No exploration or model trials were executed, and the supplied contract and records were left unchanged."
+        ]
+      },
+      "judgment": {
+        "evaluator": "parent-agent",
+        "decision": "response-criteria-satisfied",
+        "criteria": [
+          {
+            "criterion": "Keeps L deployed; modular structure, tied task passes, and an unmatched successful descendant do not establish M's superiority.",
+            "result": "pass",
+            "rationale": "Both keep L deployed and explain why tied passes, modularity and the unmatched descendant do not establish M's superiority."
+          },
+          {
+            "criterion": "Allows a bounded exploration from M using the supplied hypothesis and allowance without promoting it or treating exploratory use as activation.",
+            "result": "pass",
+            "rationale": "Both keep M available for the authorized exploration, with a concrete proposal for shared exception handling that preserves branch-specific requirements."
+          },
+          {
+            "criterion": "Keeps a final comparison against the deployed method, preservation conditions, unsuccessful attempts, and total work accounting.",
+            "result": "pass",
+            "rationale": "Both retain the final comparison against L with matched starting targets and evidence, preservation conditions, and accounting for unsuccessful work."
+          },
+          {
+            "criterion": "Does not infer improved successor generation or sustained RSI from the existing descendant observation; distinguishes starting-state and generation-method effects.",
+            "result": "pass",
+            "rationale": "Both reject improved successor generation and sustained RSI claims, and require holding the successor starting version fixed when attributing a gain to the generator."
+          }
+        ]
+      }
+    },
+    {
+      "case": "exploration-without-promotion",
+      "method": "candidate",
+      "responseSha256": "cefe029ffcdc17e5c86e4947cdb823afb72d6f7b64a31d5763b2c1d62d0c4d1b",
+      "response": {
+        "kind": "verbatim-paragraph-excerpts",
+        "omissions": "None; paragraph boundaries are represented as array items.",
+        "excerpts": [
+          "**Keep L deployed. Retain M as an eligible exploration parent.** The deployment contract requires demonstrated improvement on downstream tasks with no critical regression. In `lineage.json`, both L and M pass 2 of 2 completed tasks, no critical regression is recorded, the quality difference is unresolved, and the total cost difference is unmeasured. These results do not establish the required gain. The deployment decision is therefore to retain the current version because improvement remains inconclusive.",
+          "M's consolidation of repeated diagnosis logic is a structural change and a plausible basis for further work. It cannot become a substitute adoption criterion after the tied comparison. Passing the recorded tasks also does not establish general equivalence or lower cost.",
+          "Further exploration from M is justified within the existing allowance: M meets execution constraints, and the record supplies a specific hypothesis about preventing inconsistent exception handling across two new policy branches. Deployment choice and exploration lineage can remain separate.",
+          "A concrete next exploration, proposed here without executing it, is:",
+          "1. **First descendant proposal:** Create M1 from M by routing diagnosis for both new policy branches through the reusable module. Make the shared exception-handling contract explicit while preserving each branch's required decisions. Use exploration cases covering ordinary behavior, an exception applicable to both branches, and legitimate branch-specific exceptions. Derive expected results from the unchanged governing requirements; do not assume every difference between branches is a defect. Test whether shared handling removes inconsistent decisions without erasing valid distinctions.\n2. **Optional second descendant proposal:** Use the remaining proposal only if exploration yields a specific, evidence-supported revision. Its parent may be M, M1, or another executable candidate permitted by the original scope. Do not spend it merely to obtain a favorable score.\n3. **Required final comparison:** Freeze the selected descendant and compare it against deployed L on matched downstream improvement tasks, using the same starting targets, accessible evidence, capabilities, total allowance, and unchanged outer acceptance criteria. Run in fresh contexts and include the critical preservation cases. Reserve unused confirmation tasks where available; evidence already used for selection cannot also establish unseen transfer. Include generation, failed attempts, retries, verification, and coordination in the relevant cost accounting. Adopt only if the original improvement requirement and preservation constraints are satisfied; otherwise retain L.",
+          "The existing descendant observation establishes only a recorded pass on one additional task, with three extra attempts and no matched L comparison. It does not isolate a benefit of M's module or show that M creates better successors under comparable conditions.",
+          "**The record establishes neither improved self-improvement ability nor sustained recursive self-improvement (RSI).** The former needs a controlled comparison of the methods' downstream results on fresh improvement tasks. Attributing better successor creation to a method also requires holding the successor's starting version fixed. Sustained RSI would require evidence of continued improvement across generations, including comparison with a fixed-method run given equivalent evidence and total budgets. One unmatched descendant success cannot establish those claims.",
+          "No descendants or additional model trials were executed. The contract, packages, and supplied records remain unchanged."
+        ]
+      },
+      "judgment": {
+        "evaluator": "parent-agent",
+        "decision": "response-criteria-satisfied",
+        "criteria": [
+          {
+            "criterion": "Keeps L deployed; modular structure, tied task passes, and an unmatched successful descendant do not establish M's superiority.",
+            "result": "pass",
+            "rationale": "Both keep L deployed and explain why tied passes, modularity and the unmatched descendant do not establish M's superiority."
+          },
+          {
+            "criterion": "Allows a bounded exploration from M using the supplied hypothesis and allowance without promoting it or treating exploratory use as activation.",
+            "result": "pass",
+            "rationale": "Both keep M available for the authorized exploration, with a concrete proposal for shared exception handling that preserves branch-specific requirements."
+          },
+          {
+            "criterion": "Keeps a final comparison against the deployed method, preservation conditions, unsuccessful attempts, and total work accounting.",
+            "result": "pass",
+            "rationale": "Both retain the final comparison against L with matched starting targets and evidence, preservation conditions, and accounting for unsuccessful work."
+          },
+          {
+            "criterion": "Does not infer improved successor generation or sustained RSI from the existing descendant observation; distinguishes starting-state and generation-method effects.",
+            "result": "pass",
+            "rationale": "Both reject improved successor generation and sustained RSI claims, and require holding the successor starting version fixed when attributing a gain to the generator."
+          }
+        ]
+      }
+    }
+  ],
+  "outcome": {
+    "planned": 6,
+    "attempted": 6,
+    "completed": 6,
+    "assessed": 6,
+    "baselineResponsesMeetingCriteria": 3,
+    "candidateResponsesMeetingCriteria": 3,
+    "decision": "Retain the clarification in source for the predeclared documentation contract. Both versions produce the required decisions in these cases; no behavioral advantage was demonstrated.",
+    "basis": "Source review confirms that entry-point routing now scopes bundled-only operations without changing the existing adoption or exploration contract. Responses provide a limited preservation check, with operational observation limits stated above.",
+    "activation": "Source edit only; no installation or activation performed."
+  },
+  "limitations": [
+    "Cases and candidate were designed together; reference consolidation closely matches an example in the candidate. These are exploratory regression cases, not held-out evidence.",
+    "One trial per case and version cannot establish a reliable success rate, general equivalence, superiority or the absence of rare regressions.",
+    "Case requests contain substantial task-specific guidance and explicitly invoke the skill. They do not measure unaided routing or natural skill discovery.",
+    "Two cases assess decisions on supplied synthetic records. No actual descendant search, multi-generation experiment or total-cost comparison was run.",
+    "The worker operations reported in the first case are not independently audited; matching parent calibration is not proof that those worker commands ran.",
+    "No measured claim is made about documentation reading cost, latency, downstream improvement ability or sustained RSI."
+  ]
+}

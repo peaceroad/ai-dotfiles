@@ -4,7 +4,9 @@ Read this when choosing an evaluation method, when apparent gains may be grading
 
 ## Start with the observable claim
 
-Separate the behavior to improve, requirements that must remain true, and the evidence that could change the adoption decision. Choose the smallest adequate test of that claim. Evaluation design does not require a model judge or a search loop.
+Separate the intended gain, requirements that must remain true, and the evidence needed for adoption before running the comparison. Choose the smallest adequate test of that claim. Passing preservation checks does not establish the intended gain or general equivalence. Evaluation design does not require a model judge or a search loop.
+
+For example, a predeclared requirement to consolidate duplicate policy definitions can be checked against the source, retained policy and reference reachability. That establishes the specified structural change. A claim that the change improves task decisions, future improvement ability or total cost needs evidence of that outcome. Do not introduce a structural or maintenance rationale after a tied comparison to bypass its adoption rule; changing that rule requires a new contract.
 
 The improvement target is the agent skill or plugin, whatever subject it serves. Identify its task contract, assumptions, authoritative domain references and available verification methods. Reuse appropriate domain expertise; do not make this skill a catalog of every discipline or assume fluent explanations establish correctness. When the requested claim has no adequate available verifier, identify the observable part and retain the unresolved part explicitly.
 
@@ -24,11 +26,13 @@ When deriving cases from traces or feedback, separate observed facts from propos
 
 ## Choose the execution route
 
-Use the bundled runner for explicit text responses within its supported checks and judgments. Reuse an existing project harness for actual code execution, rendered artifacts, stateful tools, continuous scores, latency or other requirements it already measures. Do not force these into a binary text rubric merely to use the bundled script.
+Use the bundled runner for explicit text responses within its supported checks and judgments. Reuse existing project checks or a suitable harness for actual code execution, rendered artifacts, stateful tools, continuous scores, latency or other requirements they measure. A bounded check coordinated directly by the parent is also a project execution route; it does not require a new framework or a model judge. Do not force the claim into a binary text rubric merely to use the bundled script.
 
-For a project harness, verify one small run before a search. Record the frozen skill and candidate versions, case/group identities, initial state, command or entry point, runtime settings, grader version, artifact locations, terminal outcome and measured cost. Start each paired execution from comparable state and use the same cases and acceptance rule. Verify that the skill being compared actually reaches the worker. Keep infrastructure errors distinct from task failures, retain rejected attempts, and include generation and grading in the total allowance. The harness may own its native records; link them instead of converting them into invented bundled-runner receipts.
+For a project execution route, reuse a relevant working check or verify one small run before a search. Identify the frozen versions, inputs and case/group identities, initial state, command or delivery method, applicable runtime settings, grading criteria, actual results and adoption decision. Retain failed and rejected attempts; include generation, grading and coordination in the work allowance and leave unmeasured usage unknown. Use existing records and artifact references rather than requiring a parallel file layout. When model trials are needed, use fresh contexts, comparable starting conditions and the same acceptance rule, and verify which skill content reaches the worker. Keep infrastructure errors distinct from task failures and self-reported reads distinct from observed loading. Project records do not acquire the bundled runner's receipts, automatic limits or recovery guarantees merely by following its evaluation principles.
 
 Use the same adoption and preservation contract on these records. The bundled `apply` command consumes only its own accepted records; an external comparison uses an authorized, conflict-checked source edit with its own evidence and predecessor reference. If the necessary execution is unavailable, finish the evaluation design and state the unmeasured claim. Do not label a simulation as a successful live evaluation.
+
+To compare methods that choose tools, cases or trial allocation, hold the available capabilities, task, starting evidence, total allowance and outer acceptance criteria steady while allowing the declared choices to differ. Observe the resulting work and artifacts. A written choice of route tests a design decision; a runner that fixes that choice cannot establish its execution benefit.
 
 ## Separate adequacy from preference
 
