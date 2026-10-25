@@ -66,7 +66,7 @@ Read each selected skill's frontmatter and preserve its **full parsed descriptio
 
 Each UTF-8 JSON file is an object with these required fields:
 
-- `schemaVersion`: integer `1`, independent of plugin version `0.4.0` and old inventory schema 4
+- `schemaVersion`: integer `1`, independent of plugin version `0.4.2` and old inventory schema 4
 - `name`: the skill directory name, lowercase letters/digits and single hyphens, up to 64 characters
 - `source`: object with `repository` (source repository identifier), `path` (repository-relative skill directory or `.`), `ref` (requested ref), and `commit` (resolved full 40- or 64-character lowercase hexadecimal Git commit)
 - `files`: nonempty array of `{ "path": "SKILL.md", "sha256": "<64 lowercase hex digits>" }` records, one per adopted regular file
@@ -85,12 +85,18 @@ Use the same fields, raw-byte hash rules, optional informational metadata, and v
 
 ## Apply and resume
 
+For upstream updates of cloud-managed skills and plugins, normally skip a full pre-update backup when the complete current file inventory and raw bytes match a known fixed upstream commit and that exact content is verified retrievable. A version label or recorded hash alone is insufficient. Honor an explicit backup request. Before overwriting records, retain enough previous provenance to identify and verify the prior state: source repository/path/commit and file hashes, plus affected selection information when needed. This does not require a new snapshot or logging framework for every update.
+
+Preserve local edits, configuration, and extra files that the fixed upstream source cannot reproduce, including unexplained differences. Retain their actual content or a recoverable patch with its available base; hashes and descriptions cannot restore it. If prior content is not retrievable, preserve the content needed for recovery before an authorized replacement, or pause that target. Pause replacement while differences or its authorization remain unresolved; a backup does not authorize overwriting unexplained changes. Leave existing backups and restoration materials intact; an update does not authorize their cleanup.
+
 1. Inspect the current INDEX, affected manifests, full file differences, and source commit for this operation. Keep unrelated managed skills and packages intact; unselected files within an approved whole-package update remain part of that update. For legacy inventory, use [migration](migrations/0.1-to-0.2.md).
 2. Prepare the requested complete standalone skill or plugin contents. Read selected entrypoints and placement/verification references; check terms, dependencies, required resources, and code requirements. Confirm references are accessible within the agreed placement scope. Do not acquire unrequested dependencies to hide a packaging problem.
 3. For a plugin update, compare the current selected skills with the candidate package before any write. Preserve selection for unchanged skill identities; do not select newly added skills automatically. If a selected skill was deleted or renamed, pause that package update until the user resolves removal or replacement of the affected selection. Show the proposed INDEX changes together with the whole-package update. Do not silently infer a rename from similar contents. INDEX-only changes never acquire or update the package.
 4. Immediately before each write, recheck current contents against the inspected state. Serialize changes to the same files; reconcile concurrent edits without overwriting them.
 5. Apply authorized file and manifest changes, then update only affected INDEX descriptions or approved membership. Keep incomplete/mixed-version targets out of use while their files and records disagree. Do not silently fall back to another version.
 6. Read back and compare files and records. Run the relevant read-only [computer checks](computer-checks.md), inspect required references and descriptions, and report remaining differences. Return a skill to use only when its affected checks agree.
+
+For larger text updates, you may generate a patch in the dedicated `apply_patch` tool’s accepted format in an authorized writable location, review its target paths and changes, and submit it to that tool.
 
 There is no multi-file atomicity or recovery-engine guarantee. After interruption, inspect actual files, manifests, INDEX, and any retained intent before continuing only unfinished authorized work. Preserve newer edits. If the source SHA, selection, or intended local change is unknown, pause only that target. A readable file is not evidence of write permission; verify each authorized write separately. Keep the original source resolution through retries, and do not report failed or unverified updates as complete.
 

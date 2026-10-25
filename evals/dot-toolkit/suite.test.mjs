@@ -172,6 +172,26 @@ test('workspace scope and handoff boundaries remain synthetic decision cases', (
   }
 });
 
+test('text editing routes and approval boundaries remain synthetic decision cases', () => {
+  for (const id of [
+    'dedicated-text-edit-route', 'text-edit-tool-unsuitable', 'editing-route-startup-failure',
+    'editing-route-explicit-denial', 'large-text-update-patch',
+  ]) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', id);
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
+  }
+});
+
+test('update preservation boundaries remain synthetic decision cases', () => {
+  for (const id of [
+    'reproducible-update-backup-omission', 'explicit-update-backup-request',
+    'update-source-unavailable', 'update-unresolved-differences',
+  ]) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', id);
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
+  }
+});
+
 test('ordinary file requests remain extractable without loading cues or synthetic fixtures', () => {
   for (const id of ['find-existing-draft', 'continue-project-document', 'save-standalone-guide']) {
     assert.equal(cases.find(item => item.id === id)?.mode, 'main-dot', id);
@@ -261,7 +281,7 @@ test('the source manifest requires the content-hash schema and acceptance kind',
 
 test('source definitions keep installed-resource access and ordinary main-dot checks unrun', () => {
   const required = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
-  assert.equal(manifest.pluginVersion, '0.4.0');
+  assert.equal(manifest.pluginVersion, '0.4.2');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert.deepEqual(Object.keys(manifest.liveChecks).sort(), required.sort());
   for (const name of required) {
@@ -275,7 +295,7 @@ test('source definitions keep installed-resource access and ordinary main-dot ch
   for (const liveChecks of [undefined, null, [], 'not_run']) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.liveChecks = liveChecks; })), /must be an object/);
   }
-  for (const pluginVersion of [undefined, '0.1.0', '0.2.0', '0.3.0', 0.4]) {
+  for (const pluginVersion of [undefined, '0.1.0', '0.2.0', '0.3.0', '0.4.0', '0.4.1', 0.4]) {
     assert.throws(() => checkDefinitions(definitions(d => { d.manifest.pluginVersion = pluginVersion; })), /targets plugin version/);
   }
   for (const behavioralRuns of ['pass', 'fail', null]) {

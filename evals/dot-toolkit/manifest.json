@@ -4,18 +4,18 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "7c945a0a822ecefd1cf6f265156977241cb34582b28c848f2786ab892cafcabb",
-      "bytes": 10778
+      "sha256": "c17693f75188bbd40d8366f37a7761f543828d3280d9b8de822c30867663074f",
+      "bytes": 12080
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
-      "sha256": "a70a67478fb41febaae6fea79cf7928ce1fb7965b445e8f7799e830bdce07427",
+      "sha256": "8e5510baa57faab8dcef7cab7169cb163b67ed5c8f6b5b6772814a151ac9582f",
       "bytes": 219
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "3abfaab9a7a5c87afbf987839ddcdefb1a62db0b78410f527ca8e5e42a481a59",
-      "bytes": 11560
+      "sha256": "4ab09f9a4b706495d61ca38c3c1ebc8e1bde907409373dd08263cd902f96990a",
+      "bytes": 11790
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
@@ -24,13 +24,13 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
-      "sha256": "d272e8ca238f690e8ff7faeb9122a633149d25c8d8a9138c9c16cde0d5480495",
-      "bytes": 6630
+      "sha256": "e4ab229482d317abcc950f468a2404ad607ac0a76ddb65a9f244a834e91c074b",
+      "bytes": 6905
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "25fbed02551e8656e1d2e19d0c337e8c6c69ae5602727ad0731aa7c565b5dcd3",
-      "bytes": 13513
+      "sha256": "25c23d0a799da5dfe84a537ab37570d5f4f8c9909d93a0a6d4a514fbda0b0034",
+      "bytes": 14951
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
@@ -70,7 +70,7 @@
     "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
     "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
   ],
-  "pluginVersion": "0.4.0",
+  "pluginVersion": "0.4.2",
   "liveChecks": {
     "installedEntry": "not_run",
     "installedReferences": "not_run",
