@@ -1815,34 +1815,39 @@ test("consumer verifies both assembler digest formats across multiple read chunk
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("Marketplace wrapper refuses redirected lock parents before invoking the assembler", async (t) => {
-  const { mkdtempSync, readdirSync, renameSync } = await import("node:fs");
-  const root = mkdtempSync(join(tmpdir(), "wrapper-boundary-"));
-  try {
-    const fixture = consumerFixture(root);
-    const config = JSON.parse(readFileSync(fixture.configPath));
-    config.marketplaces.shared.mode = "authoritative";
-    writeJson(fixture.configPath, config);
-    const outside = join(root, "outside");
-    const redirected = join(fixture.marketplace, ".agents");
-    renameSync(redirected, outside);
-    try { symlinkSync(outside, redirected, "junction"); }
-    catch (error) {
-      if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
-      throw error;
-    }
-    const runner = join(root, "manager.mjs"), log = join(root, "manager.log");
-    makeRunner(runner, "assembler");
-    const before = readdirSync(outside, { recursive: true });
-    const result = run(CLI, ["dev", "marketplace", "sync"], {
-      ...fixture.env, AGENT_DEV_MARKETPLACE_MANAGER: runner, AGENT_DEV_LOG: log,
-    });
-    assert.equal(result.status, 1, result.stderr);
-    assert.match(result.stderr, /redirected/u);
-    assert.deepEqual(readdirSync(outside, { recursive: true }), before);
-    const { existsSync } = await import("node:fs");
-    assert.equal(existsSync(log), false);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+test("Marketplace wrapper refuses redirected lock parents and outputs before invoking the assembler", async (t) => {
+  for (const target of [".agents", "plugins"]) await t.test(target, async t => {
+    const { mkdtempSync, readdirSync, renameSync } = await import("node:fs");
+    const root = mkdtempSync(join(tmpdir(), "wrapper-boundary-"));
+    try {
+      const fixture = consumerFixture(root);
+      const config = JSON.parse(readFileSync(fixture.configPath));
+      config.marketplaces.shared.mode = "authoritative";
+      writeJson(fixture.configPath, config);
+      const outside = join(root, "outside");
+      const redirected = join(fixture.marketplace, target);
+      if (target === "plugins") mkdirSync(redirected);
+      renameSync(redirected, outside);
+      try { symlinkSync(outside, redirected, "junction"); }
+      catch (error) {
+        if (["EPERM", "EACCES"].includes(error.code)) return t.skip("Symbolic links are unavailable");
+        throw error;
+      }
+      const runner = join(root, "manager.mjs"), log = join(root, "manager.log");
+      makeRunner(runner, "assembler");
+      const before = readdirSync(outside, { recursive: true });
+      const result = run(CLI, ["dev", "marketplace", "sync"], {
+        ...fixture.env, AGENT_DEV_MARKETPLACE_MANAGER: runner, AGENT_DEV_LOG: log,
+      });
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /redirected/u);
+      assert.deepEqual(readdirSync(outside, { recursive: true }), before);
+      const { existsSync } = await import("node:fs");
+      assert.equal(existsSync(log), false);
+      assert.equal(existsSync(join(fixture.marketplace, ".agents", "marketplace-development", "agent-dev-sync.lock")), false);
+      assert.equal(existsSync(join(fixture.marketplace, ".agents", "marketplace-development", "agent-dev-sync.lock.guard")), false);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
 });
 
 test("interactive Marketplace review shares configure's save lock", async () => {
@@ -2097,4 +2102,43 @@ test('standalone import rejects generated sources through an aliased parent', t 
   const result = f.connect();
   assert.match(result.stdout + result.stderr, /source inside its generated plugins directory/);
   assert.deepEqual(f.saved().plugins, {});
+});
+
+
+test("sync stale-lock recovery requires terminal approval and preserves default No", async t => {
+  const { mkdtempSync, existsSync } = await import("node:fs");
+  const { pathToFileURL } = await import("node:url");
+  const root = mkdtempSync(join(tmpdir(), "sync-recovery-cli-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const source = join(root, "sample");
+  const marketplace = join(root, "marketplace");
+  const configPath = join(root, "development.json");
+  const lock = join(marketplace, ".agents", "marketplace-development", "agent-dev-sync.lock");
+  mkdirSync(source);
+  writeFileSync(join(source, "SKILL.md"), "---\nname: sample\ndescription: Synthetic sample.\n---\nSample\n");
+  writeJson(configPath, { schemaVersion: 2, plugins: {}, skills: { sample: { repository: source, skillRoot: "." } },
+    marketplaces: { team: { root: marketplace, name: "team", displayName: "Team", mode: "authoritative", plugins: [], skills: [{ target: "sample" }] } } });
+  mkdirSync(lock, { recursive: true });
+  const env = { AGENT_DEV_CONFIG: configPath, AGENT_DEV_HOME: join(root, "home"), AGENT_DEV_MARKETPLACE_MANAGER: MARKETPLACE_MANAGER };
+  const args = ["dev", "mp", "sync", "team"];
+  const piped = run(CLI, args, env, "y\n");
+  assert.equal(piped.status, 1);
+  assert.match(piped.stderr, /non-interactive sync never removes/);
+  assert.equal(existsSync(lock), true);
+  // Inject terminal flags only in a disposable child, never through a CLI bypass.
+  const preload = join(root, "terminal.mjs");
+  writeFileSync(preload, "Object.defineProperty(process.stdin, 'isTTY', {value:true}); Object.defineProperty(process.stdout, 'isTTY', {value:true});\n");
+  const terminalEnv = { ...env, NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` };
+  for (const answer of ["\n", "n\n", ""]) {
+    const declined = run(CLI, args, terminalEnv, answer);
+    assert.equal(declined.status, 1, declined.stdout + declined.stderr);
+    assert.equal(existsSync(lock), true);
+  }
+  const recovered = run(CLI, args, terminalEnv, "Y\n");
+  assert.equal(recovered.status, 0, recovered.stdout + recovered.stderr);
+  assert.match(recovered.stdout, /\[y\/N\]/);
+  assert.equal(existsSync(lock), false);
+  assert.equal(existsSync(`${lock}.guard`), false);
+  const checked = run(CLI, ["dev", "mp", "check", "team"], env);
+  assert.equal(checked.status, 0, checked.stdout + checked.stderr);
 });

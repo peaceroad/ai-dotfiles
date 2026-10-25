@@ -42,6 +42,12 @@ The CLI remains usable without either skill. If only this plugin is installed, C
 
 ## Marketplace temporary files
 
+Development Marketplace sync keeps a single bounded owner record (host, PID, start time, and unique ID) in `<marketplace>/.agents/marketplace-development/agent-dev-sync.lock/owner.json`, outside all plugin packages. This is temporary state, not an append-only log: successful sync removes it, interrupted sync leaves at most one record, and recovery does not create backup histories. Metadata reads are limited to 4 KiB. Host and PID are visible to people with access to the shared Marketplace; no source paths or command lines are recorded.
+
+When `agent dev marketplace sync` finds a lock in an interactive terminal, it reports the available owner information and can ask whether to remove a stale lock and retry, defaulting to No. Confirm only after checking that no computer is syncing. A running local PID or an inconclusive local process check blocks recovery; a stopped PID is not proof that a child process or another computer has stopped. Non-interactive execution never recovers a lock, even with piped `y`. Empty locks from older versions can be recovered; malformed metadata, unexpected contents, and redirected paths require manual inspection. PID reuse and duplicate host names can conservatively block recovery; time elapsed never authorizes deletion.
+
+The CLI checks the lock again after confirmation and serializes lock acquisition, replacement, and release through a short-lived sibling directory, `agent-dev-sync.lock.guard`. No guard is held while asking the user or assembling packages. A crash inside that short mutation window can leave the guard; retry first, then inspect it manually only after all writers have stopped. The guard is not automatically removed by age and no guard history accumulates. Older CLI versions do not honor this guard, so they must also be stopped before recovery. These safeguards do not replace coordination with other writers or guarantee recovery from arbitrary NAS failures.
+
 On Windows, `agent codex marketplace-staging status` inspects leftover
 `openai-bundled.staging-<UUID>` directories. After closing Codex/ChatGPT Desktop,
 CLI and IDE clients, run `agent codex marketplace-staging clean` from an external

@@ -16,7 +16,7 @@
     "skill-links:status": "node tools/agent/manage-skill-links.mjs status",
     "skill-links:check": "node tools/agent/manage-skill-links.mjs check",
     "skill-links:sync": "node tools/agent/manage-skill-links.mjs sync",
-    "check:agent-dev:common": "node --test tools/agent/agent.test.mjs scripts/install-agent.test.mjs scripts/inspect-codex-session-compatibility.test.mjs \"tools/agent/codex/*.test.mjs\""
+    "check:agent-dev:common": "node --test tools/agent/marketplace-lock.test.mjs tools/agent/agent.test.mjs scripts/install-agent.test.mjs scripts/inspect-codex-session-compatibility.test.mjs \"tools/agent/codex/*.test.mjs\""
   },
   "engines": {
     "node": ">=24"

@@ -181,6 +181,7 @@ source repositories. Modes do not switch automatically or identify the writer.
 Revision records: state/marketplaces/ beside development.json.
 The legacy reconcile command aliases check --interactive.
 
+Interactive sync can confirm stale-lock recovery (default No); non-interactive sync never removes locks.
 Sync preserves overwrite and concurrency guards; it does not commit, push, or
 install plugins for consumers. Configure changes local settings only.
 For consumer operations: agent marketplace --help.`,
@@ -1239,20 +1240,24 @@ function hasMarketplaceArtifacts(root) {
   ].some((pathValue) => existsSync(pathValue));
 }
 
-function acquireMarketplaceLock(root, name) {
-  assertMarketplaceDestinations(root);
-  const lockPath = join(root, MARKETPLACE_LOCK_RELATIVE_PATH);
-  assertDestinationPath(root, lockPath);
-  mkdirSync(dirname(lockPath), { recursive: true });
-  try {
-    mkdirSync(lockPath);
-  } catch (error) {
-    if (error.code === "EEXIST") {
-      fail(`Marketplace ${name} is locked by another sync. If no sync is running, remove the stale lock directory.`);
-    }
-    throw error;
-  }
-  return lockPath;
+async function acquireMarketplaceLock(root, recover = false) {
+  const { acquireSyncLock } = await import("./marketplace-lock.mjs");
+  const path = join(root, MARKETPLACE_LOCK_RELATIVE_PATH);
+  // Only lock storage is touched here. Sync validates all output destinations
+  // after acquisition (and after any recovery prompt), before publishing.
+  assertDestinationPath(root, path);
+  mkdirSync(dirname(path), { recursive: true });
+  const validate = target => assertDestinationPath(root, target);
+  const acquired = await acquireSyncLock(path, {
+    validate,
+    interactive: recover && Boolean(process.stdin.isTTY && process.stdout.isTTY),
+    confirm: async prompt => {
+      const input = createPromptReader("Sync cancelled because input ended; the lock was preserved.");
+      try { return await confirm(input, prompt); }
+      finally { input.close(); }
+    },
+  });
+  return { path, acquired };
 }
 
 function assertMarketplaceUnlocked(root, name) {
@@ -1261,8 +1266,14 @@ function assertMarketplaceUnlocked(root, name) {
   }
 }
 
-function releaseMarketplaceLock(root, lockPath, operationError) {
-  cleanupPath(root, lockPath, { recursive: true, force: true }, operationError);
+async function releaseMarketplaceLock(root, lockPath, operationError) {
+  const { releaseSyncLock } = await import("./marketplace-lock.mjs");
+  try {
+    releaseSyncLock(lockPath.path, lockPath.acquired, { validate: target => assertDestinationPath(root, target) });
+  } catch (error) {
+    if (!operationError) throw error;
+    console.error(`Sync lock cleanup failed: ${publicError(error)}`);
+  }
 }
 
 function assertMarketplaceDestinations(root) {
@@ -1434,7 +1445,7 @@ function marketplaceStatus(requestedName, config) {
   }
 }
 
-function handleMarketplace(action, requestedName, requestedPlugin, requestedSkill, config, reportToStdout = false) {
+async function handleMarketplace(action, requestedName, requestedPlugin, requestedSkill, config, reportToStdout = false) {
   const [name, entry] = selectTarget(config.marketplaces, requestedName, "marketplace");
   if (requestedPlugin !== undefined && requestedSkill !== undefined) {
     fail("Specify either --plugin or --skill, not both.", 2);
@@ -1456,7 +1467,7 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
     for (const [index, target] of targets.entries()) {
       console.log(`[${index + 1}/${targets.length}] ${target.plugin ? "Plugin" : "Skill"}: ${target.plugin ?? target.skill}`);
       let status;
-      try { status = handleMarketplace(action, name, target.plugin, target.skill, config, reportToStdout); }
+      try { status = await handleMarketplace(action, name, target.plugin, target.skill, config, reportToStdout); }
       catch (error) {
         error.message += `\nStopped contributor ${action}; ${index} earlier operations completed and were not rolled back.`;
         throw error;
@@ -1485,7 +1496,7 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
   const identityRoot = expandPath(entry.root, `marketplaces.${name}.root`);
   const root = canonicalRoot(identityRoot);
   assertMarketplaceLayoutCurrent(root, name);
-  const lockPath = action === "sync" ? acquireMarketplaceLock(root, name) : null;
+  const lockPath = action === "sync" ? await acquireMarketplaceLock(root, true) : null;
   if (action === "check") assertMarketplaceUnlocked(root, name);
   let operationError;
   try {
@@ -1569,7 +1580,7 @@ function handleMarketplace(action, requestedName, requestedPlugin, requestedSkil
     operationError = error;
     throw error;
   } finally {
-    if (lockPath) releaseMarketplaceLock(root, lockPath, operationError);
+    if (lockPath) await releaseMarketplaceLock(root, lockPath, operationError);
   }
 }
 
@@ -1867,14 +1878,14 @@ async function askRequired(input, prompt) {
   }
 }
 
-function createPromptReader() {
+function createPromptReader(endMessage = "Interactive input ended before configuration was saved.") {
   const reader = createInterface({ input: process.stdin, crlfDelay: Infinity });
   const lines = reader[Symbol.asyncIterator]();
   return {
     async question(prompt) {
       process.stdout.write(prompt);
       const next = await lines.next();
-      if (next.done) fail("Interactive input ended before configuration was saved.");
+      if (next.done) fail(endMessage);
       return next.value;
     },
     close() {
@@ -2153,7 +2164,7 @@ async function changeMarketplaceMode(input, config, preferredName) {
   } else if (entry.mode === "authoritative") {
     let checkStatus;
     try {
-      checkStatus = handleMarketplace("check", name, undefined, undefined, config);
+      checkStatus = await handleMarketplace("check", name, undefined, undefined, config);
     } catch (error) {
       console.log(`Cannot switch to ${mode} because the complete Marketplace check could not run: ${sanitizeOutput(error.message, [[HOME_PATH, "~"]])}`);
       return;
@@ -2702,7 +2713,7 @@ async function checkMarketplace({ target, pluginTarget, skillTarget, interactive
       status = 0;
     } else {
       console.log("Details:");
-      status = handleMarketplace("check", name, pluginTarget, skillTarget, config, true);
+      status = await handleMarketplace("check", name, pluginTarget, skillTarget, config, true);
       console.log(status === 0 ? `Result: IN SYNC (${scope})` : "Result: NOT VERIFIED (differences or validation errors; see details)");
     }
     comparisonCompleted = true;
@@ -2805,9 +2816,10 @@ async function reconcileMarketplace(requestedName) {
       console.log("No changes made."); return 0;
     }
     // Do not hold a NAS writer lock while waiting for human input.
-    const lock = acquireMarketplaceLock(root, name);
+    const lock = await acquireMarketplaceLock(root);
     let operationError;
     try {
+      assertMarketplaceDestinations(root);
       if (marketplaceRevision(root) !== revision) fail("Shared Marketplace changed during review. Run check --interactive again. No changes made.");
       withConfigurationLock((location) => {
         if (!configurationMatches(location.path, original)) fail("Local configuration changed during review. Run check --interactive again. No changes made.");
@@ -2817,7 +2829,7 @@ async function reconcileMarketplace(requestedName) {
     } catch (error) {
       operationError = error;
       throw error;
-    } finally { releaseMarketplaceLock(root, lock, operationError); }
+    } finally { await releaseMarketplaceLock(root, lock, operationError); }
     console.log(`Reconciled Marketplace ${name}; mode: ${entry.mode}. No packages were synchronized.`);
     return 0;
   } finally { input.close(); }
@@ -3079,7 +3091,7 @@ async function main() {
       if (invocation.summary) printTargets(config);
       else if (invocation.domain === "marketplace" && invocation.action === "status") process.exitCode = marketplaceStatus(invocation.target, config);
       else if (invocation.domain === "plugin") process.exitCode = handlePlugin(invocation.action, invocation.target, config);
-      else process.exitCode = handleMarketplace(
+      else process.exitCode = await handleMarketplace(
         invocation.action,
         invocation.target,
         invocation.pluginTarget,

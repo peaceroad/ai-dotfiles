@@ -22,6 +22,7 @@ export function runtimePayload(codexTools) {
   }
   add('tools/agent/development.schema.json', '../development.schema.json');
   add('tools/agent/manage-skill-links.mjs', 'manage-skill-links.mjs');
+  add('tools/agent/marketplace-lock.mjs', 'marketplace-lock.mjs');
   const plugin = 'plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins';
   for (const [name, marker] of [
     ['scripts/manage-local-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-local-runner v1'],
