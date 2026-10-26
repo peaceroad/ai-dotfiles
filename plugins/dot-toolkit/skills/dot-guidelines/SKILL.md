@@ -26,7 +26,7 @@ Read failures, access denials, malformed selections, and disappearance of previo
 Read only the reference needed for the requested work:
 
 - Explicit initial setup or private-input application: [setup](reference/setup.md).
-- Environment inspection, a concrete access/runtime problem, or interpreting helper results: [computer checks](reference/computer-checks.md).
+- Environment inspection, repository source acquisition or Git access diagnosis, a concrete access/runtime problem, or interpreting helper results: [computer checks](reference/computer-checks.md).
 - Skill or plugin addition, update, selection changes, comparison, reproduction, or interrupted maintenance: [skills maintenance](reference/skills-maintenance.md).
 - Existing 0.1 common files or legacy inventory during setup, inspection, or migration: [0.1 to 0.2 migration](reference/migrations/0.1-to-0.2.md). A remaining old layout needs migration, not automatic cleanup or a claim that setup is ready.
 - A user-reported installation update to 0.4 or a version transition observed during an explicit check, or an explicit request to review or organize existing work folders: [workspace review](reference/migrations/0.3-to-0.4.md). On an update, offer briefly unless available history shows it was already addressed; if history is unavailable, make the offer conditional instead of asking about past handling. Do not start organization without authorization or poll versions during normal work.

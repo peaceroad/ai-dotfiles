@@ -4,8 +4,8 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "c17693f75188bbd40d8366f37a7761f543828d3280d9b8de822c30867663074f",
-      "bytes": 12080
+      "sha256": "92f92a75d9c38c85e4f880111b01176d04e76a88ab7a62234718d7e8e4daac8f",
+      "bytes": 12715
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
@@ -14,8 +14,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "4ab09f9a4b706495d61ca38c3c1ebc8e1bde907409373dd08263cd902f96990a",
-      "bytes": 11790
+      "sha256": "2f75f70d4a95b959d4698a115dc82f1caca303a77dd84a4f0801c57d38f53d49",
+      "bytes": 11845
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
@@ -24,13 +24,13 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
-      "sha256": "e4ab229482d317abcc950f468a2404ad607ac0a76ddb65a9f244a834e91c074b",
-      "bytes": 6905
+      "sha256": "9a4469bf2486a9328947a80f516a38a36a9a7610b9c97e9eab6c3d9a34f3cb5e",
+      "bytes": 10103
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "25c23d0a799da5dfe84a537ab37570d5f4f8c9909d93a0a6d4a514fbda0b0034",
-      "bytes": 14951
+      "sha256": "22b63e2180f7801448cddbf00b2da606063adc7085c426f014cf9efe2102da40",
+      "bytes": 15211
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",

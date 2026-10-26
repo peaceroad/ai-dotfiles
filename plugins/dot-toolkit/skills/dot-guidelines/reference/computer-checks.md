@@ -12,6 +12,20 @@ Locate scripts relative to the actual installed `dot-guidelines` skill. A filesy
 
 Reuse a complete verified execution copy while its identified package version remains current for this operation; do not retrieve it again merely to repeat the check. If package identity changes between reads or cannot be established, pause dependent execution and report the gap. Separate reads do not automatically pin the whole package. Readable script text alone does not establish execution support or authorize running it.
 
+## Repository source acquisition and Git access
+
+These are task-specific acquisition decisions, not additional operations of the read-only helpers below. The helpers still perform no network access or writes.
+
+For work that needs editable repository source, first reuse the intended existing checkout when its repository identity, revision, and local changes are established. Preserve unknown changes and ownership; do not overwrite a directory, reset it, or replace it with a fresh clone merely to obtain a clean baseline. Use the [cloud workspace](../SKILL.md#cloud-workspace) rules for a new source home.
+
+When a checkout is needed, prefer ordinary Git over rebuilding a repository file by file if the requested read, destination, transport, and any required authentication are already authorized and available. A public repository may need no authentication. Resolve the requested ref to a fixed commit and verify the resulting source identity; reuse that resolution on retries rather than silently adopting a new HEAD. A connector remains appropriate for narrow reads and repository metadata. Reading or cloning does not authorize pushing, publishing, running repository code, or expanding to submodules and other repositories.
+
+Diagnose only the missing prerequisite: distinguish a working Git executable, permitted network access to the intended host, authentication required by that repository, and authorization for the requested operation. Connector access and browser sign-in do not establish shell Git authentication. An absent credential helper does not rule out other supported authentication mechanisms. Inspect non-secret status or configuration presence only as needed; do not dump the environment, retrieve credential values, or expose credential-bearing URLs. Do not install software, create or persist credentials, change network/access settings, or move the task to another environment without the applicable authorization.
+
+Use documented, supported transports within current permissions. Do not invent a mirror or proxy mapping, borrow another service's credential, or switch tools to bypass an explicit denial. If a required host is not permitted, do not attempt that connection. Report the affected operation and prerequisite; an unattempted remote read is not a measured authentication or connectivity failure. This guidance cannot grant host-managed access.
+
+If a permitted connector or archive is used instead, identify it as a source snapshot rather than a Git checkout. Pin one commit and verify the required file inventory and bytes against that source, retaining available path/type/mode information. State whether acquisition is complete or scoped, including missing or unreadable files, binary assets, link/submodule targets, or metadata needed by the task. Do not invent missing content or substitute fixtures merely to make tests pass. Continue work supported by the acquired scope, but leave checks needing unavailable history, files, or metadata unverified. Do not claim a complete repository, package, or full test pass from a partial snapshot. The existing [package completeness contract](skills-maintenance.md#package-scope) still applies before adoption.
+
 ## Commands
 
 Run from the skill's `scripts/` directory, or use the equivalent verified absolute script path:
