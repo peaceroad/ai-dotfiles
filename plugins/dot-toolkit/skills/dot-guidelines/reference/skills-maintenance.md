@@ -13,9 +13,9 @@ Use the [computer checks](computer-checks.md) that support that operation. INDEX
 
 ## Package scope
 
-Adopt each standalone skill as a complete folder at `/workspace/.agents/skills/<name>/`, including its references, scripts, templates, and assets. Record provenance in `/workspace/.agents/skills-state/manifests/<name>.json` using schema 1 below. Existing 0.2 placements and manifests remain valid: there is no automatic move, rename, or duplicate cleanup. If a user requests a conversion, compare source identity, local edits, selected membership, and references before agreeing the affected changes.
+Adopt each standalone skill as a complete folder at `/workspace/shared/ai-dotfiles/agents/skills/<name>/`, including its references, scripts, templates, and assets. Record provenance in `/workspace/shared/ai-dotfiles/agents/skills-state/manifests/<name>.json` using schema 1 below. Schema-1 manifests and package-relative contents remain valid across the layout change. Old-root placements are migration sources, not a second normal runtime; use [migration routing](migrations/README.md) before adopting them at the 0.5 root. There is no automatic move, rename, or duplicate cleanup. If a user requests a conversion, compare source identity, local edits, selected membership, and references before agreeing the affected changes.
 
-Adopt a plugin as one complete package at `/workspace/.agents/plugins/<plugin-name>/`, with provenance at `/workspace/.agents/plugins-state/manifests/<plugin-name>.json`. Preserve upstream `plugin.json`, unqualified `SKILL.md` names, root resources, MCP configuration, client-extension directories, and internal relative layout. A skill may refer outside its own folder to resources inside its package; validate containment at the package root. Do not flatten, split, rename, or rewrite source files to make cloud discovery work. MCP-only packages with no skills may be retained without INDEX entries.
+Adopt a plugin as one complete package at `/workspace/shared/ai-dotfiles/agents/plugins/<plugin-name>/`, with provenance at `/workspace/shared/ai-dotfiles/agents/plugins-state/manifests/<plugin-name>.json`. Preserve upstream `plugin.json`, unqualified `SKILL.md` names, root resources, MCP configuration, client-extension directories, and internal relative layout. A skill may refer outside its own folder to resources inside its package; validate containment at the package root. Do not flatten, split, rename, or rewrite source files to make cloud discovery work. MCP-only packages with no skills may be retained without INDEX entries.
 
 Before placement, verify `plugin.json` and its plugin name, source repository/path and fixed commit, complete file inventory, references, requirements, and local differences. A different repository/path claiming an already adopted plugin name is an identity collision: do not overwrite it or invent an alias. Identical repository/path/commit acquisitions may be deduplicated. An update to the same source replaces the whole package only within the approved version scope. Missing, extra, or changed local bytes must be explained and preserved or explicitly resolved before replacement. Reject path escapes, symlinks, hardlinks, and unsupported file types rather than omitting or dereferencing them and claiming a complete copy. These filesystem-copy constraints are stricter than portable plugin client behavior; the checks are not a full Agent Plugins validator.
 
@@ -29,7 +29,7 @@ Repair, reproduction, retry, and continuation reuse the recorded commit and inte
 
 ## INDEX contract
 
-`/workspace/.agents/skills-state/INDEX.md` owns intentional per-skill selection for normal work, for both standalone skills and plugin skills. It is not a generated inventory of all manifests. Preserve its membership during description refreshes or format migration. Change membership only within the requested selection scope. Never reconstruct a missing or damaged established INDEX from all manifests. Inspect current files and known selection evidence; ask only for the selection that cannot be established. New-environment absence and a valid empty selection are different from loss or corruption.
+`/workspace/shared/ai-dotfiles/agents/skills-state/INDEX.md` owns intentional per-skill selection for normal work, for both standalone skills and plugin skills. It is not a generated inventory of all manifests. Preserve its membership during description refreshes or format migration. Change membership only within the requested selection scope. Never reconstruct a missing or damaged established INDEX from all manifests. Inspect current files and known selection evidence; ask only for the selection that cannot be established. New-environment absence and a valid empty selection are different from loss or corruption.
 
 The entire format is a `# Skills` title followed by zero or more entries:
 
@@ -66,7 +66,7 @@ Read each selected skill's frontmatter and preserve its **full parsed descriptio
 
 Each UTF-8 JSON file is an object with these required fields:
 
-- `schemaVersion`: integer `1`, independent of plugin version `0.4.2` and old inventory schema 4
+- `schemaVersion`: integer `1`, independent of plugin version `0.5.0` and old inventory schema 4
 - `name`: the skill directory name, lowercase letters/digits and single hyphens, up to 64 characters
 - `source`: object with `repository` (source repository identifier), `path` (repository-relative skill directory or `.`), `ref` (requested ref), and `commit` (resolved full 40- or 64-character lowercase hexadecimal Git commit)
 - `files`: nonempty array of `{ "path": "SKILL.md", "sha256": "<64 lowercase hex digits>" }` records, one per adopted regular file

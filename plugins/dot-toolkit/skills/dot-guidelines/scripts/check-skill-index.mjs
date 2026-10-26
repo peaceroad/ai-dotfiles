@@ -26,7 +26,7 @@ run('check-skill-index', process.argv.slice(2), (_options, result, access) => {
     }
     if (selected.kind === 'plugin') {
       const manifest = checkedPlugins.get(selected.name);
-      const relative = selected.path.split('/').slice(3).join('/');
+      const relative = selected.packageRelative;
       if (manifest && !manifest.files.some(file => file.path === relative)) {
         finding(result, 'mismatch', 'selected_skill_unrecorded', selected.path);
       }

@@ -32,6 +32,8 @@ Run from the skill's `scripts/` directory, or use the equivalent verified absolu
 
 ```sh
 node inspect-computer.mjs --root /workspace
+# Only for an explicitly scoped legacy migration-source presence check:
+node inspect-computer.mjs --root /workspace --migration-source
 node check-skill-index.mjs --root /workspace
 node verify-skill-files.mjs --root /workspace --skill example-skill
 node verify-skill-files.mjs --root /workspace --skill example-skill --skill another-skill
@@ -40,9 +42,11 @@ node verify-skill-files.mjs --root /workspace --plugin example-plugin
 node verify-skill-files.mjs --root /workspace --all-plugins
 ```
 
+Normal helpers inspect only `/workspace/shared/ai-dotfiles/{codex,agents}` beneath the supplied `/workspace` root. They do not select a runtime layout or fall back to old paths. `inspect-computer --migration-source` alone inspects fixed old `/workspace/.codex`, `/workspace/.agents`, and 0.1 artifact presence without reading their contents; it neither verifies legacy hashes nor makes that layout active.
+
 Every command also supports `--help`. Supply an explicit absolute root; synthetic tests use an isolated root with the same internal layout. Verification needs explicit `--skill` names or standalone `--all`, or explicit `--plugin` names or `--all-plugins`. Do not mix these scope forms. The all options enumerate only the corresponding managed provenance directory, not client-installed packages or normal selection membership.
 
-- `inspect-computer.mjs` inspects fixed known root/directories and configuration paths, including legacy common/setup/INDEX/inventory presence, and reports the executing Node runtime. It does not read or print private instruction contents, enumerate the user's workspace, infer writeability, or establish historical use.
+- `inspect-computer.mjs` inspects fixed known root/directories and configuration paths, and reports the executing Node runtime. Legacy common/setup/INDEX/inventory presence is inspected only with `--migration-source`. It does not read or print private instruction contents, enumerate the user's workspace, infer writeability, or establish historical use.
 - `check-skill-index.mjs` checks the [small INDEX grammar](skills-maintenance.md#index-contract), unique names, exact links, each selected manifest and real `SKILL.md` target, and containment. Qualified entries resolve to plugin provenance; the helper checks plugin identity and that the selected entrypoint is recorded. It does not hash the whole package. It does not add unselected manifest members, parse YAML, or compare the description semantically with frontmatter.
 - `verify-skill-files.mjs` validates the explicitly scoped standalone or plugin manifests and compares all declared regular files by exact relative path and raw-byte SHA-256, reporting missing, extra, and modified files. Plugin mode also compares the package name in `plugin.json` with its placement/provenance name. Filesystem aliases, such as differently cased names resolving to one file, do not establish that both declared paths exist. It refuses unsupported links/types rather than following them or excluding them from a successful result. Executable/read-only regular files may be hashed, but permission and owner identity are not compared.
 
