@@ -25,7 +25,7 @@ Copying MCP configuration or extensions does not register, start, authenticate, 
 
 For new placement or an upstream update, use the requested commit, or resolve the requested branch/tag once to an immutable Git commit. Default to `main` only if no ref was specified; do not guess another ref if it is absent. Use the same resolution for packages acquired together from that repository. Verify archive content against that commit; a filename is not evidence. For edited sources, preserve the requested local changes and base identity instead of fetching newer content.
 
-Repair, reproduction, retry, and continuation reuse the recorded commit and intended changes. Never turn them into an upstream upgrade by resolving a fresh HEAD. If identity or required content is unavailable, pause that target rather than inventing metadata. Source snapshots may live in projects or downloads; do not copy `.git` or depend on an installed cache as editable source.
+Repair, reproduction, retry, and continuation reuse the recorded commit and intended changes. Never turn them into an upstream upgrade by resolving a fresh HEAD. If identity or required content is unavailable, pause that target rather than inventing metadata. Follow the [source acquisition checks](computer-checks.md#repository-source-acquisition-and-git-access) when choosing or diagnosing the retrieval route. Source checkouts or snapshots may live in projects or downloads. Keep Git metadata with a source checkout when needed, but exclude `.git` from adopted skill/plugin packages. Do not depend on an installed cache as editable source.
 
 ## INDEX contract
 

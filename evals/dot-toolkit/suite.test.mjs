@@ -182,6 +182,16 @@ test('text editing routes and approval boundaries remain synthetic decision case
   }
 });
 
+test('Git source acquisition boundaries remain synthetic decision cases', () => {
+  for (const id of [
+    'git-source-existing-checkout', 'git-source-public-transport', 'git-source-auth-boundaries',
+    'git-source-network-denied', 'git-source-partial-snapshot',
+  ]) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation', id);
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
+  }
+});
+
 test('update preservation boundaries remain synthetic decision cases', () => {
   for (const id of [
     'reproducible-update-backup-omission', 'explicit-update-backup-request',
