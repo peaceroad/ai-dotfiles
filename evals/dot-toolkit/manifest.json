@@ -4,53 +4,53 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "92f92a75d9c38c85e4f880111b01176d04e76a88ab7a62234718d7e8e4daac8f",
-      "bytes": 12715
+      "sha256": "504e3765a24ba4873b755cc818dc35acbd4d35e5180d5c834edd6e2b5b86ebb1",
+      "bytes": 13959
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
-      "sha256": "8e5510baa57faab8dcef7cab7169cb163b67ed5c8f6b5b6772814a151ac9582f",
+      "sha256": "260611051edd9ca8d79bca34f2d9b8ff7a6b683bb44a2eeeb03f32f680fe5ed0",
       "bytes": 219
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/SKILL.md",
-      "sha256": "2f75f70d4a95b959d4698a115dc82f1caca303a77dd84a4f0801c57d38f53d49",
-      "bytes": 11845
+      "sha256": "1282084a9917ddefb9322559d2d2b7e1a8053bccdc9f3a6d99ee1f0563778ae6",
+      "bytes": 11747
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/setup.md",
-      "sha256": "a66d1c8f2020c08f93c85baa5876e9d8961ae96d1493f34ebbe8f32a8d81d982",
-      "bytes": 7834
+      "sha256": "5722ba52247926c97cfeda31002b1ceca20cf3ba11d047125e24dbedf730e3e2",
+      "bytes": 8667
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
-      "sha256": "8132e66fbd7b45bed68e15889b8a639bb01748cb7754d1b946786c3a8b6f6236",
-      "bytes": 10130
+      "sha256": "e025571e487ee01640ea89080efa97d410f6a176928f509b7ab1611ee765cf39",
+      "bytes": 10706
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "22b63e2180f7801448cddbf00b2da606063adc7085c426f014cf9efe2102da40",
-      "bytes": 15211
+      "sha256": "923e87c0366860ba5d285aa91cd508d3b1088cd20c46cdf8a8a19a314fcafab2",
+      "bytes": 15493
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
-      "sha256": "082eacff788702d17f5a94c1fff91d9132768dc9480629fd1a60e44a7324e717",
-      "bytes": 7720
+      "sha256": "828615d38a79326fcee4b01391bbc3fef99dc41a47d51379a01f24d19f0b24a9",
+      "bytes": 8305
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.3-to-0.4.md",
-      "sha256": "a79973206c8461ef3d3d9c28fa6b136189acf203780b53c47b88addda2d25201",
-      "bytes": 7066
+      "sha256": "1d89aa8ba82dab42f9ab1d4d253dcfd405ec228ae3dc1245dc39813e4563a4bc",
+      "bytes": 7247
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs",
-      "sha256": "3dc43469c369e7c27f5964310915935626df1f85f073919141fd70dabf8f4c30",
-      "bytes": 1519
+      "sha256": "8cef75bd4fc26a20a0246b9792fd6e3cc2f9b19b32d246bfdf69f7577c520ce7",
+      "bytes": 2239
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs",
-      "sha256": "fcf3bddd46270fcbbe71189fb36d7dca3db8e4a39c1f65b6338ccf19f119627a",
-      "bytes": 1806
+      "sha256": "77943d24b49a99b00e612ea8a3bde257a0a23553e4e2791295879eda38a9691b",
+      "bytes": 1787
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs",
@@ -59,8 +59,18 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs",
-      "sha256": "f3a33625deea0a172f6d71f90e96523694f4689ca64b3c908d91e595d346af07",
-      "bytes": 16479
+      "sha256": "2e65ef844932b1a0d978d9e1e60171a18da47c7f2cc9368c4903dd62acdb40b2",
+      "bytes": 16889
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/README.md",
+      "sha256": "277634689f574eea60640eaf5ba477c73e5812bdd6eae9db637d50f6bd271a86",
+      "bytes": 2519
+    },
+    {
+      "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.4-to-0.5.md",
+      "sha256": "825455bd99e00941612005a140bcfc7739b9298c950685663f07ae4cadf48a8d",
+      "bytes": 6680
     }
   ],
   "behavioralRuns": "not_run",
@@ -70,7 +80,7 @@
     "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
     "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
   ],
-  "pluginVersion": "0.4.2",
+  "pluginVersion": "0.5.0",
   "liveChecks": {
     "installedEntry": "not_run",
     "installedReferences": "not_run",

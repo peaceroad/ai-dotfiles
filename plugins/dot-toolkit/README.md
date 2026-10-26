@@ -4,6 +4,14 @@ An unofficial, experimental plugin for your ongoing main dot. It helps dot use p
 
 The bundled `dot-guidelines` skill provides common guidance and reads setup, inspection, maintenance, or migration instructions when needed. It does not bundle your private instructions or the additional plugins you choose.
 
+## Who should choose 0.5
+
+Version **0.5.0 is opt-in** for environments where the 0.4 managed layout prevents installing or updating skills or plugins. Users whose 0.4 setup works need not migrate. A future consolidation version and its timing are undecided.
+
+0.5 uses one normal layout under `/workspace/shared/ai-dotfiles/{codex,agents}/`; the former `/workspace/.codex/` and `/workspace/.agents/` are migration sources or rollback material, not parallel active roots. Directory contents, INDEX grammar, and schema-1 manifests are preserved.
+
+This is a toolkit convention, not native Codex discovery or a sandbox repair. Updating the Web plugin does not authorize copying protected instructions, switching their active location, or changing permissions. Before live adoption, establish an authorized, supported route for the target environment and verify actual loading. If that prerequisite is unavailable, keep source validation separate and leave adoption pending; do not use another tool or a link to circumvent a denial.
+
 ## Install and start
 
 Install **dot-toolkit itself in ChatGPT Web**, using a ZIP or a shared plugin supplied by its maintainer. Use the account and workspace where you use dot. Uploading a ZIP and installing the plugin are separate steps; attaching a ZIP to a conversation or extracting it into the cloud is not installation. Availability and upload permissions depend on the workspace. See OpenAI's [plugin installation guide](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt).
@@ -30,22 +38,24 @@ These paths are conventions for **dot's cloud**, not the user's computer or Chat
 
 | Path | Purpose |
 | --- | --- |
-| `/workspace/.codex/AGENTS-private.md` | Optional private instructions and conditional references |
-| `/workspace/.agents/plugins/<plugin-name>/` | Complete adopted plugin package, preserving source layout |
-| `/workspace/.agents/plugins-state/manifests/<plugin-name>.json` | Package provenance and raw-byte file hashes |
-| `/workspace/.agents/skills/<skill-name>/` | Existing standalone skills, still supported |
-| `/workspace/.agents/skills-state/manifests/<skill-name>.json` | Existing standalone schema-1 records, unchanged |
-| `/workspace/.agents/skills-state/INDEX.md` | One deliberately selected catalog for both kinds of skill |
+| `/workspace/shared/ai-dotfiles/codex/AGENTS-private.md` | Optional private instructions and conditional references |
+| `/workspace/shared/ai-dotfiles/agents/plugins/<plugin-name>/` | Complete adopted plugin package, preserving source layout |
+| `/workspace/shared/ai-dotfiles/agents/plugins-state/manifests/<plugin-name>.json` | Package provenance and raw-byte file hashes |
+| `/workspace/shared/ai-dotfiles/agents/skills/<skill-name>/` | Existing standalone skills, still supported |
+| `/workspace/shared/ai-dotfiles/agents/skills-state/manifests/<skill-name>.json` | Existing standalone schema-1 records, unchanged |
+| `/workspace/shared/ai-dotfiles/agents/skills-state/INDEX.md` | One deliberately selected catalog for both kinds of skill |
 
 Plugin catalog entries use `plugin-name:skill-name` and link to `../plugins/plugin-name/skills/skill-name/SKILL.md`. Standalone entries retain `../skills/skill-name/SKILL.md`. The qualified catalog name does not change the source skill's frontmatter `name`. Each entry retains the full parsed description so dot can select relevant guidance.
 
 A provenance record is separate from the upstream `plugin.json`; it does not rewrite the package or select every bundled skill. INDEX is not regenerated from all installed packages or records. If multiple applicable sources remain ambiguous, identify the intended source rather than silently combining them. An explicitly requested source takes precedence; otherwise deliberately selected cloud guidance takes precedence over an applicable same-name client copy.
 
-Existing 0.2 standalone skills and private instructions need **no mandatory migration**. An explicit conversion to a plugin package is a separate change that preserves local edits and selected membership. The older [0.1-to-0.2 migration procedure](skills/dot-guidelines/reference/migrations/0.1-to-0.2.md) remains available for old common files and records.
+Existing standalone packages keep their format and content, but adopting 0.5 from the old layout is an explicit location migration, not automatic compatibility with the old path. Use the bundled [migration index](skills/dot-guidelines/reference/migrations/README.md) for the applicable operation: old 0.1 records, optional 0.3-to-0.4 workspace organization, or opt-in 0.4-to-0.5 layout migration. These are not a mandatory sequential upgrade chain.
 
-Upgrading from 0.3 to 0.4 requires no data conversion. When the user reports an installation update or an explicit check observes the installed version transition, dot briefly offers a [workspace review](skills/dot-guidelines/reference/migrations/0.3-to-0.4.md) unless available history shows it was already addressed. If history is unavailable, it makes a conditional offer without asking you to reconstruct past handling. You can also request organization of folders created under 0.3 or earlier at any time, including usable folders you want to arrange more consistently. The update alone does not authorize file organization.
+If the new root is absent but legacy configuration is known, report migration as pending rather than treating the environment as a fresh empty setup. Do not silently fall back to the old root or reconstruct selection from manifests. Partial or unreadable configuration pauses only dependent work.
 
 ## Updates and maintenance
+
+A 0.5 location migration preserves adopted versions, local edits, and deliberately selected membership. Package updates and selection changes remain separate operations. Keep the old source until verification and any separately authorized retirement; rollback also needs an available old entrypoint and preservation of changes made after switching.
 
 Version 0.4.2 clarifies pre-update preservation for cloud-managed skills and plugins. Full backups are normally skipped when the current package matches a fixed upstream commit and the exact content is verified retrievable. Previous provenance and any necessary selection information remain available; local edits, configuration, and extra files that upstream cannot reproduce are preserved. Existing backups are not deleted. See the [maintenance procedure](skills/dot-guidelines/reference/skills-maintenance.md#apply-and-resume) for the decision boundary.
 
@@ -86,10 +96,10 @@ Use the maintainer's specified tag or commit, or the commit containing this guid
 ```sh
 git rev-parse HEAD
 git show HEAD:plugins/dot-toolkit/plugin.json
-git archive --format=zip --output=../dot-toolkit-0.4.2.zip HEAD:plugins/dot-toolkit
+git archive --format=zip --output=../dot-toolkit-0.5.0.zip HEAD:plugins/dot-toolkit
 ```
 
-Confirm version `0.4.2` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files. Candidate packages can share a version label; retain the source commit and ZIP SHA-256 to distinguish their contents and keep verification results tied to the candidate actually checked.
+Confirm version `0.5.0` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files. Candidate packages can share a version label; retain the source commit and ZIP SHA-256 to distinguish their contents and keep verification results tied to the candidate actually checked.
 
 ## Scope and background
 

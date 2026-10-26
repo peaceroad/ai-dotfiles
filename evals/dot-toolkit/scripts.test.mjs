@@ -6,13 +6,13 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parseArgs, parseIndex, supportedNode, validName, validRelative, validateManifest } from '../../plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs';
+import { AGENTS, CODEX, selectionTarget, parseArgs, parseIndex, supportedNode, validName, validRelative, validateManifest } from '../../plugins/dot-toolkit/skills/dot-guidelines/scripts/lib.mjs';
 import { createHash } from 'node:crypto';
 
 const scripts = path.resolve(import.meta.dirname, '../../plugins/dot-toolkit/skills/dot-guidelines/scripts');
 const commands = ['inspect-computer', 'check-skill-index', 'verify-skill-files'];
 const digest = value => createHash('sha256').update(value).digest('hex');
-const state = '.agents/skills-state';
+const state = 'shared/ai-dotfiles/agents/skills-state';
 function temporary(t) {
   // Canonicalize the test framework's temp parent, not the helper's requested root.
   const root = fs.mkdtempSync(path.join(fs.realpathSync(tmpdir()), 'dot-synthetic-'));
@@ -29,7 +29,7 @@ function record(name = 'sample', files = { 'SKILL.md': '---\nname: sample\ndescr
     ref: 'synthetic-ref', commit: 'a'.repeat(40) }, files: Object.entries(files).map(([name, content]) => ({ path: name, sha256: digest(content) })) };
 }
 function putSkill(root, name = 'sample', files = { 'SKILL.md': 'Synthetic skill; YAML semantics intentionally unchecked.\n' }, manifest = record(name, files)) {
-  for (const [relative, content] of Object.entries(files)) write(root, `.agents/skills/${name}/${relative}`, content);
+  for (const [relative, content] of Object.entries(files)) write(root, `shared/ai-dotfiles/agents/skills/${name}/${relative}`, content);
   write(root, `${state}/manifests/${name}.json`, JSON.stringify(manifest));
   return manifest;
 }
@@ -132,7 +132,7 @@ test('fresh root inspection only reports fixed locations and never reads private
   assert.equal(fresh.output.status, 'complete');
   assert.ok(fresh.output.data.locations.every(item => item.state === 'missing'));
   const secret = 'SYNTHETIC_PRIVATE_CONTENT_MUST_NOT_APPEAR';
-  for (const file of ['.codex/AGENTS-private.md', 'AGENTS.md', '.codex/dot-setup.md', '.agents/skills/INDEX.md', '.agents/skills/skills-manifest.json']) write(root, file, secret);
+  write(root, `${CODEX}/AGENTS-private.md`, secret);
   const before = snapshot(root);
   const result = boot('inspect-computer', root, `
     const original = fs.readFileSync;
@@ -145,7 +145,9 @@ test('fresh root inspection only reports fixed locations and never reads private
   assert.equal(result.code, 0);
   assert.equal(result.output.data.privateContents, 'not_read');
   assert.equal(result.output.data.writable, 'not_tested');
-  assert.ok(result.output.data.locations.filter(item => item.role === 'legacy').every(item => item.state === 'present'));
+  assert.equal(result.output.scope.mode, 'normal_layout_presence');
+  assert.ok(result.output.data.locations.every(item => item.path.startsWith('shared/ai-dotfiles/')));
+  assert.equal(result.output.data.locations.find(item => item.role === 'optional_private').state, 'present');
   assert.ok(!JSON.stringify(result.output).includes(secret));
   assert.deepEqual(snapshot(root), before);
 });
@@ -156,7 +158,7 @@ test('missing root and missing INDEX are unverified, never empty selection', t =
   const result = run('check-skill-index', root);
   assert.equal(result.code, 2);
   assert.deepEqual(codes(result), ['index_missing']);
-  assert.equal(fs.existsSync(path.join(root, '.agents')), false);
+  assert.equal(fs.existsSync(path.join(root, 'shared/ai-dotfiles/agents')), false);
 });
 
 test('title-only index is intentional empty selection and does not enumerate manifests', t => {
@@ -216,7 +218,7 @@ test('index checks selected correspondence only, without YAML parsing or undecla
   assert.deepEqual(result.output.data.entries.map(item => item.name), ['sample']);
   fs.unlinkSync(path.join(root, `${state}/manifests/sample.json`));
   assert.deepEqual(codes(run('check-skill-index', root)), ['manifest_missing']);
-  fs.unlinkSync(path.join(root, '.agents/skills/sample/SKILL.md'));
+  fs.unlinkSync(path.join(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md'));
   assert.ok(codes(run('check-skill-index', root)).includes('skill_file_missing'));
 });
 
@@ -264,17 +266,17 @@ test('valid optional provenance metadata never authorizes differences or changes
   assert.equal(result.output.data.skills[0].checkedFiles, 3);
   assert.equal(result.output.data.fileMetadata, 'not_compared');
   assert.equal(result.output.data.sourceTrust, 'not_verified');
-  write(root, '.agents/skills/sample/SKILL.md', 'Synthetic bytes\n');
+  write(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md', 'Synthetic bytes\n');
   assert.deepEqual(codes(run('verify-skill-files', root, ['--skill', 'sample'])), ['modified_file']);
 });
 
 test('verifier detects extra, missing and raw-byte modified files and undeclared empty directories', t => {
   const root = temporary(t);
   putSkill(root, 'sample', { 'SKILL.md': 'original', 'reference/keep.md': 'keep', 'reference/missing.md': 'missing' });
-  write(root, '.agents/skills/sample/SKILL.md', 'modified');
-  fs.unlinkSync(path.join(root, '.agents/skills/sample/reference/missing.md'));
-  write(root, '.agents/skills/sample/extra.txt', 'extra');
-  fs.mkdirSync(path.join(root, '.agents/skills/sample/empty'));
+  write(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md', 'modified');
+  fs.unlinkSync(path.join(root, 'shared/ai-dotfiles/agents/skills/sample/reference/missing.md'));
+  write(root, 'shared/ai-dotfiles/agents/skills/sample/extra.txt', 'extra');
+  fs.mkdirSync(path.join(root, 'shared/ai-dotfiles/agents/skills/sample/empty'));
   const before = snapshot(root);
   const result = run('verify-skill-files', root, ['--skill', 'sample']);
   assert.equal(result.code, 1);
@@ -313,7 +315,7 @@ test('named scope is explicit, repeated skills work and --all uses manifests wit
   putSkill(root, 'second');
   putSkill(root, 'unselected');
   index(root, [entry('first')]);
-  write(root, '.agents/skills/unselected/SKILL.md', 'different');
+  write(root, 'shared/ai-dotfiles/agents/skills/unselected/SKILL.md', 'different');
   for (const args of [[], ['--skill', '../escape'], ['--all', '--skill', 'first'], ['--skill', 'first', '--skill', 'first'], ['--all', '--all']]) assert.equal(run('verify-skill-files', root, args).code, 2);
   const named = run('verify-skill-files', root, ['--skill', 'first', '--skill', 'second']);
   assert.equal(named.code, 0);
@@ -349,7 +351,7 @@ test('symlinked skills, files, state ancestors, root, and ancestors above root a
   putSkill(root);
   index(root);
   write(outside, 'SKILL.md', 'external bytes');
-  const target = path.join(root, '.agents/skills/sample/SKILL.md');
+  const target = path.join(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md');
   fs.unlinkSync(target);
   fs.symlinkSync(path.join(outside, 'SKILL.md'), target);
   for (const command of ['check-skill-index', 'verify-skill-files']) {
@@ -380,7 +382,7 @@ test('hardlinked skill files, manifests and INDEX are unsupported', t => {
   const root = temporary(t);
   putSkill(root);
   index(root);
-  for (const [relative, command, args] of [['.agents/skills/sample/SKILL.md', 'verify-skill-files', ['--skill', 'sample']],
+  for (const [relative, command, args] of [['shared/ai-dotfiles/agents/skills/sample/SKILL.md', 'verify-skill-files', ['--skill', 'sample']],
     [`${state}/manifests/sample.json`, 'check-skill-index', []], [`${state}/INDEX.md`, 'check-skill-index', []]]) {
     const link = path.join(root, 'extra-link');
     fs.linkSync(path.join(root, relative), link);
@@ -395,7 +397,7 @@ test('special filesystem entries are rejected without opening or blocking', t =>
   if (process.platform === 'win32') { t.skip('POSIX FIFO fixture.'); return; }
   const root = temporary(t);
   putSkill(root);
-  const fifo = path.join(root, '.agents/skills/sample/pipe');
+  const fifo = path.join(root, 'shared/ai-dotfiles/agents/skills/sample/pipe');
   const mkfifo = spawnSync('mkfifo', [fifo], { encoding: 'utf8' });
   if (mkfifo.error?.code === 'ENOENT') { t.skip('mkfifo is unavailable for fixture construction.'); return; }
   assert.equal(mkfifo.status, 0, mkfifo.stderr);
@@ -427,7 +429,7 @@ test('confirmed read-denied is distinct from missing, including mixed mismatch p
   `);
   assert.equal(failed.code, 2);
   assert.deepEqual(codes(failed), ['read_failed']);
-  write(root, '.agents/skills/sample/extra', 'extra');
+  write(root, 'shared/ai-dotfiles/agents/skills/sample/extra', 'extra');
   const mixed = boot('verify-skill-files', root, `
     const original = fs.openSync;
     fs.openSync = function (target, ...args) {
@@ -460,8 +462,8 @@ test('OS permission denial is not silently treated as missing when enforceable',
 test('executable and read-only regular files are supported, not mistaken for metadata equivalence', t => {
   const root = temporary(t);
   putSkill(root, 'sample', { 'SKILL.md': 'sample', 'scripts/task.mjs': 'process.stdout.write("sample");' });
-  fs.chmodSync(path.join(root, '.agents/skills/sample/SKILL.md'), 0o444);
-  fs.chmodSync(path.join(root, '.agents/skills/sample/scripts/task.mjs'), 0o755);
+  fs.chmodSync(path.join(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md'), 0o444);
+  fs.chmodSync(path.join(root, 'shared/ai-dotfiles/agents/skills/sample/scripts/task.mjs'), 0o755);
   const before = snapshot(root);
   const result = run('verify-skill-files', root, ['--skill', 'sample']);
   assert.equal(result.code, 0);
@@ -505,7 +507,7 @@ test('non-UTF-8 directory names cannot alias a valid replacement-character filen
   const root = temporary(t);
   const files = { 'SKILL.md': 'sample', '\ufffd': 'declared unicode name' };
   putSkill(root, 'sample', files);
-  const badPath = Buffer.concat([Buffer.from(path.join(root, '.agents/skills/sample') + '/'), Buffer.from([0xff])]);
+  const badPath = Buffer.concat([Buffer.from(path.join(root, 'shared/ai-dotfiles/agents/skills/sample') + '/'), Buffer.from([0xff])]);
   fs.writeFileSync(badPath, 'undeclared invalid-UTF-8 name');
   const result = run('verify-skill-files', root, ['--skill', 'sample']);
   assert.equal(result.code, 2);
@@ -532,7 +534,7 @@ test('INDEX and manifest do not accept linked state files or non-file SKILL targ
   assert.ok(codes(run('verify-skill-files', root, ['--all'])).includes('unsupported_symlink'));
   fs.unlinkSync(manifestPath);
   fs.renameSync(movedManifest, manifestPath);
-  const skillPath = path.join(root, '.agents/skills/sample/SKILL.md');
+  const skillPath = path.join(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md');
   fs.unlinkSync(skillPath);
   fs.mkdirSync(skillPath);
   assert.deepEqual(codes(run('check-skill-index', root)), ['unexpected_file_type']);
@@ -540,8 +542,8 @@ test('INDEX and manifest do not accept linked state files or non-file SKILL targ
 
 test('literal JSON lone-surrogate path cannot alias a declared U+FFFD filename', t => {
   const root = temporary(t);
-  write(root, '.agents/skills/sample/SKILL.md', 'sample');
-  write(root, '.agents/skills/sample/\ufffd', 'replacement');
+  write(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md', 'sample');
+  write(root, 'shared/ai-dotfiles/agents/skills/sample/\ufffd', 'replacement');
   // Intentionally literal JSON, not JSON.stringify or a path-sanitized fixture.
   // Both last hashes match the sole U+FFFD file. Without Unicode validation,
   // Node would encode the lone surrogate as U+FFFD and verify a nonexistent file.
@@ -620,10 +622,10 @@ function putPlugin(root, name = 'sample.plugin', extra = {}) {
     'com.example.client/data.json': '{}\n',
     ...extra,
   };
-  for (const [file, bytes] of Object.entries(files)) write(root, `.agents/plugins/${name}/${file}`, bytes);
+  for (const [file, bytes] of Object.entries(files)) write(root, `shared/ai-dotfiles/agents/plugins/${name}/${file}`, bytes);
   const manifest = { ...record(name, files), kind: 'plugin' };
   manifest.source.path = `plugins/${name}`;
-  write(root, `.agents/plugins-state/manifests/${name}.json`, JSON.stringify(manifest));
+  write(root, `shared/ai-dotfiles/agents/plugins-state/manifests/${name}.json`, JSON.stringify(manifest));
   return manifest;
 }
 function pluginEntry(name = 'sample.plugin', skill = 'sample') {
@@ -654,11 +656,11 @@ test('qualified selection rejects duplicate keys, traversal, malformed qualifica
 
 test('plugin verification scopes provenance separately and includes root/MCP/extension files', t => {
   const root = temporary(t); putPlugin(root); putSkill(root);
-  write(root, '.agents/skills/sample/SKILL.md', 'Standalone local edit.');
+  write(root, 'shared/ai-dotfiles/agents/skills/sample/SKILL.md', 'Standalone local edit.');
   assert.equal(run('verify-skill-files', root, ['--all-plugins']).code, 0);
   assert.equal(run('verify-skill-files', root, ['--all']).code, 1);
   for (const file of ['shared.txt', 'mcp.json', 'com.example.client/data.json']) {
-    const target = `.agents/plugins/sample.plugin/${file}`;
+    const target = `shared/ai-dotfiles/agents/plugins/sample.plugin/${file}`;
     const old = fs.readFileSync(path.join(root, target));
     write(root, target, 'Changed');
     assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('modified_file'));
@@ -671,12 +673,12 @@ test('plugin verification scopes provenance separately and includes root/MCP/ext
 
 test('plugin identity and selected entrypoint provenance cannot be silently substituted', t => {
   const root = temporary(t); const manifest = putPlugin(root); index(root, [pluginEntry()]);
-  write(root, '.agents/plugins/sample.plugin/plugin.json', '{"name":"other"}');
+  write(root, 'shared/ai-dotfiles/agents/plugins/sample.plugin/plugin.json', '{"name":"other"}');
   assert.ok(codes(run('check-skill-index', root)).includes('plugin_identity_mismatch'));
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('plugin_identity_mismatch'));
   putPlugin(root);
   manifest.files = manifest.files.filter(f => f.path !== 'skills/sample/SKILL.md');
-  write(root, '.agents/plugins-state/manifests/sample.plugin.json', JSON.stringify(manifest));
+  write(root, 'shared/ai-dotfiles/agents/plugins-state/manifests/sample.plugin.json', JSON.stringify(manifest));
   assert.ok(codes(run('check-skill-index', root)).includes('selected_skill_unrecorded'));
 });
 
@@ -692,10 +694,10 @@ test('plugin provenance has no selection and requires complete-package identity 
 
 test('package-only MCP source needs no skills or selection and INDEX-only changes leave bytes untouched', t => {
   const root = temporary(t); const manifest = putPlugin(root);
-  const file = '.agents/plugins/sample.plugin/skills';
+  const file = 'shared/ai-dotfiles/agents/plugins/sample.plugin/skills';
   fs.rmSync(path.join(root, file), { recursive: true });
   manifest.files = manifest.files.filter(f => !f.path.startsWith('skills/'));
-  write(root, '.agents/plugins-state/manifests/sample.plugin.json', JSON.stringify(manifest));
+  write(root, 'shared/ai-dotfiles/agents/plugins-state/manifests/sample.plugin.json', JSON.stringify(manifest));
   index(root, []);
   const before = snapshot(root);
   assert.equal(run('check-skill-index', root).code, 0);
@@ -705,16 +707,16 @@ test('package-only MCP source needs no skills or selection and INDEX-only change
 
 test('plugin missing and extra files are discrepancies, not adoption', t => {
   const root = temporary(t); putPlugin(root);
-  const target = path.join(root, '.agents/plugins/sample.plugin/shared.txt');
+  const target = path.join(root, 'shared/ai-dotfiles/agents/plugins/sample.plugin/shared.txt');
   fs.unlinkSync(target);
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('missing_file'));
-  write(root, '.agents/plugins/sample.plugin/unrecorded.txt', 'Do not adopt me.');
+  write(root, 'shared/ai-dotfiles/agents/plugins/sample.plugin/unrecorded.txt', 'Do not adopt me.');
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('extra_file'));
 });
 
 test('plugin symlinks are discrepancies, not adoption', t => {
   const root = temporary(t); putPlugin(root);
-  const target = path.join(root, '.agents/plugins/sample.plugin/shared.txt');
+  const target = path.join(root, 'shared/ai-dotfiles/agents/plugins/sample.plugin/shared.txt');
   fs.unlinkSync(target);
   const outside = path.join(root, 'outside'); fs.writeFileSync(outside, 'Not followed.');
   try {
@@ -729,9 +731,110 @@ test('plugin symlinks are discrepancies, not adoption', t => {
 
 test('plugin hardlinks are discrepancies, not adoption', t => {
   const root = temporary(t); putPlugin(root);
-  const target = path.join(root, '.agents/plugins/sample.plugin/shared.txt');
+  const target = path.join(root, 'shared/ai-dotfiles/agents/plugins/sample.plugin/shared.txt');
   fs.unlinkSync(target);
   const outside = path.join(root, 'outside'); fs.writeFileSync(outside, 'Not followed.');
   fs.linkSync(outside, target);
   assert.ok(codes(run('verify-skill-files', root, ['--plugin', 'sample.plugin'])).includes('unsupported_hardlink'));
+});
+
+test('migration-source inspection is explicit, bounded and does not read contents or choose a layout', t => {
+  const root = temporary(t);
+  const content = 'SYNTHETIC_LEGACY_CONTENT_MUST_NOT_APPEAR';
+  for (const file of ['.codex/AGENTS-private.md', '.agents/skills-state/INDEX.md', 'AGENTS.md', '.codex/dot-setup.md', '.agents/skills/INDEX.md', '.agents/skills/skills-manifest.json']) write(root, file, content);
+  for (const dir of ['.agents/skills-state/manifests', '.agents/plugins-state/manifests']) fs.mkdirSync(path.join(root, dir), { recursive: true });
+  const before = snapshot(root);
+  const result = boot('inspect-computer', root, `
+    const original = fs.readFileSync;
+    fs.readFileSync = function (target, ...args) {
+      if (typeof target === 'number' || String(target).includes(${JSON.stringify(root)})) throw new Error('Contents must not be read');
+      return original.call(this, target, ...args);
+    };
+    fs.readdirSync = () => { throw new Error('No scan permitted'); };
+  `, ['--migration-source']);
+  assert.equal(result.code, 0);
+  assert.equal(result.output.scope.mode, 'migration_source_presence');
+  assert.equal(result.output.data.locations.length, 10);
+  assert.ok(result.output.data.locations.every(item => item.state === 'present'));
+  assert.ok(!JSON.stringify(result.output).includes(content));
+  assert.equal(result.output.data.writable, 'not_tested');
+  assert.deepEqual(snapshot(root), before);
+  const normal = run('inspect-computer', root);
+  assert.ok(normal.output.data.locations.every(item => item.state === 'missing'));
+  assert.equal(run('inspect-computer', root, ['--migration-source', '--migration-source']).code, 2);
+  for (const command of ['check-skill-index', 'verify-skill-files']) {
+    assert.equal(run(command, root, ['--migration-source']).code, 2);
+  }
+  for (const command of commands) assert.equal(run(command, root, ['--layout', 'legacy']).code, 2);
+});
+
+test('fixed deeper layout retains package-relative plugin entrypoint and unchanged INDEX grammar', () => {
+  assert.equal(selectionTarget('sample').packageRelative, 'SKILL.md');
+  const selected = selectionTarget('sample.plugin:sample');
+  assert.equal(selected.packageRelative, 'skills/sample/SKILL.md');
+  assert.equal(selected.path, `${AGENTS}/plugins/sample.plugin/skills/sample/SKILL.md`);
+  assert.equal(selected.link, '../plugins/sample.plugin/skills/sample/SKILL.md');
+});
+
+test('synthetic copied layout preserves sixteen mixed selections, bytes and schema without adopting extras', t => {
+  const root = temporary(t);
+  const entries = [];
+  const keys = [];
+  for (let i = 0; i < 8; i++) {
+    const name = `sample-${i}`;
+    putSkill(root, name, { 'SKILL.md': `Synthetic standalone ${i}\r\n`, 'reference/nested/value.txt': 'unchanged\n' });
+    putPlugin(root, `package-${i}`);
+    entries.push(entry(name), pluginEntry(`package-${i}`));
+    keys.push(name, `package-${i}:sample`);
+  }
+  putSkill(root, 'unselected');
+  index(root, entries);
+  // This is fixture construction, not a shipped migration command.
+  fs.cpSync(path.join(root, AGENTS), path.join(root, '.agents'), { recursive: true });
+  const before = snapshot(root);
+  const selected = run('check-skill-index', root);
+  assert.equal(selected.code, 0, selected.text);
+  assert.deepEqual(selected.output.data.entries.map(item => item.name), keys);
+  assert.equal(keys.length, 16);
+  assert.equal(run('verify-skill-files', root, ['--all']).code, 0);
+  assert.equal(run('verify-skill-files', root, ['--all-plugins']).code, 0);
+  assert.deepEqual(snapshot(root), before);
+  const tree = base => snapshot(base).filter(item => item.content !== null).map(({ path: file, content }) => ({ file, content }));
+  assert.deepEqual(tree(path.join(root, AGENTS)), tree(path.join(root, '.agents')));
+});
+
+test('missing, corrupt and interrupted new layout never falls back to complete legacy files', t => {
+  const root = temporary(t);
+  putSkill(root, 'sample', { 'SKILL.md': 'same bytes', 'reference/nested.txt': 'nested bytes' });
+  index(root);
+  fs.cpSync(path.join(root, AGENTS), path.join(root, '.agents'), { recursive: true });
+  fs.rmSync(path.join(root, AGENTS), { recursive: true });
+  assert.deepEqual(codes(run('check-skill-index', root)), ['index_missing']);
+  assert.deepEqual(codes(run('verify-skill-files', root, ['--all'])), ['manifest_directory_missing']);
+  fs.cpSync(path.join(root, '.agents'), path.join(root, AGENTS), { recursive: true });
+  write(root, `${state}/INDEX.md`, 'invalid selection');
+  assert.deepEqual(codes(run('check-skill-index', root)), ['index_title_invalid']);
+  index(root);
+  write(root, `${state}/manifests/sample.json`, '{');
+  assert.deepEqual(codes(run('check-skill-index', root)), ['manifest_json_invalid']);
+  write(root, `${state}/manifests/sample.json`, fs.readFileSync(path.join(root, '.agents/skills-state/manifests/sample.json')));
+  fs.unlinkSync(path.join(root, AGENTS, 'skills/sample/reference/nested.txt'));
+  const before = snapshot(root);
+  assert.ok(codes(run('verify-skill-files', root, ['--all'])).includes('missing_file'));
+  assert.deepEqual(snapshot(root), before);
+});
+
+test('linked new-root ancestors are rejected even with intact legacy data', t => {
+  if (process.platform === 'win32') { t.skip('Symlink fixture needs Windows privileges.'); return; }
+  const root = temporary(t);
+  putSkill(root); index(root);
+  fs.renameSync(path.join(root, AGENTS), path.join(root, '.agents'));
+  fs.symlinkSync(path.join(root, '.agents'), path.join(root, AGENTS), 'dir');
+  const before = snapshot(root);
+  for (const [command, args] of [['check-skill-index', []], ['verify-skill-files', ['--all']], ['inspect-computer', []]]) {
+    const result = run(command, root, args);
+    assert.equal(result.code, 2);
+    assert.ok(codes(result).includes('unsupported_symlink'));
+  }
+  assert.deepEqual(snapshot(root), before);
 });

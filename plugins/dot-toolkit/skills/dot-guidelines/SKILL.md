@@ -9,13 +9,15 @@ This skill owns common guidance for the ongoing main dot conversation. Use its `
 
 ## Normal work
 
-1. Read `/workspace/.codex/AGENTS-private.md` completely if present, applying relevant instructions and required references under their stated conditions. Do not create an empty file or ask for one merely to satisfy loading.
-2. Before selecting task skills, read the existing `/workspace/.agents/skills-state/INDEX.md` and consider client-provided skill descriptions. INDEX intentionally selects cloud skills for normal use; it is not every installed skill or manifest. Choose relevant skills even when the user has not named them.
+1. Read `/workspace/shared/ai-dotfiles/codex/AGENTS-private.md` completely if present, applying relevant instructions and required references under their stated conditions. Do not create an empty file or ask for one merely to satisfy loading.
+2. Before selecting task skills, read the existing `/workspace/shared/ai-dotfiles/agents/skills-state/INDEX.md` and consider client-provided skill descriptions. INDEX intentionally selects cloud skills for normal use; it is not every installed skill or manifest. Choose relevant skills even when the user has not named them.
 3. Follow the selected skill's own reference-loading conditions. Do not read all skills or manifests for an ordinary request, or search for unadopted candidates.
 
 Follow an explicitly requested skill source. Otherwise, when client-provided and INDEX-listed skills have the same name and both fit the task, prefer the INDEX-listed cloud copy: its inclusion records a deliberate choice. Plugin entries use `plugin-name:skill-name`; the qualification identifies the package, not a renamed source skill. Resolve same-named matches by purpose and the requested source rather than conflating distinct packages. Use that copy's entrypoint and references together, preserving the package root and without mixing versions. This selects a skill for the task; it does not update either copy or change INDEX.
 
 Reuse complete guidance, INDEX, and installed-resource checks established in the current context. Recheck the affected resources after changes or migration, an environment change, a read failure, or when the task needs new evidence. Do not repeat plugin discovery or setup merely to reconfirm readiness.
+
+The 0.5 paths are toolkit conventions, not native Codex discovery or a grant of access. An unresolved transition from known legacy guidance requires the migration routing below before dependent work; verified retained recovery copies do not trigger migration again; a missing new root is not permission to start over.
 
 A genuinely absent INDEX in a new environment, or a valid empty selection, leaves client-provided skills and independent work available. Absence of optional guidance is not a choice of none and does not erase known pending inputs. Continue independent work while an input is pending; do not claim to apply it or repeat unrelated setup questions.
 
@@ -28,8 +30,7 @@ Read only the reference needed for the requested work:
 - Explicit initial setup or private-input application: [setup](reference/setup.md).
 - Environment inspection, repository source acquisition or Git access diagnosis, a concrete access/runtime problem, or interpreting helper results: [computer checks](reference/computer-checks.md).
 - Skill or plugin addition, update, selection changes, comparison, reproduction, or interrupted maintenance: [skills maintenance](reference/skills-maintenance.md).
-- Existing 0.1 common files or legacy inventory during setup, inspection, or migration: [0.1 to 0.2 migration](reference/migrations/0.1-to-0.2.md). A remaining old layout needs migration, not automatic cleanup or a claim that setup is ready.
-- A user-reported installation update to 0.4 or a version transition observed during an explicit check, or an explicit request to review or organize existing work folders: [workspace review](reference/migrations/0.3-to-0.4.md). On an update, offer briefly unless available history shows it was already addressed; if history is unavailable, make the offer conditional instead of asking about past handling. Do not start organization without authorization or poll versions during normal work.
+- A reported plugin update, legacy state whose transition is unresolved, or a requested migration/workspace review: [migration routing](reference/migrations/README.md). Read only the applicable procedure; a version update alone does not authorize moving files.
 
 Normal requests do not require setup procedures or periodic helper runs. Keep manifests and any private resumption records for the work that actually needs them.
 
@@ -66,7 +67,7 @@ Before file work, verify the assigned directory, access scope, and existing layo
 2. Otherwise, continue from the current editable original or existing project, following its storage/privacy rules even for short tasks. A delivery destination need not become the original's new home.
 3. When a new home is needed, choose by the roles below. For temporary work, follow the scratch rules below. Create only needed locations, not ad hoc task directories directly under `/workspace/shared/`.
 
-These conventions do not require reorganizing usable existing homes. Requested organization uses the workspace review above. Directory names do not establish persistence.
+These conventions do not require reorganizing usable existing homes. Requested organization uses the migration routing above. Directory names do not establish persistence.
 
 - `/workspace/shared/projects/<project>/`: ongoing projects, including sources, drafts, tests/evaluations, and deliverables
 - `/workspace/shared/docs/`: standalone documents kept for reading and revision
@@ -80,7 +81,7 @@ Choose docs versus outputs by role, not duration, completion state, or format al
 
 Within each home, group related files by task or topic; add type-based subfolders only when they aid retrieval. Treat each `outputs/<topic>/` as a coherent deliverable bundle, keeping needed editable originals and assets together. Use or deliver files from their existing home when possible, without duplicating them merely for handoff.
 
-Keep images with their document or project; an independently browsed or reused image collection may use `/workspace/shared/images/<collection>/`. Environment-specific supporting documents may use `/workspace/.codex/docs/` when needed.
+Keep images with their document or project; an independently browsed or reused image collection may use `/workspace/shared/images/<collection>/`. Environment-specific supporting documents may use `/workspace/shared/ai-dotfiles/codex/docs/` when needed.
 
 For temporary work, reuse a suitable accessible directory for the same task and target; on resumption, verify the current editable original rather than assuming an old scratch copy is current. For new work outside ongoing projects, use a short date-free task name under the assigned directory. Keep meaningful run/snapshot dates and needed comparison results beneath the work location, distinguishing conditions or versions under existing project conventions. Coordinate or isolate concurrent writes to originals, intermediates, and outputs. Do not default to new directories or whole-workspace copies for each run, rename the assigned directory, or add shared categories outside it in scratch. Use `/tmp` only for disposable material, never the sole copy of important work.
 

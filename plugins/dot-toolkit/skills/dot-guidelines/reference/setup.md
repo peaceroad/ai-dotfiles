@@ -10,11 +10,15 @@ Inspect the selected environment, allowed scope, and relevant existing files bef
 
 Use the actual client-provided `dot-guidelines` and the references needed for this operation, at one identified version. Reuse a current installation check; if availability is unknown, resolve it without assuming absence. When installation is needed, follow the [plugin README](../../../README.md) and verify access from the main dot. A ZIP, repository copy, or local Codex installation is not that evidence. Review and explicitly requested file-only work can continue while plugin-dependent completion is pending. Do not install, reinstall, or upgrade automatically.
 
-Version 0.4 retains common guidance in the plugin. Do not create permanent `/workspace/AGENTS.md` or `/workspace/.codex/dot-setup.md` copies. When old files or inventory are present, use [migration](migrations/0.1-to-0.2.md) before switching their authority. Preserve any supplied edited procedure and source identity; resolve a conflict with the requested version rather than silently replacing it with a newer procedure.
+Version 0.5 is an opt-in layout for environments where 0.4 skill/plugin installation or updates are blocked. Users whose 0.4 setup works need not migrate. Common guidance stays in the installed plugin; do not create permanent common-guide copies in the cloud. Installing 0.5 does not copy existing files, change sandbox permissions, or establish that its normal paths are adopted.
+
+For an existing environment, use [migration routing](migrations/README.md) before switching authority. Known old private guidance, selection, or an incomplete destination means migration pending, not fresh setup. For a genuinely new setup, establish that the intended guidance and skill placement is permitted by the current runtime and that the installed plugin can read it through a supported route before creating it. Ordinary directory writeability alone is not evidence of permission to relocate protected instructions. If this prerequisite is unresolved, continue source preparation or independent work and report the adoption gap; do not create a proxy, symlink, or alternate loader.
+
+Preserve any supplied edited procedure and source identity; resolve a conflict with the requested version rather than silently replacing it with a newer procedure.
 
 ## Optional private inputs
 
-`/workspace/.codex/AGENTS-private.md` holds actual private instructions, direct text and/or conditional references. Create it only when there is content to apply. Preserve supplied reference names, scopes, and loading conditions, and verify referenced documents in the authorized private location.
+`/workspace/shared/ai-dotfiles/codex/AGENTS-private.md` holds actual private instructions, direct text and/or conditional references. Create it only when there is content to apply. Preserve supplied reference names, scopes, and loading conditions, and verify referenced documents in the authorized private location.
 
 During initial setup, if their status is unknown, ask once whether private instructions and additional skill candidates will each be supplied now, later, or are unnecessary. Keep the decisions separate. Silence is neither a choice nor approval. A deferred input blocks only a known dependent task; continue independent setup and normal work.
 

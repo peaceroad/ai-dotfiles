@@ -27,6 +27,8 @@ const requiredSources = [
   'plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md',
   'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md',
   'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.3-to-0.4.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/README.md',
+  'plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.4-to-0.5.md',
   'plugins/dot-toolkit/skills/dot-guidelines/scripts/inspect-computer.mjs',
   'plugins/dot-toolkit/skills/dot-guidelines/scripts/check-skill-index.mjs',
   'plugins/dot-toolkit/skills/dot-guidelines/scripts/verify-skill-files.mjs',
@@ -75,7 +77,7 @@ export function checkDefinitions(definitions = { cases, criteria, manifest }) {
   assert.equal(manifest.schemaVersion, 2, 'Unsupported source manifest version');
   assert.equal(manifest.kind, 'acceptance-definition', 'Invalid source manifest kind');
   assert(!Object.hasOwn(manifest, 'sourceCommit'), 'Source manifest version 2 uses content hashes, not sourceCommit');
-  assert.equal(manifest.pluginVersion, '0.4.2', 'This acceptance definition targets plugin version 0.4.2');
+  assert.equal(manifest.pluginVersion, '0.5.0', 'This acceptance definition targets plugin version 0.5.0');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert(object(manifest.liveChecks), 'Live check declarations must be an object');
   assert.deepEqual(Object.keys(manifest.liveChecks).sort(), [...requiredLiveChecks].sort(), 'Live check declarations must contain exactly the required checks');
@@ -102,7 +104,7 @@ export function checkCurrentSources(root = repository) {
     assert.equal(createHash('sha256').update(bytes).digest('hex'), target.sha256, `Current candidate differs from the declared target: ${target.path}`);
   }
   const plugin = JSON.parse(readFileSync(resolve(root, 'plugins/dot-toolkit/plugin.json'), 'utf8'));
-  assert.equal(plugin.version, '0.4.2', 'Current candidate must declare plugin version 0.4.2');
+  assert.equal(plugin.version, '0.5.0', 'Current candidate must declare plugin version 0.5.0');
 }
 
 // This validates a human/observer's record, not the truth or authenticity of its evidence.

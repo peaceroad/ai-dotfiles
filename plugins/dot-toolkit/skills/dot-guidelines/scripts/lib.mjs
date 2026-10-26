@@ -3,18 +3,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
-export const INDEX = '.agents/skills-state/INDEX.md';
-export const MANIFESTS = '.agents/skills-state/manifests';
-export const SKILLS = '.agents/skills';
-export const PLUGINS = '.agents/plugins';
-export const PLUGIN_MANIFESTS = '.agents/plugins-state/manifests';
+export const ROOT = 'shared/ai-dotfiles';
+export const CODEX = `${ROOT}/codex`;
+export const AGENTS = `${ROOT}/agents`;
+export const INDEX = `${AGENTS}/skills-state/INDEX.md`;
+export const MANIFESTS = `${AGENTS}/skills-state/manifests`;
+export const SKILLS = `${AGENTS}/skills`;
+export const PLUGINS = `${AGENTS}/plugins`;
+export const PLUGIN_MANIFESTS = `${AGENTS}/plugins-state/manifests`;
 export const validPluginName = value => typeof value === 'string' && value.length <= 64 && /^(?!.*--)(?!.*\.\.)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(value);
 export function selectionTarget(name) {
   const parts = name.split(':');
-  if (parts.length === 1 && validName(name)) return { kind: 'skill', name, path: `${SKILLS}/${name}/SKILL.md`, manifest: `${MANIFESTS}/${name}.json`, link: `../skills/${name}/SKILL.md` };
+  if (parts.length === 1 && validName(name)) return { kind: 'skill', name, packageRelative: 'SKILL.md', path: `${SKILLS}/${name}/SKILL.md`, manifest: `${MANIFESTS}/${name}.json`, link: `../skills/${name}/SKILL.md` };
   if (parts.length === 2 && validPluginName(parts[0]) && validName(parts[1])) {
     const [plugin, skill] = parts;
-    return { kind: 'plugin', name: plugin, path: `${PLUGINS}/${plugin}/skills/${skill}/SKILL.md`, manifest: `${PLUGIN_MANIFESTS}/${plugin}.json`, link: `../plugins/${plugin}/skills/${skill}/SKILL.md` };
+    return { kind: 'plugin', name: plugin, packageRelative: `skills/${skill}/SKILL.md`, path: `${PLUGINS}/${plugin}/skills/${skill}/SKILL.md`, manifest: `${PLUGIN_MANIFESTS}/${plugin}.json`, link: `../plugins/${plugin}/skills/${skill}/SKILL.md` };
   }
   return null;
 }
@@ -45,7 +48,7 @@ export function finish(result, successfulStatus = 'verified') {
   return exitCode;
 }
 function usage(command) {
-  return `node ${command}.mjs --root <absolute-cloud-root>${command === 'verify-skill-files' ? ' (--skill <name> ... | --all | --plugin <name> ... | --all-plugins)' : ''}`;
+  return `node ${command}.mjs --root <absolute-cloud-root>${command === 'verify-skill-files' ? ' (--skill <name> ... | --all | --plugin <name> ... | --all-plugins)' : command === 'inspect-computer' ? ' [--migration-source]' : ''}`;
 }
 export function parseArgs(command, argv) {
   if (argv.length === 1 && ['--help', '-h'].includes(argv[0])) return { help: true };
@@ -55,6 +58,8 @@ export function parseArgs(command, argv) {
     const arg = argv[index];
     if (arg === '--root' && options.root === undefined && argv[index + 1] && !argv[index + 1].startsWith('--')) {
       options.root = argv[++index];
+    } else if (command === 'inspect-computer' && arg === '--migration-source' && !options.migrationSource) {
+      options.migrationSource = true;
     } else if (command === 'verify-skill-files' && arg === '--skill' && validName(argv[index + 1])) {
       if (pluginMode) throw new Error('mixed_package_scope');
       const name = argv[++index];
