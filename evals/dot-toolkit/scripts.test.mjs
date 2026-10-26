@@ -825,11 +825,16 @@ test('missing, corrupt and interrupted new layout never falls back to complete l
 });
 
 test('linked new-root ancestors are rejected even with intact legacy data', t => {
-  if (process.platform === 'win32') { t.skip('Symlink fixture needs Windows privileges.'); return; }
   const root = temporary(t);
   putSkill(root); index(root);
   fs.renameSync(path.join(root, AGENTS), path.join(root, '.agents'));
-  fs.symlinkSync(path.join(root, '.agents'), path.join(root, AGENTS), 'dir');
+  try {
+    fs.symlinkSync(path.join(root, '.agents'), path.join(root, AGENTS), 'dir');
+  } catch (error) {
+    if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) throw error;
+    t.skip('Directory symlink creation is unavailable for this fixture');
+    return;
+  }
   const before = snapshot(root);
   for (const [command, args] of [['check-skill-index', []], ['verify-skill-files', ['--all']], ['inspect-computer', []]]) {
     const result = run(command, root, args);

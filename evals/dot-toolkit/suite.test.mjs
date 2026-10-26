@@ -616,7 +616,9 @@ test('input command returns only a natural request and refuses simulation cases'
 
 // Independent coverage contract; these are decision definitions, not observed trials.
 test('optional layout migration decisions keep explicit adoption and preservation boundaries', () => {
-  for (const id of ["layout-opt-in", "layout-update-only", "layout-adoption-gate", "layout-partial-no-fallback", "layout-preserve-switch", "layout-rollback-new-edits", "layout-migration-routing"]) {
+  for (const id of ['layout-opt-in', 'layout-update-only', 'layout-adoption-gate', 'layout-partial-no-fallback',
+    'layout-preserve-switch', 'layout-rollback-new-edits', 'layout-migration-routing',
+    'layout-declined-after-install', 'layout-direct-legacy-adoption']) {
     assert.equal(cases.find(item => item.id === id)?.mode, 'simulation');
     assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
   }

@@ -6,7 +6,7 @@ The bundled `dot-guidelines` skill provides common guidance and reads setup, ins
 
 ## Who should choose 0.5
 
-Version **0.5.0 is opt-in** for environments where the 0.4 managed layout prevents installing or updating skills or plugins. Users whose 0.4 setup works need not migrate. A future consolidation version and its timing are undecided.
+Version **0.5.0 is opt-in** for environments where the 0.4 managed layout prevents installing or updating skills or plugins. Users whose 0.4 setup works can keep that plugin and layout. A future consolidation version and its timing are undecided.
 
 0.5 uses one normal layout under `/workspace/shared/ai-dotfiles/{codex,agents}/`; the former `/workspace/.codex/` and `/workspace/.agents/` are migration sources or rollback material, not parallel active roots. Directory contents, INDEX grammar, and schema-1 manifests are preserved.
 
@@ -51,7 +51,7 @@ A provenance record is separate from the upstream `plugin.json`; it does not rew
 
 Existing standalone packages keep their format and content, but adopting 0.5 from the old layout is an explicit location migration, not automatic compatibility with the old path. Use the bundled [migration index](skills/dot-guidelines/reference/migrations/README.md) for the applicable operation: old 0.1 records, optional 0.3-to-0.4 workspace organization, or opt-in 0.4-to-0.5 layout migration. These are not a mandatory sequential upgrade chain.
 
-If the new root is absent but legacy configuration is known, report migration as pending rather than treating the environment as a fresh empty setup. Do not silently fall back to the old root or reconstruct selection from manifests. Partial or unreadable configuration pauses only dependent work.
+If the new root is absent but legacy configuration is known, report migration as pending rather than treating the environment as a fresh empty setup. Do not silently fall back to the old root or reconstruct selection from manifests. Partial or unreadable configuration pauses only dependent work. If 0.5 is already installed and you decline migration, continuing with the old layout requires an explicitly authorized, supported reinstatement of the previous plugin/entry. Verify that it is available and coherent before promising a return.
 
 ## Updates and maintenance
 

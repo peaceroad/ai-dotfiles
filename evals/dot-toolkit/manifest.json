@@ -4,8 +4,8 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "504e3765a24ba4873b755cc818dc35acbd4d35e5180d5c834edd6e2b5b86ebb1",
-      "bytes": 13959
+      "sha256": "77fc5359bc5410c9ba69eb9f7dcd519357cc32e59279d52c1abacda8109137f1",
+      "bytes": 14217
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
@@ -69,8 +69,8 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.4-to-0.5.md",
-      "sha256": "825455bd99e00941612005a140bcfc7739b9298c950685663f07ae4cadf48a8d",
-      "bytes": 6680
+      "sha256": "34aa1060c38e717f1b8d9ab009df12b56d171a51d5e0925b954356078306a47c",
+      "bytes": 6962
     }
   ],
   "behavioralRuns": "not_run",
