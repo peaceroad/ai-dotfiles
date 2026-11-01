@@ -84,7 +84,7 @@ for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli
     assertLocalDocumentation(plugin);
     if (name === 'agent-plugin-tools') {
       const skill = join(plugin, 'skills', 'plugin-creator-agent-plugins');
-      for (const script of ['validate-agent-plugin.mjs', 'manage-local-agent-plugin.mjs', 'scaffold-local-agent-plugin.mjs', 'assemble-agent-marketplace.mjs']) {
+      for (const script of ['validate-agent-plugin.mjs', 'manage-local-agent-plugin.mjs', 'scaffold-local-agent-plugin.mjs', 'assemble-agent-marketplace.mjs', 'manage-marketplace-catalog.mjs']) {
         const result = spawnSync(process.execPath, [join(skill, 'scripts', script), '--help'], { cwd: root, encoding: 'utf8', env: { ...process.env, PATH: '' } });
         assert.equal(result.status, 0, result.stdout + result.stderr);
       }

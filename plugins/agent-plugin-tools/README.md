@@ -1,6 +1,6 @@
 # Agent Plugin Tools
 
-Create, validate, migrate, and locally install portable Agent Plugins v1 packages, or assemble a filesystem Marketplace of plugins and standalone Agent Skills. This plugin contains one skill, [plugin-creator-agent-plugins](skills/plugin-creator-agent-plugins/SKILL.md).
+Create, validate, migrate, and locally install portable Agent Plugins v1 packages, assemble a filesystem Marketplace, or edit a GitHub-reference catalog without copying packages. This plugin contains one skill, [plugin-creator-agent-plugins](skills/plugin-creator-agent-plugins/SKILL.md).
 
 The portable source uses root `plugin.json`. Use the built-in `plugin-creator` when the intended source format is Codex-specific `.codex-plugin/plugin.json`, and `skill-creator` when creating or structurally changing an individual skill.
 
@@ -12,6 +12,7 @@ Examples:
 - Review this Codex-native package for portable migration and report any required features that need a separate client package.
 - Install this developer source locally, preserving its version.
 - Sync one selected plugin into an existing shared Marketplace while preserving other contributors' entries.
+- Preview adding a GitHub plugin reference to a human-owned catalog, without fetching or installing it.
 
 Source edits can finish with source validation. Local installation, shared assembly, and publication are separate outcomes; include the stages you need in the request. A review-only request produces findings.
 
@@ -57,6 +58,7 @@ The manager checks reported identity, version, and available source-path informa
 | Developer installation, consumer installation, refresh, and recovery | [Codex integration](skills/plugin-creator-agent-plugins/references/codex-integration.md) |
 | Repository-owned checks and generated runners, including `prepare` and `import` | [Repository management](skills/plugin-creator-agent-plugins/references/repository-management.md) |
 | Local, Git, or NAS Marketplace assembly and drift checks | [Marketplace distribution](skills/plugin-creator-agent-plugins/references/marketplace-distribution.md) |
+| GitHub-reference catalog creation, inspection, and guarded edits | [Reference catalogs](skills/plugin-creator-agent-plugins/references/marketplace-catalog.md) |
 | Private assembly definitions, contributor ownership, and orchestration | [Marketplace orchestration](skills/plugin-creator-agent-plugins/references/marketplace-orchestration.md) |
 
 Keep repository-specific behavior in the per-plugin configuration or its check scripts. Refresh generated runners when adopting template changes; `refresh --check` compares generated files without running repository checks. Shared Marketplace consumers install through Codex rather than invoking the developer manager against generated copies.

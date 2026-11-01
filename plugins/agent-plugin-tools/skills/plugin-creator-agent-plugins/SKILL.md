@@ -1,6 +1,6 @@
 ---
 name: plugin-creator-agent-plugins
-description: "Use when creating, revising, validating, or migrating portable Agent Plugins v1 packages, setting up their local development or Codex installation, or assembling filesystem Marketplaces of plugins and standalone Skills. Use skill-creator for standalone Skill authoring and the built-in plugin-creator for a Codex-specific .codex-plugin/plugin.json source."
+description: "Use when creating, revising, validating, or migrating portable Agent Plugins v1 packages, setting up local development or Codex installation, assembling filesystem Marketplaces, or editing GitHub-reference Marketplace catalogs. Use skill-creator for standalone Skill authoring and the built-in plugin-creator for a Codex-specific .codex-plugin/plugin.json source."
 metadata:
   version: "0.7.3"
 ---
@@ -39,6 +39,7 @@ Before changing existing source links, developer installations, or Marketplace c
 | Install or refresh a developer source, or install from an assembled Marketplace | [Codex integration](references/codex-integration.md); use the repository manager for developer sources and the Codex CLI for assembled copies. |
 | Add repeatable repository checks or local version policy | [Repository management](references/repository-management.md); `scripts/scaffold-local-agent-plugin.mjs` only when the extra contract is useful. |
 | Assemble or check a shared filesystem Marketplace | [Marketplace distribution](references/marketplace-distribution.md); `scripts/assemble-agent-marketplace.mjs`. |
+| Create or edit a catalog of GitHub plugin references without copying packages | [Reference catalogs](references/marketplace-catalog.md); `scripts/manage-marketplace-catalog.mjs`. |
 | Integrate a private assembly configuration or multiple contributors | [Marketplace orchestration](references/marketplace-orchestration.md), alongside the distribution contract. |
 | Inspect built-in `plugin-creator` instruction coverage | `node scripts/check-builtin-plugin-creator.mjs`; this read-only probe does not establish runtime support. |
 
