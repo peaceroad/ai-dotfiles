@@ -13,6 +13,7 @@ Examples of requests:
 
 - Check this configured Marketplace for drift without changing it.
 - Sync only my assigned plugin while preserving other Marketplace entries.
+- Preview a GitHub-reference catalog change without copying, publishing, or installing plugins.
 - Preview an export of sessions older than four weeks to my selected directory; keep originals.
 - Find the decision about a feature in my existing session exports.
 
@@ -39,6 +40,21 @@ Earlier CLI installers copied `codex-history` into `~/.agents/skills/`. The curr
 Before switching to this plugin, inspect the same-named standalone skills, their source-link declarations, and any local edits. Preserve them in a known location outside active skill discovery and update a link manager's declaration when needed. Install the plugin and verify discovery in a new task. If verification fails, deactivate the plugin copy before restoring the previous path. Do not remove unrelated skills or rely on duplicate-name precedence. This is an explicit switch, not an automatic migration.
 
 The CLI remains usable without either skill. If only this plugin is installed, CLI operations require a compatible runtime; supplied saved files can still be read as unverified reference material when tooling is unavailable. No software is installed implicitly to answer a history question.
+
+## GitHub-reference catalogs
+
+`agent dev marketplace catalog --help` describes catalog-only authoring. Unlike
+copy distribution, this workflow edits one human-owned native manifest directly,
+without development-target configuration or source checkouts. Choose `--format
+codex` or `--format claude` explicitly. `list` and `check` inspect; `init`, `add`,
+`update`, and `remove` prepare or apply changes with preview/confirmation controls.
+See the bundled [catalog guidance](skills/ai-dotfiles-cli/references/marketplace-catalog.md).
+
+An update changes the catalog reference, not upstream code or installed plugins.
+Removal affects only the listing. Git review/publication and host import/sync are
+separate steps. Native format validation is not proof of private access, plugin
+compatibility, or automatic refresh when only an upstream repository changes.
+Do not mix this workflow with an assembler-managed generated catalog.
 
 ## Marketplace temporary files
 

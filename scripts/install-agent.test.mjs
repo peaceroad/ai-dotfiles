@@ -50,6 +50,75 @@ test('dry run creates nothing for each supported platform', t => {
   assert.equal(fs.existsSync(options.binDir), false);
 });
 
+test('installed catalog runtime works alone with no checkout, settings, or plugin cache', t => {
+  const options = { ...fixture(t), platform: process.platform };
+  installAgent(options);
+  const runtime = join(options.agentsRoot, 'ai-dotfiles', 'runtime');
+  const isolated = join(options.agentsRoot, '..', 'isolated');
+  fs.mkdirSync(isolated);
+  fs.cpSync(runtime, join(isolated, 'runtime'), { recursive: true });
+  fs.copyFileSync(join(runtime, '..', 'development.schema.json'), join(isolated, 'development.schema.json'));
+  const helper = join(isolated, 'runtime', 'plugin-tools', 'scripts', 'manage-marketplace-catalog.mjs');
+  assert.equal(fs.existsSync(helper), true);
+  assert.equal(fs.readFileSync(helper, 'utf8'), fs.readFileSync(new URL('../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/scripts/manage-marketplace-catalog.mjs', import.meta.url), 'utf8'));
+  const env = { ...process.env, PATH: '', NODE_PATH: '', NODE_OPTIONS: '', HOME: isolated,
+    AGENT_DEV_HOME: isolated, AGENT_DEV_CONFIG: join(isolated, 'malformed.json') };
+  fs.writeFileSync(env.AGENT_DEV_CONFIG, '{ malformed synthetic settings');
+  const run = args => spawnSync(process.execPath, [join(isolated, 'runtime', 'agent.mjs'), ...args], { cwd: isolated, env, encoding: 'utf8' });
+  const target = join(isolated, 'catalog');
+  fs.mkdirSync(target);
+  for (const args of [
+    ['--help'], ['init', target, '--format', 'claude', '--name', 'sample', '--owner', 'Sample Owner', '--yes'],
+    ['add', target, 'sample-plugin', '--format', 'claude', '--repo', 'sample-owner/sample-plugin', '--ref', 'main', '--yes'],
+    ['list', target, '--format', 'claude'], ['check', target, '--format', 'claude'],
+  ]) {
+    const result = run(['dev', 'marketplace', 'catalog', ...args]);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+  assert.equal(fs.existsSync(join(isolated, '.agents')), false);
+  const before = run(['info', '--json']);
+  assert.equal(before.status, 0, before.stdout + before.stderr);
+  const info = JSON.parse(before.stdout);
+  assert.equal(info.mode, 'installed');
+  assert.equal(info.inventoryComplete, true);
+  assert.ok(info.runtimeId);
+  fs.appendFileSync(helper, '\n// Synthetic identity test.\n');
+  const changed = run(['info', '--json']);
+  assert.equal(changed.status, 0, changed.stderr);
+  assert.notEqual(JSON.parse(changed.stdout).runtimeId, info.runtimeId);
+  fs.unlinkSync(helper);
+  const missing = run(['info', '--json']);
+  assert.equal(missing.status, 1);
+  assert.ok(JSON.parse(missing.stdout).unavailableFiles.includes('plugin-tools/scripts/manage-marketplace-catalog.mjs'));
+});
+
+test('catalog loader failures hide custom installation paths without hiding operation errors', t => {
+  const options = { ...fixture(t), platform: process.platform };
+  installAgent(options);
+  const runtime = join(options.agentsRoot, 'ai-dotfiles', 'runtime');
+  const helper = join(runtime, 'plugin-tools', 'scripts', 'manage-marketplace-catalog.mjs');
+  const original = fs.readFileSync(helper);
+  const home = join(options.agentsRoot, '..', 'separate-home');
+  fs.mkdirSync(home);
+  const env = { ...process.env, PATH: '', NODE_PATH: '', NODE_OPTIONS: '', HOME: home,
+    USERPROFILE: home, AGENT_DEV_HOME: home, AGENT_DEV_CONFIG: join(home, 'development.json') };
+  const run = args => spawnSync(process.execPath, [join(runtime, 'agent.mjs'), 'dev', 'marketplace', 'catalog', ...args], { cwd: home, env, encoding: 'utf8' });
+  for (const content of [null, 'export const = ;', 'export {};', 'export const runCatalogCli = 1;']) {
+    if (content === null) fs.unlinkSync(helper); else fs.writeFileSync(helper, content);
+    const result = run(['--help']);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Catalog runtime helper.*reinstall the complete runtime/);
+    assert.equal(result.stderr.includes(options.agentsRoot), false);
+    assert.equal(result.stderr.includes(pathToFileURL(runtime).href), false);
+    assert.equal(result.stdout, '');
+  }
+  fs.writeFileSync(helper, original);
+  const operationError = run(['init', home, '--format', 'invalid', '--name', 'sample', '--yes']);
+  assert.equal(operationError.status, 1);
+  assert.match(operationError.stderr, /Specify --format codex or --format claude/);
+  assert.doesNotMatch(operationError.stderr, /reinstall/);
+});
+
 test('shared installation preserves configuration, is idempotent, and preflights all collisions', t => {
   const options = { ...fixture(t), platform: 'win32' };
   fs.mkdirSync(options.agentsRoot, { recursive: true });

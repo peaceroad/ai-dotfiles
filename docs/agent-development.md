@@ -14,15 +14,66 @@ Codexの状態確認、既知問題の回避、保存済みセッションの整
 
 ## 管理境界
 
-三つの同期先を分けます。
+既存の三つの同期先と、コピーしない参照一覧の編集を分けます。
 
 | コマンド | 正本 | 同期または検査する対象 |
 | --- | --- | --- |
 | `agent dev skill ...` | 各開発リポジトリのスキル | `~/.agents/skills/`のリンク |
 | `agent dev plugin ...` | プラグインの開発リポジトリ | リポジトリ内Marketplaceを経由したCodexのインストール状態 |
 | `agent dev marketplace ...` | プラグイン／Skillの開発リポジトリ、または明示した導入済みSkill | NASやGit checkoutなどの共有Marketplace |
+| `agent dev marketplace catalog ...` | 明示したルートのmarketplace.json | GitHub参照一覧そのもの。コピー・インストールはしない |
 
 プラグイン本体を`~/.agents/`へ複製しません。`~/.agents/ai-dotfiles/development.json`は、`agent dev`が扱う開発対象と共有Marketplaceの望ましい構成について、人が管理するローカルな正本です。ただし、プラグイン本体、Skill本体、配布用コピー、Codexのインストール済みコピーの正本ではありません。共有Marketplaceへの同期も、ローカルのプラグイン統合確認とは別の明示的な操作です。
+
+## GitHub参照型の一覧を管理する
+
+`agent dev marketplace catalog`は、GitHubの別リポジトリにあるプラグインを一覧に登録する機能です。個人・組織のどちらの所有者名も扱えます。公開・非公開はGitHub側の権限で決まり、このコマンドはネットワークアクセスや認証を行いません。非公開リポジトリを参照しても、一覧を公開すればその名前やURLは公開されるため、配布先には注意してください。
+
+一覧ファイルが唯一の原本です。既存の`development.json`への登録や、プラグイン本体のcloneは不要です。操作するルートは先に用意します。`--format codex`では`.agents/plugins/marketplace.json`、`--format claude`では`.claude-plugin/marketplace.json`を扱い、片方の操作で他方は変えません。以下の`example-org`は架空の例です。
+
+```sh
+mkdir agent-plugin-marketplace
+agent dev marketplace catalog --help
+agent dev marketplace catalog init ./agent-plugin-marketplace --format codex --name team-plugins
+agent dev marketplace catalog add ./agent-plugin-marketplace example-plugin --format codex --repo example-org/example-plugin --ref main --dry-run
+agent dev marketplace catalog add ./agent-plugin-marketplace example-plugin --format codex --repo example-org/example-plugin --ref main
+agent dev marketplace catalog list ./agent-plugin-marketplace --format codex
+agent dev marketplace catalog check ./agent-plugin-marketplace --format codex
+```
+
+変更系は確認してから保存します。非対話の処理では、許可された変更に限り`--yes`を指定します。`--dry-run`は変更案を表示するだけです。`dev mp`は既存の`dev marketplace`の短縮形として使えます。
+
+### 登録と更新と削除の違い
+
+- `add`は一覧への登録です。同名・同一設定なら変更せず、同名で異なる設定がある場合は`update`で変更を指定します。
+- `update`は、参照するリポジトリ、パス、ブランチや固定SHAなどの指定項目だけを変更します。本体のコード、版番号、導入済みプラグインは変更しません。
+- `remove`は名前が一意に決まる一覧項目の削除です。更新に対応していない参照形式も、不要な項目として削除できます。安全に表示できない参照内容はプレビューに出しません。本体のリポジトリや、サービス側に取り込まれたコピーは削除しません。
+- `check`は構造と対応する参照構文の検査です。参照先の実在、アクセス権限、プラグインの動作や安全性の保証ではありません。
+
+```sh
+agent dev marketplace catalog update ./agent-plugin-marketplace example-plugin --format codex --ref stable --dry-run
+agent dev marketplace catalog remove ./agent-plugin-marketplace example-plugin --format codex --dry-run
+```
+
+新しい参照は`--ref`によるブランチ・タグ追従か、`--sha`による40桁のコミット固定を選びます。固定SHAは本体が更新されても自動で新しいSHAに書き換わりません。その他のオプションと形式固有の必須項目は、各操作の`--help`で確認してください。
+
+Codex形式の新規項目には、`AVAILABLE`／`ON_INSTALL`の方針と、既定の`Productivity`カテゴリを記録します。`--category "Developer tools"`などで分類を指定できます。カテゴリは参照元の分類を上書きする場合があるため、用途に合う値を選んでください。既存項目の方針は自動変更せず、ChatGPTワークスペースの権限設定も別に管理します。
+
+一覧名とプラグイン名の規則は形式ごとに異なります。既知の予約名では新しい一覧を作成しません。既存の予約名は、配布元による例外を確認できないという警告付きで扱います。途中で使い方を確認する場合は、引数の後ろにも`--help`を付けられます。値が`--`で始まる場合は`--name=--example`のような形式を使い、`-`で始まる位置引数は、すべてのオプションを指定した後の`--`に続けます。
+
+### GitHubへの反映とホスト側の同期
+
+コマンドが変更するのはローカルの一覧だけです。差分を確認し、通常のGit操作でコミット・push・PR・レビューを行います。直接pushするかPRを使うかはリポジトリの運用に従い、履歴を書き換えるforce pushを要求しません。
+
+ChatGPTのワークスペースでは、公開された一覧を管理画面から取り込み、ホスト側の日次同期や`Sync now`で更新を要求します。一覧を変更せず本体だけ更新した場合の検知は、実際のホストで別に確認してください。ローカルの`check`成功だけでは、自動反映を確認したことにはなりません。
+
+Claude用とCodex用はそれぞれネイティブ形式として検証しますが、相互変換・完全互換や全機能の動作は保証しません。Claudeの組織配布とClaude Codeへの直接登録には公開範囲などの条件差があります。[OpenAIの取り込みと同期](https://learn.chatgpt.com/docs/enterprise/plugin-management)、[Claudeのカタログ仕様](https://code.claude.com/docs/en/plugins/marketplace-reference)、[Claudeの組織配布](https://support.claude.com/en/articles/13837433-manage-plugins-for-your-organization)を利用先に合わせて確認します。
+
+### 既存一覧と失敗時の扱い
+
+コピー配布ツールが管理する一覧には書き込めません。自動移行や生成ファイルの強制上書きは行いません。通常の既存一覧では、変更していない項目やメタデータを保持し、意味を保持できない参照変更は拒否します。変更時にはJSONの整形が変わることがありますが、変更なしの場合は書き直しません。
+
+確認後に他の操作で原本が変わった場合は、再確認してからやり直します。ロックが残っていても時間だけを根拠に削除せず、他の操作が終わっているか確認してください。置換処理のエラーでは保存結果が不明なことがあり、保存後に後始末だけが失敗する場合もあります。未保存と決めつけず、実際の一覧を読んでから再試行します。作成した一時ファイルの所有を確認できなかった場合も、勝手に削除せず残存物として報告します。この排他は協調するローカル操作向けで、任意のNASや停電時の耐久性まで保証しません。
 
 ## 配置とインストール
 
