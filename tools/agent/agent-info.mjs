@@ -27,6 +27,7 @@ export function runtimePayload(codexTools) {
   for (const [name, marker] of [
     ['scripts/manage-local-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-local-runner v1'],
     ['scripts/assemble-agent-marketplace.mjs', '@plugin-creator-agent-plugins managed-marketplace-assembler v1'],
+    ['scripts/manage-marketplace-catalog.mjs', '@plugin-creator-agent-plugins managed-marketplace-catalog v1'],
     ['scripts/validate-agent-plugin.mjs', '@plugin-creator-agent-plugins managed-portable-validator v1'],
     ['assets/marketplace-distribution/marketplace-development.schema.json', '@plugin-creator-agent-plugins managed-marketplace-schema v2'],
   ]) add(`${plugin}/${name}`, `plugin-tools/${name}`, marker);

@@ -25,7 +25,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPOSITORY_ROOT = resolve(SCRIPT_DIR, "../..");
@@ -95,6 +95,7 @@ Usage: agent <command> [arguments...]
 
 Examples:
   agent dev --help
+  agent dev marketplace catalog --help
   agent marketplace --help
   agent codex                 Open the tool menu in an interactive terminal.
 
@@ -113,6 +114,7 @@ Examples:
   agent dev skill --help
   agent dev plugin --help
   agent dev marketplace --help
+  agent dev marketplace catalog --help
 
 Settings: ~/.agents/ai-dotfiles/development.json (override: AGENT_DEV_CONFIG).
 Skill links use a separate manifest. Help needs no configuration.
@@ -153,6 +155,7 @@ Usage: agent dev marketplace <command> [<name>] [options]
   status            Inspect metadata without writing or accepting revisions.
   check             Report consistency without changing managed state.
   sync              Publish copies from the configured local sources.
+  catalog           Edit a standalone GitHub-reference catalog (no local settings).
 
 Options for check/sync:
   --plugin <target> | --skill <target>  Process one local assignment only.
@@ -165,8 +168,12 @@ Examples:
   agent dev marketplace check team
   agent dev marketplace sync team --plugin my-plugin
   agent dev marketplace check team --interactive
+  agent dev marketplace catalog init ./catalog --format codex --name sample --dry-run
+  agent dev marketplace catalog --help
 
 Omit the name only with one configured Marketplace; configure can select a target.
+Catalog commands instead take an existing root directory and explicit --format.
+They edit only that native JSON file, without development.json or Git operations.
 Authoritative check/sync without a selector covers the complete assignment set.
 Contributor check/sync without a selector processes local assignments one by one,
 preserving unassigned entries. Failure stops the remainder without rolling back
@@ -219,6 +226,7 @@ function helpScope(argv) {
   const command = argv[0] === "mp" ? "marketplace" : argv[0];
   const domain = command === "dev" && argv[1] === "mp" ? "marketplace" : argv[1];
   const nested = `${command} ${domain}`;
+  if (nested === "dev marketplace" && argv[2] === "catalog") return "dev marketplace catalog";
   return Object.hasOwn(HELP, nested) ? nested : Object.hasOwn(HELP, command) ? command : "";
 }
 
@@ -2954,6 +2962,9 @@ function parseInvocation(argv) {
   argv = [...argv];
   if (argv[0] === "mp") argv[0] = "marketplace";
   if (argv[0] === "dev" && argv[1] === "mp") argv[1] = "marketplace";
+  if (argv[0] === "dev" && argv[1] === "marketplace" && argv[2] === "catalog") {
+    return { catalog: true, catalogArguments: argv.slice(3) };
+  }
   const scope = helpScope(argv);
   const helpActions = {
     dev: ["status"],
@@ -3004,7 +3015,7 @@ function parseInvocation(argv) {
   if (!["skill", "plugin", "marketplace"].includes(domain)) fail(`Unknown development command: ${domain}. Available: status, skill, plugin, marketplace (mp).`, 2);
   const marketplaceConfiguration = domain === "marketplace" && ["configure", "setup", "reconcile"].includes(action);
   if (!["status", "check", "sync"].includes(action) && !marketplaceConfiguration) {
-    fail(`Unknown ${domain} command: ${action}. Available: status, check, sync${domain === "marketplace" ? ", configure (setup)" : domain === "skill" ? ", link (links)" : ""}.`, 2);
+    fail(`Unknown ${domain} command: ${action}. Available: status, check, sync${domain === "marketplace" ? ", configure (setup), catalog" : domain === "skill" ? ", link (links)" : ""}.`, 2);
   }
   const rest = argv.slice(3);
   if (domain === "skill") {
@@ -3063,7 +3074,19 @@ async function main() {
     return;
   }
   const invocation = parseInvocation(process.argv.slice(2));
-  if (invocation.help !== undefined) console.log(HELP[invocation.help]);
+  if (invocation.catalog) {
+    let runCatalogCli;
+    try {
+      ({ runCatalogCli } = await import(pathToFileURL(join(PLUGIN_TOOLS, "scripts", "manage-marketplace-catalog.mjs")).href));
+    } catch {
+      // Import errors can embed absolute installation paths without error.path.
+      fail("Catalog runtime helper could not load. Restore the matching checkout or reinstall the complete runtime from the intended checkout.");
+    }
+    if (typeof runCatalogCli !== "function") fail("Catalog runtime helper is incompatible. Restore the matching checkout or reinstall the complete runtime from the intended checkout.");
+    const result = await runCatalogCli(invocation.catalogArguments, { command: "agent dev marketplace catalog" });
+    if (result.action === "check" && !result.valid) process.exitCode = 1;
+  }
+  else if (invocation.help !== undefined) console.log(HELP[invocation.help]);
   else if (invocation.consumerMarketplace) {
     const config = invocation.action === "remove" ? null : readConfiguration();
     process.exitCode = handleConsumerMarketplaceSkill(
