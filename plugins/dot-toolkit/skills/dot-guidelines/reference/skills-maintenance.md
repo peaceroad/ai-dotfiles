@@ -7,7 +7,7 @@ Use for authorized additions, updates, selection changes, comparisons, reproduct
 - **Selection or description only:** preserve skill files, source versions, and manifests. Inspect the current INDEX and the entries affected by the request. For an addition or description refresh, read the selected entry's current frontmatter and check its recorded identity and required files. Removing an entry does not require retrieving or repairing that skill. Recheck INDEX before writing, change only the approved membership or descriptions, then validate the resulting selection.
 - **Add or update skill or plugin contents:** use the source and manifest contracts below, followed by **Apply and resume**.
 - **Comparison or reproduction:** use the recorded identity and the checks needed for the requested result. Comparison leaves adopted skill/plugin contents, INDEX, and provenance unchanged, while reports, temporary source acquisitions, and evidence needed for the requested comparison may be created within the authorized task scope; reproduction does not authorize an upgrade.
-- **Interrupted work:** inspect the actual state and retained intent, then resume only the unfinished part of the authorized operation.
+- **Interrupted work:** inspect the actual state and retained intent, then resume or restart the affected target under **Source and update policy** below.
 
 Use the [computer checks](computer-checks.md) that support that operation. INDEX-only work needs no new source acquisition or blanket hash verification of unselected skills.
 
@@ -21,11 +21,21 @@ Before placement, verify `plugin.json` and its plugin name, source repository/pa
 
 Copying MCP configuration or extensions does not register, start, authenticate, or enable them. Inspect required package resources without running bundled code merely to place it. Any requested activation needs the actual client's supported integration, permissions, and separate verification; do not claim that copying makes it work.
 
-## Pin source identity
+## Source and update policy
 
-For new placement or an upstream update, use the requested commit, or resolve the requested branch/tag once to an immutable Git commit. Default to `main` only if no ref was specified; do not guess another ref if it is absent. Use the same resolution for packages acquired together from that repository. Verify archive content against that commit; a filename is not evidence. For edited sources, preserve the requested local changes and base identity instead of fetching newer content.
+For authorized new placement, upstream updates, or a rebuild requested from the latest source, follow `main` unless the user specified another branch, tag, or fixed version. Honor explicit pins; a manifest's adopted commit records what is installed, not a permanent pin or permission to update. Resolve the intended ref to a commit when preparing the complete target, and verify the acquired inventory and bytes against it; a filename or version label is not evidence. Use one source resolution for packages prepared together from that repository. Do not guess another ref if the intended one is absent. For edited sources, preserve the requested local changes and base identity.
 
-Repair, reproduction, retry, and continuation reuse the recorded commit and intended changes. Never turn them into an upstream upgrade by resolving a fresh HEAD. If identity or required content is unavailable, pause that target rather than inventing metadata. Follow the [source acquisition checks](computer-checks.md#repository-source-acquisition-and-git-access) when choosing or diagnosing the retrieval route. Source checkouts or snapshots may live in projects or downloads. Keep Git metadata with a source checkout when needed, but exclude `.git` from adopted skill/plugin packages. Do not depend on an installed cache as editable source.
+Repair or reproduction of an adopted version uses its recorded commit and intended local changes. Do not reinterpret a missing file, migration, or a request to restore the previous state as permission for a latest-source rebuild. If identity or required content is unavailable, pause that target rather than inventing metadata.
+
+An authorized recurring update uses this same policy on each run. Its schedule, targets, version limits, and reporting destination belong to the user's separate scheduling instructions; this skill neither creates a schedule nor grants ongoing update permission. Restrict such updates to the agreed existing packages and selection. Compare package contents, not just repository HEAD or the version string; if only unrelated upstream files changed, do not replace identical package files.
+
+On resuming an interrupted branch-tracking update or latest-source rebuild, first reconcile actual files, manifests, INDEX, and retained intent. If the tracked ref is unchanged, reuse the verified candidate. If it has advanced within the approved scope, restart preparation and validation of the affected complete target from the new commit rather than require the old commit indefinitely. Do not patch the remainder of an old attempt with new-source files. If some placement already occurred, distinguish the known partial write from newer or unexplained edits, preserve recoverable prior content and provenance, and establish the previous attempt's outcome and sole ownership before replacement. Uncertain writes or another active operation block that target; elapsed time is not proof of completion. Keep a partial target out of use until full verification succeeds. This restart does not override an explicit pin, reproduction request, or narrower retry instruction.
+
+Do not chase a moving branch during a single preparation or placement attempt; use that candidate's verified commit through verification. A later update can adopt a later commit. Recheck local state before writing and defer replacement while an active task is using the target. A newer source alone does not authorize changed dependencies, permissions, terms, sources, or selection.
+
+ChatGPT-provided plugins, including a Web-installed dot-toolkit, use the provider's supported distribution and sync controls. Their source/ref mapping, update authority, and result require separate verification. These local-package procedures do not update them; do not install a second local copy as a substitute for an unverified provider update.
+
+Follow the [source acquisition checks](computer-checks.md#repository-source-acquisition-and-git-access) when choosing or diagnosing retrieval. Source checkouts or snapshots may live in projects or downloads. Keep Git metadata with a source checkout when needed, but exclude `.git` from adopted skill/plugin packages. Do not depend on an installed cache as editable source.
 
 ## INDEX contract
 
@@ -66,7 +76,7 @@ Read each selected skill's frontmatter and preserve its **full parsed descriptio
 
 Each UTF-8 JSON file is an object with these required fields:
 
-- `schemaVersion`: integer `1`, independent of plugin version `0.5.0` and old inventory schema 4
+- `schemaVersion`: integer `1`, independent of the plugin version and old inventory schema 4
 - `name`: the skill directory name, lowercase letters/digits and single hyphens, up to 64 characters
 - `source`: object with `repository` (source repository identifier), `path` (repository-relative skill directory or `.`), `ref` (requested ref), and `commit` (resolved full 40- or 64-character lowercase hexadecimal Git commit)
 - `files`: nonempty array of `{ "path": "SKILL.md", "sha256": "<64 lowercase hex digits>" }` records, one per adopted regular file
@@ -98,6 +108,6 @@ Preserve local edits, configuration, and extra files that the fixed upstream sou
 
 For larger text updates, you may generate a patch in the dedicated `apply_patch` tool’s accepted format in an authorized writable location, review its target paths and changes, and submit it to that tool.
 
-There is no multi-file atomicity or recovery-engine guarantee. After interruption, inspect actual files, manifests, INDEX, and any retained intent before continuing only unfinished authorized work. Preserve newer edits. If the source SHA, selection, or intended local change is unknown, pause only that target. A readable file is not evidence of write permission; verify each authorized write separately. Keep the original source resolution through retries, and do not report failed or unverified updates as complete.
+There is no multi-file atomicity or recovery-engine guarantee. After interruption, apply the **Source and update policy** above to the actual files and records; do not reset incomplete state merely to start again. Preserve newer edits. If the prior source identity, selection, intended local change, or write outcome cannot be established where needed, pause only that target. A readable file is not evidence of write permission; verify each authorized write separately. Record the adopted source only after its full contents and records agree, and do not report failed or unverified updates as complete.
 
 For reproduction, obtain recorded sources and any retained content needed for local edits, then compare every expected file and unexpected extra against the manifest. A backup is optional, not assumed. Claim only the file/content identity actually verified, not an identical execution environment. No helper performs updates, restores files, or selects skills for you.

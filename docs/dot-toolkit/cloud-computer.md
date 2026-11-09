@@ -70,7 +70,7 @@ Gitの起動、対象ホストへの通信許可、必要な認証、依頼さ�
 
 通信・認証の設定変更、ソフトウェアの導入、別の環境への移動は、必要な承認と正式な手順に従います。許可されない接続先を試したり、別サービスのプロキシや資格情報を流用して拒否を回避したりはしません。未試行の接続は未確認として伝えます。このスキルの変更で、ホスト側の制限を解除することはできません。
 
-コネクターで必要なファイルだけを読む方法も使えます。その場合は固定したコミットと取得範囲を明示し、Gitの作業コピーとは区別します。欠けたファイル、バイナリー、履歴、ファイル種別などが必要な検査は未確認のまま残し、代用品を作って全体の検査が通ったことにはしません。編集元の作業コピーには必要な`.git`を保持できますが、採用するスキルやプラグインの配布内容へは混入させません。具体的な判断は[取得経路とGitアクセスの確認](../../plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md#repository-source-acquisition-and-git-access)と[取得元の固定](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#pin-source-identity)に従います。
+コネクターで必要なファイルだけを読む方法も使えます。その場合は固定したコミットと取得範囲を明示し、Gitの作業コピーとは区別します。欠けたファイル、バイナリー、履歴、ファイル種別などが必要な検査は未確認のまま残し、代用品を作って全体の検査が通ったことにはしません。編集元の作業コピーには必要な`.git`を保持できますが、採用するスキルやプラグインの配布内容へは混入させません。具体的な判断は[取得経路とGitアクセスの確認](../../plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md#repository-source-acquisition-and-git-access)と[取得元の固定](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#source-and-update-policy)に従います。
 
 ## Webサイトのログインを扱う
 

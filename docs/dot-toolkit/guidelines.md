@@ -135,7 +135,7 @@ descriptionには、メインのdot自身のクラウドでファイルを探し
 
 INDEXが表すのは、普段使うと決めたスキルです。全manifestから作る在庫一覧ではありません。同名で用途も合うクライアント側のスキルよりINDEX側を優先する理由は、原文にあるとおり、INDEXへの掲載が意図した選択を表すためです。取得元を明示して依頼した場合は、その指定を優先します。
 
-リポジトリの開発用ソース、アプリにインストールしたプラグイン、dotのクラウドへ採用したコピーは、それぞれ別に扱います。一回の仕事でクラウドのコピーを使っても、他の版やINDEXは更新されません。クラウドへ置いたコピーの内容を更新する場合は、取得元と固定したコミット、現在の差分、承認された変更範囲を確認する保守作業になります。根拠は[原文の通常作業](../../plugins/dot-toolkit/skills/dot-guidelines/SKILL.md#normal-work)、[取得元の固定](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#pin-source-identity)、[INDEXの定義](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#index-contract)です。
+リポジトリの開発用ソース、アプリにインストールしたプラグイン、dotのクラウドへ採用したコピーは、それぞれ別に扱います。一回の仕事でクラウドのコピーを使っても、他の版やINDEXは更新されません。クラウドへ置いたコピーの内容を更新する場合は、取得元と固定したコミット、現在の差分、承認された変更範囲を確認する保守作業になります。根拠は[原文の通常作業](../../plugins/dot-toolkit/skills/dot-guidelines/SKILL.md#normal-work)、[取得元の固定](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#source-and-update-policy)、[INDEXの定義](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#index-contract)です。
 
 dot自身のクラウドで許可されたテキストファイルを変更するときは、変更箇所を差分で指定できる専用の`apply_patch`ツールを、利用可能性と変更への適性に応じて優先します。対象はスキルや個別指示の管理先に限りません。ツールに承認用の引数がないことだけで承認手段の有無を決めず、その時点のツール契約と承認手順に従います。原文の[権限・保存・プライバシー](../../plugins/dot-toolkit/skills/dot-guidelines/SKILL.md#authority-preservation-and-privacy)で定めるツール選択の方針であり、書き込みの成功を保証したり、既存の権限・承認条件を変えたりするものではありません。[編集方法と失敗の扱い](cloud-computer.md#テキストファイルの編集方法を選ぶ)も参照してください。
 

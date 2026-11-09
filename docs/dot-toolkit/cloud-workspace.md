@@ -67,7 +67,7 @@ scratchでは、環境から割り当てられた作業ディレクトリを確�
 
 ### 取得物とツールを区別する
 
-`downloads/`は、保持する取得資料や固定版のスナップショットに使います。プロジェクトに関係する資料は、そのプロジェクト内に保存できます。スキルの取得元スナップショットも、[保守手順](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#pin-source-identity)では`projects/`または`downloads/`へ置けます。
+`downloads/`は、保持する取得資料や固定版のスナップショットに使います。プロジェクトに関係する資料は、そのプロジェクト内に保存できます。スキルの取得元スナップショットも、[保守手順](../../plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md#source-and-update-policy)では`projects/`または`downloads/`へ置けます。
 
 `tools/`は、利用者が管理するツールやランタイムの置き場所です。場所を用意することと、ソフトウェアのインストールや実行を承認することは別です。必要なランタイムがなければ、前提条件として報告し、無断で導入しません。環境固有の補助文書には、具体的な必要がある場合だけ`/workspace/shared/ai-dotfiles/codex/docs/`を使えます。
 
