@@ -2,7 +2,7 @@
 
 dot自身のクラウド環境で、利用者が指定した指示ファイルと選択済みプラグイン・スキルの存在確認、欠落時の復旧、パッケージの更新を行うタスク例です。
 
-登録用本文は [tasks/dot-cloud-maintenance.md](../tasks/dot-cloud-maintenance.md) にあります。ファイルを保存しただけでは定期実行は登録されません。
+登録用本文は [dots/tasks/dot-cloud-maintenance.md](../dots/tasks/dot-cloud-maintenance.md) にあります。ファイルを保存しただけでは定期実行は登録されません。
 
 ## 何を保守するか
 
