@@ -6,7 +6,7 @@ The bundled `dot-guidelines` skill provides common guidance and reads setup, ins
 
 ## Who should choose 0.5
 
-Version **0.5.0 is opt-in** for environments where the 0.4 managed layout prevents installing or updating skills or plugins. Users whose 0.4 setup works can keep that plugin and layout. A future consolidation version and its timing are undecided.
+Version **0.5.1 is opt-in** for environments where the 0.4 managed layout prevents installing or updating skills or plugins. Users whose 0.4 setup works can keep that plugin and layout. A future consolidation version and its timing are undecided.
 
 0.5 uses one normal layout under `/workspace/shared/ai-dotfiles/{codex,agents}/`; the former `/workspace/.codex/` and `/workspace/.agents/` are migration sources or rollback material, not parallel active roots. Directory contents, INDEX grammar, and schema-1 manifests are preserved.
 
@@ -61,13 +61,15 @@ Version 0.4.2 clarifies pre-update preservation for cloud-managed skills and plu
 
 Version 0.4.1 builds on the editing guidance introduced in [PR #33](https://github.com/peaceroad/ai-dotfiles/pull/33): prefer the dedicated `apply_patch` tool for authorized text-file changes in dot's own cloud when available and suitable. The guidance also distinguishes tool availability, startup or filesystem errors, and approval procedures without bypassing explicit access or policy denials. The version number distinguishes this guidance from earlier 0.4.0 packages. Permissions and stored data formats are unchanged; no data migration is required.
 
-Ask for the specific instructions, package, standalone skill, or selection change you want. dot compares current files against their adoption records before changing them, pins the source to a resolved commit, and preserves unexplained edits. A retry uses that same commit. Hashes detect byte differences; they cannot recover lost content or prove code safety.
+Version 0.5.1 makes `main` the default for authorized package updates and latest-source rebuilds, while preserving explicit version choices. Each attempt uses one verified source commit. After interruption, dot reconciles the actual state; if the tracked branch has advanced, it prepares and validates the affected complete target again from the latest commit. It does not mix new files into the remainder of an old attempt or overwrite unexplained edits. Repair and reproduction of a previous version still use that version. Hashes detect byte differences; they cannot recover lost content or prove code safety.
+
+Recurring updates need separate user authorization defining their schedule and targets. This plugin supplies the maintenance procedure, not a scheduler or automatic updater, and does not select newly bundled skills. Existing scheduling instructions, including narrower retry rules, remain effective until explicitly changed. See the [source and update policy](skills/dot-guidelines/reference/skills-maintenance.md#source-and-update-policy).
 
 For repository source work, dot reuses the intended checkout or prefers ordinary Git when the requested access and transport are already available. Connector access alone does not establish shell Git access. A connector snapshot can support scoped work, but missing files, history, and metadata remain explicit verification limits. Source checkouts may retain `.git`; adopted skill/plugin packages do not include it. See [source acquisition and Git access](skills/dot-guidelines/reference/computer-checks.md#repository-source-acquisition-and-git-access). These instructions do not provision credentials or change host-managed access.
 
 Plugin updates replace the package as a coordinated unit, while selection stays per skill. New bundled skills are not selected automatically. If an update removes or renames a selected skill, dot confirms how to handle that selection before applying the update. Selection-only changes leave package contents and adopted versions unchanged. Dependencies outside the package are considered separately.
 
-Updating the Web-installed dot-toolkit does not update private files or cloud-managed packages. Likewise, copying a package into the cloud does not update its Web installation. See the bundled [maintenance procedure](skills/dot-guidelines/reference/skills-maintenance.md) for the record and preservation contracts.
+Updating the Web-installed dot-toolkit does not update private files or cloud-managed packages. Likewise, copying a package into the cloud does not update its Web installation. Verify the provider-managed plugin's source/ref and supported update or sync controls separately; do not install a second local copy to replace an unverified provider update. See the bundled [maintenance procedure](skills/dot-guidelines/reference/skills-maintenance.md) for the record and preservation contracts.
 
 ## MCP and other executable components
 
@@ -96,10 +98,10 @@ Use the maintainer's specified tag or commit, or the commit containing this guid
 ```sh
 git rev-parse HEAD
 git show HEAD:plugins/dot-toolkit/plugin.json
-git archive --format=zip --output=../dot-toolkit-0.5.0.zip HEAD:plugins/dot-toolkit
+git archive --format=zip --output=../dot-toolkit-0.5.1.zip HEAD:plugins/dot-toolkit
 ```
 
-Confirm version `0.5.0` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files. Candidate packages can share a version label; retain the source commit and ZIP SHA-256 to distinguish their contents and keep verification results tied to the candidate actually checked.
+Confirm version `0.5.1` before archiving. The ZIP contains committed `plugin.json`, `README.md`, and `skills/` at its root, without an enclosing directory. Uncommitted edits are excluded. Choose a different output name if needed; do not commit generated ZIPs or include private files. Candidate packages can share a version label; retain the source commit and ZIP SHA-256 to distinguish their contents and keep verification results tied to the candidate actually checked.
 
 ## Scope and background
 

@@ -4,12 +4,12 @@
   "targets": [
     {
       "path": "plugins/dot-toolkit/README.md",
-      "sha256": "77fc5359bc5410c9ba69eb9f7dcd519357cc32e59279d52c1abacda8109137f1",
-      "bytes": 14217
+      "sha256": "30ef92a20e3b262f842324889301929746131ff7d0385bdbafd8f3c4e78d8456",
+      "bytes": 15086
     },
     {
       "path": "plugins/dot-toolkit/plugin.json",
-      "sha256": "260611051edd9ca8d79bca34f2d9b8ff7a6b683bb44a2eeeb03f32f680fe5ed0",
+      "sha256": "7feea289ede59968815aa3c730b81cf80fa3718e1607944102a38b52e00d9883",
       "bytes": 219
     },
     {
@@ -24,13 +24,13 @@
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/computer-checks.md",
-      "sha256": "e025571e487ee01640ea89080efa97d410f6a176928f509b7ab1611ee765cf39",
-      "bytes": 10706
+      "sha256": "c05fcd7aff274f2293dc7ba9d6cf1eb20f216b7490cdc37794830b33cfc497a3",
+      "bytes": 10781
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/skills-maintenance.md",
-      "sha256": "923e87c0366860ba5d285aa91cd508d3b1088cd20c46cdf8a8a19a314fcafab2",
-      "bytes": 15493
+      "sha256": "cc2b39a86eec5bd1dd9b3d469ad4dd964d1df7c9d7b7721242e84bc413f7b4bd",
+      "bytes": 18048
     },
     {
       "path": "plugins/dot-toolkit/skills/dot-guidelines/reference/migrations/0.1-to-0.2.md",
@@ -80,7 +80,7 @@
     "実モデルの呼び出し、main dotの新規作成、再起動、個別設定の変更、実環境の移行は含まない。",
     "liveChecksとbehavioralRunsはこの公開定義で未実施の範囲を示す。実際の観測記録は別に審査し、定義検査で合格へ書き換えない。"
   ],
-  "pluginVersion": "0.5.0",
+  "pluginVersion": "0.5.1",
   "liveChecks": {
     "installedEntry": "not_run",
     "installedReferences": "not_run",

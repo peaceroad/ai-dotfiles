@@ -293,7 +293,7 @@ test('the source manifest requires the content-hash schema and acceptance kind',
 
 test('source definitions keep installed-resource access and ordinary main-dot checks unrun', () => {
   const required = ['installedEntry', 'installedReferences', 'installedScriptsRetrieved', 'installedScriptsExecuted', 'ordinaryMainDotContext'];
-  assert.equal(manifest.pluginVersion, '0.5.0');
+  assert.equal(manifest.pluginVersion, '0.5.1');
   assert.equal(manifest.behavioralRuns, 'not_run');
   assert.deepEqual(Object.keys(manifest.liveChecks).sort(), required.sort());
   for (const name of required) {
@@ -619,6 +619,14 @@ test('optional layout migration decisions keep explicit adoption and preservatio
   for (const id of ['layout-opt-in', 'layout-update-only', 'layout-adoption-gate', 'layout-partial-no-fallback',
     'layout-preserve-switch', 'layout-rollback-new-edits', 'layout-migration-routing',
     'layout-declined-after-install', 'layout-direct-legacy-adoption']) {
+    assert.equal(cases.find(item => item.id === id)?.mode, 'simulation');
+    assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
+  }
+});
+
+// Coverage only; these checks do not execute an updater or judge model decisions.
+test('main tracking boundaries stay explicit synthetic cases', () => {
+  for (const id of ["tracking-update-restart", "tracking-partial-restart", "tracking-unchanged-retry", "tracking-identical-package", "latest-rebuild-versus-repair", "tracking-scope-and-provider", "tracking-no-schedule-authority"]) {
     assert.equal(cases.find(item => item.id === id)?.mode, 'simulation');
     assert.ok(criteria.cases[id]?.pass.length && criteria.cases[id]?.fail.length, id);
   }
