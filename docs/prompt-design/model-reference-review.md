@@ -1,5 +1,7 @@
 # モデル別参照の配置とGPT-5.6参照の再監査
 
+現行配布には、ここで扱うGPT-5.6専用参照を含めていません。以下は当時の採用理由と評価の記録です。現在の参照選択は[prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading)を参照してください。
+
 レビュー日：2026年9月6日。[全体評価](README.md)を受け、GPT-5.6向け指示の設計を継続して支援できるか、Geminiを別スキルへ分けると使いやすくなるかを検討しました。
 
 GPT-5.6参照を監査して復元し、Geminiの3参照は`prompt-design`内に維持しました。共通の指示設計を`SKILL.md`に置き、設計対象に応じてモデル・製品の参照を選ぶ構成です。指示を書くモデルがAstraであっても、設計対象がGPT-5.6やGeminiなら、その対象を優先します。
@@ -23,7 +25,7 @@ Gitの基点コミット`7c687ab81b7a30e76ac7ee90afc8fce31f5693e3`から旧参�
 | API・PTC・履歴・キャッシュの詳細 | 共通のAPI参照へ案内し、対象モデルの対応を確認。Astra固有の節の適用範囲も明示 |
 | effortの比較 | 実際のGPT-5.4/5.5からの移行時に行う比較と、普通の文言修正を区別 |
 
-[復元した参照](../../plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-5.6-prompt-design.md)は15,066 bytesから3,163 bytesになりました。削減の主因は共通部分の集約です。GPT-5.6向けでもモデル非依存の文言修正なら追加読み込みは不要とし、Astra向け作業の読み込み増加は入口1行の211 bytesに留めています。
+[復元した参照](https://github.com/peaceroad/ai-dotfiles/blob/f2d133c5c35f39c8dfb47ad1d67c2c7685c81505/plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-5.6-prompt-design.md)は15,066 bytesから3,163 bytesになりました。削減の主因は共通部分の集約です。GPT-5.6向けでもモデル非依存の文言修正なら追加読み込みは不要とし、Astra向け作業の読み込み増加は入口1行の211 bytesに留めています。
 
 ## Geminiを同じスキルに残す判断
 

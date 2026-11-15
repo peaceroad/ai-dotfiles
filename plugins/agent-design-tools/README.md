@@ -44,7 +44,7 @@ Bundled references support ordinary design. Migrations, requests for the latest 
 
 ## Model targeting
 
-The skills retain a target established by your request, conversation, or deployment. An explicit migration request selects the new design target. For OpenAI or Codex work with no established target, the default is **GPT-6 Astra**; existing GPT-5.6 targets retain their applicable guidance.
+The skills retain a target established by your request, conversation, or deployment. An explicit migration request selects the new design target. For OpenAI or Codex work with no established target, the default is **GPT-6 Astra**. Other targets use their official guidance or an applicable model-specific skill when model behavior affects the design.
 
 The model running these skills and the model that will use their output can differ. Designing Gemini instructions in Codex does not select OpenAI guidance for that output. Reference selection does not switch the running model or change a deployment. Each `SKILL.md` owns the detailed loading conditions.
 
@@ -60,7 +60,7 @@ Version **0.4.0** replaces `prompt-gemini-reference` with `gemini-instruction-de
 
 The Gemini references were checked against official documentation on **2026-11-15**. This is a documentation review date, not evidence of live client testing. Each reference retains its sources and the conditions that call for verification. The following sources explain broader design choices and are optional background reading.
 
-The OpenAI references retain their earlier documentation-review dates: Astra prompting, **2026-09-12**; GPT-5.6 prompting and workflow guidance, **2026-09-06**; API tools and runtime guidance, **2026-09-05**. Moving these dates here does not constitute a new specification review. The GPT-5.6 workflow supplement also draws on the historical `agent-workflow-design/SKILL.md` and `references/loop-patterns-and-control.md` at [commit 16c9655](https://github.com/peaceroad/ai-dotfiles/commit/16c9655), dated 2026-09-02.
+The OpenAI references retain their earlier documentation-review dates: Astra prompting, **2026-09-12**; API tools and runtime guidance, **2026-09-05**. These dates do not constitute a new specification review.
 
 For Gemini, the [Carbon developer guide](https://aistudio.google.com/learn/gemini-4-carbon-developer-guide) and [Argon developer guide](https://aistudio.google.com/learn/gemini-4-argon-developer-guide) inform the focus on outcomes, verification feedback, appropriate media, and lessons from sustained work. Their example agent arrangements are design options. [Hydrogen's guide](https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen) supplies its thinking, output-budget, and API conditions.
 

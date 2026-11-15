@@ -99,21 +99,18 @@ RSIに向けて目指すのは、改善方法への変更が次の改善の質�
 
 ## 対象モデルと参照の分担
 
-`prompt-design`と`agent-workflow-design`は、依頼、会話で確定した前提、成果物の導入先から設計対象を判断します。OpenAI／Codex向けで対象が決まっていなければ、どちらも**GPT-6 Astra向け**を既定とします。既存の対象がGPT-5.6やGeminiと分かっていればそれを保持し、明示的な移行依頼があれば移行先を優先します。
+`prompt-design`と`agent-workflow-design`は、依頼、会話で確定した前提、成果物の導入先から設計対象を判断します。OpenAI／Codex向けで対象が決まっていなければ、どちらも**GPT-6 Astra向け**を既定とします。別の対象が確定していればそれを保持し、明示的な移行依頼があれば移行先を優先します。
 
-これはスキルを実行しているモデルへの自動追従ではありません。GPT-5.6でスキルを使っても、設計対象が未確定なら既定はAstraです。参照を選ぶこと自体は、実行中のモデルや導入先の設定を変更しません。`skill-creator`は、このモデル選択とは別にスキルの構造を担当します。
+これはスキルを実行しているモデルへの自動追従ではありません。別のモデルでスキルを使っても、OpenAI／Codex向けの設計対象が未確定なら既定はAstraです。参照を選ぶこと自体は、実行中のモデルや導入先の設定を変更しません。`skill-creator`は、このモデル選択とは別にスキルの構造を担当します。
 
 Astra向けの指示設計では、小さな修正でも`prompt-design/SKILL.md`とAstra用参照を読みます。共通本文には、局所修正を「修正前／修正後／理由」で示す場合などの報告方針もあります。モデル用参照だけでは、この共通方針を代替できません。APIや詳細診断の参照は、それぞれの読み込み条件に従います。
 
 | 必要な情報 | 主な参照先 |
 | --- | --- |
-| Astra・GPT-5.6向けの指示調整とモデル設定 | `prompt-design`のモデル別参照。具体的な読み分けは[スキルの参照条件](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading) |
+| Astra向けの指示調整とモデル設定 | `prompt-design`のAstra参照。別の対象は公式資料や対応する専用スキルで補う。具体的な読み分けは[スキルの参照条件](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading) |
 | OpenAI APIのツール経路、状態、機能の組み合わせ | `prompt-design`の[tools and runtime boundaries](../../plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md)と公式資料。Codexなどの管理された製品では、公開されているツール契約を使う |
 | 進行・待機・再開・評価・権限の設計 | `agent-workflow-design`の[共通参照への入口](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md#reference-routing) |
-| GPT-5.6を維持・適用・比較する際の補足 | `agent-workflow-design`の[GPT-5.6用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/openai-gpt-5.6-workflow-design.md)。モデルやランタイムの差が関係するときだけ読み、Astraだけを対象にする仕事には読み込まない |
 | Gemini 4、Apps Skills、画像・動画生成向けの指示 | `gemini-instruction-design`を入口に、共通手法と必要な専用参照を読む。別モデルの事例を対象モデルの挙動の証拠や必須構成にはしない |
-
-GPT-5.6用のワークフロー参照は、Gitの旧設定を参考にした補足です。旧版の完了証拠、未解決事項、制御の担当などは現行の共通参照に引き継がれているため、旧版一式を別の必須手順として保持していません。追加の判断と検証範囲は[ワークフロー側の記録](../agent-workflow-design/README.md#モデル別参照の追記)にあります。
 
 ### 実行用の参照と保守用の出典
 

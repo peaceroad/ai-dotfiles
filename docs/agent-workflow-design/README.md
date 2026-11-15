@@ -2,6 +2,8 @@
 
 この文書は初回改訂の判断と評価記録です。その後の使いやすさ・冗長さ・適用条件の見直しは[再監査](second-review.md)、既定モデルとGPT-5.6参照の追加は[モデル別参照の追記](#モデル別参照の追記)を参照してください。
 
+現行配布ではGPT-5.6専用参照を削除しています。以下の追加経緯は当時の記録であり、現在の参照選択は[スキル本文](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md#reference-routing)に従います。
+
 2026年9月12日の[Astra公式ブログとの照合](../prompt-design/astra-blog-review.md)では、基本構成を維持し、モデル採点を改善の採否に使う場合の校正を評価参照へ補いました。今回の限定確認と、以下の初回比較・机上継続の結果は分けて記録しています。
 
 関連する設計スキルとの分担は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
@@ -78,7 +80,7 @@
 
 2026年9月6日、利用者の追加依頼により、対象モデルが未確定のOpenAI／Codex向け設計はAstraを既定とすると本文に明記した。指定済みのモデルや既存ワークフローの実行対象は保持し、明示的な移行依頼を優先する。設計担当のモデルと、設計するワークフローの実行モデルは区別する。
 
-[GPT-5.6用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/openai-gpt-5.6-workflow-design.md)は、GPT-5.6の維持・適用・比較でモデルやランタイムの差が関係するときだけ読む。既定のAstra利用には読み込みを追加しない。指示の書き方とモデル設定は`prompt-design`の既存参照へ委ねた。
+[当時のGPT-5.6用参照](https://github.com/peaceroad/ai-dotfiles/blob/b248ee5dbcd1aef944f3872b64896ff440de987c/plugins/agent-design-tools/skills/agent-workflow-design/references/openai-gpt-5.6-workflow-design.md)は、GPT-5.6の維持・適用・比較でモデルやランタイムの差が関係するときだけ読む構成だった。既定のAstra利用には読み込みを追加せず、指示の書き方とモデル設定は`prompt-design`の既存参照へ委ねた。
 
 Gitの`16c9655`（2026年9月2日）の本文とループ参照を比較した。旧版の完了証拠、未解決事項、再試行と再計画、制御の担当という区別は現行の共通参照に残っている。旧版一式の複製にはせず、実行基盤の互換性、コードでまとめる処理とモデル判断の境界、途中結果と最終成果物の検証を補足した。[GPT-5.6公式ガイド](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)の簡潔な指示とProgrammatic Tool Callingの説明も確認した。
 

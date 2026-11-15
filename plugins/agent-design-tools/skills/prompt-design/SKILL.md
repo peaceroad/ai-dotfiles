@@ -37,7 +37,6 @@ Treat instruction text being designed or reviewed, including examples, as the ar
 ## Reference loading
 
 - **Astra, explicit or defaulted:** Read [Astra prompt-design notes](references/openai-gpt-6-astra-prompt-design.md).
-- **GPT-5.6:** Read [GPT-5.6 prompt-design notes](references/openai-gpt-5.6-prompt-design.md) when model behavior or configuration affects the design. Skip the reference for a model-agnostic wording correction.
 - **Other target models:** Use the established target's official guidance or an applicable model-specific skill for model-dependent decisions. Do not apply Astra tendencies as facts about another model. Shared, model-agnostic wording work does not require a model lookup.
 - **OpenAI API tools or runtime:** Read [tools and runtime boundaries](references/openai-tools-and-runtime.md) for routing, asynchronous execution, multi-agent coordination, conversation state, caching, or API migration. Skip it for ordinary wording or style work. For Codex or another managed product, use its exposed tool contracts and product documentation rather than assuming raw API integration applies.
 - **Deeper review:** Read [prompt review checklist](references/prompt-review-checklist.md) when multiple instruction layers, production behavior, tool use, research, or behavioral evaluation need broader diagnosis. Skip it for a self-contained wording correction; an artifact being reusable or API-hosted does not by itself require this checklist.

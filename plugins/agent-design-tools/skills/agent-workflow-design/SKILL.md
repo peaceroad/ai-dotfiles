@@ -42,7 +42,6 @@ Preserve authority already granted for a concrete action. Prepare a reviewable r
 
 Load only the references needed to settle the current design:
 
-- **GPT-5.6 targets:** [GPT-5.6 workflow notes](references/openai-gpt-5.6-workflow-design.md) when retaining, adapting, or comparing a GPT-5.6 workflow and model or runtime differences matter. Skip it for Astra-only work and model-independent edits.
 - **Control and coordination:** [Loop patterns and control](references/loop-patterns-and-control.md) for trigger choice, progress versus waiting, steering, stopping, retries, parallel work, hooks, and budgets.
 - **Continuity and effects:** [State, evidence, and recovery](references/state-evidence-and-recovery.md) for authoritative state, persistence, evaluators, data flow, uncertain side effects, interruption, and permissions.
 - **Improving the reusable machinery:** [Agent and harness improvement](references/agent-improvement-and-rsi.md) for diagnosing execution evidence, comparing candidates, protecting acceptance, model upgrades, and the RSI distinction.

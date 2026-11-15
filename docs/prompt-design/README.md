@@ -6,7 +6,7 @@
 
 使い方と導入は[プラグインのREADME](../../plugins/agent-design-tools/README.md)、共通スキルとの分担は[役割説明](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
-- **共通の指示設計：** [prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)。Astra向けの追加確認は[9月12日のレビュー](astra-blog-review.md)にあります。
+- **共通の指示設計：** [prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)。Astra向けの追加確認は[9月12日のレビュー](astra-blog-review.md)にあります。GPT-5.6専用参照は配布対象から外しており、以下の復元・評価の記録は当時の版についてのものです。
 - **Gemini向けの指示設計：** [gemini-instruction-design](../../plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)。現行ソースはGemini 4を基準とする7参照、プラグイン版`0.4.0`です。[再構築](gemini-4-rewrite.md)、[使いやすさ評価](gemini-usability-review.md)、[公式仕様との再照合と最終調整](gemini-4-prompt-audit.md)の順に判断を記録しています。
 
 各記録の件数、参照数、ハッシュ、応答は評価時点のものです。後から行った文書整理や仕様補正を、過去の試行で検証済みとは扱いません。Gemini実機での取込み・自動選択・実行は未検証です。

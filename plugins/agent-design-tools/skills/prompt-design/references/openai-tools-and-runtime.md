@@ -52,7 +52,6 @@ Keep model, effort/mode, verbosity, and output schemas in supported runtime cont
 - Preserve the current effective effort when supported. Migrate `none` or `minimal` to a `low` baseline and compare. The API lists `low`, `medium`, `high`, `xhigh`, and `max`; product or harness settings may differ.
 - Astra tool calling requires Responses. Remove unsupported sampling/log-probability parameters as documented; a generic endpoint schema does not establish model support.
 - Evaluate prompt, model, and effort changes separately. Explore other supported efforts when measured quality, latency, or cost justifies it; do not mandate an effort sweep for a wording edit.
-- When migrating from GPT-5.5 or earlier, check the move from `prompt_cache_retention` to `prompt_cache_options.ttl`, cache boundaries, and cache-write billing. Do not present this as a new required change for every GPT-5.6-to-Astra migration.
 - Verify processing-mode and data-residency compatibility when relevant. Keep current pricing, availability, and latency claims out of durable instructions.
 
 Configuration updates change effort between Astra responses while preserving the request-level prefix. They require standard, single-agent mode and cannot combine with automatic compaction/truncation or standalone `/responses/compact`. The documented explicit `compaction_trigger` path requires a fresh effort update afterward. Verify sequencing and effective-effort reporting in the implementation; these details do not belong in an ordinary task prompt.
