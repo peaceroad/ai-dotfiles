@@ -60,6 +60,8 @@ Version **0.4.0** replaces `prompt-gemini-reference` with `gemini-instruction-de
 
 The Gemini references were checked against official documentation on **2026-11-15**. This is a documentation review date, not evidence of live client testing. Each reference retains its sources and the conditions that call for verification. The following sources explain broader design choices and are optional background reading.
 
+The OpenAI references retain their earlier documentation-review dates: Astra prompting, **2026-09-12**; GPT-5.6 prompting and workflow guidance, **2026-09-06**; API tools and runtime guidance, **2026-09-05**. Moving these dates here does not constitute a new specification review. The GPT-5.6 workflow supplement also draws on the historical `agent-workflow-design/SKILL.md` and `references/loop-patterns-and-control.md` at [commit 16c9655](https://github.com/peaceroad/ai-dotfiles/commit/16c9655), dated 2026-09-02.
+
 For Gemini, the [Carbon developer guide](https://aistudio.google.com/learn/gemini-4-carbon-developer-guide) and [Argon developer guide](https://aistudio.google.com/learn/gemini-4-argon-developer-guide) inform the focus on outcomes, verification feedback, appropriate media, and lessons from sustained work. Their example agent arrangements are design options. [Hydrogen's guide](https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen) supplies its thinking, output-budget, and API conditions.
 
 The workflow references draw on these sources for [agent and harness improvement](skills/agent-workflow-design/references/agent-improvement-and-rsi.md). Examples from other models are not evidence of the selected model's behavior.

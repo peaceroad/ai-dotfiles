@@ -18,4 +18,4 @@ If a program's result feeds a final assistant response, check both: a correct in
 
 For a model migration or a consequential control change, compare affected behavior on the selected GPT-5.6 variant and runtime, using a working baseline and cases suited to the change. Astra simulations and old source files do not establish GPT-5.6 execution quality.
 
-Historical input: commit `16c9655` (2026-09-02), this skill's `SKILL.md` and `references/loop-patterns-and-control.md`. Current official guidance also favors lean instructions and workload-specific validation: [GPT-5.6 model guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6), checked 2026-09-06.
+Use the [GPT-5.6 model guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6) when model behavior affects that comparison.

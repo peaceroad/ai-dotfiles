@@ -2,7 +2,7 @@
 
 Use when the artifact targets GPT-5.6 and model behavior or configuration affects instruction design. The common method and design rules remain in `SKILL.md`. A model-agnostic wording correction does not need this reference.
 
-Official guidance checked: 2026-09-06. Recheck current model or product facts when they affect the requested decision; reuse sufficient official evidence already retrieved in the conversation.
+Recheck current model or product facts when they affect the requested decision; reuse sufficient official evidence already retrieved in the conversation.
 
 ## Target and instruction tuning
 
@@ -18,7 +18,7 @@ For instruction files, choose detail from the decisions the target must make. Th
 
 ## Configuration and tool workflows
 
-For API work, verify the exact target against the GPT-5.6 model guide and its model page, such as GPT-5.6 Sol. As checked above, GPT-5.6 supports `none`, `low`, `medium`, `high`, `xhigh`, and `max` effort, with `medium` the default. Pro mode and effort are separate controls; requesting Pro in prose does not configure it.
+For API work, verify the exact target against the GPT-5.6 model guide and its model page, such as GPT-5.6 Sol. The model guide lists `none`, `low`, `medium`, `high`, `xhigh`, and `max` effort, with `medium` the default. Pro mode and effort are separate controls; requesting Pro in prose does not configure it.
 
 For an actual GPT-5.4/5.5-to-5.6 migration, preserve the existing effort as the baseline, then compare one supported level lower when applicable. Keep `none` as a valid baseline. This is a migration experiment, not a required effort sweep for prompt edits. Product settings must be checked on the product's own surface.
 

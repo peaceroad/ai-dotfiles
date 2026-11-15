@@ -33,4 +33,4 @@ Use these official entry points when input support or coverage controls affect t
 - [Audio understanding](https://aistudio.google.com/docs/audio)
 - [Document understanding](https://aistudio.google.com/docs/document-processing)
 
-The input/output distinction was checked against the [Hydrogen model specification](https://aistudio.google.com/docs/models/gemini-4-hydrogen). Exact file limits and sampling settings are intentionally not frozen here.
+Use the [Hydrogen model specification](https://aistudio.google.com/docs/models/gemini-4-hydrogen) to verify input/output modalities; check exact file limits and sampling controls for the selected surface when they affect coverage.

@@ -2,7 +2,7 @@
 
 Use for API routing, asynchronous execution, multi-agent coordination, conversation state, caching, or migration that affects instruction design. For managed products such as Codex, use their exposed contracts and documentation instead. This is a decision aid, not an integration manual.
 
-Official guidance checked: 2026-09-05. Verify the relevant official documentation before prescribing fields or compatibility. Individual feature support does not establish that a combination works.
+Verify the relevant official documentation before prescribing fields or compatibility. Individual feature support does not establish that a combination works.
 
 ## Tool contracts and routing
 
