@@ -120,7 +120,7 @@ for (const name of ['agent-design-tools', 'agent-plugin-tools', 'ai-dotfiles-cli
       assert.equal(tests.status, 0, tests.stdout + tests.stderr);
       assert.match(tests.stdout, /^# tests [1-9][0-9]*$/m, 'The isolated package must execute its controller tests.');
     } else if (name === 'agent-design-tools') {
-      assert.deepEqual(readdirSync(join(plugin, 'skills')).sort(), ['agent-workflow-design', 'prompt-design', 'prompt-gemini-reference']);
+      assert.deepEqual(readdirSync(join(plugin, 'skills')).sort(), ['agent-workflow-design', 'gemini-instruction-design', 'prompt-design']);
     }
   });
 }
@@ -159,7 +159,7 @@ test('dot-toolkit rejects an additional empty skill directory', t => {
   assert.throws(() => assertDotToolkitPackage(root), /dot-toolkit must contain only its declared skill directories/);
 });
 
-for (const names of [['prompt-design'], ['prompt-design', 'prompt-gemini-reference']]) {
+for (const names of [['prompt-design'], ['prompt-design', 'gemini-instruction-design']]) {
   test(`standalone ${names.join(' + ')} keeps documentation links within the installed skills`, t => {
     const root = mkdtempSync(join(tmpdir(), 'prompt-skill-test-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));

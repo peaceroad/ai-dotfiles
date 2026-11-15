@@ -1,0 +1,37 @@
+# Gems and Opal migration
+
+Use for an existing Gem or Opal workflow, or an account that still supports classic Gems. Do not send new reusable-instruction requests through the legacy setup by default. Select the destination guidance through the entry point, usually Apps Skills.
+
+## Establish which product and transition applies
+
+Classic Gems and Opal / Gems made by Labs have different migration contracts. Use the existing artifact or account context to distinguish them; ask only if that difference remains unresolved and changes the work.
+
+The checked classic-Gems transition schedule makes Gems read-only and unusable for 18+ personal accounts on 2026-11-17, with access removed on 2026-12-17. Business, enterprise, and nonprofit transitions are scheduled for March 2027; education for June 2027. Under-18 timing is separate. Verify current account-specific guidance at the time of migration instead of embedding these dates into generated instructions.
+
+Classic Gems are described as automatically converted to Skills, but attachments or tools can be lost. Above 100 MB total, the largest files are removed until under the limit. GitHub files, audio/video, legacy Office files, and archives do not transfer. The checked help lists Canvas, Deep Research, video/music generation, and guided learning among tools not yet supported in Skills. “Not yet” is not a promise that they are available now.
+
+Opal ends service on 2026-11-17 without automatic migration. Workflow files remain in Drive's Opal folder, but interactive workflows stop running. Do not apply the classic-Gems conversion promise to them.
+
+## Preserve meaning, rebuild the destination
+
+Inspect the authorized source instructions, Knowledge roles, tool dependencies, examples, and output requirements. Identify essential behavior, permitted user overrides, and evidence that must remain available. Do not copy private account content into public examples or evaluation records.
+
+Convert repeated purpose and selection conditions into the destination description and body. Assign long Knowledge material to references with clear reading conditions. Resolve conflicting rules at their governing source and preserve attribution. Do not merely rename a Gem's Instructions field to `SKILL.md` while leaving unavailable tools and resources implicit.
+
+For Opal, extract the inputs, transformations, dependencies, and outputs. Decide which can be expressed as a skill procedure and which need runtime capabilities. If rebuilding actual execution or recovery is requested, use the workflow-design companion; do not imply a prompt alone replaces a multi-step application.
+
+For an account still using classic Gems, keep essential behavior and source-use instructions in Instructions, and detailed criteria or examples in Knowledge. Treat automatic instruction rewrites as drafts. Verify current Drive/Notebook access, sharing visibility, citation settings, and recipient permissions only when the setup depends on them; historical Gem behavior is not an Apps Skills guarantee.
+
+## Make losses and completion observable
+
+For migration work, compare the source and destination: required instructions, attachments, citations where needed, available tools, and representative results. A successful automatic conversion is not proof that all capabilities survived. Flag missing files or actions and provide the best supported redesign without inventing replacements for unavailable evidence.
+
+Deliver the rewritten artifact and concise notes on required manual transfer or unsupported functions. When account operations are authorized, distinguish prepared content, saved changes, enablement, source access, and successful execution. Previewing or generating migration text does not establish saved configuration.
+
+## Sources and refresh conditions
+
+Checked 2026-11-15. Recheck at actual migration, especially account timing, file/tool transfer, and destination capabilities. Retire this reference when transition work no longer needs it rather than carrying obsolete dates into the main entry point.
+
+- [Gems to Skills transition](https://support.google.com/gemini/answer/18560919?hl=en): account schedule, conversion, and losses.
+- [Opal FAQ](https://developers.google.com/opal/faq): separate shutdown and lack of automatic migration.
+- [Classic Gem guidance](https://support.google.com/gemini/answer/15235603) and [sharing](https://support.google.com/gemini/answer/16504957): conditional sources for accounts still using Gems.

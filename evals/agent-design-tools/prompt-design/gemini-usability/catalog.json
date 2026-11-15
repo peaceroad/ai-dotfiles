@@ -1,0 +1,66 @@
+{
+  "catalog": [
+    {
+      "name": "gemini-instruction-design",
+      "description": "Design, review, or rewrite Gemini prompts, Apps Skills, CLI or Antigravity instructions, and Nano Banana or Omni media prompts. Use for instruction authoring and Gems migration, not general Gemini questions, ordinary task execution, or media generation itself."
+    },
+    {
+      "name": "prompt-design",
+      "description": "Use when designing, reviewing, or revising prompts, AGENTS.md, skills, or other model-facing instructions. Use skill-creator first for Codex skill creation or structural changes. Not for ordinary writing, coding, or media generation."
+    },
+    {
+      "name": "agent-workflow-design",
+      "description": "Use when designing, reviewing, or revising agent workflows for repeated or long-running work, schedules or events, tool or agent coordination, interruption and recovery, or improvement from execution evidence. Do not use merely to execute an ordinary task, write an application loop, or edit prompt wording."
+    }
+  ],
+  "requests": [
+    [
+      "s1",
+      "Gemini Appsで使う問い合わせ分類スキルを書いて。"
+    ],
+    [
+      "s2",
+      "Geminiでこの問い合わせを分類して。発送日はいつですか。"
+    ],
+    [
+      "s3",
+      "Nano Bananaで使う商品写真の編集プロンプトを直して。"
+    ],
+    [
+      "s4",
+      "Nano Bananaで商品写真を一枚生成して。"
+    ],
+    [
+      "s5",
+      "Antigravityのルールを書いて。公開APIの互換性を保つこと。"
+    ],
+    [
+      "s6",
+      "Gemini 4で中断後も復帰できる調査エージェントの状態管理を設計して。"
+    ],
+    [
+      "s7",
+      "Gemini 4 HydrogenとCarbonは何が違う？"
+    ],
+    [
+      "s8",
+      "引用符内の改行でCSVの行がずれるのでコードを修正して。"
+    ],
+    [
+      "s9",
+      "Gemini CLIで必要時だけ呼ぶデータ変換スキルと常時規約を書き分けて。"
+    ],
+    [
+      "s10",
+      "システムプロンプトを簡潔に直して。対象モデルはまだ決めていない。"
+    ],
+    [
+      "s11",
+      "Geminiで画像を分析してからOmniへ渡す指示文を作って。"
+    ],
+    [
+      "s12",
+      "この作業が終わるまで待って、結果を教えて。"
+    ]
+  ]
+}

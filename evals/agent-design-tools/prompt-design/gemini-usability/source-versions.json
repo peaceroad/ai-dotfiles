@@ -1,0 +1,212 @@
+{
+  "baseline": {
+    "entrySnapshot": "versions/before.txt",
+    "files": [
+      {
+        "path": "agent-workflow-design/agents/openai.yaml",
+        "sha256": "45faf0de46ca5bee282ecfe4a80ef41515501e252995097cf3e70bfc4bc16a15"
+      },
+      {
+        "path": "agent-workflow-design/assets/maintenance-notes/README.md",
+        "sha256": "16c2e6d8d2ea7496bfb06c3005caeee3d3a113a1fe2247d8b604378143437c52"
+      },
+      {
+        "path": "agent-workflow-design/references/agent-improvement-and-rsi.md",
+        "sha256": "9ea42695d52612a4a37b1e2331591b02f570401c589fdfb31a831107dda93b50"
+      },
+      {
+        "path": "agent-workflow-design/references/loop-patterns-and-control.md",
+        "sha256": "e96663c34885635fb9fde846ef8bb9597631455ef3a202ac6499ef5ef3cd5347"
+      },
+      {
+        "path": "agent-workflow-design/references/maintenance-records.md",
+        "sha256": "a7b920428f0b87da0b8130963a82c9a1389763fd8b594facca7fe585fef580b7"
+      },
+      {
+        "path": "agent-workflow-design/references/openai-gpt-5.6-workflow-design.md",
+        "sha256": "72b64d244e61582c29df576c855270a0d05db43139dab07106a0a0f78dd933c5"
+      },
+      {
+        "path": "agent-workflow-design/references/state-evidence-and-recovery.md",
+        "sha256": "b0b24375cd033264e9d130b1a3dc06ec0e63bec173e1a9f9ca06af866771acc5"
+      },
+      {
+        "path": "agent-workflow-design/SKILL.md",
+        "sha256": "2cad98b7714f3fdf0f431bf350c1390d90cc736b66ea065cb987fd17988332e4"
+      },
+      {
+        "path": "gemini-instruction-design/agents/openai.yaml",
+        "sha256": "a8756283004195e70f4d60b45258a22bf977148f03a7de7516e02d5366447dd1"
+      },
+      {
+        "path": "gemini-instruction-design/references/antigravity-instructions.md",
+        "sha256": "cb1e725d36519d0de5159a32054857d9218cedc6adb383ae001f755d7785959b"
+      },
+      {
+        "path": "gemini-instruction-design/references/api-instructions.md",
+        "sha256": "c14f105560b22a5c996f0680056821b92d91920a0736730dce87ce196c0df80b"
+      },
+      {
+        "path": "gemini-instruction-design/references/apps-skills.md",
+        "sha256": "9d49d4640ddff5700329bcb9745860ca7cb8cd6bb202a379a9321beb44f66d4c"
+      },
+      {
+        "path": "gemini-instruction-design/references/cli-instructions.md",
+        "sha256": "e26072d516966b1d93b58ba7965b95eea48e618112a7c5f8d2afeac3a43ebae1"
+      },
+      {
+        "path": "gemini-instruction-design/references/gems-migration.md",
+        "sha256": "e310ab25dfceaf90ac8e2352ad5c9763d64f2daa552e78b38882ac516537fcb3"
+      },
+      {
+        "path": "gemini-instruction-design/references/image-prompts.md",
+        "sha256": "59f87235fce9678132e8f2ff2a0850168404b3e53463c4bfced9d224320615c2"
+      },
+      {
+        "path": "gemini-instruction-design/references/multimodal-inputs.md",
+        "sha256": "37c4c48c49ee59ff619362f960527c1ae1769ee6e4611fbee1b31a7bfcf770df"
+      },
+      {
+        "path": "gemini-instruction-design/references/video-prompts.md",
+        "sha256": "ac1e1c1531e19105fef78177b396cb04c5588bebce4a4b5ccdc56ea1f1860d8b"
+      },
+      {
+        "path": "gemini-instruction-design/SKILL.md",
+        "sha256": "fc2ae698708d1b335c28bf87aeee5bf6aed1a7712b3d2902a6c983d6d76ceb89"
+      },
+      {
+        "path": "prompt-design/agents/openai.yaml",
+        "sha256": "39085d464c1557237e7676481358f45ebb8ec603f4d3ee9d926e78827d9907e1"
+      },
+      {
+        "path": "prompt-design/references/openai-gpt-5.6-prompt-design.md",
+        "sha256": "3050dc9052daa2de0c78b56a86731b872d54ebf8993684a98741daaaebc95d68"
+      },
+      {
+        "path": "prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+        "sha256": "9b30b7d98d4cd41c05d8760be51829527b0b452baae6a0244725b759b4f3c7ab"
+      },
+      {
+        "path": "prompt-design/references/openai-tools-and-runtime.md",
+        "sha256": "ed409f24a90c4e713294cf62e9a2c6372e212e677ec5ec2e2ede5d7ad3355283"
+      },
+      {
+        "path": "prompt-design/references/prompt-review-checklist.md",
+        "sha256": "98dcc1ccb1a99f8c5a37984ea3a47300094653d06d07c23379c2aa8436deb24c"
+      },
+      {
+        "path": "prompt-design/references/skill-description-review.md",
+        "sha256": "4989fe5435b2349eabdcf6349f2b1d09fc0b7cc90dfaad2226f7532fdd4f492f"
+      },
+      {
+        "path": "prompt-design/SKILL.md",
+        "sha256": "0bcd464a9e9b486d9a596490bb9f8d5d08a3dc57bfe8a9bc24409032cd2ced7c"
+      }
+    ]
+  },
+  "candidate": {
+    "entrySnapshot": "versions/candidate.txt",
+    "files": [
+      {
+        "path": "agent-workflow-design/agents/openai.yaml",
+        "sha256": "45faf0de46ca5bee282ecfe4a80ef41515501e252995097cf3e70bfc4bc16a15"
+      },
+      {
+        "path": "agent-workflow-design/assets/maintenance-notes/README.md",
+        "sha256": "16c2e6d8d2ea7496bfb06c3005caeee3d3a113a1fe2247d8b604378143437c52"
+      },
+      {
+        "path": "agent-workflow-design/references/agent-improvement-and-rsi.md",
+        "sha256": "9ea42695d52612a4a37b1e2331591b02f570401c589fdfb31a831107dda93b50"
+      },
+      {
+        "path": "agent-workflow-design/references/loop-patterns-and-control.md",
+        "sha256": "e96663c34885635fb9fde846ef8bb9597631455ef3a202ac6499ef5ef3cd5347"
+      },
+      {
+        "path": "agent-workflow-design/references/maintenance-records.md",
+        "sha256": "a7b920428f0b87da0b8130963a82c9a1389763fd8b594facca7fe585fef580b7"
+      },
+      {
+        "path": "agent-workflow-design/references/openai-gpt-5.6-workflow-design.md",
+        "sha256": "72b64d244e61582c29df576c855270a0d05db43139dab07106a0a0f78dd933c5"
+      },
+      {
+        "path": "agent-workflow-design/references/state-evidence-and-recovery.md",
+        "sha256": "b0b24375cd033264e9d130b1a3dc06ec0e63bec173e1a9f9ca06af866771acc5"
+      },
+      {
+        "path": "agent-workflow-design/SKILL.md",
+        "sha256": "2cad98b7714f3fdf0f431bf350c1390d90cc736b66ea065cb987fd17988332e4"
+      },
+      {
+        "path": "gemini-instruction-design/agents/openai.yaml",
+        "sha256": "a8756283004195e70f4d60b45258a22bf977148f03a7de7516e02d5366447dd1"
+      },
+      {
+        "path": "gemini-instruction-design/references/antigravity-instructions.md",
+        "sha256": "cb1e725d36519d0de5159a32054857d9218cedc6adb383ae001f755d7785959b"
+      },
+      {
+        "path": "gemini-instruction-design/references/api-instructions.md",
+        "sha256": "c14f105560b22a5c996f0680056821b92d91920a0736730dce87ce196c0df80b"
+      },
+      {
+        "path": "gemini-instruction-design/references/apps-skills.md",
+        "sha256": "9d49d4640ddff5700329bcb9745860ca7cb8cd6bb202a379a9321beb44f66d4c"
+      },
+      {
+        "path": "gemini-instruction-design/references/cli-instructions.md",
+        "sha256": "e26072d516966b1d93b58ba7965b95eea48e618112a7c5f8d2afeac3a43ebae1"
+      },
+      {
+        "path": "gemini-instruction-design/references/gems-migration.md",
+        "sha256": "e310ab25dfceaf90ac8e2352ad5c9763d64f2daa552e78b38882ac516537fcb3"
+      },
+      {
+        "path": "gemini-instruction-design/references/image-prompts.md",
+        "sha256": "59f87235fce9678132e8f2ff2a0850168404b3e53463c4bfced9d224320615c2"
+      },
+      {
+        "path": "gemini-instruction-design/references/multimodal-inputs.md",
+        "sha256": "37c4c48c49ee59ff619362f960527c1ae1769ee6e4611fbee1b31a7bfcf770df"
+      },
+      {
+        "path": "gemini-instruction-design/references/video-prompts.md",
+        "sha256": "ac1e1c1531e19105fef78177b396cb04c5588bebce4a4b5ccdc56ea1f1860d8b"
+      },
+      {
+        "path": "gemini-instruction-design/SKILL.md",
+        "sha256": "2f071ea5ddc480724384f54bbe4d46de9847e69d8e98155dd5cd0f7aaf7e3592"
+      },
+      {
+        "path": "prompt-design/agents/openai.yaml",
+        "sha256": "39085d464c1557237e7676481358f45ebb8ec603f4d3ee9d926e78827d9907e1"
+      },
+      {
+        "path": "prompt-design/references/openai-gpt-5.6-prompt-design.md",
+        "sha256": "3050dc9052daa2de0c78b56a86731b872d54ebf8993684a98741daaaebc95d68"
+      },
+      {
+        "path": "prompt-design/references/openai-gpt-6-astra-prompt-design.md",
+        "sha256": "9b30b7d98d4cd41c05d8760be51829527b0b452baae6a0244725b759b4f3c7ab"
+      },
+      {
+        "path": "prompt-design/references/openai-tools-and-runtime.md",
+        "sha256": "ed409f24a90c4e713294cf62e9a2c6372e212e677ec5ec2e2ede5d7ad3355283"
+      },
+      {
+        "path": "prompt-design/references/prompt-review-checklist.md",
+        "sha256": "98dcc1ccb1a99f8c5a37984ea3a47300094653d06d07c23379c2aa8436deb24c"
+      },
+      {
+        "path": "prompt-design/references/skill-description-review.md",
+        "sha256": "4989fe5435b2349eabdcf6349f2b1d09fc0b7cc90dfaad2226f7532fdd4f492f"
+      },
+      {
+        "path": "prompt-design/SKILL.md",
+        "sha256": "0bcd464a9e9b486d9a596490bb9f8d5d08a3dc57bfe8a9bc24409032cd2ced7c"
+      }
+    ]
+  }
+}

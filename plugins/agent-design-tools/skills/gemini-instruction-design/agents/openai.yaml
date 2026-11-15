@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Instruction Design"
+  short_description: "Design Gemini 4 instructions, skills, and media prompts"
+  default_prompt: "Use $gemini-instruction-design to rewrite these instructions for their intended Gemini surface."

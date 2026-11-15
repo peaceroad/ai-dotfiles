@@ -1,0 +1,46 @@
+---
+name: gemini-instruction-design
+description: "Design, review, or rewrite Gemini prompts, Apps Skills, CLI or Antigravity instructions, and Nano Banana or Omni media prompts. Use for instruction authoring and Gems migration, not general Gemini questions, ordinary task execution, or media generation itself."
+---
+
+# Gemini Instruction Design
+
+Produce the requested usable instructions, skill files, or review for the established Gemini surface. The general-purpose baseline is **Gemini 4 Carbon, Argon, and Hydrogen**. Gemini 3 general-purpose compatibility guidance is outside this skill's maintained scope. Image and video families have separate versions; do not exclude current Nano Banana models because their API IDs contain `gemini-3`.
+
+## Use the shared method
+
+Read [prompt-design](../prompt-design/SKILL.md) unless already loaded. For standalone installation, resolve the available `prompt-design` skill if the sibling path is absent. Report a missing companion accurately; do not silently install it or claim to have used it.
+
+Keep Gemini as the design target, regardless of the model authoring the instructions. Do not load OpenAI-specific guidance merely because the authoring host is Codex. This skill owns Gemini-specific decisions and its reference selection; do not modify the shared skills to add Gemini routing or rules.
+
+Use the available `agent-workflow-design` skill only when designing execution control such as delegation, waiting, retry, cancellation, or recovery. Using Antigravity or writing a completion condition alone does not require that companion. If it is needed but unavailable, identify the missing dependency while completing independent instruction work. These are authoring dependencies, not dependencies to copy into the generated Gemini skill.
+
+## Select the artifact and references
+
+Infer the output and target surface from the request and existing context. Ask only when an unresolved distinction changes the deliverable. Read the relevant references completely before relying on them; combine them for mixed tasks without loading the whole collection.
+
+- **Ordinary text prompt:** The shared method and this entry point are sufficient when no surface-specific capability matters.
+- **Gemini Apps reusable skill:** Read [Apps Skills](references/apps-skills.md).
+- **Gemini CLI project instructions or skills:** Read [CLI instructions](references/cli-instructions.md).
+- **Antigravity instructions, Rules, or Skills:** Read [Antigravity instructions](references/antigravity-instructions.md).
+- **API system instructions, tools, output schemas, or model migration:** Read [API instructions](references/api-instructions.md).
+- **Extracting or interpreting images, documents, audio, or video:** Read [multimodal inputs](references/multimodal-inputs.md).
+- **Image creation or editing prompt:** Read [image prompts](references/image-prompts.md).
+- **Video creation, editing, interpolation, or extension prompt:** Read [video prompts](references/video-prompts.md).
+- **Existing Gems or Opal migration, or an account still using Gems:** Read [Gems migration](references/gems-migration.md), then the destination reference.
+
+For example, an Apps Skill that writes image prompts needs Apps and image guidance. A supplied generation reference alone does not require multimodal analysis guidance; add it when substantial extraction or interpretation is part of the job. The selected surface's actual capabilities govern what can run there.
+
+## Write for the selected Gemini surface
+
+State the intended result and the context needed to produce it. For long source material, distinguish governing instructions from evidence and place a specific, clearly connected request after the source context. Request useful evidence, calculations, or decision rationale rather than hidden reasoning traces or a mandatory visible plan for every task. Preserve necessary explanation instead of imposing blanket brevity.
+
+Keep instruction text, attachment roles, and runtime settings distinct. A model name, file path, or command written in prose neither configures the runtime nor supplies an asset. Preserve an established model and provider; selecting guidance does not authorize changing a deployment. If model selection is requested, use the appropriate reference and current evidence rather than selecting solely by generation number.
+
+## Verify consequential facts and deliver
+
+Use the bundled guidance for ordinary design. Verify relevant official sources for an explicit latest-guidance request, migration, or an uncertain capability, setting, limit, or product behavior that changes the result. Reuse sufficient current evidence; do not turn every wording change into a documentation survey. Dates in references identify checks, not permanent guarantees. Finish independent work when a fact cannot be verified and identify the specific unresolved dependency.
+
+For prompt requests, deliver usable prompt text with necessary input mappings and setup notes separate. For a skill package, produce the requested files and ensure references are reachable in its destination; do not leave implicit authoring-host dependencies. For review-only work, provide findings without editing.
+
+Instruction authoring does not itself generate media, save an Apps Skill, configure a client, or migrate an account. Perform execution when also requested and supported by available tools; this skill supplies no connector. Do not substitute another provider without authorization. Distinguish reviewed instructions, structurally checked files, saved configuration, and observed downstream results.

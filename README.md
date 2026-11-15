@@ -13,7 +13,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 - **[agent-design-tools](plugins/agent-design-tools/README.md)**：指示と作業の進め方を設計するプラグイン。
   - [prompt-design](plugins/agent-design-tools/skills/prompt-design/SKILL.md)：新しいプロンプトや`AGENTS.md`を書くとき、既存の指示が曖昧・矛盾していて期待する回答や動作にならないときに使います。AIへ伝える目的、条件、出力の要件を整理し、利用するモデルに合わせて指示を見直します。複数の局所修正を比較しやすい場合は「修正前／修正後／理由」で報告する調整を加えています。固定の出力形式ではなく、全面的な書き直しやファイル編集では変更規模と依頼に合わせます。
   - [agent-workflow-design](plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)：定期的な確認や長時間の開発など、繰り返し・継続して行う作業の進め方を設計するときに使います。複数のツールやエージェントの役割分担、待機・中断・再開の条件、実行記録を踏まえた改善を検討します。通常の作業を実行するだけなら不要です。
-  - [prompt-gemini-reference](plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)：Gemini向けのプロンプトやGemsの指示、添付メディアの読み取り・分析、画像・動画の生成・編集に使う指示文を設計するときに使います。Gemini 3以降を基準に、`prompt-design`の共通方針と、用途に必要な資料だけを読みます。Veoなど別系統のメディアモデルは、それぞれの現行ガイドで扱います。画像・動画を生成するツールではありません。個別に導入する場合も`prompt-design`を併せて用意します。
+  - [gemini-instruction-design](plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)：Gemini 4（Carbon・Argon・Hydrogen）向けのプロンプト、Apps Skills、CLI・Antigravity・APIの指示、媒体の理解と生成・編集のプロンプトを設計します。このスキルから`prompt-design`と用途別の参照を読み、実行制御を設計するときは`agent-workflow-design`も使います。画像はNano Banana 2.1、動画はOmni 1.2を中心に、指定されたモデル・提供面の違いを扱います。画像・動画を生成するツールではありません。個別に導入する場合は、必要な共通スキルも用意します。
 - **[agent-eval-tools](plugins/agent-eval-tools/README.md)**：スキル・プラグインと改善方法を、実験で評価・改善するための実験的なプラグイン。
   - [agent-improve](plugins/agent-eval-tools/skills/agent-improve/SKILL.md)：スキルやプラグインの変更前後を比較するとき、予算を決めて改善案を試すとき、蓄積した証拠から改善方法自体を見直すときに使います。付属ランナーは、明示的に渡したテキストの比較と改善を扱います。ツール連携や実行中のイベントなどを観測する場合は、適したハーネスを使います。付属ランナーはこれらと保護された最終評価には未対応です。[利用場面と設計理由](docs/notes/agent-eval-tools-use-cases.md)も参照してください。
 - **[agent-plugin-tools](plugins/agent-plugin-tools/README.md)**：ポータブルなプラグインを作るための汎用スキルとツール。
@@ -30,7 +30,7 @@ A personal dotfiles repository for shareable Codex and AI agent settings, instru
 
 CLIはプラグインなしでも動作します。`ai-dotfiles-cli`プラグインにCLI本体は含まれず、それぞれを別々に導入・更新します。
 
-`prompt-design`と`agent-workflow-design`は、現在、OpenAI／Codex向けで対象モデルが未指定の場合、GPT-6 Astraのモデルガイドを設計の基準にしています。別の対象モデルが指定されている場合や既存の利用環境から分かる場合は、そのモデルに合わせます。Gemini固有の補足は`prompt-gemini-reference`に分けており、別のGemini向けスキルを選ぶこともできます。これは設計時の参照先の選択であり、実行中のモデルを切り替えるものではありません。
+`prompt-design`と`agent-workflow-design`は、現在、OpenAI／Codex向けで対象モデルが未指定の場合、GPT-6 Astraのモデルガイドを設計の基準にしています。別の対象モデルが指定されている場合や既存の利用環境から分かる場合は、そのモデルに合わせます。Gemini固有の補足は`gemini-instruction-design`に分けており、別のGemini向けスキルを選ぶこともできます。これは設計時の参照先の選択であり、実行中のモデルを切り替えるものではありません。
 
 ## Codex環境
 

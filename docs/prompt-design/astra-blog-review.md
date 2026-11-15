@@ -20,7 +20,7 @@ API、詳細診断、description、状態・復帰などの参照は、それぞ
 - [description用の参照](../../plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md)では、利用できるカタログの証拠から、重要な条件の表示、省略、近隣スキルとの区別を確認します。文字数だけで発見性を推定せず、一覧を確認できなかった場合は未確認と報告します。
 - [状態・証拠・復帰の参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md#evidence-and-evaluation)では、モデルの点数を採否や反復改善に使う場合の校正を補いました。独立して確認した例や実際の成果と採点を照合し、必要に応じて担当者の好みや提示順・文章量の偏りも確認します。
 
-Astra参照と状態・証拠の参照の確認日を更新しました。[プラグインのREADME](../../plugins/agent-design-tools/README.md#reference-selection)には、小さなAstra向け修正での読み方と報告方針を明記し、今回のブログを背景資料に加えました。モデル採点の条件は状態・証拠の参照を正本とし、各所に評価手順を複製していません。
+Astra参照と状態・証拠の参照の確認日を更新しました。[当時のプラグインREADME](https://github.com/peaceroad/ai-dotfiles/blob/b37d23c8af864f695e10370bb1cacd212158a4dc/plugins/agent-design-tools/README.md#reference-selection)には、小さなAstra向け修正での読み方と報告方針を明記し、今回のブログを背景資料に加えました。モデル採点の条件は状態・証拠の参照を正本とし、各所に評価手順を複製していません。
 
 ## 外部出典との照合
 

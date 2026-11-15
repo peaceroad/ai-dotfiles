@@ -1,0 +1,166 @@
+{
+  "status": "Accepted and applied to repository source; installed copies unchanged.",
+  "judge": "Parent review against contract.json and actual saved artifacts; no blind preference score or statistical claim.",
+  "conditions": {
+    "model": "Inherited host configuration; immutable backend ID and effort not captured.",
+    "isolation": "Fresh worker contexts; common filesystem access remains an isolation limit.",
+    "delivery": "Explicit skill path plus frozen source copy; no web or live effects. Evaluation cues remain.",
+    "reads": "Reported by workers, not independently instrumented reads."
+  },
+  "sourceWords": {
+    "baselineEntry": 743,
+    "candidateEntry": 519,
+    "sharedPromptDesign": 1308,
+    "measurement": "Whitespace-delimited words, not tokens, money or latency."
+  },
+  "paired": [
+    {
+      "case": "short",
+      "baseline": "adequate",
+      "candidate": "adequate",
+      "evidence": "Both provide only a copy-ready prompt, retain the three-sentence maximum and missing-deadline rule, and report no additional reference reads.",
+      "outputs": [
+        "outputs/p-short.md",
+        "outputs/q-short.md"
+      ],
+      "reportedReadsBoth": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md"
+      ]
+    },
+    {
+      "case": "apps",
+      "baseline": "adequate",
+      "candidate": "adequate",
+      "evidence": "Both supply complete English skills with supported JSON fields, null/array behavior, source-data boundaries and explicit user key overrides; no unavailable dependency.",
+      "outputs": [
+        "outputs/p-apps.md",
+        "outputs/q-apps.md"
+      ],
+      "reportedReadsBoth": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "prompt-design/references/skill-description-review.md",
+        "gemini-instruction-design/references/apps-skills.md"
+      ]
+    },
+    {
+      "case": "workflow",
+      "baseline": "adequate",
+      "candidate": "adequate",
+      "evidence": "Both assign registration to the controller, persist key and fixed payload before sending, reconcile uncertain outcomes, retain limits across restart, and qualify exactly-once guarantees by the service contract.",
+      "outputs": [
+        "outputs/p-workflow.md",
+        "outputs/q-workflow.md"
+      ],
+      "reportedReadsBoth": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "prompt-design/references/prompt-review-checklist.md",
+        "agent-workflow-design/SKILL.md",
+        "agent-workflow-design/references/loop-patterns-and-control.md",
+        "agent-workflow-design/references/state-evidence-and-recovery.md",
+        "gemini-instruction-design/references/api-instructions.md"
+      ]
+    },
+    {
+      "case": "api",
+      "baseline": "adequate",
+      "candidate": "adequate",
+      "evidence": "Both separate instruction text from sampling/thinking/cache changes, native tool calling and API-specific state; neither silently chooses an API family.",
+      "outputs": [
+        "outputs/p-api.md",
+        "outputs/q-api.md"
+      ],
+      "reportedReadsBoth": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "prompt-design/references/prompt-review-checklist.md",
+        "gemini-instruction-design/references/api-instructions.md"
+      ]
+    },
+    {
+      "case": "video",
+      "baseline": "adequate",
+      "candidate": "adequate",
+      "evidence": "Both retain Omni and feasible 8-second extension, disclose the original-tail and audio-reference conflicts. Baseline proposes a silent visual segment explicitly; candidate leaves dialogue unspecified. These are valid partial deliverables, not proven media results.",
+      "outputs": [
+        "outputs/p-video.md",
+        "outputs/q-video.md"
+      ],
+      "reportedReadsBoth": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "gemini-instruction-design/references/video-prompts.md"
+      ]
+    }
+  ],
+  "catalog": {
+    "items": 12,
+    "result": "All primary routes judged appropriate from the supplied descriptions; ordinary task execution and generic Gemini questions excluded.",
+    "artifact": "outputs/catalog.json",
+    "limit": "Catalog classification, not installed-client discovery. Description is unchanged between versions."
+  },
+  "downstream": {
+    "artifacts": [
+      "outputs/p-downstream.json",
+      "outputs/q-downstream.json"
+    ],
+    "result": "Both parse as JSON, use client/need/due/uncertainties, keep due null and ignore the embedded attack. Empty versus explanatory uncertainty arrays are both accepted.",
+    "limit": "One synthetic email per generated artifact, executed on the host rather than Gemini Apps."
+  },
+  "decision": {
+    "adopted": "candidate",
+    "pluginVersion": "0.4.1",
+    "reason": "Predeclared structural simplification achieved: entry source words 743 to 519 (30.1% reduction), common rules reused, companion loading explicit. No critical regression observed on five paired tasks; downstream and additional cases adequate. Not a demonstrated general quality gain.",
+    "workers": {
+      "plannedMaximum": 18,
+      "dispatched": 16,
+      "completed": 16,
+      "artifactReviews": 16,
+      "invalidTargetRuns": 0
+    },
+    "sourceChecks": "Skill and portable validators passed before source application; integrated package check recorded in the maintenance note."
+  },
+  "confirmation": [
+    {
+      "case": "cli",
+      "artifact": "outputs/confirm-cli.md",
+      "result": "adequate",
+      "evidence": "Separates persistent compatibility rules from optional CSV procedure, preserves source files, and does not assume AGENTS.md is loaded.",
+      "reportedReads": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "prompt-design/references/skill-description-review.md",
+        "gemini-instruction-design/references/cli-instructions.md"
+      ]
+    },
+    {
+      "case": "migration",
+      "artifact": "outputs/confirm-migration.md",
+      "result": "adequate",
+      "evidence": "Distinguishes classic Gem conversion and Opal redesign; accounts for size, audio, GitHub and Deep Research loss without claiming migration execution.",
+      "reportedReads": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "prompt-design/references/prompt-review-checklist.md",
+        "gemini-instruction-design/references/gems-migration.md",
+        "gemini-instruction-design/references/apps-skills.md"
+      ]
+    }
+  ],
+  "supplemental": {
+    "case": "mixed-image",
+    "artifact": "outputs/mixed-image.md",
+    "result": "adequate",
+    "evidence": "Combines Apps and image instructions, retains the explicit gemini-3-pro-image target, allows relighting and preserves Japanese copy; distinguishes model ID from Apps availability. Response contains copyable skill text plus setup explanation.",
+    "reportedReads": [
+      "gemini-instruction-design/SKILL.md",
+      "prompt-design/SKILL.md",
+      "prompt-design/references/skill-description-review.md",
+      "gemini-instruction-design/references/apps-skills.md",
+      "gemini-instruction-design/references/image-prompts.md"
+    ],
+    "classification": "Supplemental preservation case in a previously explored task family, not an independent held-out group."
+  }
+}

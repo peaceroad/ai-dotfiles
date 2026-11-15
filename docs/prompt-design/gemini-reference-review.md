@@ -4,7 +4,9 @@
 
 現行の3参照を、今後の指示設計に使う版として採用します。全指示の静的レビューで、適用条件、要件の保持、モデルに残す裁量、完了条件を確認しました。Geminiでの指示実行、Gemの保存・共有、画像・動画の生成は未実施であり、実行時の品質は未検証です。
 
-**その後の変更：** 2026年9月11日に3参照を`prompt-gemini-reference`へ移し、続いて対象世代とメディアの読み込み条件を整理しました。以下の更新・評価は9月6日時点の記録で、参照リンクは現行ファイルを指しています。[分離の判断](#2026年9月11日補助スキルへの分離)と[対象世代・メディア参照の整理](#2026年9月11日対象世代とメディア参照の整理)は末尾に追記しています。
+**その後の変更：** 2026年9月11日に3参照を`prompt-gemini-reference`へ移し、続いて対象世代とメディアの読み込み条件を整理しました。以下の更新・評価は9月6日時点の記録で、旧スキルへの参照リンクは改修前コミットのファイルを指しています。[分離の判断](#2026年9月11日補助スキルへの分離)と[対象世代・メディア参照の整理](#2026年9月11日対象世代とメディア参照の整理)は末尾に追記しています。
+
+2026年11月15日、現行スキルはGemini 4を基準とした`gemini-instruction-design`へ置き換えた。[再構築の記録](gemini-4-rewrite.md)を参照。以下は旧版の判断記録として保持する。
 
 ## 最近の更新とNano Banana専用ガイド
 
@@ -26,9 +28,9 @@ Nano Bananaには、従来のAPIページだけでなく、プロンプトを主
 
 | 参照 | 変更の中心 |
 | --- | --- |
-| [Gemini共通](../../plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-prompt-design.md) | 対象製品、指示と入力の役割、長い文脈と問いの配置、根拠と推測を整理。必要な説明まで短くしない。内部の推論を逐一表示させる代わりに、利用者に必要な根拠や成果物を指定する |
-| [Gems](../../plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-gems-prompt-design.md) | 通常のGemsとLabsのミニアプリを区別。InstructionsとKnowledgeの分担、Driveの更新、Notebookの扱い、共有時の閲覧範囲、引用設定、プレビューと保存を整理する |
-| [画像・動画](../../plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-media-generation-prompt-design.md) | 新規生成と既存画像の編集を分け、参照画像の役割、変更点と保持条件、文字、多言語化、連続画像の一貫性を明確にする。動画では生成・編集・延長を区別し、ショット、時間、音声の条件を必要に応じて指定する |
+| [Gemini共通](https://github.com/peaceroad/ai-dotfiles/blob/b248ee5dbcd1aef944f3872b64896ff440de987c/plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-prompt-design.md) | 対象製品、指示と入力の役割、長い文脈と問いの配置、根拠と推測を整理。必要な説明まで短くしない。内部の推論を逐一表示させる代わりに、利用者に必要な根拠や成果物を指定する |
+| [Gems](https://github.com/peaceroad/ai-dotfiles/blob/b248ee5dbcd1aef944f3872b64896ff440de987c/plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-gems-prompt-design.md) | 通常のGemsとLabsのミニアプリを区別。InstructionsとKnowledgeの分担、Driveの更新、Notebookの扱い、共有時の閲覧範囲、引用設定、プレビューと保存を整理する |
+| [画像・動画](https://github.com/peaceroad/ai-dotfiles/blob/b248ee5dbcd1aef944f3872b64896ff440de987c/plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-media-generation-prompt-design.md) | 新規生成と既存画像の編集を分け、参照画像の役割、変更点と保持条件、文字、多言語化、連続画像の一貫性を明確にする。動画では生成・編集・延長を区別し、ショット、時間、音声の条件を必要に応じて指定する |
 
 Nano Banana専用資料からは、人物・物体に一貫した名前を付けること、多言語化で文字とデザインの変更範囲を分けること、複数画像と一覧画像を区別することを補いました。現在の事実に依存する図では、利用できる検索・提供資料で確かめた内容を、どの視覚要素へ対応させるかを指定します。架空の描写や画像の見栄えを根拠の代わりにはしません。
 
@@ -77,7 +79,7 @@ Googleの[Imagenプロンプトガイド](https://ai.google.dev/gemini-api/docs/
 `prompt-design`の設計方針はGeminiでも使いたい一方、Gemini固有の補足には別のスキルを選びたい、という利用に合わせて分離しました。読み込み量だけでなく、共通方針とモデル固有の補足を選び分けられることを重視した変更です。9月6日の「同じスキルに残す」判断を見直しています。
 
 - 共通の設計方法、対象が不明なOpenAI／Codex向け作業でのGPT-6 Astra既定、修正報告の方針は`prompt-design`に残しました。本文とdescriptionからGemini専用の案内を外し、他モデルには一般的な参照条件を使います。
-- 同じ`agent-design-tools`プラグインに[`prompt-gemini-reference`](../../plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)を追加しました。補助側が先に`prompt-design`を読み、Geminiの共通参照と、必要な場合だけGems・画像動画の参照を読みます。Geminiが対象ならAstra参照を一律には読みません。
+- 同じ`agent-design-tools`プラグインに[`prompt-gemini-reference`](https://github.com/peaceroad/ai-dotfiles/blob/b248ee5dbcd1aef944f3872b64896ff440de987c/plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)を追加しました。補助側が先に`prompt-design`を読み、Geminiの共通参照と、必要な場合だけGems・画像動画の参照を読みます。Geminiが対象ならAstra参照を一律には読みません。
 - 依存は補助側から共通側への一方向です。プラグイン導入では両スキルが同梱され、個別導入では両ディレクトリを用意します。共通側だけの利用に、この補助スキルは必要ありません。
 - 画像・動画向け資料は、Gemini用の指示設計という共通用途に含めました。生成ツールを追加したわけではなく、プロンプトだけの依頼で画像を作らないこと、Gemini指定を別の提供元へ黙って置き換えないことを入口に明記しました。
 
@@ -93,7 +95,7 @@ Googleの[Imagenプロンプトガイド](https://ai.google.dev/gemini-api/docs/
 
 メディアは、求める成果物によって参照を選びます。
 
-- **入力の理解：** [メディア入力の参照](../../plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-media-input-prompt-design.md)を追加しました。抽出対象、根拠の画像・ページ・時刻、読み取れない箇所の扱い、視覚・音声・推論の区別を整理しています。入力順序は一律に固定せず、単一画像と複数メディアの対応関係で判断します。
+- **入力の理解：** [メディア入力の参照](https://github.com/peaceroad/ai-dotfiles/blob/b248ee5dbcd1aef944f3872b64896ff440de987c/plugins/agent-design-tools/skills/prompt-gemini-reference/references/gemini-media-input-prompt-design.md)を追加しました。抽出対象、根拠の画像・ページ・時刻、読み取れない箇所の扱い、視覚・音声・推論の区別を整理しています。入力順序は一律に固定せず、単一画像と複数メディアの対応関係で判断します。
 - **生成・編集：** 既存の画像・動画参照を維持しました。参照画像の役割、編集時の保持条件、文字、反復、動画の時間と音声は共通する判断が多いため、今回は画像用と動画用のファイルには分割していません。動画の概要ページを選択の入口に加え、能力の判断はOmni・Veoの詳細ガイドへ進む形にしました。
 - **両方を使う場合：** メディアを詳しく分析したうえで生成用の指示へ変換する依頼では両参照を読みます。単に生成用の参照画像が付いているだけなら、入力分析の参照まで毎回読みません。
 

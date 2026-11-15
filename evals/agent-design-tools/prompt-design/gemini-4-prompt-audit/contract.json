@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-15",
+  "purpose": "Recheck Gemini 4 and media prompting against current first-party guidance; evaluate the resulting authoring artifacts without changing shared design skills.",
+  "method": "Official-source audit plus three paired fresh-context host trials. Parent grades artifacts against fixed task-specific requirements, without a model judge or preference score.",
+  "baseline": "Accepted Gemini usability candidate before this audit; its unpublished package draft was labeled 0.4.1.",
+  "candidateScope": "Gemini entry and references only. Shared prompt-design and agent-workflow-design remain byte-identical. Package version is normalized to the pending 0.4.0 release separately.",
+  "adoption": "Adopt source-supported corrections and removal of obsolete guidance if all candidate task requirements pass and no critical regression appears. This establishes source alignment and bounded artifact adequacy, not superior model performance.",
+  "workAllowance": { "candidateVersions": 1, "plannedTargetCalls": 6, "maximumTargetCallsIncludingRecovery": 8, "modelJudgeCalls": 0 },
+  "runtime": { "route": "Host subagents with fresh contexts and inherited model/effort settings", "backendVersion": null, "tokens": null, "money": null, "geminiExecution": false },
+  "isolation": "Neutral sibling bundle copies and task-only delivery. Shared filesystem access remains possible; workers are instructed to read only their packet and linked authoring references. Read reports are not instrumented traces.",
+  "criteria": {
+    "carbon-work": ["Produce a usable Japanese instruction for Carbon without executing it", "Preserve the supplied outcome and API compatibility", "Use actual baseline and verification evidence, including rendered UI, without claiming unseen results", "Support long work and interruption proportionately, reuse existing controls, and avoid arbitrary turn counts or approval at every step", "Do not add a mandatory multi-agent architecture or a legacy-model recommendation"],
+    "hydrogen-cap": ["Return a short usable extraction instruction and separate configuration advice", "Explain that max_output_tokens includes thinking and final output, so 256 is not a 256-token final-answer allocation", "Keep the requested final JSON field names and absent-value null semantics", "Treat thinking_level as a runtime control and justify testing lower levels without a guaranteed quality claim", "Do not silently remove the application's spend constraint, select a different model, or invent sampling controls"],
+    "omni-return": ["Produce an extension prompt for Omni 1.2 with the correct new-segment time origin", "Recognize that the mascot seen only early in the source may be outside the final-ten-second context and needs a description or reference image", "Do not promise a reference-video binding for extension", "Place exclusions in the task prompt rather than unsupported system or negative-prompt fields", "Preserve the 14+6 second target, continuous shot, and no music/dialogue without claiming media execution"]
+  },
+  "gradingCalibration": "A short answer may pass; verbosity earns no credit. Hydrogen may propose a measured higher total cap or retain a strict cap with an explicit truncation tradeoff, but must not call it final-answer-only. Omni may use a supplied description or request a still image; rejecting a nonexistent reference-video binding is required. Carbon can stay single-agent and need not invent a benchmark or approval procedure where existing checks suffice.",
+  "priorEvidence": "../gemini-usability/results.json provides earlier routing and mixed Apps/image preservation evidence; those runs are supporting evidence, not new trials in this contract."
+}

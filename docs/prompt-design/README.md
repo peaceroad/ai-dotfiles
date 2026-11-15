@@ -1,6 +1,19 @@
-# GPT-6 Astra向けprompt-designスキルの評価
+# prompt-designとGemini指示設計の評価記録
 
-初回評価日：2026年9月5日。この記録の最終更新：2026年9月12日。対象は、このリポジトリの[prompt-designスキル](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)です。
+初回評価日：2026年9月5日。案内の最終更新：2026年11月15日。`prompt-design`の初回評価と、その後のモデル別参照・Gemini専用スキルの評価を案内します。
+
+## 現行版への案内
+
+使い方と導入は[プラグインのREADME](../../plugins/agent-design-tools/README.md)、共通スキルとの分担は[役割説明](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
+
+- **共通の指示設計：** [prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)。Astra向けの追加確認は[9月12日のレビュー](astra-blog-review.md)にあります。
+- **Gemini向けの指示設計：** [gemini-instruction-design](../../plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)。現行ソースはGemini 4を基準とする7参照、プラグイン版`0.4.0`です。[再構築](gemini-4-rewrite.md)、[使いやすさ評価](gemini-usability-review.md)、[公式仕様との再照合と最終調整](gemini-4-prompt-audit.md)の順に判断を記録しています。
+
+各記録の件数、参照数、ハッシュ、応答は評価時点のものです。後から行った文書整理や仕様補正を、過去の試行で検証済みとは扱いません。Gemini実機での取込み・自動選択・実行は未検証です。
+
+## 初回評価と更新履歴
+
+初回の対象は、このリポジトリの[prompt-designスキル](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)です。
 
 9月12日にAstraの公式ブログと参照先の外部資料を照合し、基本構成を維持して評価用の参照を補強しました。[今回の判断・変更・確認範囲](astra-blog-review.md)を参照してください。Astra向けでは、小さな修正でも`SKILL.md`とAstra参照を読みます。以下の初回ケース、件数、ハッシュ、ファイルサイズは評価当時の記録です。
 
@@ -15,6 +28,14 @@
 2026年9月11日には、Gemini向けの補足を`prompt-gemini-reference`へ分離しました。[分離の判断と検証範囲](gemini-reference-review.md#2026年9月11日補助スキルへの分離)を参照してください。以下の試行とmanifestは評価当時の配置・指示の記録であり、分離後の自動選択を検証したものではありません。
 
 同日の追加更新で、補助スキルの対象をGemini 3以降と明記し、メディア入力の理解と生成・編集の参照を分けました。[対象世代とメディア参照の整理](gemini-reference-review.md#2026年9月11日対象世代とメディア参照の整理)に根拠と確認範囲を記録しています。
+
+2026年11月15日には、Gemini 4を基準に`gemini-instruction-design`へ全面再構築しました。[構成・旧指示の扱い・検証範囲](gemini-4-rewrite.md)を参照してください。共通の`prompt-design`と`agent-workflow-design`は変更していません。
+
+続いて[使いやすさと入口の評価](gemini-usability-review.md)で同条件比較と生成物の下流試行を行い、共通手法との重複を減らした入口を採用しました。この試行時点では、参照8本と共通2スキルを維持しました。
+
+さらに[Gemini 4の公式プロンプト指針を再確認](gemini-4-prompt-audit.md)し、共通スキルとの分担、APIの思考と回答の予算、Omni延長時の入力条件を点検しました。未公開の変更はプラグイン版`0.4.0`へ統一しています。
+
+その後、Apps Skillsを中心とする運用範囲に合わせ、[Gems／Opalの専用移行参照を配布対象から外しました](gemini-4-prompt-audit.md)。現在は7参照です。上記の8参照に関する評価は、その時点の構成を記録しています。
 
 `skill-creator`・`agent-workflow-design`との分担は、[3スキルの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 

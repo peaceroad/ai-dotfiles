@@ -1,0 +1,74 @@
+[
+  {
+    "id": "s1",
+    "primary": "gemini-instruction-design",
+    "companions": ["prompt-design"],
+    "reason": "Gemini Apps向けスキルの指示文を新規作成する依頼なので専用入口が適切。モデル向け指示の設計としてprompt-designも該当する。"
+  },
+  {
+    "id": "s2",
+    "primary": "none",
+    "companions": [],
+    "reason": "問い合わせ分類そのものの実行であり、指示文やワークフローの設計ではない。"
+  },
+  {
+    "id": "s3",
+    "primary": "gemini-instruction-design",
+    "companions": ["prompt-design"],
+    "reason": "Nano Banana向け編集プロンプトの修正は専用スキルの明示対象。プロンプト改訂としてprompt-designも該当する。"
+  },
+  {
+    "id": "s4",
+    "primary": "none",
+    "companions": [],
+    "reason": "画像生成そのものの依頼であり、カタログの指示設計スキルはいずれも担当しない。"
+  },
+  {
+    "id": "s5",
+    "primary": "gemini-instruction-design",
+    "companions": ["prompt-design"],
+    "reason": "Antigravityのルール作成は専用スキルの明示対象。モデル向け規約の設計としてprompt-designも該当する。"
+  },
+  {
+    "id": "s6",
+    "primary": "agent-workflow-design",
+    "companions": [],
+    "reason": "中断と復帰を扱う調査エージェントの状態管理設計なので、ワークフロー設計が入口。Geminiの名前はあるが、プロンプトや指示文の作成は依頼されていない。"
+  },
+  {
+    "id": "s7",
+    "primary": "none",
+    "companions": [],
+    "reason": "Geminiに関する一般的な比較質問であり、専用スキルのdescriptionが除外している一般質問に当たる。"
+  },
+  {
+    "id": "s8",
+    "primary": "none",
+    "companions": [],
+    "reason": "CSV処理コードの修正であり、モデル向け指示やエージェントワークフローの設計ではない。"
+  },
+  {
+    "id": "s9",
+    "primary": "gemini-instruction-design",
+    "companions": ["prompt-design"],
+    "reason": "Gemini CLI向けスキルと常時規約の書き分けは専用の指示設計に当たる。モデル向け指示の構成としてprompt-designも該当する。"
+  },
+  {
+    "id": "s10",
+    "primary": "prompt-design",
+    "companions": [],
+    "reason": "対象モデルが未定のシステムプロンプト改訂なので、汎用のprompt-designが適切。Gemini専用入口を選ぶ根拠はない。"
+  },
+  {
+    "id": "s11",
+    "primary": "gemini-instruction-design",
+    "companions": ["prompt-design"],
+    "reason": "Geminiでの分析とOmniへの引き渡しを指示文にする依頼で、GeminiおよびOmni向けプロンプトの専用入口が適切。指示文設計としてprompt-designも該当する。ワークフローの状態管理や実行基盤の設計までは求められていない。"
+  },
+  {
+    "id": "s12",
+    "primary": "none",
+    "companions": [],
+    "reason": "既存作業の完了待ちと結果報告の実行依頼であり、反復・長期作業のワークフローを設計する依頼ではない。"
+  }
+]

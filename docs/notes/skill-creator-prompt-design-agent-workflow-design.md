@@ -30,7 +30,9 @@
 
 ツールの選択条件や戻り値を説明するだけなら、このスキルとツール契約の確認で足りる場合があります。ジョブの寿命、並行実行、再試行、永続化、外部操作の回復まで設計するなら、`agent-workflow-design`を組み合わせます。
 
-Gemini固有の補足は、同じプラグイン内の[`prompt-gemini-reference`](../../plugins/agent-design-tools/skills/prompt-gemini-reference/SKILL.md)へ分離しています。Geminiのテキスト向け指示、Gems、画像・動画向けプロンプトを設計する場合に、まず`prompt-design`の共通方針を使い、必要な専用参照だけを読みます。依存は補助側から共通側への一方向であり、別のGemini向けスキルを選んでも`prompt-design`は利用できます。画像生成ツールの提供や、GPT-6向け参照の一律読み込みは行いません。個別導入では両スキルが必要です。
+Gemini向けの入口は、同じプラグイン内の[`gemini-instruction-design`](../../plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)です。このスキルを指定すると、`prompt-design`の共通方針と、Apps Skills、CLI・Antigravity・API、媒体入力、画像・動画から必要な参照を読みます。委任・待機・復旧などの実行制御を設計するときは、`agent-workflow-design`も読みます。通常のAPIツール呼出しループを実装するだけなら、追加の併用は不要です。
+
+共通2スキルのdescriptionや本文にGemini専用スキル名を固定する必要はありません。依存と選択条件はGemini側が所有し、共通側は別のモデル向けスキルとも組み合わせられます。個別導入では`prompt-design`、実行制御の設計にはさらに`agent-workflow-design`を用意します。これらは設計する側の依存であり、生成したApps Skillへそのまま転写しません。使い方と対象モデルは[プラグインのREADME](../../plugins/agent-design-tools/README.md#how-gemini-design-works)にまとめています。
 
 ### agent-workflow-design：許可された仕事が進む仕組みを整える
 
@@ -105,11 +107,11 @@ Astra向けの指示設計では、小さな修正でも`prompt-design/SKILL.md`
 
 | 必要な情報 | 主な参照先 |
 | --- | --- |
-| Astra・GPT-5.6向けの指示調整とモデル設定 | `prompt-design`のモデル別参照。具体的な読み分けは[プラグインのREADME](../../plugins/agent-design-tools/README.md#reference-selection) |
+| Astra・GPT-5.6向けの指示調整とモデル設定 | `prompt-design`のモデル別参照。具体的な読み分けは[スキルの参照条件](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading) |
 | OpenAI APIのツール経路、状態、機能の組み合わせ | `prompt-design`の[tools and runtime boundaries](../../plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md)と公式資料。Codexなどの管理された製品では、公開されているツール契約を使う |
 | 進行・待機・再開・評価・権限の設計 | `agent-workflow-design`の[共通参照への入口](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md#reference-routing) |
 | GPT-5.6を維持・適用・比較する際の補足 | `agent-workflow-design`の[GPT-5.6用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/openai-gpt-5.6-workflow-design.md)。モデルやランタイムの差が関係するときだけ読み、Astraだけを対象にする仕事には読み込まない |
-| Gemini、Gem、画像・動画生成向けの指示 | `prompt-design`の共通方針と`prompt-gemini-reference`の専用参照。別モデルの事例を対象モデルの挙動の証拠や必須構成にはしない |
+| Gemini 4、Apps Skills、画像・動画生成向けの指示 | `gemini-instruction-design`を入口に、共通手法と必要な専用参照を読む。別モデルの事例を対象モデルの挙動の証拠や必須構成にはしない |
 
 GPT-5.6用のワークフロー参照は、Gitの旧設定を参考にした補足です。旧版の完了証拠、未解決事項、制御の担当などは現行の共通参照に引き継がれているため、旧版一式を別の必須手順として保持していません。追加の判断と検証範囲は[ワークフロー側の記録](../agent-workflow-design/README.md#モデル別参照の追記)にあります。
 
@@ -123,7 +125,7 @@ APIの制約、ツールの契約、検証に使う根拠資料など、正し�
 
 詳しい採用理由、代案との比較、評価結果や検証の限界は、将来の保守に役立つものを`docs/`のノートへ残します。適切な既存文書を使い、必要に応じてREADMEや関連文書から辿れるようにします。通常のスキル実行で、背景資料まで毎回読むことは求めません。
 
-移動や削除の前には、資料の内容と現在の参照経路を確認します。必要な条件や出典の明示が失われないか、配布先でも実行に必要な資料へアクセスできるかを見て判断します。たとえば、agent-workflow-designの[改善用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md)には判断規則を置き、背景となる出典と短い用途説明は[プラグインのREADME](../../plugins/agent-design-tools/README.md#sources-for-agent-and-harness-improvement)で案内しています。
+移動や削除の前には、資料の内容と現在の参照経路を確認します。必要な条件や出典の明示が失われないか、配布先でも実行に必要な資料へアクセスできるかを見て判断します。たとえば、agent-workflow-designの[改善用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/agent-improvement-and-rsi.md)には判断規則を置き、背景となる出典と短い用途説明は[プラグインのREADME](../../plugins/agent-design-tools/README.md#design-sources)で案内しています。
 
 ## 重なる観点をどう扱うか
 

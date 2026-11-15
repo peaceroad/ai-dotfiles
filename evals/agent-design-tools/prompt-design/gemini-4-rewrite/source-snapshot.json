@@ -1,0 +1,55 @@
+{
+  "purpose": "Source identity for the two authoring trials; not a Gemini runtime result.",
+  "baselineCommit": "b248ee5dbcd1aef944f3872b64896ff440de987c",
+  "pluginVersion": "0.4.0",
+  "files": [
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/SKILL.md",
+      "sha256": "0bcd464a9e9b486d9a596490bb9f8d5d08a3dc57bfe8a9bc24409032cd2ced7c"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/prompt-design/references/skill-description-review.md",
+      "sha256": "4989fe5435b2349eabdcf6349f2b1d09fc0b7cc90dfaad2226f7532fdd4f492f"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md",
+      "sha256": "fc2ae698708d1b335c28bf87aeee5bf6aed1a7712b3d2902a6c983d6d76ceb89"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/agents/openai.yaml",
+      "sha256": "a8756283004195e70f4d60b45258a22bf977148f03a7de7516e02d5366447dd1"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/antigravity-instructions.md",
+      "sha256": "cb1e725d36519d0de5159a32054857d9218cedc6adb383ae001f755d7785959b"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/api-instructions.md",
+      "sha256": "c14f105560b22a5c996f0680056821b92d91920a0736730dce87ce196c0df80b"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/apps-skills.md",
+      "sha256": "9d49d4640ddff5700329bcb9745860ca7cb8cd6bb202a379a9321beb44f66d4c"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/cli-instructions.md",
+      "sha256": "e26072d516966b1d93b58ba7965b95eea48e618112a7c5f8d2afeac3a43ebae1"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/gems-migration.md",
+      "sha256": "e310ab25dfceaf90ac8e2352ad5c9763d64f2daa552e78b38882ac516537fcb3"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/image-prompts.md",
+      "sha256": "59f87235fce9678132e8f2ff2a0850168404b3e53463c4bfced9d224320615c2"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/multimodal-inputs.md",
+      "sha256": "37c4c48c49ee59ff619362f960527c1ae1769ee6e4611fbee1b31a7bfcf770df"
+    },
+    {
+      "path": "plugins/agent-design-tools/skills/gemini-instruction-design/references/video-prompts.md",
+      "sha256": "ac1e1c1531e19105fef78177b396cb04c5588bebce4a4b5ccdc56ea1f1860d8b"
+    }
+  ]
+}

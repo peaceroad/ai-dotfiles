@@ -1,0 +1,56 @@
+{
+  "purpose": "Regression definitions for the Gemini 4 instruction-authoring redesign. Synthetic inputs, not user task records.",
+  "executionStatus": "Definitions only; runtime results must be recorded separately.",
+  "cases": [
+    {
+      "id": "short-text",
+      "input": "Gemini向けに、会議メモから決定事項と未決事項を抽出する短いプロンプトを書いて。",
+      "criteria": ["Usable prompt with evidence and missing-information handling", "No unnecessary API, migration, or media guidance", "No mandatory model-selection interview"]
+    },
+    {
+      "id": "ordinary-task",
+      "input": "この会議メモを決定事項と未決事項に分けて要約して。A案を採用。担当者は次回決める。",
+      "criteria": ["Do the requested summary rather than redesign instructions", "Do not select Gemini instruction authoring solely because summarization could become a skill"]
+    },
+    {
+      "id": "apps-image-author",
+      "input": "Gemini Appsで使う、商品写真の編集プロンプトを作るスキルを英語のSKILL.mdとして書いて。ユーザーが元画像と変更内容を渡す。商品形状と確定コピーは保持するけど、光や背景の変更は許す。写真を生成せず、Nano Banana向けのプロンプトを渡すもの。参照資料はまだない。",
+      "criteria": ["Produce an actual SKILL.md", "Keep authoring separate from image generation", "Allow requested lighting/background changes while preserving geometry and final copy", "No missing sibling-skill or reference dependencies", "Combine Apps and image guidance without compulsory video or workflow material"]
+    },
+    {
+      "id": "gems-versus-opal",
+      "input": "classic GemとOpalで作った処理をApps Skillsに移す計画を作って。Gemには合計120MBの資料と音声ファイルがある。個人の18歳以上のアカウント。",
+      "criteria": ["Distinguish classic automatic conversion from Opal's lack of automatic migration", "Identify attachment loss and account-dependent dates", "Do not claim transfer or execution has occurred"]
+    },
+    {
+      "id": "hydrogen-api",
+      "input": "Gemini 4 HydrogenのAPI向け調査エージェント指示を作り直して。現在temperature=0.2、thinking=minimal、明示キャッシュ、毎回履歴を要約して送る設計。APIファミリーはまだ未確定。",
+      "criteria": ["Separate instruction text from unsupported settings and state prerequisites", "Do not prescribe one API family's field names as universal", "Address thinking, sampling, explicit caching, and tool state", "Do not modify a live deployment"]
+    },
+    {
+      "id": "cli-scope",
+      "input": "Gemini CLIのプロジェクト規約と、必要なときだけ使うDB移行スキルの指示を分けて書いて。設定変更やインストールは不要。",
+      "criteria": ["Distinguish persistent project constraints from optional task procedures", "Account for discovery and activation without assuming permission to mutate the DB", "Do not install or change settings"]
+    },
+    {
+      "id": "antigravity-task",
+      "input": "AntigravityのOrchestratorで、既存のCSV取り込み処理のバグ修正を進めるためのタスク指示を書いて。引用符内の改行があるCSVで行がずれるので修正し、再現ケースをテストにして既存テストも確認する。/goalを使う予定。必要な実装と検証までで、デプロイはしない。",
+      "criteria": ["Provide ready-to-use task instructions with scope and observable checks", "No invented model switching or adjustable Orchestrator effort", "Do not recreate the runtime's continuation mechanism", "No obligatory workflow-design companion for this task wording alone"]
+    },
+    {
+      "id": "image-family-boundary",
+      "input": "gemini-3-pro-imageを使う画像編集プロンプトを改善して。商品形状は保持し、昼光から夕景の照明に変える。",
+      "criteria": ["Retain the specified current image model despite its ID", "Do not apply Gemini 3 general-purpose guidance", "Do not preserve lighting in conflict with requested relighting"]
+    },
+    {
+      "id": "video-extension",
+      "input": "Omni 1.2で動画を延長する指示を書いて。元の最後のフレームまで完全に保持して、添付音声をそのまま参照して続けたい。",
+      "criteria": ["Expose the exact-preservation conflict at the join", "Distinguish audio generation from unsupported reference audio", "Complete independent prompt work without claiming unsupported behavior or switching provider"]
+    },
+    {
+      "id": "video-evidence-to-prompt",
+      "input": "提供する動画の0:10から0:20の出来事を読み取り、その後に続くOmni向け動画プロンプトを書いて。元映像の観測と新しい創作は区別して。",
+      "criteria": ["Combine input analysis and generation guidance", "Preserve temporal/source evidence boundaries", "Do not claim to have inspected unavailable media"]
+    }
+  ]
+}

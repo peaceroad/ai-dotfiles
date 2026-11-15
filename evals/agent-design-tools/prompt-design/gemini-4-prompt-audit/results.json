@@ -1,0 +1,45 @@
+{
+  "decision": "Adopt the candidate source corrections and remove the inherited universal context-order rule. Pending package release remains 0.4.0.",
+  "baseline": "r",
+  "candidate": "s",
+  "counts": { "planned": 6, "attempted": 6, "completed": 6, "graded": 6, "retries": 0, "modelJudges": 0 },
+  "grading": "Parent reviewed the six saved answers against contract.json. No preference score, blind grader, statistical superiority claim, or Gemini runtime execution.",
+  "sourceWords": { "baselineEntry": 519, "candidateEntry": 481, "unit": "Whitespace-delimited source words, not runtime tokens" },
+  "pairs": [
+    {
+      "case": "carbon-work",
+      "baseline": "adequate",
+      "candidate": "adequate",
+      "baselineCriteria": ["pass", "pass", "pass", "pass", "pass"],
+      "candidateCriteria": ["pass", "pass", "pass", "pass", "pass"],
+      "evidence": "Both provide complete Japanese instructions, preserve public API and search semantics, compare actual before/after measurements, require rendered UI checks, and use existing save/resume mechanisms with current-state reconciliation. Neither requires multi-agent execution or per-edit approval.",
+      "outputs": ["outputs/r-carbon-work.md", "outputs/s-carbon-work.md"],
+      "reportedReadsBoth": ["gemini-instruction-design/SKILL.md", "prompt-design/SKILL.md", "prompt-design/references/prompt-review-checklist.md", "agent-workflow-design/SKILL.md", "agent-workflow-design/references/loop-patterns-and-control.md", "agent-workflow-design/references/state-evidence-and-recovery.md"]
+    },
+    {
+      "case": "hydrogen-cap",
+      "baseline": "usable prompt, incomplete budget explanation",
+      "candidate": "adequate",
+      "baselineCriteria": ["pass", "partial", "pass", "pass", "pass"],
+      "candidateCriteria": ["pass", "pass", "pass", "pass", "pass"],
+      "evidence": "Baseline declines to guarantee final-answer capacity but treats whether thinking counts toward the cap as unresolved. Candidate explicitly states the combined thinking/output cap, proposes testing low effort under the existing 256 cap, preserves the three nullable fields, and treats truncation as failure rather than a missing source value. Both separate instruction text and runtime/schema advice.",
+      "outputs": ["outputs/r-hydrogen-cap.md", "outputs/s-hydrogen-cap.md"],
+      "reportedReadsBoth": ["gemini-instruction-design/SKILL.md", "prompt-design/SKILL.md", "gemini-instruction-design/references/api-instructions.md"]
+    },
+    {
+      "case": "omni-return",
+      "baseline": "usable prompt, incomplete input guidance",
+      "candidate": "adequate",
+      "baselineCriteria": ["pass", "partial", "pass", "pass", "pass"],
+      "candidateCriteria": ["pass", "pass", "pass", "pass", "pass"],
+      "evidence": "Both preserve the 14+6 second duration, extension-relative two-second cue, fixed shot and sound requirements. Baseline includes the mascot description but cannot establish the extension reference contract or excluded API fields. Candidate explains that the final-ten-second context excludes the early mascot, offers description or a subject still, rejects reference-video input for extension, and puts exclusions in the ordinary task prompt. Neither claims media execution.",
+      "outputs": ["outputs/r-omni-return.md", "outputs/s-omni-return.md"],
+      "reportedReadsBoth": ["gemini-instruction-design/SKILL.md", "prompt-design/SKILL.md", "gemini-instruction-design/references/video-prompts.md", "gemini-instruction-design/references/api-instructions.md"]
+    }
+  ],
+  "loadingLimit": "Reference lists are worker self-reports. Delivered copies and source hashes were checked, but actual file reads were not independently instrumented. Explicit skill selection is not installed-client discovery.",
+  "priorEvidence": { "record": "../gemini-usability/results.json", "continuity": "All 25 baseline skill-file hashes match that record's adopted candidate. Earlier short, mixed Apps/image, and downstream artifacts were reopened as supporting preservation evidence, not counted as current trials." },
+  "application": "Only the five changed Gemini instruction files were copied from the frozen candidate after checking current sources against baseline hashes. Shared skills remained unchanged. Draft 0.4.1 markers in historical evidence are retained and explained by current maintenance notes.",
+  "validation": "Skill and portable plugin validators passed before adoption. After adoption, npm run check:plugins passed all 26 tests. Source/archive hashes, shared skill continuity, local links, JSON, LF, and diff checks passed. Public output artifacts were reviewed before retention.",
+  "limits": ["Three synthetic task groups, one sample per version and task", "No downstream Gemini execution or image/video generation in this audit", "No measured token, cost, latency, or live activation claim", "Candidate-only source corrections and these paired artifacts do not establish universal superiority"]
+}

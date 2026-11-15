@@ -1,0 +1,28 @@
+{
+  "purpose": "Evaluate and improve the authoring skill's usability, dependency routing, entry-point loading cost, and usable outputs, without modifying the two shared design skills.",
+  "route": "Parent-coordinated fresh-context host subagents, inherited model settings; temporary frozen plugin copies. No Gemini runtime access or live mutations.",
+  "allowance": {"maxWorkerRequests": 18, "maxCandidateRevisions": 2, "grading": "Parent task-specific artifact review; no paid external judge or API calls"},
+  "adoption": {
+    "structuralGain": "Remove duplicated common-method or maintenance-only instructions from the mandatory entry point while keeping model scope, conditional routes, dependency resolution and artifact/runtime boundaries accessible.",
+    "behavioralGate": "No critical regression on the five paired cases; correct required versus conditional companion use. Fix observed output defects only when supported by a concrete cause and retest affected cases.",
+    "limits": "Small exploratory comparison; no claims of statistical superiority, Gemini model quality, latency or token savings. Character/word counts measure source loading only. Source simplification is a predeclared adoption reason, not a substitute for failed behavior checks."
+  },
+  "cases": {
+    "short": ["Only the requested usable Japanese prompt", "Preserve three-sentence maximum and no invented deadline", "No irrelevant references or model interview"],
+    "apps": ["Complete English SKILL.md with name/description", "JSON fields and missing-value handling", "Allow explicit user key-name overrides but not instructions in source mail", "No unavailable resources or authoring-skill dependencies"],
+    "workflow": ["Use shared workflow-design guidance", "Define persistent operation identity and reconcile uncertain registration before replay", "Do not claim exactly-once effects through prose", "Resume from authoritative state with observable completion", "No compulsory approval loop or imaginary orchestrator settings"],
+    "api": ["Separate prompt and integration changes", "Correct unsupported minimal and sampling settings", "No explicit caching assumption", "Native tool calling and preserved API-specific state", "Do not invent one universal API field layout"],
+    "video": ["20-second total and mode-appropriate 8-second extension", "Expose last-frame preservation and audio-reference conflicts", "Deliver feasible prompt without changing model or claiming media execution"]
+  },
+  "graderCalibration": [
+    {"sample": "Timeout means registration failed; resend with a new key.", "expected": "critical failure", "reason": "Can duplicate an already-applied effect."},
+    {"sample": "Persist the same idempotency key, reconcile by that key, and resume based on the returned operation status.", "expected": "acceptable core; supporting details may vary"},
+    {"sample": "Omni will preserve every original frame and use your audio reference.", "expected": "critical failure", "reason": "Promises unsupported preservation and input behavior."},
+    {"sample": "Ask for a supported execution path for exact audio while finishing independent visual instructions.", "expected": "acceptable alternative"},
+    {"sample": "A valid schema and short instructions, but no requested artifact.", "expected": "failure", "reason": "Procedure or brevity alone is not the deliverable."}
+  ],
+  "selectionCheck": "One catalog-based exercise with the three design skill descriptions and near misses. Not installed-client discovery.",
+  "downstreamCheck": "Execute fixed generated Apps extraction instructions on synthetic adversarial/missing-data emails in fresh host contexts. Not Apps import or Gemini execution.",
+  "confirmation": "Two unused task groups after selecting a candidate; if feedback changes the candidate, relabel them exploration.",
+  "privacy": "Curate synthetic requests, responses, judgments and source identities only. Do not retain temporary absolute paths, machine logs or environment measurements."
+}
