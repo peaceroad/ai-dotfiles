@@ -1,0 +1,37 @@
+{
+  "scope": "Gemini instruction source used by the Neon update; shared skills are excluded because their read-time versions were not frozen.",
+  "files": [
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md",
+      "sha256": "7e93cc7eb97a43db6c2b2b3fe2de598ad0e5ffe8f3cf580f880f95b13590af3b"
+    },
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/references/antigravity-instructions.md",
+      "sha256": "e31167eac550c0455a4ed4324cbca7c20a589622b9a5cc55ca0e2f7238d32ebe"
+    },
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/references/api-instructions.md",
+      "sha256": "29478a2708724e0ee1b5dd21457c2bc30659c073f29e9e1686a7e67cb7b04ad9"
+    },
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/references/apps-skills.md",
+      "sha256": "6bcf431dc14358d51fcababa2f6392a1f7f2a5ff54f0f3d74d051e7b413b5e71"
+    },
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/references/cli-instructions.md",
+      "sha256": "538c2f829d4be8aefe1e9ff8446624aced52c08ccef980ead2248a178445be58"
+    },
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/references/image-prompts.md",
+      "sha256": "37854ad286caca169609108fe5b79e4642b079f658690c0f48939766d46cf0cb"
+    },
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/references/multimodal-inputs.md",
+      "sha256": "384025cce2bd670584a7daa640b3a1d173bd8d6cac9d8d2cc830de4dad3dede6"
+    },
+    {
+      "file": "plugins/agent-design-tools/skills/gemini-instruction-design/references/video-prompts.md",
+      "sha256": "459650078ec95edab80ccdc1aa4deb53f60ce502ec3ee0d25d6a35f259a0dfc9"
+    }
+  ]
+}

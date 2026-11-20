@@ -14,13 +14,17 @@ Put recurring behavior, essential constraints, output expectations, and resource
 
 Use references for substantial criteria, terminology, examples, and background. Name the situation in which each is needed and distinguish governing guidance from evidence or examples. Keep the essential condition of a rule in the instructions, its detail in one reference. Split material for meaningful conditional use, not to satisfy a file-count target.
 
-If the skill relies on another skill, establish its availability and how it is selected. Otherwise include the necessary guidance in the deliverable. Do not emit links to the author's `prompt-design` installation or Codex-specific tools. A reference filename is a reading instruction, not proof that the material was retrieved.
+If the skill relies on another skill, establish its availability to the recipient and when it is needed; check enablement before relying on automatic selection. Otherwise include the necessary guidance in the deliverable. Naming a companion does not establish that it is imported, enabled, or read. Do not emit links to the author's `prompt-design` installation or Codex-specific tools. A reference filename is a reading instruction, not proof that the material was retrieved.
+
+Model and thinking-level selection belongs to the Apps UI, not the skill text. For personal accounts, the checked help lists Low, Medium, and High, with Low as the default when manually selecting a model without choosing a level. Verify the target account's options instead of copying API defaults or `xhigh` into an Apps setup promise.
 
 ## Deliver the requested form
 
 For editor content, provide the name, description, instructions, and any necessary attachment mapping. For a portable file package, place `SKILL.md` at its root, with YAML `name` and `description` followed by Markdown instructions. Use a lowercase hyphenated name matching the folder and relative paths to bundled resources. Follow the Agent Skills format for portability, but verify destination support for optional fields; do not copy Codex's `agents/openai.yaml` into the Apps contract.
 
-The checked upload contract accepts a skill file, folder, or ZIP and limits combined uploads to 100 MB. ZIP packaging does not make archives valid reference attachments. Check every resource's format: `.py` and `.js` are supported, while `.ts`, `.tsx`, `.jsx`, `.sql`, audio/video, and legacy Office files are among the unsupported types. Adapt an unsupported resource to a usable supported form; renaming its extension does not make code executable. Scripts cannot depend on internet access. Skills work with Keep Activity off, but connected features requiring it do not.
+The upload contract accepts one skill at a time as a file, folder, or ZIP, with `SKILL.md` at the skill root. Limits are 100 files per skill, 10 MB for `SKILL.md`, and 100 MB total; these are ceilings, not useful instruction-length targets. A multi-skill repository or plugin is not one Apps upload. Import companions separately and exclude build/cache artifacts and nested archives. ZIP packaging does not make archives valid reference attachments.
+
+Check every resource's format: `.py` and `.js` are supported, while `.ts`, `.tsx`, `.jsx`, `.sql`, audio/video, and legacy Office files are among the unsupported types. Adapt an unsupported resource to a usable supported form; renaming its extension does not make code executable. Scripts cannot depend on internet access. Skills work with Keep Activity off, but connected features requiring it do not.
 
 The help documents Drive, Photos, and Notebooks attachment selectors. Downloaded ZIPs exclude connected Drive files and notebooks, so identify those dependencies separately rather than claiming the ZIP contains everything needed. The help gives differing instructions for updating files; verify the target UI when that operation matters. For text-only authorship, keep setup uncertainty in delivery notes.
 
@@ -38,4 +42,6 @@ Recheck for import, sharing, connected sources, execution capabilities, or chang
 
 - [Writing effective skills](https://support.google.com/gemini/answer/17102773?hl=en): selection, focus, description, and resource loading.
 - [Create and manage skills](https://support.google.com/gemini/answer/17094296?hl=en): supported uploads, connected sources, downloads, sharing, and execution restrictions.
+- [Transfer skills](https://support.google.com/gemini/answer/18977944?hl=en): single-skill packaging, file counts, and upload limits.
+- [About Gemini models](https://support.google.com/gemini/answer/18648722?hl=en): Apps-specific model and thinking controls; account-dependent availability.
 - [Agent Skills specification](https://agentskills.io/specification): portable file structure and metadata; optional fields still need destination support.

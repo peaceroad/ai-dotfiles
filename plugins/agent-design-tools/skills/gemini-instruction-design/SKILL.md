@@ -5,7 +5,7 @@ description: "Design, review, or rewrite Gemini prompts, Apps Skills, CLI or Ant
 
 # Gemini Instruction Design
 
-Create or revise usable instructions for the established Gemini surface, or review them at the requested scope. General-purpose guidance targets **Gemini 4 Carbon, Argon, and Hydrogen**. Image/video families have separate versions; use the model identities in their references.
+Create or revise usable instructions for the established Gemini surface, or review them at the requested scope. General-purpose guidance targets **Gemini 4 Carbon, Neon, Argon, and Hydrogen**. Image/video families have separate versions; use the model identities in their references.
 
 ## Load the design method
 

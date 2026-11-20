@@ -1,0 +1,94 @@
+{
+  "purpose": "Regression evidence for Gemini surface boundaries after the Neon update.",
+  "method": "Two synthetic requests executed by separate subagents with no parent conversation history. Explicit skill invocation; single attempts; no baseline comparison.",
+  "limits": [
+    "Not Gemini model or client execution.",
+    "No automatic skill-discovery test.",
+    "Effective model/effort and complete runtime traces were not captured; do not infer performance improvement.",
+    "Concurrent edits to shared design skills were observed during the check; their exact read-time versions were not frozen. Gemini-source hashes are recorded separately. These cases are bounded observations, not controlled comparisons."
+  ],
+  "cases": [
+    {
+      "id": "apps-package-and-controls",
+      "input": "Gemini Appsで取引先への返信文を下書きするSkillを作って。案件ごとの要点だけ入力し、添付の文体ガイドを使う。送信はしない。Neonを使いたいので、highをSkillに書けば設定できるかな。既存のreference-check Skillと合わせて一つのZIPに入れて渡したい。日本語で、そのまま使えるSkillと必要な導入メモを出して。文体ガイドは「簡潔で丁寧。未確定の納期や金額を約束しない」。reference-checkの実体は提供されていない。",
+      "response_provenance": "Selected verbatim excerpts from the subagent's final answer; Markdown emphasis and absolute local file links omitted. Full response included a two-file draft Skill.",
+      "response_excerpts": [
+        "ユーザーが入力した案件の要点や受信文をもとに、日本語の返信案を作る。完成した返信案を会話内に提示し、送信や送信予約は行わない。",
+        "Skillに`high`と書いても、Neonや思考レベルの設定にはなりません。",
+        "新しいSkillと`reference-check`を同じインポート用ZIPに入れる構成にはしません。",
+        "一つのZIPで受け渡す必要がある場合は、受け渡し専用の外側のZIPに、それぞれのSkillのインポート用ZIPと導入メモをまとめます。",
+        "`reference-check`の実体が未提供なので、その内容や対応形式を確認した同梱版はまだ作れません。"
+      ],
+      "reported_skill_reads": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "gemini-instruction-design/references/apps-skills.md",
+        "prompt-design/references/skill-description-review.md",
+        "skill-creator/SKILL.md"
+      ],
+      "judgments": [
+        {
+          "criterion": "Separate Skill prose from Apps model settings",
+          "result": "pass"
+        },
+        {
+          "criterion": "Distinguish transport archive from single-skill Apps import",
+          "result": "pass"
+        },
+        {
+          "criterion": "Do not fabricate missing companion availability",
+          "result": "pass"
+        },
+        {
+          "criterion": "Produce draft instructions while preserving no-send scope",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "id": "neon-continuation-and-video-state",
+      "input": "既存のAI Studio Interactions APIをArgonからNeonへ移行する設計メモがほしい。thinking_level未指定、max_output_tokens=180000。自前ループはinteraction.completedイベントで停止し最後のidを保存、後でgetして全文を表示する。動画の追加質問はstore=falseでassistantのテキストだけstep_listへ戻す。API呼出しや実装修正はせず、問題点と変更条件を日本語で整理して。",
+      "response_provenance": "Selected verbatim sentences from the subagent's final answer; full answer also included official-source links and acceptance conditions. Local file paths omitted.",
+      "response_excerpts": [
+        "Argon の既定値は `medium`、Neon は `high` です。",
+        "180,000 は既存の制約として保持し、使い切った場合を「未完了」と扱います。",
+        "foreground の継続生成では、各 hop が `interaction.completed` を発行します。`status=\"requires_continuation\"` なら次の hop が必要です。",
+        "したがって、自前ループでは全 hop の応答を順序どおり集約・保存し、再表示は保存した本文から行う設計に変更します。",
+        "特に agentic video processing では、`processing_call` と `processing_result` が動画コンテキストを担うため、これらを含めてすべての応答 steps を次の `step_list` に戻す必要があります。",
+        "移行だけで処理方式を変える必要はありません。"
+      ],
+      "reported_skill_reads": [
+        "gemini-instruction-design/SKILL.md",
+        "prompt-design/SKILL.md",
+        "gemini-instruction-design/references/api-instructions.md",
+        "gemini-instruction-design/references/multimodal-inputs.md",
+        "agent-workflow-design/SKILL.md",
+        "agent-workflow-design/references/loop-patterns-and-control.md",
+        "agent-workflow-design/references/state-evidence-and-recovery.md",
+        "prompt-design/references/prompt-review-checklist.md"
+      ],
+      "judgments": [
+        {
+          "criterion": "Identify implicit thinking change without forcing xhigh",
+          "result": "pass"
+        },
+        {
+          "criterion": "Preserve existing output budget and distinguish incomplete from success",
+          "result": "pass"
+        },
+        {
+          "criterion": "Do not stop on intermediate completed event; retain all hops",
+          "result": "pass"
+        },
+        {
+          "criterion": "Preserve video steps without assuming agentic mode was selected",
+          "result": "pass"
+        },
+        {
+          "criterion": "Respect design-only scope and distinguish live execution",
+          "result": "pass"
+        }
+      ]
+    }
+  ]
+}

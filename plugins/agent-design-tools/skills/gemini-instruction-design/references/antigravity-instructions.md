@@ -14,7 +14,9 @@ Workspace discovery includes the workspace and its ancestors up to the repositor
 
 ## Respect model and continuation controls
 
-Antigravity's checked Orchestrator options pair Carbon or Argon for planning and review with Hydrogen for implementation in one conversation. This is separate from parallel subagents. Orchestrator configurations have fixed effort; custom effort requires a supported standalone selection. Do not claim a prose role assignment switches models or creates workers.
+Antigravity's Orchestrator options pair Neon, Carbon, or Argon for planning and review with Hydrogen for implementation in one conversation. This is separate from parallel subagents. Orchestrator configurations have fixed effort; custom effort requires a supported standalone selection. Do not claim a prose role assignment switches models or creates workers.
+
+Standalone Neon defaults to High and offers Extra (`xhigh` in Antigravity CLI). Its documented context limit here is 512K, not the API's 1M window. Verify the selected client's controls and account availability when configuration matters; a Rule or Skill does not set them.
 
 For `/goal` work, define scope, deliverables, and observable completion evidence. The runtime supplies continuation and a completion audit; the command does not grant additional permissions. Avoid restating that mechanism as an invented polling loop or “never stop” instruction. If a dependency prevents progress, define what remains missing and what event or user input enables continuation, proportionate to the task.
 
