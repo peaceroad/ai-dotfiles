@@ -10,7 +10,7 @@
 
 ## グローバルAGENTS.md
 
-[codex-agents/](codex-agents/README.md)に、待機、完全読み込み、LF、応答品質、ブラウザー指定、Windowsファイル参照の13ケースと試行準備スクリプトがあります。旧版・現行版をコミットとハッシュで固定し、机上試行と実環境試行を区別します。モデルの行動比較は未実行です。[評価方針と限界](../docs/notes/codex-agents-md-evaluation.md)を参照してください。
+[codex-agents/](codex-agents/README.md)に、待機、完全読み込み、LF、応答品質、ブラウザー指定、Windowsファイル参照の13ケースと試行準備スクリプトがあります。旧版・現行版をコミットとハッシュで固定し、机上試行と実環境試行を区別します。モデルの行動比較は未実行です。[評価方針と限界](../docs/codex/settings/codex-agents-md-evaluation.md)を参照してください。
 
 ## agent-design-tools / prompt-design
 
@@ -21,13 +21,13 @@
 | 初回の指示生成・レビューと下流試行 | [ケース](agent-design-tools/prompt-design/evaluation-cases.json)、[manifest](agent-design-tools/prompt-design/evaluation-manifest.json) |
 | 根拠の保持に関する追加評価 | [原案・候補の比較ケース](agent-design-tools/prompt-design/source-preservation-cases.json)、[指示生成・下流ケース](agent-design-tools/prompt-design/source-preservation-skill-cases.json)、[manifest](agent-design-tools/prompt-design/source-preservation-manifest.json) |
 | モデル別参照の構成レビュー | [GPT-5.6参照復元時のmanifest](agent-design-tools/prompt-design/model-reference-manifest.json)。静的レビューであり、新たな動作試行は含まない |
-| Gemini参照の更新レビュー | [manifest](agent-design-tools/prompt-design/gemini-reference-manifest.json)、[変更内容と限界](../docs/prompt-design/gemini-reference-review.md)。公式資料との照合であり、新たな動作試行は含まない |
-| Gemini全指示の再監査 | [manifestと復元用差分](agent-design-tools/prompt-design/gemini-instruction-audit-manifest.json)、[再監査の説明](../docs/prompt-design/gemini-reference-review.md#全指示の再監査)。指示の適用条件を静的に確認したもので、新たな動作試行は含まない |
+| Gemini参照の更新レビュー | [manifest](agent-design-tools/prompt-design/gemini-reference-manifest.json)、[変更内容と限界](../docs/prompt-design/history/gemini-reference-review.md)。公式資料との照合であり、新たな動作試行は含まない |
+| Gemini全指示の再監査 | [manifestと復元用差分](agent-design-tools/prompt-design/gemini-instruction-audit-manifest.json)、[再監査の説明](../docs/prompt-design/history/gemini-reference-review.md#全指示の再監査)。指示の適用条件を静的に確認したもので、新たな動作試行は含まない |
 | 数値設定の提案範囲の調整 | [manifestと復元用差分](agent-design-tools/prompt-design/numeric-settings-review-manifest.json)、[変更理由と確認範囲](../docs/prompt-design/README.md#数値設定を提案する範囲の調整)。静的な条件照合であり、新たな動作試行は含まない |
 
-応答原文は同ディレクトリの`evidence/`に保存しています。確認した内容と限界は、[全体評価](../docs/prompt-design/README.md)、[根拠保持の追加評価](../docs/prompt-design/source-preservation-review.md)、[モデル別参照のレビュー](../docs/prompt-design/model-reference-review.md)を参照してください。
+応答原文は同ディレクトリの`evidence/`に保存しています。確認した内容と限界は、[全体評価](../docs/prompt-design/README.md)、[根拠保持の追加評価](../docs/prompt-design/history/source-preservation-review.md)、[モデル別参照のレビュー](../docs/prompt-design/history/model-reference-review.md)を参照してください。
 
-2026年9月12日のAstra公式ブログに基づく2スキルの再確認は、[ケースと判定条件](agent-design-tools/prompt-design/astra-blog-review-cases.json)、[応答と読込申告](agent-design-tools/prompt-design/evidence/2026-09-12-astra-blog-review.json)、[manifest](agent-design-tools/prompt-design/astra-blog-review-manifest.json)に保存しています。評価対象はmanifestのコミットとファイルハッシュで特定できます。別文脈の候補版2件を確認したもので、新旧比較、通常環境での自動選択率、採点器の実測ではありません。応答の読込報告は構造化し、ローカル絶対パスを残さない形で記録しました。[変更理由と限界](../docs/prompt-design/astra-blog-review.md)も参照してください。
+2026年9月12日のAstra公式ブログに基づく2スキルの再確認は、[ケースと判定条件](agent-design-tools/prompt-design/astra-blog-review-cases.json)、[応答と読込申告](agent-design-tools/prompt-design/evidence/2026-09-12-astra-blog-review.json)、[manifest](agent-design-tools/prompt-design/astra-blog-review-manifest.json)に保存しています。評価対象はmanifestのコミットとファイルハッシュで特定できます。別文脈の候補版2件を確認したもので、新旧比較、通常環境での自動選択率、採点器の実測ではありません。応答の読込報告は構造化し、ローカル絶対パスを残さない形で記録しました。[変更理由と限界](../docs/prompt-design/history/astra-blog-review.md)も参照してください。
 
 ## agent-design-tools / agent-workflow-design
 

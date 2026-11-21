@@ -72,7 +72,7 @@ The tool requires at least 24 hours since the newest creation/modification in
 each tree, rejects links and locks, and rechecks metadata after confirmation.
 It preserves the canonical marketplace, installed plugins, user Skills and
 sessions. Cleanup does not fix the upstream updater or prevent recurrence.
-See the [cleanup note](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-marketplace-staging-cleanup.md)
+See the [cleanup note](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/codex/troubleshooting/codex-marketplace-staging-cleanup.md)
 for scope, observed evidence and limitations.
 
 ## Permission and approval diagnostics
@@ -121,7 +121,7 @@ management/model requirements, launch overrides, and model-facing instructions.
 Exit code 1 means inspection/runtime failure and 2 means invalid arguments.
 There is no automatic repair. Do not replace the global state file or rewrite
 heartbeat permission snapshots based solely on a difference report. The
-[Desktop permission troubleshooting note](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-desktop-permission-diagnostics.md)
+[Desktop permission troubleshooting note](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/codex/troubleshooting/codex-desktop-permission-diagnostics.md)
 describes a locally observed menu-based correction, its verification steps, and
 the distinction between configuration layers, app selections, and recorded permissions.
 
@@ -131,7 +131,7 @@ Installed command help is the authority for syntax and supported features. Check
 
 Session export/archive/delete remain experimental because they depend on internal Codex storage formats. Synthetic regression tests and isolated Codex CLI 0.159.2 and 0.160.1 compatibility checks cover the documented subset; unverified formats block deletion. Export is a private reference copy, not a restorable backup; deletion requires separate authorization and confirmation. Some operations require Codex clients to be closed and must be handed off to an external terminal. This plugin does not expand sandbox permissions or turn a confirmation token into user authorization.
 
-For command details and validation limits, see [Codex maintenance](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-codex.md) and [session-management notes](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-session-management.md). These human-facing guides are not required reading for every skill invocation; execution guidance is bundled in the relevant skill references.
+For command details and validation limits, see [Codex maintenance](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-codex.md) and [session-management notes](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/codex/codex-session-management.md). These human-facing guides are not required reading for every skill invocation; execution guidance is bundled in the relevant skill references.
 
 For an authorized move of saved exports within one filesystem, use `agent codex session relocate --from <directory> --to <directory> --dry-run`. Confirmation approves both the move and the default-directory update. The command preserves snapshots, batch receipts, and unfinished output; it compares every file's hash before and after moving. Stop other saved-export operations first. After interruption, keep both locations intact and review the same paths with `--resume --dry-run`. Unknown entries, changed contents, links, collisions, and cross-filesystem moves stop the operation. Relocation does not repair old coverage or authorize deleting original sessions.
 

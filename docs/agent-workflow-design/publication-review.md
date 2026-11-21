@@ -38,4 +38,4 @@
 - [評価記録の配置と保全](../../evals/README.md)
 - [Astra向け改訂と評価](README.md)
 - [使いやすさ・冗長さの再監査](second-review.md)
-- [3スキルの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)
+- [3スキルの役割と使い分け](../prompt-design/skill-creator-prompt-design-agent-workflow-design.md)

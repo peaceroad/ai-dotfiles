@@ -4,42 +4,22 @@
 
 ## 現行版への案内
 
-使い方と導入は[プラグインのREADME](../../plugins/agent-design-tools/README.md)、共通スキルとの分担は[役割説明](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
+使い方と導入は[プラグインのREADME](../../plugins/agent-design-tools/README.md)、共通スキルとの分担は[役割説明](skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
-- **共通の指示設計：** [prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)は、対象未指定のOpenAI／Codex向け指示にGPT-6.2 Astraを使います。[6.2 AstraとSolの共通参照](../../plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6.2-prompt-design.md)と、旧GPT-6 Astraの[9月12日のレビュー](astra-blog-review.md)を世代別に参照できます。以下のGPT-5.6参照の復元・評価は当時の版の記録です。
-- **Gemini向けの指示設計：** [gemini-instruction-design](../../plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)。現行ソースはNeonを含むGemini 4を基準とする7参照、プラグイン版`0.4.0`です。[Neon対応と確認範囲](gemini-4-neon-review.md)を参照してください。[再構築](gemini-4-rewrite.md)、[使いやすさ評価](gemini-usability-review.md)、[公式仕様との再照合](gemini-4-prompt-audit.md)は、それぞれの評価時点の記録です。
+- **共通の指示設計：** [prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)は、対象未指定のOpenAI／Codex向け指示にGPT-6.2 Astraを使います。[6.2 AstraとSolの共通参照](../../plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6.2-prompt-design.md)と、旧GPT-6 Astraの[9月12日のレビュー](history/astra-blog-review.md)を世代別に参照できます。以下のGPT-5.6参照の復元・評価は当時の版の記録です。
+- **Gemini向けの指示設計：** [gemini-instruction-design](../../plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)。現行ソースはNeonを含むGemini 4を基準とする7参照、プラグイン版`0.4.0`です。[Neon対応と確認範囲](gemini-4-neon-review.md)を参照してください。[再構築](history/gemini-4-rewrite.md)、[使いやすさ評価](history/gemini-usability-review.md)、[公式仕様との再照合](history/gemini-4-prompt-audit.md)は、それぞれの評価時点の記録です。
 
 6.2対応の採用判断は[両スキルの最終評価](gpt-6.2-design-review.md)にまとめています。[依頼・応答抜粋・対象版](../../evals/agent-design-tools/prompt-design/gpt-6.2-target-routing.md)で、参照の使い分けと生成した設計を確認できます。
 
 各記録の件数、参照数、ハッシュ、応答は評価時点のものです。後から行った文書整理や仕様補正を、過去の試行で検証済みとは扱いません。Gemini実機での取込み・自動選択・実行は未検証です。
 
-## 初回評価と更新履歴
+## 初回評価の目的と結論
 
-初回の対象は、このリポジトリの[prompt-designスキル](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)です。
-
-9月12日にAstraの公式ブログと参照先の外部資料を照合し、基本構成を維持して評価用の参照を補強しました。[今回の判断・変更・確認範囲](astra-blog-review.md)を参照してください。Astra向けでは、小さな修正でも`SKILL.md`とAstra参照を読みます。以下の初回ケース、件数、ハッシュ、ファイルサイズは評価当時の記録です。
+2026年9月5日に行った試行の対象は、その時点の `prompt-design` です。
 
 評価の中心は、スキル、AGENTS.md、system/developer指示などを、モデルが意図した範囲で判断・実行できる形に設計する能力です。義務と好み、適用条件と例外、指示の優先関係、参照の分担、完了条件を保てるかを重視します。生成指示を使う要約試験は、このうち根拠の保持を確認する補助的な試験です。
 
 初回評価対象の版を実用上の基準として採用しました。静的レビューと初回の指示生成・レビュー9件では、後述する主要条件を満たしました。ただし、スキル一式や複数の指示ファイルを作り、実運用まで通す評価は未実施です。「ベスト寄り」という評価は、確認した範囲で追加の全面改稿を要する欠陥が見つからないという保守判断であり、最適性や広い用途での性能を実証した意味ではありません。
-
-9月6日にGPT-5.6向け参照を監査して復元し、Gemini向け参照の配置も再検討しました。[モデル別参照のレビュー](model-reference-review.md)に判断と変更範囲を記録しています。この構成変更は、9月5日の動作試行とは別の静的確認です。
-
-その後のGemini向け3参照の更新は、[Gemini参照の更新レビュー](gemini-reference-review.md)に記録しています。Nano Banana専用ガイドを含む公式資料を照合したもので、Astra向け指示の変更やGeminiでの動作試行は含みません。
-
-2026年9月11日には、Gemini向けの補足を`prompt-gemini-reference`へ分離しました。[分離の判断と検証範囲](gemini-reference-review.md#2026年9月11日補助スキルへの分離)を参照してください。以下の試行とmanifestは評価当時の配置・指示の記録であり、分離後の自動選択を検証したものではありません。
-
-同日の追加更新で、補助スキルの対象をGemini 3以降と明記し、メディア入力の理解と生成・編集の参照を分けました。[対象世代とメディア参照の整理](gemini-reference-review.md#2026年9月11日対象世代とメディア参照の整理)に根拠と確認範囲を記録しています。
-
-2026年11月15日には、Gemini 4を基準に`gemini-instruction-design`へ全面再構築しました。[構成・旧指示の扱い・検証範囲](gemini-4-rewrite.md)を参照してください。共通の`prompt-design`と`agent-workflow-design`は変更していません。
-
-続いて[使いやすさと入口の評価](gemini-usability-review.md)で同条件比較と生成物の下流試行を行い、共通手法との重複を減らした入口を採用しました。この試行時点では、参照8本と共通2スキルを維持しました。
-
-さらに[Gemini 4の公式プロンプト指針を再確認](gemini-4-prompt-audit.md)し、共通スキルとの分担、APIの思考と回答の予算、Omni延長時の入力条件を点検しました。未公開の変更はプラグイン版`0.4.0`へ統一しています。
-
-その後、Apps Skillsを中心とする運用範囲に合わせ、[Gems／Opalの専用移行参照を配布対象から外しました](gemini-4-prompt-audit.md)。現在は7参照です。上記の8参照に関する評価は、その時点の構成を記録しています。
-
-`skill-creator`・`agent-workflow-design`との分担は、[3スキルの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
 ## 指示設計能力として確認した範囲
 
@@ -87,7 +67,7 @@ Astraの既定値は、設計対象が決まっていない場合の参照選択
 | [Agent Aの応答](../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-agent-a.json) | R01、R02、R03、R05、R09 |
 | [Agent Bの応答](../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-agent-b.json) | R04、R06、R07、R08と、確認した公式URL |
 | [初回の下流応答](../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-downstream.json) | R03・R09の生成指示を使ったD01・D02 |
-| [根拠の保持に関する追加評価](source-preservation-review.md) | 原案と候補の比較、1文追加の判断、調整後の指示生成と下流動作 |
+| [根拠の保持に関する追加評価](history/source-preservation-review.md) | 原案と候補の比較、1文追加の判断、調整後の指示生成と下流動作 |
 
 応答は改稿せず保存しています。`loadedReferences`は担当者の申告であり、Agent Bは共通の`SKILL.md`も配列に含めています。参照数を比べる場合はこれを除いて扱います。ケース・応答と評価対象の記録を保ち、以後の構成変更を過去の動作結果へ遡って適用しません。`evals/`への移設に伴うパスとmanifest間のハッシュ更新は、[配置と保全の説明](../../evals/README.md#パスと記録の保全)に記録しています。
 
@@ -133,7 +113,7 @@ R01・R04では指示を設計する担当が例題も処理し、D01・D02で�
 
 生成指示を使う下流試行では、D01は公開の決定だけを抽出し、担当者を佐藤、期限を空欄にしました。未決の多言語版は除外しています。D02は性能値と旧版終了日を創作しませんでしたが、無料プランで新機能を利用できないと断定し、説明を反復しました。指示生成で条件を保持できたことだけを、下流成果物の合格とは扱っていません。
 
-D02のNorthstar 2.0と無料・有料プランは、評価用の架空の記事の設定です。具体的な入力・問題・対応は[追加評価](source-preservation-review.md)にまとめています。
+D02のNorthstar 2.0と無料・有料プランは、評価用の架空の記事の設定です。具体的な入力・問題・対応は[追加評価](history/source-preservation-review.md)にまとめています。
 
 ## OpenAI APIの互換性確認
 
@@ -175,7 +155,7 @@ UTF-8のAstra向け2ファイル合計は旧版から8,884 bytes、約32.0%減�
 
 ## 初回評価で残った懸案と次の評価
 
-下表は初回試行と9月6日までのレビューで残った懸案です。9月12日の[評価方針の補強](astra-blog-review.md#評価する範囲)では、必要な参照の読み込みを成功条件に含め、不要な参照による負担と分けました。Astra参照を省くことや、読み込んだファイル数の最小化そのものは目標にしません。
+下表は初回試行と9月6日までのレビューで残った懸案です。9月12日の[評価方針の補強](history/astra-blog-review.md#評価する範囲)では、必要な参照の読み込みを成功条件に含め、不要な参照による負担と分けました。Astra参照を省くことや、読み込んだファイル数の最小化そのものは目標にしません。
 
 | 懸案 | 現時点の判断 | 次に有効な確認 |
 | --- | --- | --- |
@@ -188,8 +168,16 @@ UTF-8のAstra向け2ファイル合計は旧版から8,884 bytes、約32.0%減�
 
 ## 検証と記録の保全
 
-スキル調整時に`quick_validate.py`と`npm run check:plugins`が成功しています。指示生成の品質とは別に、スキルのハッシュ、JSON、参照、R03からD01・R09からD02へ渡した指示の一致を確認しました。追加試行の対応関係は[追加評価の検証記録](source-preservation-review.md#記録の整合性と検証)にあります。
+スキル調整時に`quick_validate.py`と`npm run check:plugins`が成功しています。指示生成の品質とは別に、スキルのハッシュ、JSON、参照、R03からD01・R09からD02へ渡した指示の一致を確認しました。追加試行の対応関係は[追加評価の検証記録](history/source-preservation-review.md#記録の整合性と検証)にあります。
 
-ノート整理では、保存後の意味保持・構成・日本語の通読、スキルと証拠のハッシュ、リンク、差分、LFを確認しました。9月6日の参照構成変更に伴う検証は、[モデル別参照のレビュー](model-reference-review.md#検証と限界)に記録しています。
+ノート整理では、保存後の意味保持・構成・日本語の通読、スキルと証拠のハッシュ、リンク、差分、LFを確認しました。9月6日の参照構成変更に伴う検証は、[モデル別参照のレビュー](history/model-reference-review.md#検証と限界)に記録しています。
 
 ケースや記事は評価用の依頼・合成入力であり、外部サービスで実行した業務結果ではありません。記録に個人のホームディレクトリ、認証情報、APIの実応答IDは保存していません。
+
+## 初回評価と更新履歴
+
+- 9月6日、GPT-5.6向け参照を復元し、Gemini向け資料の置き場所を見直しました。[モデル別参照のレビュー](history/model-reference-review.md)
+- 9月11日、Gemini用の補足を旧スキル `prompt-gemini-reference` に分離し、媒体の理解と生成・編集の参照を分けました。[参照更新と分離の記録](history/gemini-reference-review.md)
+- 9月12日、GPT-6 Astraの公式ブログと参照資料を照合し、評価用の参照を補いました。[Astraのレビュー](history/astra-blog-review.md)
+- 11月15日、Gemini 4向けに `gemini-instruction-design` を再構築しました。共通2スキルと8本の参照を使った試行の後、Gems／Opalの移行専用資料を外して7本としました。[再構築](history/gemini-4-rewrite.md) · [使いやすさと下流試行](history/gemini-usability-review.md) · [公式仕様との再照合](history/gemini-4-prompt-audit.md)
+- 11月21日、Gemini 4 Neonへの対応と、GPT-6.2を対象にした共通スキルの設計・評価をそれぞれ記録しました。[Neonの確認範囲](gemini-4-neon-review.md) · [GPT-6.2の評価](gpt-6.2-design-review.md)

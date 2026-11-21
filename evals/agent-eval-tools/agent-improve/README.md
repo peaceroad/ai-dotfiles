@@ -117,4 +117,4 @@ node plugins/agent-eval-tools/skills/agent-improve/scripts/agent-eval.mjs run /p
 
 リポジトリのルートから `npm run check:eval-tools` でこれらを実行できます。記録の自動テストには、保持したコピーの再読、契約の不一致、保存前後の失敗と重複実行の防止も含みます。配布物単独の検査はプラグイン内のテストで完結し、このリポジトリの評価素材を実行時依存にしません。
 
-各経路の実行条件、現在対応している評価の種類、出力の扱いは[実行契約](../../../plugins/agent-eval-tools/skills/agent-improve/references/runtime.md)を参照してください。設計上の目標と段階ごとの完了条件は[計画](../../../docs/plans/agent-eval-tools.md)、利用像は[利用場面のノート](../../../docs/notes/agent-eval-tools-use-cases.md)にあります。
+各経路の実行条件、現在対応している評価の種類、出力の扱いは[実行契約](../../../plugins/agent-eval-tools/skills/agent-improve/references/runtime.md)を参照してください。設計上の目標と段階ごとの完了条件は[計画](../../../docs/plans/agent-eval-tools.md)、利用像は[利用場面のノート](../../../docs/agent-eval-tools/agent-eval-tools-use-cases.md)にあります。

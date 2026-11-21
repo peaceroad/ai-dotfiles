@@ -68,7 +68,7 @@ Googleの[Imagenプロンプトガイド](https://ai.google.dev/gemini-api/docs/
 
 残る確認は実機での挙動です。Gemの長いKnowledgeから必要な箇所が参照されるか、連続画像の同一性、文字と配置、動画の接続を、この静的レビューだけで保証することはできません。次の実際の作成・編集依頼で、設計した指示と出力を対応させて確認するのが有効です。
 
-公式資料を反映した初回の版は[Gemini参照更新時のmanifest](../../evals/agent-design-tools/prompt-design/gemini-reference-manifest.json)、全指示の再監査後の版は[再監査manifest](../../evals/agent-design-tools/prompt-design/gemini-instruction-audit-manifest.json)に保存しています。再監査manifestには直前版へ戻せる差分も含めました。従来の試行結果や評価対象のハッシュは書き換えず、今回の変更を過去の動作試行の成功として数えません。
+公式資料を反映した初回の版は[Gemini参照更新時のmanifest](../../../evals/agent-design-tools/prompt-design/gemini-reference-manifest.json)、全指示の再監査後の版は[再監査manifest](../../../evals/agent-design-tools/prompt-design/gemini-instruction-audit-manifest.json)に保存しています。再監査manifestには直前版へ戻せる差分も含めました。従来の試行結果や評価対象のハッシュは書き換えず、今回の変更を過去の動作試行の成功として数えません。
 
 初回更新では`quick_validate.py`、`npm run check:plugins`、差分の空白検査が成功しました。JSON 14件、当時の指示10ファイルのハッシュ、manifest間の参照、ローカルリンク65件を照合しています。変更していない7ファイルの一致と、Gitの基点からGeminiの旧3参照を復元できることも確認しました。
 

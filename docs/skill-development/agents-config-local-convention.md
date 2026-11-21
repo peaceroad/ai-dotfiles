@@ -140,7 +140,7 @@ Agent Skillsの公開仕様は、スキルディレクトリ、`SKILL.md`、`ref
 
 ## 参考資料
 
-- [skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md)
+- [skill-creator、prompt-design、agent-workflow-designの役割と使い分け](../prompt-design/skill-creator-prompt-design-agent-workflow-design.md)
 - [Custom instructions with AGENTS.md（OpenAI Docs）](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
 - [Agent Skills Specification](https://agentskills.io/specification)
 - [Agent Plugins Specification](https://agent-plugins.org/specification)

@@ -4,7 +4,9 @@ Codexの設定は、全体で共通する既定値を`~/.codex/config.toml`へ�
 
 このノートでは、設定の読み込み順と役割、自動レビューに承認判断を任せる設定を説明します。あわせて、`approval_policy = "never"`を維持したまま、特定のプロジェクトでCodexにGit変更操作を任せる例も示します。
 
-Codexアプリの権限メニューや、既存タスクが保持する承認設定も含めた確認は、[Codexアプリで承認設定が反映されないときの確認と対処](codex-desktop-permission-diagnostics.md)を参照してください。設定ファイル同士の優先順位だけで、アプリのタスクの実効値を判断することはできません。
+Codexアプリの権限メニューや、既存タスクが保持する承認設定も含めた確認は、[Codexアプリで承認設定が反映されないときの確認と対処](../troubleshooting/codex-desktop-permission-diagnostics.md)を参照してください。設定ファイル同士の優先順位だけで、アプリのタスクの実効値を判断することはできません。
+
+この設定の `model` はCodexで実行するモデルの指定です。たとえば、[公開用の設定例](../../../home/.codex/config.toml)は `gpt-6-astra` を指定しています。一方、`prompt-design` が利用先未指定の依頼でGPT-6.2 Astra向けの文面を書くのは、スキル側の設計方針です。[設計対象の選び方](../../../plugins/agent-design-tools/README.md#model-targeting)
 
 ## 設定ファイルの役割
 
@@ -190,7 +192,7 @@ PR #44327は、現在のWindows elevated sandboxではルートの読み取り�
 
 Windowsでは、設定を有効にしても、以前に付与された拒否ACLが`.git`へ残る場合があります。これは`config.toml`の読み込みとは別の状態です。まず設定が有効であることを確認し、それでも`.git/HEAD.lock: Permission denied`などが発生する場合にACLを調べます。
 
-対象条件と診断・修復手順は、[Windows版CodexでGitの書き込みが拒否される場合の対処](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-windows-git-write-acl-recovery.md)を参照してください。ACL修復は、プロジェクト設定を作るたびに実行する操作ではありません。
+対象条件と診断・修復手順は、[Windows版CodexでGitの書き込みが拒否される場合の対処](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/codex/troubleshooting/codex-windows-git-write-acl-recovery.md)を参照してください。ACL修復は、プロジェクト設定を作るたびに実行する操作ではありません。
 
 ## この環境で確認した範囲
 

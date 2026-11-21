@@ -1,16 +1,18 @@
-# agent-workflow-design の Astra 向け再設計
+# agent-workflow-design の設計と評価
 
-この文書は初回改訂の判断と評価記録です。その後の使いやすさ・冗長さ・適用条件の見直しは[再監査](second-review.md)、既定モデルとGPT-5.6参照の追加は[モデル別参照の追記](#モデル別参照の追記)を参照してください。
+委任・待機・再開を設計するとき、`agent-workflow-design` はワークフロー全体のモデルを固定しません。委任先に指定があれば尊重し、選択できる場合は仕事の難しさや必要な能力を考慮します。[現行スキルの使い方](../../plugins/agent-design-tools/README.md#model-targeting) · [GPT-6.2対応後の評価と確認範囲](../prompt-design/gpt-6.2-design-review.md)
 
-現行版のモデル選択、待機、委任、復旧を含む評価は[GPT-6.2対応後の最終評価](../prompt-design/gpt-6.2-design-review.md)を参照してください。以下のモデル別参照の追加経緯は当時の記録であり、現在の参照選択は[スキル本文](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md#reference-routing)に従います。
+## 初回改訂とその後の評価
 
-2026年9月12日の[Astra公式ブログとの照合](../prompt-design/astra-blog-review.md)では、基本構成を維持し、モデル採点を改善の採否に使う場合の校正を評価参照へ補いました。今回の限定確認と、以下の初回比較・机上継続の結果は分けて記録しています。
+以下は2026年9月のAstra向け改訂の記録です。改訂後の使いやすさは[再監査](second-review.md)、当時モデル別参照を追加した理由は[モデル別参照の追記](#モデル別参照の追記)にまとめています。
 
-関連する設計スキルとの分担は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
+2026年9月12日の[Astra公式ブログとの照合](../prompt-design/history/astra-blog-review.md)では、基本構成を維持し、モデル採点を改善の採否に使う場合の校正を評価参照へ補いました。今回の限定確認と、以下の初回比較・机上継続の結果は分けて記録しています。
+
+関連する設計スキルとの分担は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](../prompt-design/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
 2026年9月6日の[公開前確認](publication-review.md)では、応答ファイルの参照パスを匿名化し、加工前後の対応を記録しました。以下の評価時点の版・判定は保持しています。
 
-2026年9月6日。Astraを使う現在のCodex環境で、エージェントが許可された仕事を完遂し、必要な場面で待機・方向修正・再開・終了を選べることを中心に、[スキル本文](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)と全参照を再検討した。
+2026年9月6日。当時のAstraを使うCodex環境で、エージェントが許可された仕事を完遂し、必要な場面で待機・方向修正・再開・終了を選べることを中心に、[スキル本文](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)と全参照を再検討した。
 
 利用者はゼロベースに近い改訂を許可し、別モデル向けの資料より、この環境で実際に使いやすい設計を優先した。モデル向けの指示の書き方は、すでにAstra対応した`prompt-design`が担当する。ワークフロー側にAstra用プロンプト規則を複製せず、制御・状態・権限・評価の責任を明確にした。
 
@@ -38,7 +40,7 @@
 
 | 資料 | 今回の位置づけ |
 | --- | --- |
-| [Astra公式ガイド](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra) | 現在の対象モデルを確認する入口。モデル向け指示の具体策は`prompt-design`側に集約する。 |
+| [Astra公式ガイド](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra) | 初回評価で対象にしたGPT-6 Astraの指針。モデル向け指示の具体策は`prompt-design`側に集約する。 |
 | [Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling)、[Mid-turn steering](https://developers.openai.com/api/docs/guides/steering) | 処理待ち、結果の対応、指示変更、キャンセルの意味を確認する。Responses APIの実装方式や機能の組合せをCodex一般へ移植しない。 |
 | [Codex as a platform](https://developers.openai.com/blog/codex-as-a-platform) | 既存ハーネスと、その周囲のアプリケーションが担当する制御を分ける参考。 |
 | [Per-run spending controller](https://developers.openai.com/cookbook/articles/per_run_spending_controller_responses_api) | 並行処理中の予約と実消費の精算、保証対象外の費用を明示する例。小さな作業への予算台帳の必須化には使わない。 |

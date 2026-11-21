@@ -178,4 +178,4 @@ JSONを直接編集して宣言だけを削除しても、`sync`は既存リン�
 
 ## 関連資料
 
-- [CodexのAgent SkillsとAgent Pluginsの構成と使い分け](notes/codex-skills-and-plugins.md)
+- [CodexのAgent SkillsとAgent Pluginsの構成と使い分け](skill-development/codex-skills-and-plugins.md)

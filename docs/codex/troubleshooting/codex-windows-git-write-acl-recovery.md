@@ -1,14 +1,14 @@
 # Windows版CodexでGitの書き込みが拒否される場合の対処
 
-Windows版Codexでファイルは編集できるのに、ブランチ作成などが`.git/HEAD.lock: Permission denied`で失敗する場合があります。Codexの設定で`.git`への書き込みを許可しても、Windows側に書き込み拒否が残っていると解消しません。本ノートでは、設定を確認し、残った拒否を[修復スクリプト](../../tools/agent/codex/manage-git-write-acl.ps1)で調べる手順を説明します。
+Windows版Codexでファイルは編集できるのに、ブランチ作成などが`.git/HEAD.lock: Permission denied`で失敗する場合があります。Codexの設定で`.git`への書き込みを許可しても、Windows側に書き込み拒否が残っていると解消しません。本ノートでは、設定を確認し、残った拒否を[修復スクリプト](../../../tools/agent/codex/manage-git-write-acl.ps1)で調べる手順を説明します。
 
 > **実験的な参考実装です。** 掲載スクリプトで、実際のACL変更、配下全体の検証、修復後のGit書き込みに成功しています。ただし、過去の修復後にはCodexの再起動後に拒否が再付与されたため、再発防止と修復記録からの復元は未検証です。対応条件を満たさない場合は停止します。
 
 ## 対象と前提
 
-Windows、PowerShell 7、`git`コマンドと、ローカルのNTFS上にあるリポジトリが必要です。`.git`が通常のフォルダーである構成を対象とします。[`agent`のインストール手順](../agent-development.md#配置とインストール)に従うと、`agent codex git-acl`から利用できます。共通コマンドにはNode.js 24以降も必要です。
+Windows、PowerShell 7、`git`コマンドと、ローカルのNTFS上にあるリポジトリが必要です。`.git`が通常のフォルダーである構成を対象とします。[`agent`のインストール手順](../../agent-development.md#配置とインストール)に従うと、`agent codex git-acl`から利用できます。共通コマンドにはNode.js 24以降も必要です。
 
-`agent`を使わない場合は、[単体スクリプトのガイド](../agent-codex.md)に従い、PowerShell 7から直接実行できます。この場合、Node.jsは不要です。導入先は`~/.agents/ai-dotfiles/runtime/codex/`で、`~`はユーザーのホームフォルダーを表します。
+`agent`を使わない場合は、[単体スクリプトのガイド](../../agent-codex.md)に従い、PowerShell 7から直接実行できます。この場合、Node.jsは不要です。導入先は`~/.agents/ai-dotfiles/runtime/codex/`で、`~`はユーザーのホームフォルダーを表します。
 
 Windowsは、ファイルやフォルダーごとに「誰に何を許可・拒否するか」をアクセス制御リスト（ACL）で管理します。スクリプトは、自分のCodexが作成した`cap_sid`ファイルから、リポジトリのパスに対応するセキュリティ識別子（SID）を取得します。SIDを手入力する必要はありません。
 
@@ -28,7 +28,7 @@ Gitが認識する作業ルートと管理ディレクトリが指定先と異�
 
 ### 1. 対象の`.git`への書き込みを許可する
 
-設定の役割と通常のGit運用は、[CodexにGit変更操作を任せる場合の設定](./git-operations.md)で説明しています。ここでは、ACLを調べる前提として必要な設定だけを確認します。
+設定の役割と通常のGit運用は、[CodexにGit変更操作を任せる場合の設定](../settings/git-operations.md)で説明しています。ここでは、ACLを調べる前提として必要な設定だけを確認します。
 
 リポジトリの`.codex/config.toml`へ、`.git`の絶対パスと`write`を指定します。以下は、リポジトリが`C:/work/my-project`、使用中の権限プロファイルが`workspace-with-agents`の場合の例です。パスとプロファイル名は、自分の環境に合わせて置き換えてください。
 
@@ -117,4 +117,4 @@ Codexの更新後も、書き込みエラーがなければ無条件に修復を
 - [Permissions](https://learn.chatgpt.com/docs/permissions)：権限プロファイルとパスごとの許可設定。
 - [Config basics](https://learn.chatgpt.com/docs/config-file/config-basic)：設定の配置と優先順位。
 - [Codex CLI 0.153.4の権限処理](https://github.com/openai/codex/blob/rust-v0.153.4/codex-rs/windows-sandbox-rs/src/allow.rs)と[ACL処理](https://github.com/openai/codex/blob/rust-v0.153.4/codex-rs/windows-sandbox-rs/src/acl.rs)：保護対象と拒否マスクの実装。
-- [`agent codex`と単体スクリプトのガイド](../agent-codex.md)：コマンドと実行環境の一覧。
+- [`agent codex`と単体スクリプトのガイド](../../agent-codex.md)：コマンドと実行環境の一覧。

@@ -41,7 +41,7 @@ Permission profileは、旧方式の`sandbox_mode`や`[sandbox_workspace_write]`
 
 ## Windowsで拒否ACLが残る場合
 
-Windowsでは、設定を有効にしても、以前に付与された拒否ACLが`.git`へ残る場合があります。`.git/HEAD.lock: Permission denied`などが続く場合は、[Windows版CodexでGitの書き込みが拒否される場合の対処](./codex-windows-git-write-acl-recovery.md)に沿って状態を確認します。ACL修復は、書き込みエラーが発生し、対象条件を満たす場合だけ実行します。
+Windowsでは、設定を有効にしても、以前に付与された拒否ACLが`.git`へ残る場合があります。`.git/HEAD.lock: Permission denied`などが続く場合は、[Windows版CodexでGitの書き込みが拒否される場合の対処](../troubleshooting/codex-windows-git-write-acl-recovery.md)に沿って状態を確認します。ACL修復は、書き込みエラーが発生し、対象条件を満たす場合だけ実行します。
 
 ## 参考資料
 

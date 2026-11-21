@@ -1,14 +1,14 @@
 # Gemini 4・Gemini Apps Skills対応の調査と改修計画
 
-調査基準日：2026年11月15日。状態：`gemini-instruction-design`へのソース改修と構造検証、Codexでの限定した指示生成試行を完了。Gemini実機検証は未実施。[実装・検証記録](../prompt-design/gemini-4-rewrite.md)を参照。初案の「既存4参照を維持して追加する」方針は撤回し、成果物と必要な判断から構成を選び直した。以下は設計判断と段階別の検証方針を保持した計画であり、全評価の完了を意味しない。
+調査基準日：2026年11月15日。状態：`gemini-instruction-design`へのソース改修と構造検証、Codexでの限定した指示生成試行を完了。Gemini実機検証は未実施。[実装・検証記録](../prompt-design/history/gemini-4-rewrite.md)を参照。初案の「既存4参照を維持して追加する」方針は撤回し、成果物と必要な判断から構成を選び直した。以下は設計判断と段階別の検証方針を保持した計画であり、全評価の完了を意味しない。
 
-追加の[使いやすさ評価](../prompt-design/gemini-usability-review.md)では5種類の同条件比較、生成物の下流試行、カタログ判定、追加確認を行い、共通手法との重複を減らした入口を採用した。Gemini実機での検証とは区別する。
+追加の[使いやすさ評価](../prompt-design/history/gemini-usability-review.md)では5種類の同条件比較、生成物の下流試行、カタログ判定、追加確認を行い、共通手法との重複を減らした入口を採用した。Gemini実機での検証とは区別する。
 
-改修対象は`agent-design-tools`の旧`prompt-gemini-reference`と、その設計に必要な共通スキルとの接続だった。現行ソースは`gemini-instruction-design`、7参照、プラグイン版`0.4.0`。最終的な仕様照合、併用条件、案内の修正は[追加監査](../prompt-design/gemini-4-prompt-audit.md)に記録している。共通2スキルは変更していない。
+改修対象は`agent-design-tools`の旧`prompt-gemini-reference`と、その設計に必要な共通スキルとの接続だった。この改修の完了時点では`gemini-instruction-design`、7参照、プラグイン版`0.4.0`。最終的な仕様照合、併用条件、案内の修正は[追加監査](../prompt-design/history/gemini-4-prompt-audit.md)に記録している。この改修では共通2スキルを変更していない。その後の変更は[Gemini 4 Neon対応](../prompt-design/gemini-4-neon-review.md)と[GPT-6.2対応後の共通スキルの評価](../prompt-design/gpt-6.2-design-review.md)を参照。
 
 ## 1. 対象と今回の確認範囲
 
-比較の基点はリポジトリのコミット`b248ee5dbcd1aef944f3872b64896ff440de987c`、プラグイン版`0.3.1`。Gemini補助スキルの最終変更は2026年9月11日の`e6208ac`。入口、4参照、UIメタデータ、プラグインREADME、共通`prompt-design`、[既存レビュー](../prompt-design/gemini-reference-review.md)を確認した。
+比較の基点はリポジトリのコミット`b248ee5dbcd1aef944f3872b64896ff440de987c`、プラグイン版`0.3.1`。Gemini補助スキルの最終変更は2026年9月11日の`e6208ac`。入口、4参照、UIメタデータ、プラグインREADME、共通`prompt-design`、[既存レビュー](../prompt-design/history/gemini-reference-review.md)を確認した。
 
 提供された11月14日時点の調査メモは調査項目の出発点とし、製品仕様の根拠は今回取得した公式資料に置いた。資料確認と指示の静的比較であり、GeminiへのAPIリクエスト、Appsへの保存・移行、CLIでの発火、生成物の品質を実証したものではない。
 
@@ -210,7 +210,7 @@ Appsと移行、APIとクライアント別の指示、媒体入力、画像と�
 
 ### 構成仮説を確かめる依頼
 
-次は計画時に定めた合成ケースと追加参照の想定である。実施したケースと結果は[初回改稿](../prompt-design/gemini-4-rewrite.md)、[使いやすさ評価](../prompt-design/gemini-usability-review.md)、[追加監査](../prompt-design/gemini-4-prompt-audit.md)で区別する。この一覧全体を実施済みとは扱わない。実際の読込経路と成果物を観測し、指定ファイル名との一致だけを採点しない。
+次は計画時に定めた合成ケースと追加参照の想定である。実施したケースと結果は[初回改稿](../prompt-design/history/gemini-4-rewrite.md)、[使いやすさ評価](../prompt-design/history/gemini-usability-review.md)、[追加監査](../prompt-design/history/gemini-4-prompt-audit.md)で区別する。この一覧全体を実施済みとは扱わない。実際の読込経路と成果物を観測し、指定ファイル名との一致だけを採点しない。
 
 - **単発の短い文章プロンプト：** Gemini入口だけで仕上げる。モデル・提供面の不要な質問や、API・移行・媒体資料の全読み込みを増やさない。
 - **Apps向けの再利用スキル：** Apps参照から、依頼された形式で使える指示またはファイル一式を作る。未提供の資料や兄弟スキルを参照したままにしない。
@@ -239,11 +239,11 @@ Appsと移行、APIとクライアント別の指示、媒体入力、画像と�
 
 ## 6. 未確定事項と再確認の条件
 
-- **Carbon developer guideの詳細（解消）：** 計画時点で取得できなかった[専用ガイド](https://aistudio.google.com/learn/gemini-4-carbon-developer-guide)の本文を2026年11月15日の追加確認で取得し、Argonの専用ガイドとも照合した。共通手法で扱う判断とGemini側で補う条件を[再確認記録](../prompt-design/gemini-4-prompt-audit.md)に分けた。
+- **Carbon developer guideの詳細（解消）：** 計画時点で取得できなかった[専用ガイド](https://aistudio.google.com/learn/gemini-4-carbon-developer-guide)の本文を2026年11月15日の追加確認で取得し、Argonの専用ガイドとも照合した。共通手法で扱う判断とGemini側で補う条件を[再確認記録](../prompt-design/history/gemini-4-prompt-audit.md)に分けた。
 - **Appsの添付と更新手順：** [管理ヘルプ](https://support.google.com/gemini/answer/17094296?hl=en)にはDrive／Notebooksから追加する手順と「スキルと一緒にアップロードする場合のみ」という注記、個別更新手順と一括再アップロードの注意が併存する。UI更新の段階差という説明は仮説であり、対象アカウントでの確認が必要。
 - **機能の対応時期：** 移行ヘルプの「今後対応」という説明を現在利用可能な機能として扱わない。実際の移行時点で、利用する機能・共有・ファイルアクセスを再確認する。
 - **資料の日付：** 発表日、APIモデル公開日、ページ更新日、機能切替日は別に扱う。現行の共通ガイドを取得できたことから、11月に全面改訂されたとは結論しない。
 - **実機での効果：** 今回は発火率、目的達成率、速度、料金、生成品質を測定していない。Googleの性能主張は設計仮説の材料であり、このスキルの改善実績ではない。
 - **クライアント別の確認：** Antigravityは公式資料の確認までで、Rules／Skillsの実際の読み込み、Orchestrator、`/goal`を実行していない。Gemini CLIでのGemini 4提供状況も今回の確認対象外であり、実際にそのクライアントを対象に指示を作る際に確かめる。
 
-計画後にスキルのソース適用と配布整合性の検証まで完了した。インストール済みコピーの更新、Appsへの取込み、Marketplace公開は行っていない。限定試行と未実施の検証は[実装記録](../prompt-design/gemini-4-rewrite.md)で区別している。
+計画後にスキルのソース適用と配布整合性の検証まで完了した。インストール済みコピーの更新、Appsへの取込み、Marketplace公開は行っていない。限定試行と未実施の検証は[実装記録](../prompt-design/history/gemini-4-rewrite.md)で区別している。

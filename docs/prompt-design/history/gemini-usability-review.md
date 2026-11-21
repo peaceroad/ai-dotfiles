@@ -16,7 +16,7 @@
 
 ## 評価方法
 
-[評価契約](../../evals/agent-design-tools/prompt-design/gemini-usability/contract.json)を先に固定し、現在のソースと候補を別コピーへ凍結した。[入口の変更前](../../evals/agent-design-tools/prompt-design/gemini-usability/versions/before.txt)・[候補](../../evals/agent-design-tools/prompt-design/gemini-usability/versions/candidate.txt)と[協働スキルを含むソースハッシュ](../../evals/agent-design-tools/prompt-design/gemini-usability/source-versions.json)を残した。各試行は作業履歴を渡さない新しいエージェントで実施し、設定はホストから継承した。具体的なバックエンド版・推論設定・課金額は取得していない。
+[評価契約](../../../evals/agent-design-tools/prompt-design/gemini-usability/contract.json)を先に固定し、現在のソースと候補を別コピーへ凍結した。[入口の変更前](../../../evals/agent-design-tools/prompt-design/gemini-usability/versions/before.txt)・[候補](../../../evals/agent-design-tools/prompt-design/gemini-usability/versions/candidate.txt)と[協働スキルを含むソースハッシュ](../../../evals/agent-design-tools/prompt-design/gemini-usability/source-versions.json)を残した。各試行は作業履歴を渡さない新しいエージェントで実施し、設定はホストから継承した。具体的なバックエンド版・推論設定・課金額は取得していない。
 
 実行担当には自然な依頼、使用スキルの場所、固定資料を使うこと、実サービス操作を行わないことを渡した。期待回答と採点基準は渡していない。ただし、スキルを明示指定し、試行であることが分かる操作制限も与えている。共有ファイルシステム上のコピーは厳密なアクセス隔離ではない。
 
@@ -24,7 +24,7 @@
 
 ## 結果
 
-上限18回のうち16回のワーカー実行を完了し、すべての成果物を確認した。候補は1版で、結果に合わせた追加改稿はしていない。[判定と成果物一覧](../../evals/agent-design-tools/prompt-design/gemini-usability/results.json)から回答本文へたどれる。
+上限18回のうち16回のワーカー実行を完了し、すべての成果物を確認した。候補は1版で、結果に合わせた追加改稿はしていない。[判定と成果物一覧](../../../evals/agent-design-tools/prompt-design/gemini-usability/results.json)から回答本文へたどれる。
 
 - **5種類の同条件比較、計10実行：** 短いプロンプト、Apps抽出スキル、状態保持と一度限りの外部登録、Hydrogen API指示、Omni延長を比較した。両版とも要求された成果物を作り、今回の必須条件を満たした。短い依頼では追加参照なし、実行制御の依頼では両版ともワークフロー側を利用した。
 - **カタログ判定、1実行：** 3スキルの名前・descriptionだけから12依頼を選別した。主担当の点検では、設計依頼、通常作業、生成そのもの、一般質問の境界は適切だった。状態管理だけの依頼は`agent-workflow-design`が入口になり、Geminiという語だけで専用スキルへ寄せていない。descriptionは両版で同じなので、改稿による選択改善の証拠ではない。

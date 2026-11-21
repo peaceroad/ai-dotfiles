@@ -24,9 +24,9 @@
 
 ## 固定した課題による確認
 
-[評価契約](../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/contract.json)、[依頼](../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/requests.json)、変更前後の束を固定し、3課題を各版1回、計6回実行した。対象はホストの新しいエージェント文脈で、モデル・推論設定は継承し、上書きしていない。スキルの使用先を明示し、期待解や判定基準は渡さなかった。共有ファイルシステムの厳密なアクセス隔離や、実クライアントでの自動発火を測ったものではない。
+[評価契約](../../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/contract.json)、[依頼](../../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/requests.json)、変更前後の束を固定し、3課題を各版1回、計6回実行した。対象はホストの新しいエージェント文脈で、モデル・推論設定は継承し、上書きしていない。スキルの使用先を明示し、期待解や判定基準は渡さなかった。共有ファイルシステムの厳密なアクセス隔離や、実クライアントでの自動発火を測ったものではない。
 
-主担当が実際の回答を契約の条件で判定した。詳細と回答本文は[結果記録](../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/results.json)にある。
+主担当が実際の回答を契約の条件で判定した。詳細と回答本文は[結果記録](../../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/results.json)にある。
 
 - **Carbonの長時間作業指示：** 両版とも、公開APIと検索条件を保ち、修正前後の計測、実画面の確認、保存済み状態と現在状態の照合を含む指示を作れた。共通2スキルと必要なワークフロー参照を利用し、独自のエージェント構成や毎回の承認を追加しなかった。
 - **Hydrogenの短いJSON抽出：** 両版とも指示文と設定助言を分け、欠損値を`null`とする形を保った。変更前は思考が上限に算入されるかを未確定とした。変更後は合計上限を明示し、既存の費用上限を維持した低い思考レベルの試験を提案できた。予算増額やモデル変更を勝手に前提にしていない。
@@ -40,7 +40,7 @@
 
 採用理由は、公式仕様で解消できる不足を参照へ反映し、3課題で必要な成果物と条件を保持できたこと。Gemini側の変更は入口と4参照に限定した。`SKILL.md`は空白区切り519語から481語へ減ったが、短さを性能向上の証拠にはしていない。参照は引き続き8本で、用途別に読む。
 
-候補へskill validatorとportable plugin validatorを適用し、介在する変更がないことを確認してからソースへ反映した。凍結版、変更ファイルの内容、共通スキルのハッシュは[版記録](../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/source-versions.json)に保持している。評価時のドラフト版`0.4.1`は過去の証拠として書き換えず、配布manifestと現行案内を`0.4.0`にそろえた。
+候補へskill validatorとportable plugin validatorを適用し、介在する変更がないことを確認してからソースへ反映した。凍結版、変更ファイルの内容、共通スキルのハッシュは[版記録](../../../evals/agent-design-tools/prompt-design/gemini-4-prompt-audit/source-versions.json)に保持している。評価時のドラフト版`0.4.1`は過去の証拠として書き換えず、配布manifestと現行案内を`0.4.0`にそろえた。
 
 反映後の`npm run check:plugins`は26件すべて成功した。配布内と単独配置時の参照到達性、現行ソースと凍結候補の一致、保存した版のハッシュ、JSON、文書リンク、LF、差分も確認した。現在の配布スキル内に残る`gemini-3`は、Nano Bananaの正式な画像モデルIDだけである。
 
@@ -52,7 +52,7 @@
 
 旧参照は、移行に伴う資料や機能の損失を扱うために残していた。今回は配布スキルの保守範囲を狭める判断であり、全アカウントの移行完了を認定するものではない。具体的な移行依頼には、その時点の公式資料を確認する既存の方針を使う。
 
-過去の移行試行が使った[参照本文](../../evals/agent-design-tools/prompt-design/gemini-usability/versions/gems-migration.txt)は、記録済みのハッシュと一致する版を評価資料として保全した。過去の回答・判定・版情報は書き換えていない。この範囲整理は上記6回の比較後の変更であり、比較結果を新しい発火範囲の実測結果とは扱わない。
+過去の移行試行が使った[参照本文](../../../evals/agent-design-tools/prompt-design/gemini-usability/versions/gems-migration.txt)は、記録済みのハッシュと一致する版を評価資料として保全した。過去の回答・判定・版情報は書き換えていない。この範囲整理は上記6回の比較後の変更であり、比較結果を新しい発火範囲の実測結果とは扱わない。
 
 整理後もskill validatorと`npm run check:plugins`の26件が成功した。配布スキルとREADMEにGems／Opalの読み込み経路が残っていないこと、7参照への到達性、共通スキルの不変、退役参照のハッシュ一致、文書リンクとLFを確認した。descriptionは旧移行用途だけを外し、既存の設計用途と通常実行の除外を保持している。新しいカタログ発火試行は行っていない。
 

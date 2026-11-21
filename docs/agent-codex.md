@@ -2,6 +2,8 @@
 
 Codexの状態確認、既知の問題の回避・修復、保存済みセッションの整理に使う管理スクリプトです。最初に`status`、セッションの整理では`list`と`plan`で状態を確認します。変更を伴う操作では対象の状態を検証し、対話で確認します。`session`は確認済みの計画を指定するオプションにも対応しています。実機確認の範囲は各項目に記載しています。
 
+履歴を扱う場合は、目的によって入口が異なります。元のセッションを選んで書き出すには [`agent codex session`](#manage-codex-sessionsmjs)、書き出した会話から過去の判断を探すには [`agent codex history`](#manage-codex-historymjs) を使います。エクスポートは閲覧用のコピーです。アーカイブ・削除の前に[対象と保護条件](codex/codex-session-management.md)を確認してください。
+
 ## 共通コマンドと単体実行
 
 [`agent`のインストーラー](./agent-development.md#配置とインストール)で、共通コマンドと各スクリプトを一緒に導入します。正本は`tools/agent/codex/`、導入先は`~/.agents/ai-dotfiles/runtime/codex/`です。旧`~/.agents/scripts/codex/`からの自動移行や、そこへの互換コピーは行いません。
@@ -15,7 +17,7 @@ agent codex --help
 
 メニューと通常ヘルプには、Windowsではすべての項目、macOS／Linuxでは`log-policy`・`session`・`history`・`permission`を表示します。ただし、通常表示から外すことと、実行を禁止することは区別しています。
 
-- `git-acl`、`disk-pressure`、`marketplace-staging`、`app`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
+- `git-acl`、`disk-pressure`、`marketplace-staging`、`process`、`app`はWindows専用です。他のOSで操作を直接指定しても、入力を求めたり子プロセスを起動したりせず停止します。個別の`help`は概要と必要条件だけを表示します。
 - `skill-validator-utf8`は、Pythonの既定文字コードがUTF-8である環境では通常不要なため、macOS／Linuxの通常表示から外しています。必要な場合は、`agent codex skill-validator-utf8`で専用メニューを開くか、操作を直接指定できます。単体スクリプトもOSで制限しません。
 - `log-policy`はOS固有APIに依存しませんが、macOS／Linuxでは実機未検証です。その旨を表示し、既存のDB・スキーマ・変更確認の検査は維持します。
 - `session`の`list`・`plan`・`export`は全OS向けです。Linuxでは読取・export・境界・同期失敗の合成試験の成功を確認しています。macOSと各OSの実履歴全体の運用は未検証です。`archive`と`delete`はWindowsに限定しています。
@@ -92,7 +94,7 @@ agent codex app remove
 
 共通コマンド：`agent codex permission`（`permissions`も互換エイリアス）
 
-[スクリプトを表示](../tools/agent/codex/manage-codex-permissions.mjs) · [承認設定の確認と対処ノート](notes/codex-desktop-permission-diagnostics.md)
+[スクリプトを表示](../tools/agent/codex/manage-codex-permissions.mjs) · [承認設定の確認と対処ノート](codex/troubleshooting/codex-desktop-permission-diagnostics.md)
 
 `status`は、設定ファイル・アプリ保存値・指定タスクの実行記録を読み取り専用で比較します。対話端末で`agent codex permission status`を実行すると、state DBの更新情報から最近のタスクを最大12件、プロジェクト名とタイトル付きで選べます。Node.js 24以降とPython 3.11以降が必要です。圧縮履歴はNode.js 26.10.0以降の安定版で読み取ります。PythonとNodeの補助ファイルが必要なため、インストーラーでruntime一式を配布してください。
 
@@ -130,7 +132,7 @@ agent codex process close
 
 操作別の説明は`agent codex session export --help`や`agent codex session delete --help`で確認できます。`list`・`plan`・`archive`・`config`も同じ形式です。`agent codex session help export`の形式でも表示でき、ヘルプだけでは履歴の読み取りや変更を始めません。全操作共通の詳細は`agent codex session help`に残しています。
 
-[スクリプトを表示](../tools/agent/codex/manage-codex-sessions.mjs) · [期間指定・保護処理・エクスポートの設計ノート](notes/codex-session-management.md)
+[スクリプトを表示](../tools/agent/codex/manage-codex-sessions.mjs) · [期間指定・保護処理・エクスポートの設計ノート](codex/codex-session-management.md)
 
 **実験的な機能です。Codexの内部保存形式に依存するため、互換性の検査だけで将来の形式や動作まで保証するものではありません。合成データによる回帰試験に加え、隔離した試験用ホームでCodex CLI 0.159.2、0.160.1、0.162.1の履歴読取・保存後削除を検証しています。未対応形式では削除を停止します。** Node.js 24以降と、対応する`state_5.sqlite`の保存形式が必要です。`CODEX_HOME`が指定されていればその場所、未指定なら`~/.codex`を参照します。SQLiteの保存先を個別に変更した構成には対応しません。
 
@@ -354,7 +356,7 @@ CLIインストーラーはスキルを配置しません。プラグインま�
 
 共通コマンド：`agent codex git-acl`
 
-[スクリプトを表示](../tools/agent/codex/manage-git-write-acl.ps1) · [対象条件と復旧手順](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/notes/codex-windows-git-write-acl-recovery.md)
+[スクリプトを表示](../tools/agent/codex/manage-git-write-acl.ps1) · [対象条件と復旧手順](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/codex/troubleshooting/codex-windows-git-write-acl-recovery.md)
 
 **実験的な参考実装です。** 一般化した本スクリプトで、実際のACL変更と配下全体の検証に成功し、修復後のGit参照更新と空コミットの作成・取り消しも確認しています。過去の修復後にはCodexの再起動後に拒否が再付与されたため、再発防止と修復記録からの復元は未検証です。
 
@@ -390,7 +392,7 @@ Gitが認識する作業ルートと管理ディレクトリが指定先と一�
 
 共通コマンド：`agent codex marketplace-staging`
 
-[スクリプトを表示](../tools/agent/codex/manage-marketplace-staging.mjs) · [調査記録と削除範囲](./notes/codex-marketplace-staging-cleanup.md)
+[スクリプトを表示](../tools/agent/codex/manage-marketplace-staging.mjs) · [調査記録と削除範囲](codex/troubleshooting/codex-marketplace-staging-cleanup.md)
 
 内蔵マーケットプレイスの更新時に残った一時コピーを点検・清掃します。対象はCodexホームの`.tmp/bundled-marketplaces/openai-bundled.staging-<UUID>`だけです。Codexホームは`--codex-home <ディレクトリ>`、環境変数`CODEX_HOME`、`~/.codex`の順に決まります。
 

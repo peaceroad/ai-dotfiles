@@ -412,7 +412,7 @@ Marketplaceの`source.path`が、読み込むプラグインディレクトリ�
 
 既定の個人用Marketplaceである`~/.agents/plugins/marketplace.json`は暗黙に検出されます。別の場所にあるリポジトリまたはローカルMarketplaceは、初回に登録し、その後は同じMarketplace名を使います。登録状況と解決されたローカルルートは`codex plugin marketplace list`で確認できます。
 
-複数のプラグインや単体Skillを一つのMarketplaceへまとめ、NASやGitリポジトリで共有する場合は、[Agent MarketplaceでプラグインとSkillをNASやGitへ配布する](agent-marketplace-distribution.md)を参照してください。各リポジトリを通常の正本として保ち、明示した導入済みSkillだけをスナップショットとして扱い、共有用コピー、カタログ、利用者のインストール先を分けて更新する手順を説明しています。
+複数のプラグインや単体Skillを一つのMarketplaceへまとめ、NASやGitリポジトリで共有する場合は、[Agent MarketplaceでプラグインとSkillをNASやGitへ配布する](../marketplace/agent-marketplace-distribution.md)を参照してください。各リポジトリを通常の正本として保ち、明示した導入済みSkillだけをスナップショットとして扱い、共有用コピー、カタログ、利用者のインストール先を分けて更新する手順を説明しています。
 
 ### ローカル開発の二つの経路
 
@@ -451,7 +451,7 @@ managerが照合するのは報告されたsnapshotと導入済みmanifestの名
 
 提案はインストールや接続の完了を意味しません。接続状態を確認してからプラグインの機能を使い、接続待ちの間も外部連携を必要としない作業は続けます。権限変更はユーザーが依頼した範囲に限り、削除は明示的な依頼がある場合だけ行います。OpenAI公式ドキュメントでも、Plugins Directoryからのインストールと、必要な外部サービスへの接続・権限承認は別の段階として説明されています。
 
-`plugin-management`の`SKILL.md`は、Plugin Management appをいつ使うかという判断と安全境界を定めるもので、プラグインパッケージを作成・検証する機能そのものではありません。プラグイン内のモデル向け指示は`prompt-design`、反復・長期実行する利用フローは`agent-workflow-design`の対象になり得ますが、発見・接続管理とは責務を分けます。両スキルとの関係は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](skill-creator-prompt-design-agent-workflow-design.md)も参照してください。
+`plugin-management`の`SKILL.md`は、Plugin Management appをいつ使うかという判断と安全境界を定めるもので、プラグインパッケージを作成・検証する機能そのものではありません。プラグイン内のモデル向け指示は`prompt-design`、反復・長期実行する利用フローは`agent-workflow-design`の対象になり得ますが、発見・接続管理とは責務を分けます。両スキルとの関係は、[skill-creator、prompt-design、agent-workflow-designの役割と使い分け](../prompt-design/skill-creator-prompt-design-agent-workflow-design.md)も参照してください。
 
 ### リポジトリ固有の検証と生成ランナー
 

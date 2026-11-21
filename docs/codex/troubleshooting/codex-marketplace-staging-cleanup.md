@@ -1,6 +1,6 @@
 # Codexマーケットプレイス更新用の一時フォルダーを清掃する
 
-利用手順は[`agent codex marketplace-staging`](../agent-codex.md#manage-marketplace-stagingmjs)を参照してください。
+利用手順は[`agent codex marketplace-staging`](../../agent-codex.md#manage-marketplace-stagingmjs)を参照してください。
 
 ## 公開されている問題報告
 

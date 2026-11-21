@@ -1,6 +1,8 @@
 # agent-plugin-toolsのAstra向け改訂と再監査
 
-レビュー日：2026年9月6日。改訂前の基準はコミット`a00affea7efec3902e4d78dd79d20b7ce07a9d29`です。改訂版はプラグイン`0.4.0`、含まれる`plugin-creator-agent-plugins`スキルは`0.6.0`です。使い方とセットアップは[プラグインのREADME](../../plugins/agent-plugin-tools/README.md)を参照してください。
+2026年9月6日に行った改訂の評価記録です。改訂前の基準はコミット`a00affea7efec3902e4d78dd79d20b7ce07a9d29`、評価した版はプラグイン `0.4.0`、スキル `0.6.0` でした。
+
+現在のパッケージ作成・検証ではモデルを指定する必要はありません。収録するスキルの指示を書く場合は、その利用先に合わせます。導入と操作例は[プラグインのREADME](../../plugins/agent-plugin-tools/README.md)、モデル選択の条件は[収録スキルの作成指針](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/authoring.md)を参照してください。
 
 ## 設計の根拠と変更
 

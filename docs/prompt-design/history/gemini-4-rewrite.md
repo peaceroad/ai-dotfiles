@@ -1,6 +1,6 @@
 # Gemini 4向け指示設計スキルの再構築
 
-2026年11月15日、`prompt-gemini-reference`を`gemini-instruction-design`へ置き換えた。対象はリポジトリの配布ソースであり、インストール済みコピー、Apps上のSkills、アカウント設定は変更していない。[計画](../plans/gemini-4-skills-update-plan.md)に沿った全面改稿で、プラグイン版は`0.4.0`とした。
+2026年11月15日、`prompt-gemini-reference`を`gemini-instruction-design`へ置き換えた。対象はリポジトリの配布ソースであり、インストール済みコピー、Apps上のSkills、アカウント設定は変更していない。[計画](../../plans/gemini-4-skills-update-plan.md)に沿った全面改稿で、プラグイン版は`0.4.0`とした。
 
 この文書は最終的な構成と確認範囲を説明する。入口の比較は[使いやすさ評価](gemini-usability-review.md)、モデル・Skills仕様との整合は[公式指針の照合記録](gemini-4-prompt-audit.md)を参照。評価に使った版と現行ソースは、検証の節で区別する。
 
@@ -28,11 +28,11 @@
 
 以下の2件の指示生成試行は、初回の8参照版を対象とした証拠である。現行の7参照版や、後の仕様補正をそのまま実測した結果ではない。各比較の対象版・入力・応答は、それぞれの評価記録に保持する。
 
-代表依頼と判定条件は[合成ケース](../../evals/agent-design-tools/prompt-design/gemini-4-rewrite/cases.json)へ保存した。これは回帰定義であり、すべてを実行済みという意味ではない。自動選択、指示生成、生成された指示のGemini上での動作は別々に評価する。
+代表依頼と判定条件は[合成ケース](../../../evals/agent-design-tools/prompt-design/gemini-4-rewrite/cases.json)へ保存した。これは回帰定義であり、すべてを実行済みという意味ではない。自動選択、指示生成、生成された指示のGemini上での動作は別々に評価する。
 
 構造検証では`quick_validate.py`と`npm run check:plugins`が成功した。後者は26件成功し、隔離したプラグイン内のリンクと、`prompt-design`＋新スキルを単独配置したときの参照到達性も確認している。共通2スキルの差分がないこと、LF、差分の空白、文書リンクも確認した。
 
-[独立試行の抜粋と判定](../../evals/agent-design-tools/prompt-design/gemini-4-rewrite/observations.md)には、Apps向け画像プロンプト作成スキルとAntigravity向けバグ修正指示の2件を残した。どちらも要求された指示本文を生成でき、前者はAppsと画像の参照を組み合わせ、後者は独自の継続ループを追加しなかった。参照一覧は実行担当の自己報告であり、完全なツールログの計測ではない。
+[独立試行の抜粋と判定](../../../evals/agent-design-tools/prompt-design/gemini-4-rewrite/observations.md)には、Apps向け画像プロンプト作成スキルとAntigravity向けバグ修正指示の2件を残した。どちらも要求された指示本文を生成でき、前者はAppsと画像の参照を組み合わせ、後者は独自の継続ループを追加しなかった。参照一覧は実行担当の自己報告であり、完全なツールログの計測ではない。
 
 この試行はCodexで候補を明示指定して行った指示生成である。旧版との同条件の行動比較、カタログからの自動選択、Gemini実機での取込み・自動発火・生成品質・速度・費用は今回の証拠には含めない。残る8件は回帰定義で、実行済みではない。構造と限定した成果物の確認に基づきソース版を採用し、実機の性能向上は主張しない。
 

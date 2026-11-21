@@ -44,18 +44,6 @@ Gemini向けの入口は、同じプラグイン内の[`gemini-instruction-desig
 
 通常の単発業務を実行するために毎回使うスキルではありません。設計した結果、1回の処理と検証で足りるなら直線的な流れにします。通常のプログラム内ループや、指示文の言い換えだけを行う作業も対象外です。
 
-## skill-creatorの更新とAstraとの関係
-
-Codexリポジトリの[更新履歴](https://github.com/openai/codex/commits/main/codex-rs/skills/src/assets/samples/skill-creator/SKILL.md)では、2026年8月13日に[Refine skill creation guidance and validation（#38384、`5e32f72`）](https://github.com/openai/codex/commit/5e32f728f1f86a967c6be057351f12505778df8f)が記録されています。`description`を短くし、必要な参照だけを読む構成を明確にし、順番どおりの作成手順を依頼に応じて調整する指針へ改めた更新です。独立した実行検証も、複雑さやリスクに見合う場合に使う位置付けになりました。初期化テンプレートの簡素化と、未完成のTODOプレースホルダーを検出する検証処理の変更も含みます。
-
-この文書の使い分けは、更新後の組み込み版を前提にしています。利用環境への反映時期はコミットの日付だけでは判断できないため、適用時にはその環境の`skill-creator/SKILL.md`を確認します。
-
-コミット説明と更新後の本文にはAstraの名前がなく、Astra専用のスキルとは位置付けていません。関連する背景として、[OpenAIのCodex DX担当者によるX投稿](https://x.com/pvncher/status/2095991462416490862)では、Astraに向けて既存の指示を見直す文脈の中で、skill-creatorの最近の更新が紹介されています。この発言は更新の背景を理解する補助資料とし、個別コミットの変更内容はGitHubの記録で確認します。
-
-[Astraの公式モデルガイド](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra#instruction-following)も、スキル内の曖昧・矛盾した指示が早期停止につながり得ることを説明し、変更に見合った検証を勧めています。この更新はAstra向けの指針と方向が一致すると捉えられますが、モデル固有の調整は引き続き対象モデルを確認して行います。このリポジトリの独自2スキルも、既存の対象モデルを保持し、用途別の参照と影響に応じた検証を使う構成です。
-
-[Astraの公式ブログ](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)も、スキルを選びやすい説明、用途に応じた参照、旧モデルを補っていた手順の再検討を勧めています。現行2スキルも、必要なモデル知識、利用者の要件、修正を判断しやすい出力形式を残して整理する方針です。[ブログとの照合・評価記録](../prompt-design/astra-blog-review.md)に、採用理由と確認範囲をまとめています。
-
 ## 具体的な依頼での選び方
 
 以下は適用判断の例です。新しいエージェントへ実行させた試験結果ではありません。
@@ -168,9 +156,9 @@ APIの制約、ツールの契約、検証に使う根拠資料など、正し�
 
 複数プロジェクトやセッションをまたぐ判断で適切な既存保存先がない場合、任意のローカル規約として`~/.agents/notes/<owner-id>/candidates/<candidate-set-id>/`と`decisions/`を選べます。所有者は記録の形式、書き込み、再読、競合、整理を管理する主体であり、設計を手伝ったというだけでこのスキルを所有者にはしません。
 
-具体的な保存・重複統合・候補整理は[Maintenance records](../../plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md)、ローカル規約は[`~/.agents/notes/`の説明](agents-notes-local-convention.md)に集約します。同梱の[READMEテンプレート](../../plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md)は、規約の採用と設置が許可された場合だけ使い、採用済みの規約と対象範囲を保ちます。候補の整理と、別の監査要件で必要な証拠の保存は分けます。
+具体的な保存・重複統合・候補整理は[Maintenance records](../../plugins/agent-design-tools/skills/agent-workflow-design/references/maintenance-records.md)、ローカル規約は[`~/.agents/notes/`の説明](../skill-development/agents-notes-local-convention.md)に集約します。同梱の[READMEテンプレート](../../plugins/agent-design-tools/skills/agent-workflow-design/assets/maintenance-notes/README.md)は、規約の採用と設置が許可された場合だけ使い、採用済みの規約と対象範囲を保ちます。候補の整理と、別の監査要件で必要な証拠の保存は分けます。
 
-採用済みの利用者設定も別の情報です。[`~/.agents/config/`の設計案](agents-config-local-convention.md)は、外部設定が必要なスキルやプラグインが個別に採用する任意の規約です。読み込み先、適用範囲、優先関係は、採用した側が実行用の指示として定めます。この3スキルや`plugin-creator-agent-plugins`が共通の読み込み機構を提供するものではありません。
+採用済みの利用者設定も別の情報です。[`~/.agents/config/`の設計案](../skill-development/agents-config-local-convention.md)は、外部設定が必要なスキルやプラグインが個別に採用する任意の規約です。読み込み先、適用範囲、優先関係は、採用した側が実行用の指示として定めます。この3スキルや`plugin-creator-agent-plugins`が共通の読み込み機構を提供するものではありません。
 
 ### 評価定義と評価結果を分ける
 
@@ -196,7 +184,19 @@ APIの制約、ツールの契約、検証に使う根拠資料など、正し�
 
 モデルの採点を改訂の採否や反復改善に使う場合は、独立して確認した例や実際の成果と採点基準を照合します。主観的な好みは担当者の判断例と比較し、結果に影響する提示順や文章量の偏りも確認します。詳しい条件は[評価用参照](../../plugins/agent-design-tools/skills/agent-workflow-design/references/state-evidence-and-recovery.md#evidence-and-evaluation)に集約し、各作業へ一律の人の承認を追加しません。
 
-過去の設計生成や下流試行、その検証範囲と限界は、[prompt-designの評価記録](../prompt-design/README.md)、[agent-workflow-designの初回改訂](../agent-workflow-design/README.md)、[再監査](../agent-workflow-design/second-review.md)にまとめています。この文書の役割分担や使い分けの説明は、自動選択の精度や併用時の性能を測った結果ではありません。
+過去の設計生成や下流試行、その検証範囲と限界は、[prompt-designの評価記録](README.md)、[agent-workflow-designの初回改訂](../agent-workflow-design/README.md)、[再監査](../agent-workflow-design/second-review.md)にまとめています。この文書の役割分担や使い分けの説明は、自動選択の精度や併用時の性能を測った結果ではありません。
+
+## skill-creatorの更新とAstraとの関係
+
+Codexリポジトリの[更新履歴](https://github.com/openai/codex/commits/main/codex-rs/skills/src/assets/samples/skill-creator/SKILL.md)では、2026年8月13日に[Refine skill creation guidance and validation（#38384、`5e32f72`）](https://github.com/openai/codex/commit/5e32f728f1f86a967c6be057351f12505778df8f)が記録されています。`description`を短くし、必要な参照だけを読む構成を明確にし、順番どおりの作成手順を依頼に応じて調整する指針へ改めた更新です。独立した実行検証も、複雑さやリスクに見合う場合に使う位置付けになりました。初期化テンプレートの簡素化と、未完成のTODOプレースホルダーを検出する検証処理の変更も含みます。
+
+この文書の使い分けは、更新後の組み込み版を前提にしています。利用環境への反映時期はコミットの日付だけでは判断できないため、適用時にはその環境の`skill-creator/SKILL.md`を確認します。
+
+コミット説明と更新後の本文にはAstraの名前がなく、Astra専用のスキルとは位置付けていません。関連する背景として、[OpenAIのCodex DX担当者によるX投稿](https://x.com/pvncher/status/2095991462416490862)では、Astraに向けて既存の指示を見直す文脈の中で、skill-creatorの最近の更新が紹介されています。この発言は更新の背景を理解する補助資料とし、個別コミットの変更内容はGitHubの記録で確認します。
+
+[Astraの公式モデルガイド](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra#instruction-following)も、スキル内の曖昧・矛盾した指示が早期停止につながり得ることを説明し、変更に見合った検証を勧めています。この更新はAstra向けの指針と方向が一致すると捉えられますが、モデル固有の調整は引き続き対象モデルを確認して行います。このリポジトリの独自2スキルも、既存の対象モデルを保持し、用途別の参照と影響に応じた検証を使う構成です。
+
+[Astraの公式ブログ](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)も、スキルを選びやすい説明、用途に応じた参照、旧モデルを補っていた手順の再検討を勧めています。現行2スキルも、必要なモデル知識、利用者の要件、修正を判断しやすい出力形式を残して整理する方針です。[ブログとの照合・評価記録](history/astra-blog-review.md)に、採用理由と確認範囲をまとめています。
 
 ## 正本と関連資料
 

@@ -1,6 +1,6 @@
 # グローバルAGENTS.mdの評価セット
 
-`home/.codex/AGENTS.md`の旧版と現行版を比較する、小さな開発用ケース集です。13ケースを定義しています。行動評価はまだ実行していません。設計の意図、採用判断、限界は[評価方針](../../docs/notes/codex-agents-md-evaluation.md)を参照してください。
+`home/.codex/AGENTS.md`の旧版と現行版を比較する、小さな開発用ケース集です。13ケースを定義しています。行動評価はまだ実行していません。設計の意図、採用判断、限界は[評価方針](../../docs/codex/settings/codex-agents-md-evaluation.md)を参照してください。
 
 | ファイル | 用途 |
 | --- | --- |

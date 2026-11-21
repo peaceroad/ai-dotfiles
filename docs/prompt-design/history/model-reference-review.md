@@ -1,8 +1,8 @@
 # モデル別参照の配置とGPT-5.6参照の再監査
 
-現行配布には、ここで扱うGPT-5.6専用参照を含めていません。以下は当時の採用理由と評価の記録です。現在の参照選択は[prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading)を参照してください。
+現行配布には、ここで扱うGPT-5.6専用参照を含めていません。以下は当時の採用理由と評価の記録です。現在の参照選択は[prompt-design](../../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading)を参照してください。
 
-レビュー日：2026年9月6日。[全体評価](README.md)を受け、GPT-5.6向け指示の設計を継続して支援できるか、Geminiを別スキルへ分けると使いやすくなるかを検討しました。
+レビュー日：2026年9月6日。[全体評価](../README.md)を受け、GPT-5.6向け指示の設計を継続して支援できるか、Geminiを別スキルへ分けると使いやすくなるかを検討しました。
 
 GPT-5.6参照を監査して復元し、Geminiの3参照は`prompt-design`内に維持しました。共通の指示設計を`SKILL.md`に置き、設計対象に応じてモデル・製品の参照を選ぶ構成です。指示を書くモデルがAstraであっても、設計対象がGPT-5.6やGeminiなら、その対象を優先します。
 
@@ -42,11 +42,11 @@ Geminiの参照は、一般的な指示設計、GemのInstructionsとKnowledge�
 
 ## 検証と限界
 
-利用者向けの説明として、スキルのREADMEへモデル選択の例を追加しました（現在は[プラグインのREADME](../../plugins/agent-design-tools/README.md#model-targeting)へ統合）。既定のAstraと既存の利用先の優先関係、実行中モデルへ自動追従しないことを説明しています。同日にGPT-5.6公式ガイドのPrompting best practicesを再確認し、簡潔さ、権限、Pro mode、PTCの助言を専用参照・共通本文・API参照と照合しました。追加修正を要する点は見つからず、指示ファイルは維持しています。
+利用者向けの説明として、スキルのREADMEへモデル選択の例を追加しました（現在は[プラグインのREADME](../../../plugins/agent-design-tools/README.md#model-targeting)へ統合）。既定のAstraと既存の利用先の優先関係、実行中モデルへ自動追従しないことを説明しています。同日にGPT-5.6公式ガイドのPrompting best practicesを再確認し、簡潔さ、権限、Pro mode、PTCの助言を専用参照・共通本文・API参照と照合しました。追加修正を要する点は見つからず、指示ファイルは維持しています。
 
 参照の復元時に変更した指示は、`SKILL.md`のGPT-5.6への入口とGPT-5.6参照です。Astra・Gemini・APIの既存参照とスキルのdescriptionは維持しています。入口の条件と本文の適用範囲、設定の出典、相対リンク、文書の意味と読みやすさを静的に確認しました。`quick_validate.py`と`npm run check:plugins`、JSON・ハッシュ・差分・LFの検証も行いました。
 
-GPT-5.6参照復元時の指示・参照・メタデータ10ファイルのハッシュと直前版の復元情報は[model-reference-manifest.json](../../evals/agent-design-tools/prompt-design/model-reference-manifest.json)にあります。利用者向けREADMEはこの指示の版管理に含めず、スキルの必読参照にも加えていません。過去のケース・応答、指示の版と評価結果は維持しています。R05の短いGPT-5.6向け修正とR06のGem向け指示生成は、今回の構成変更前の証拠です。新しい動作試行、GPT-5.6やGemini本体での実行、スキル分離との性能比較は行っていません。
+GPT-5.6参照復元時の指示・参照・メタデータ10ファイルのハッシュと直前版の復元情報は[model-reference-manifest.json](../../../evals/agent-design-tools/prompt-design/model-reference-manifest.json)にあります。利用者向けREADMEはこの指示の版管理に含めず、スキルの必読参照にも加えていません。過去のケース・応答、指示の版と評価結果は維持しています。R05の短いGPT-5.6向け修正とR06のGem向け指示生成は、今回の構成変更前の証拠です。新しい動作試行、GPT-5.6やGemini本体での実行、スキル分離との性能比較は行っていません。
 
 ## 出典リンクと表の整理
 

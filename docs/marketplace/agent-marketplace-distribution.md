@@ -81,7 +81,7 @@ Marketplaceのルートには、ローカルディレクトリ、チェックア
 ~/.agents/skills/plugin-creator-agent-plugins/scripts/assemble-agent-marketplace.mjs
 ```
 
-追加するプラグインは、ルートにAgent Plugins v1の`plugin.json`を持つ検証可能なパッケージである必要があります。単体Skillはルートに、ディレクトリ名と一致する`name`および空でない`description`をfrontmatterへ持つ`SKILL.md`が必要です。確認時点のOpenAI公式ドキュメントは`.codex-plugin/plugin.json`を使うCodex固有形式も説明しているため、形式の違いは[CodexのAgent SkillsとAgent Pluginsの構成と使い分け](codex-skills-and-plugins.md)を参照してください。このスクリプトはCodex固有形式をAgent Plugins v1へ自動変換しません。
+追加するプラグインは、ルートにAgent Plugins v1の`plugin.json`を持つ検証可能なパッケージである必要があります。単体Skillはルートに、ディレクトリ名と一致する`name`および空でない`description`をfrontmatterへ持つ`SKILL.md`が必要です。確認時点のOpenAI公式ドキュメントは`.codex-plugin/plugin.json`を使うCodex固有形式も説明しているため、形式の違いは[CodexのAgent SkillsとAgent Pluginsの構成と使い分け](../skill-development/codex-skills-and-plugins.md)を参照してください。このスクリプトはCodex固有形式をAgent Plugins v1へ自動変換しません。
 
 スクリプトを引数なしで実行すると、ファイルを変更せずヘルプを表示します。
 
@@ -387,7 +387,7 @@ NASへの同期で、アクセス拒否、接続断、容量・クォータ不�
 
 - [OpenAI「Package your plugin」](https://developers.openai.com/plugins/build/plugins)
 - [Agent Plugins v1仕様](https://agent-plugins.org/specification)
-- [CodexのAgent SkillsとAgent Pluginsの構成と使い分け](codex-skills-and-plugins.md)
+- [CodexのAgent SkillsとAgent Pluginsの構成と使い分け](../skill-development/codex-skills-and-plugins.md)
 - [`plugin-creator-agent-plugins`](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)
 - [Marketplace組み立て手順](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-distribution.md)
 - [非公開設定と複数担当者の管理](../../plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/references/marketplace-orchestration.md)

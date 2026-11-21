@@ -1,6 +1,6 @@
 # 根拠の範囲を保つための追加評価
 
-評価日：2026年9月5日。説明の最終整理：2026年9月6日。[全体評価](README.md)のD02を受け、指示が原文の適用範囲と確度を保つよう設計できるかを確認しました。要約文はその下流試験に使ったものです。この試験だけで、スキルや複数の指示ファイルを設計する能力全体を評価したとは扱いません。
+評価日：2026年9月5日。説明の最終整理：2026年9月6日。[全体評価](../README.md)のD02を受け、指示が原文の適用範囲と確度を保つよう設計できるかを確認しました。要約文はその下流試験に使ったものです。この試験だけで、スキルや複数の指示ファイルを設計する能力全体を評価したとは扱いません。
 
 採用した変更は、Astra参照への条件付きの助言1文です。調整後の生成指示を使った2件では根拠の範囲を保ちましたが、1件には近い説明が残りました。以下では、指示生成、根拠の保持、文章の簡潔さを分けて記録します。
 
@@ -12,9 +12,9 @@ Northstar 2.0と無料・有料プランは、この評価のために作った�
 
 ## 原案と候補の比較
 
-[source-preservation-cases.json](../../evals/agent-design-tools/prompt-design/source-preservation-cases.json)に入力と判定条件を先に保存しました。原案は初回R09の生成指示です。候補は、適用条件・確度を強めないことと、同じ内容の言い換えで文字数を埋めないことを追加しました。記事のみを根拠にすること、性能・日付を補わないこと、重要条件と300字程度の目安は保っています。
+[source-preservation-cases.json](../../../evals/agent-design-tools/prompt-design/source-preservation-cases.json)に入力と判定条件を先に保存しました。原案は初回R09の生成指示です。候補は、適用条件・確度を強めないことと、同じ内容の言い換えで文字数を埋めないことを追加しました。記事のみを根拠にすること、性能・日付を補わないこと、重要条件と300字程度の目安は保っています。
 
-3種類の記事へ各指示を1回ずつ適用しました。[担当A](../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-a.json)はS01・S03の原案とS02の候補、[担当B](../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-b.json)はその逆を実行しています。
+3種類の記事へ各指示を1回ずつ適用しました。[担当A](../../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-a.json)はS01・S03の原案とS02の候補、[担当B](../../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-b.json)はその逆を実行しています。
 
 | ケース | 原案 | 候補 | 判断 |
 | --- | --- | --- | --- |
@@ -26,26 +26,26 @@ Northstar 2.0と無料・有料プランは、この評価のために作った�
 
 ## スキルへ反映した変更
 
-[Astra参照のWriting and preservation](../../plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md#writing-and-preservation)へ、次の1文を追加しました。
+[Astra参照のWriting and preservation](../../../plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6-astra-prompt-design.md#writing-and-preservation)へ、次の1文を追加しました。
 
 > If outputs strengthen source claims, clarify preservation of scope and certainty in the governing instruction: “available to A” does not establish “only A,” and an explicit exclusion must remain explicit.
 
 出力が根拠を強めた場合に、その指示を定める箇所で範囲と確度の保持を明確にします。「Aで利用可能」と「Aだけで利用可能」を区別するとともに、原文にある明示的な除外を弱めないための助言です。Astra固有の問題や、特定プランの提供規則とは位置付けていません。
 
-追加はUTF-8で214 bytesです。この調整時の版と初回版を復元するための追加文は[source-preservation-manifest.json](../../evals/agent-design-tools/prompt-design/source-preservation-manifest.json)にあります。反復を除きながら必要な情報を保つ助言と、文字数の目安を厳密な制約へ変えない規則は既存のものを使い、この調整ではスキル本体と他の参照は変更していません。
+追加はUTF-8で214 bytesです。この調整時の版と初回版を復元するための追加文は[source-preservation-manifest.json](../../../evals/agent-design-tools/prompt-design/source-preservation-manifest.json)にあります。反復を除きながら必要な情報を保つ助言と、文字数の目安を厳密な制約へ変えない規則は既存のものを使い、この調整ではスキル本体と他の参照は変更していません。
 
 ## 調整後の指示生成と下流動作
 
-[source-preservation-skill-cases.json](../../evals/agent-design-tools/prompt-design/source-preservation-skill-cases.json)へ依頼と判定条件を先に保存し、担当には依頼だけを渡しました。単なる整形のG02を先に、具体的な失敗を示すG01を後に実行させています。
+[source-preservation-skill-cases.json](../../../evals/agent-design-tools/prompt-design/source-preservation-skill-cases.json)へ依頼と判定条件を先に保存し、担当には依頼だけを渡しました。単なる整形のG02を先に、具体的な失敗を示すG01を後に実行させています。
 
-| 指示生成 | [保存した完成形](../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-generated.json)の評価 |
+| 指示生成 | [保存した完成形](../../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-generated.json)の評価 |
 | --- | --- |
 | G02：単なる整形 | 初回R09と完全に同じ短い指示。新しい制約を加えず、要件を保持 |
 | G01：適用範囲の強化を修正 | 元の要件を保ち、あるプランで利用可能という記述から他のプランでの不可を導かず、明示的な対象外は伝える指示を追加 |
 
 G01は報告されたプランの例を説明に使いましたが、提供条件は創作していません。両方とも厳密な文字数幅や運用工程は追加せず、読み込んだのはスキル本体とAstra参照でした。
 
-G01の完成形を改稿せず別担当へ渡し、Northstarと、指示生成時には見せていないCedarの記事を要約させました。[下流応答](../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-downstream.json)には指示、入力、出力を保存しています。
+G01の完成形を改稿せず別担当へ渡し、Northstarと、指示生成時には見せていないCedarの記事を要約させました。[下流応答](../../../evals/agent-design-tools/prompt-design/evidence/2026-09-05-source-preservation-downstream.json)には指示、入力、出力を保存しています。
 
 | ケース | 観測結果と判断 |
 | --- | --- |

@@ -40,7 +40,7 @@ approval_policy = "never"
 
 この指示は、内蔵Browserと外部ブラウザのどちらを使うかを固定せず、外部ブラウザを使う場合だけChromeを優先します。`prefer`としているため、Chromeが利用できない場合や、ユーザーが別のブラウザを指定した場合も妨げません。
 
-グローバルな`AGENTS.md`は実行開始時に読み込まれるため、追加後は新しいタスクを開始するか、Codexを再起動します。詳しい設計理由は、[`~/.codex/AGENTS.md`の指示と設計理由](./codex-agents-md-instruction-rationale.md#browser)で説明しています。
+グローバルな`AGENTS.md`は実行開始時に読み込まれるため、追加後は新しいタスクを開始するか、Codexを再起動します。詳しい設計理由は、[`~/.codex/AGENTS.md`の指示と設計理由](codex-agents-md-instruction-rationale.md#browser)で説明しています。
 
 ## 公開ページの閲覧を主目的にした設定例
 
