@@ -56,7 +56,9 @@ Agent Plugins discovers plugin skills only from immediate children of the plugin
 
 Use `skill-creator` when creating or structurally revising a contained skill. Check its trigger against neighboring skills and review the instructions and resources affected by the change.
 
-Preserve the established target model, runtime, and output contract. For OpenAI or Codex instructions without a target model, use GPT-6 Astra for design; do not turn this into a portable package requirement or client setting. Use `prompt-design` or `agent-workflow-design` when available and relevant, without making the package depend on those separate plugins. For model-dependent decisions, consult current model guidance; a model upgrade should include affected references and examples, not just the entrypoint. The [Astra guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra) is a source for that case, not required reading for model-independent packaging.
+When writing contained instructions, preserve their intended models, runtime, and output contract. Use `prompt-design` when available for instruction design, including its target-selection rule. When working standalone without an established target, write model-independent instructions unless a required capability depends on the deployment. Check that capability against the intended model's guidance. For an explicit migration, review affected references and examples for the destination model as well as the entrypoint.
+
+Use `agent-workflow-design` when available if the deliverable also includes workflow controls. Packaging or validating existing components requires no model selection.
 
 Skill-local client metadata such as `skills/<name>/agents/openai.yaml` may remain when the Agent Skills package permits additional files and clients that do not understand it can safely ignore it. Treat that file as optional metadata for the named client, not as an Agent Plugins core component or a root `plugin.json` extension. Do not invent a root extension namespace merely to reclassify existing skill-local metadata.
 

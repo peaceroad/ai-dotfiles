@@ -56,7 +56,9 @@ Stopping model work is separate from stopping scheduled jobs, tools, and child a
 
 Use delegation only under the current policy. When allowed, choose bounded work that benefits from independent execution or context and leaves useful coordination or work for the owner. Simple independent tool calls may need no agent. Keep dependent decisions and conflicting writes ordered.
 
-Give each worker the necessary input, artifact version, scope, result contract, and limits. Assign ownership of shared resources, integration, overall verification, and failed or stale branches. Worktree or context isolation can reduce conflicts; access enforcement belongs to the runtime's security controls.
+Preserve assigned roles and any model specified for each. Derive dependencies from the outputs the next step actually needs, including independent verdicts only when the task requires them. Give each worker the necessary input, artifact version, scope, result contract, and limits. Assign ownership of shared resources, integration, overall verification, and failed or stale branches. Worktree or context isolation can reduce conflicts; access enforcement belongs to the runtime's security controls.
+
+When designing worker assignments, start from the configured or inherited model and reasoning effort. Where the runtime permits a choice and selection is in scope, match it to the subtask's difficulty, required capabilities, and latency or cost constraints. A choice in the design takes effect only through a supported runtime setting.
 
 For nested delegation, use the runtime's inheritance, depth, fan-out, lifecycle, and cancellation controls. Delegated authority remains within the parent's granted scope and the child's actual permissions. Collect results through supported completion signals.
 

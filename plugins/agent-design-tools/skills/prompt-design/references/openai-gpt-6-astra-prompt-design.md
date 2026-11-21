@@ -1,6 +1,6 @@
 # GPT-6 Astra prompt-design notes
 
-Use for the Astra target selected in `SKILL.md`. These are conditional adjustments, not a template or a reason to add every rule below.
+Use for GPT-6 Astra or to examine an instruction carried over from that model during migration. Select adjustments that address the task or an observed failure.
 
 The Astra model guide identifies clarification that can interrupt expected progress, sensitivity to instruction files, detailed formatting, less delegation than some workflows want, and thorough testing that can exceed small changes' needs. Treat these as reported tendencies to investigate, not guaranteed failures in an application.
 

@@ -1,13 +1,15 @@
 # prompt-designとGemini指示設計の評価記録
 
-初回評価日：2026年9月5日。案内の最終更新：2026年11月15日。`prompt-design`の初回評価と、その後のモデル別参照・Gemini専用スキルの評価を案内します。
+初回評価日：2026年9月5日。案内の最終更新：2026年11月21日。`prompt-design`の初回評価と、その後のモデル別参照・Gemini専用スキルの評価を案内します。
 
 ## 現行版への案内
 
 使い方と導入は[プラグインのREADME](../../plugins/agent-design-tools/README.md)、共通スキルとの分担は[役割説明](../notes/skill-creator-prompt-design-agent-workflow-design.md)を参照してください。
 
-- **共通の指示設計：** [prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)。Astra向けの追加確認は[9月12日のレビュー](astra-blog-review.md)にあります。GPT-5.6専用参照は配布対象から外しており、以下の復元・評価の記録は当時の版についてのものです。
-- **Gemini向けの指示設計：** [gemini-instruction-design](../../plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)。現行ソースはGemini 4を基準とする7参照、プラグイン版`0.4.0`です。[再構築](gemini-4-rewrite.md)、[使いやすさ評価](gemini-usability-review.md)、[公式仕様との再照合と最終調整](gemini-4-prompt-audit.md)の順に判断を記録しています。
+- **共通の指示設計：** [prompt-design](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md)は、対象未指定のOpenAI／Codex向け指示にGPT-6.2 Astraを使います。[6.2 AstraとSolの共通参照](../../plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6.2-prompt-design.md)と、旧GPT-6 Astraの[9月12日のレビュー](astra-blog-review.md)を世代別に参照できます。以下のGPT-5.6参照の復元・評価は当時の版の記録です。
+- **Gemini向けの指示設計：** [gemini-instruction-design](../../plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)。現行ソースはNeonを含むGemini 4を基準とする7参照、プラグイン版`0.4.0`です。[Neon対応と確認範囲](gemini-4-neon-review.md)を参照してください。[再構築](gemini-4-rewrite.md)、[使いやすさ評価](gemini-usability-review.md)、[公式仕様との再照合](gemini-4-prompt-audit.md)は、それぞれの評価時点の記録です。
+
+6.2対応の採用判断は[両スキルの最終評価](gpt-6.2-design-review.md)にまとめています。[依頼・応答抜粋・対象版](../../evals/agent-design-tools/prompt-design/gpt-6.2-target-routing.md)で、参照の使い分けと生成した設計を確認できます。
 
 各記録の件数、参照数、ハッシュ、応答は評価時点のものです。後から行った文書整理や仕様補正を、過去の試行で検証済みとは扱いません。Gemini実機での取込み・自動選択・実行は未検証です。
 

@@ -29,7 +29,7 @@ Specify what can progress independently, which results the next decision needs, 
 
 Async tools use direct calls and cannot be configured for PTC. In API Multi-agent mode, do not combine async tools with parallel tool calls. Verify these gates before adopting a combination; do not apply them as blanket restrictions on another runtime's tools.
 
-Mid-turn steering accepts user updates during Astra Responses generation over WebSocket. Acceptance queues an update; it does not prove application by the model. Steering neither reverses earlier actions nor cancels started tools.
+On supported GPT-6-family models, mid-turn steering accepts user updates during Responses generation over WebSocket. Acceptance queues an update; it does not prove application by the model. Steering neither reverses earlier actions nor cancels started tools.
 
 The prompt reconciles new requirements with completed and pending work. The application tracks acknowledgments, required tool results or approvals, continuations, and disconnect recovery. Do not duplicate accepted steering or assume pending input survived a lost connection. Reconcile actual state before replaying side effects.
 
@@ -39,22 +39,24 @@ For workflow architecture, use an applicable workflow-design skill for state tra
 
 Separate visible history, opaque reasoning/compaction state, and durable task evidence. Preserve the requirements, decisions, pending dependencies, authorization scope, citations, and outputs needed for continuation or audit in the runtime or an authorized artifact location. A separate state file is not required for every task.
 
-For manually managed API history, preserve required items in order, including tool relationships, encrypted reasoning, and assistant `phase`. Follow the selected continuation contract; request-level `instructions` are not automatically inherited through `previous_response_id`. Persisted reasoning is model-family-dependent; do not assume it carries across model families.
+For manually managed API history, preserve required items in order, including tool relationships, encrypted reasoning, and assistant `phase`. Request-level `instructions` are not automatically inherited through `previous_response_id`. In GPT-6.2 Responses, editing an earlier message or tool call can drop reasoning items, as can a model downgrade or change of user or organization. Append new guidance. When continuity is in doubt, inspect `input_transformations` before attributing a regression to the prompt.
 
 Use compaction when context growth justifies it and the configured features support it. Treat returned items as opaque and follow the endpoint's output contract. Standalone compact output is the next context window; do not arbitrarily prune it.
 
 For prompt caching, keep reusable instructions and tool definitions stable and append changing content. Distinguish supplied tools from currently callable tools; use supported selection or deferred loading where useful. Measure input, cache reads/writes, latency, and cost together. Neither fewer prompt tokens nor a higher hit rate alone establishes improvement. Do not add irrelevant text merely to reach a cache threshold.
 
+In GPT-6.2 Responses, put reusable developer instructions in the first developer message at the start of `input` for cache eligibility. Top-level `instructions` follow `input` and suit request-specific guidance. Their position does not change their developer authority.
+
 ## Reasoning and migration
 
-Keep model, effort/mode, verbosity, and output schemas in supported runtime controls. Preserve task-specific requirements in the prompt. For an actual Astra API migration, consult the Astra model guide and model page:
+Keep model, effort/mode, verbosity, and output schemas in supported runtime controls. Preserve task-specific requirements in the prompt. For an API migration, consult the destination model's guide and model page:
 
-- Preserve the current effective effort when supported. Migrate `none` or `minimal` to a `low` baseline and compare. The API lists `low`, `medium`, `high`, `xhigh`, and `max`; product or harness settings may differ.
-- Astra tool calling requires Responses. Remove unsupported sampling/log-probability parameters as documented; a generic endpoint schema does not establish model support.
+- For a controlled comparison, preserve the existing effective effort where supported. The GPT-6.2 API migration guide recommends `medium` for a new integration and `low` when migrating from `none` or `minimal`. Product and harness settings can differ.
+- GPT-6 Astra and GPT-6.2 Astra/Sol require Responses for tool calling. Remove unsupported sampling/log-probability parameters as documented for the selected endpoint.
 - Evaluate prompt, model, and effort changes separately. Explore other supported efforts when measured quality, latency, or cost justifies it; do not mandate an effort sweep for a wording edit.
 - Verify processing-mode and data-residency compatibility when relevant. Keep current pricing, availability, and latency claims out of durable instructions.
 
-Configuration updates change effort between Astra responses while preserving the request-level prefix. They require standard, single-agent mode and cannot combine with automatic compaction/truncation or standalone `/responses/compact`. The documented explicit `compaction_trigger` path requires a fresh effort update afterward. Verify sequencing and effective-effort reporting in the implementation; these details do not belong in an ordinary task prompt.
+On supported models in standard, single-agent Responses mode, append a `configuration_update` before the next user message to change effort or output format while keeping the request-level setting stable. Preserve updates in order on replay. The reported request-level effort can differ from the effective effort. Automatic compaction via `context_management` reissues the latest settings; after an explicit `compaction_trigger`, restate changed settings before the next user message. Automatic truncation and standalone `/responses/compact` reject histories containing configuration updates. Follow the compaction guide for preparation when using that endpoint.
 
 ## Runtime stops
 
@@ -73,7 +75,8 @@ Misalignment monitoring can flag or stop consequential workflows asynchronously.
 - [Conversation state](https://developers.openai.com/api/docs/guides/conversation-state)
 - [Compaction](https://developers.openai.com/api/docs/guides/compaction)
 - [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching)
-- [Astra model guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra)
-- [Astra model page](https://developers.openai.com/api/docs/models/gpt-6-astra)
+- [GPT-6.2 migration guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6.2-astra), [Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra), and [Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol)
+- [GPT-6 Astra guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra) and [model page](https://developers.openai.com/api/docs/models/gpt-6-astra)
+- [Keep the prefix unchanged](https://developers.openai.com/api/docs/guides/keep-prefix-unchanged)
 - [Configuration updates](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation)
 - [Misalignment monitoring](https://developers.openai.com/api/docs/guides/safety-checks/misalignment-monitoring)

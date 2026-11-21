@@ -1,6 +1,6 @@
 # Skill description review notes
 
-Use this reference when reviewing or improving the `description` field of a Codex skill or a similar skill/tool trigger description. Use `skill-creator` first for full skill creation or structural changes; use this note only for description wording, trigger boundaries, and overlap with nearby skills.
+Use this reference for a skill's discovery description. For a tool description, apply the trigger and overlap questions under that tool's own metadata contract. Use `skill-creator` first for full skill creation or structural changes; use this note only for description wording, trigger boundaries, and overlap with nearby skills.
 
 ## Core rules
 
@@ -20,16 +20,16 @@ Use this reference when reviewing or improving the `description` field of a Code
 - Does it avoid long lists of internal checklist items that do not affect triggering?
 - Does it avoid broad topic words that would trigger the skill for ordinary articles, summaries, coding tasks, or general advice?
 - If the skill has a primary target and secondary adaptations, is the primary target clear without excluding valid secondary cases?
-- Is the description under the Agent Skills specification limit of 1024 characters, without treating that limit as a target?
+- For an Agent Skill, does the description fit the specification's inclusive 1024-character limit?
 - Is the description concise enough to avoid bloating always-loaded metadata, while still preventing wrong triggers? A few sentences or a short paragraph is usually enough.
 
-## Naming and metadata
+## Skill naming and metadata
 
 - Keep the skill `name` identical to the folder name.
 - Use lowercase hyphen-case for the skill `name`; use spaces only in human-facing UI metadata such as `agents/openai.yaml` `display_name`.
 - Treat `description` as model-facing trigger metadata, not as human-facing marketing copy.
 - Keep `agents/openai.yaml` aligned with the skill after description changes, but do not copy the full trigger description into `short_description`.
-- The Agent Skills specification requires `description` to be non-empty and at most 1024 characters. This is a hard ceiling, not a goal. Prefer a compact description, usually 1 to 3 sentences. For Japanese descriptions, aim to keep it around a few hundred characters when possible; a longer description is acceptable only when it materially improves triggering or prevents confusion with nearby skills.
+- The [Agent Skills specification](https://agentskills.io/specification#description-field) requires `description` to be non-empty and at most 1024 characters. This is a hard ceiling, not a goal. Prefer a compact description, usually 1 to 3 sentences. For Japanese descriptions, aim to keep it around a few hundred characters when possible; a longer description is acceptable only when it materially improves triggering or prevents confusion with nearby skills.
 
 ## Good description shape
 

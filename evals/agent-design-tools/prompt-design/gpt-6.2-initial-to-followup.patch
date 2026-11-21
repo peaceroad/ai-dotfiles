@@ -1,0 +1,25 @@
+--- a/plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md
++++ b/plugins/agent-design-tools/skills/agent-workflow-design/references/loop-patterns-and-control.md
+@@ -58,3 +58,3 @@
+ 
+-Give each worker the necessary input, artifact version, scope, result contract, and limits. Assign ownership of shared resources, integration, overall verification, and failed or stale branches. Worktree or context isolation can reduce conflicts; access enforcement belongs to the runtime's security controls.
++Preserve assigned roles and any model specified for each. Derive dependencies from the outputs the next step actually needs, including independent verdicts only when the task requires them. Give each worker the necessary input, artifact version, scope, result contract, and limits. Assign ownership of shared resources, integration, overall verification, and failed or stale branches. Worktree or context isolation can reduce conflicts; access enforcement belongs to the runtime's security controls.
+ 
+--- a/plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6.2-prompt-design.md
++++ b/plugins/agent-design-tools/skills/prompt-design/references/openai-gpt-6.2-prompt-design.md
+@@ -20,3 +20,3 @@
+ 
+-On migration, test the existing instructions on the destination model before attributing a failure to wording. Compare a revision on that same target with comparable effort, tools, and inputs. For a shared prompt, include each materially different target in the checks that support a cross-model claim.
++For a migration review, distinguish requirements you can check in the text from behavior that needs a destination-model trial. When testing is available and in scope, run the existing instructions and the revision on that target with comparable effort, tools, and inputs. For a shared prompt, include each materially different target in the checks that support a cross-model claim.
+ 
+--- a/plugins/agent-design-tools/skills/prompt-design/SKILL.md
++++ b/plugins/agent-design-tools/skills/prompt-design/SKILL.md
+@@ -11,3 +11,3 @@
+ 
+-Use the model and runtime established for the finished artifact. An explicit migration request selects the destination model. For OpenAI or Codex instructions with no established model, design for **GPT-6.2 Astra**. This default selects guidance only. A shared instruction intended for several models must work for each intended reader.
++Use the model and runtime established for the finished artifact. An explicit migration request selects the destination model. For an unqualified prompt or skill-writing request in Codex, or other OpenAI instructions with no established target, design for **GPT-6.2 Astra**. This default selects design guidance only. It does not set the model used by a parent or worker. A shared instruction intended for several models must work for each intended reader.
+ 
+@@ -41,2 +41,3 @@
+ - **Other targets:** Use the established target's official guidance or an applicable model-specific skill for model-dependent decisions. Shared, model-agnostic wording work does not require a model lookup.
++- **Workflow design:** If the requested deliverable also includes control over delegation, waiting, retries, or recovery, use `agent-workflow-design` when available for that part. A worker prompt or a completion criterion alone does not require it.
+ - **OpenAI API tools or runtime:** Read [tools and runtime boundaries](references/openai-tools-and-runtime.md) for routing, asynchronous execution, multi-agent coordination, conversation state, caching, or API migration. Skip it for ordinary wording or style work. For Codex or another managed product, use its exposed tool contracts and product documentation rather than assuming raw API integration applies.

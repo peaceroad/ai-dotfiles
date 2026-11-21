@@ -99,15 +99,15 @@ RSIに向けて目指すのは、改善方法への変更が次の改善の質�
 
 ## 対象モデルと参照の分担
 
-`prompt-design`と`agent-workflow-design`は、依頼、会話で確定した前提、成果物の導入先から設計対象を判断します。OpenAI／Codex向けで対象が決まっていなければ、どちらも**GPT-6 Astra向け**を既定とします。別の対象が確定していればそれを保持し、明示的な移行依頼があれば移行先を優先します。
+`prompt-design`は依頼、会話で確定した前提、成果物の導入先から設計対象を判断します。Codexで「プロンプトを書いて」「スキルの指示を書いて」と依頼し、対象モデルが決まっていなければ **GPT-6.2 Astra** 向けに設計します。明示的な移行依頼では移行先に合わせます。たとえば親がSolでAstra担当への指示を書く場合、設計対象はそのAstra担当です。親や委任先の実行モデルはランタイムの設定に従います。
 
-これはスキルを実行しているモデルへの自動追従ではありません。別のモデルでスキルを使っても、OpenAI／Codex向けの設計対象が未確定なら既定はAstraです。参照を選ぶこと自体は、実行中のモデルや導入先の設定を変更しません。`skill-creator`は、このモデル選択とは別にスキルの構造を担当します。
+`agent-workflow-design`はモデルを既定指定しません。待機、復旧、再送を設計するには、ジョブの状態や副作用をどのシステムで確認できるかが重要です。モデル向けの指示も成果物に含まれる場合は、その部分の対象選択を`prompt-design`に委ねます。
 
-Astra向けの指示設計では、小さな修正でも`prompt-design/SKILL.md`とAstra用参照を読みます。共通本文には、局所修正を「修正前／修正後／理由」で示す場合などの報告方針もあります。モデル用参照だけでは、この共通方針を代替できません。APIや詳細診断の参照は、それぞれの読み込み条件に従います。
+指示の対象選択と読み込み条件は`SKILL.md`に置きます。6.2 AstraとSolは公式ガイドを共有するため、短い参照を1つ読み、Astraに帰属する傾向を区別します。旧6 Astraを使う案件では、その世代の参照を引き続き使います。APIの履歴や設定はAPI設計時に読む参照にまとめています。
 
 | 必要な情報 | 主な参照先 |
 | --- | --- |
-| Astra向けの指示調整とモデル設定 | `prompt-design`のAstra参照。別の対象は公式資料や対応する専用スキルで補う。具体的な読み分けは[スキルの参照条件](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading) |
+| モデルごとのプロンプト調整 | `prompt-design`の[対象モデル別の参照条件](../../plugins/agent-design-tools/skills/prompt-design/SKILL.md#reference-loading) |
 | OpenAI APIのツール経路、状態、機能の組み合わせ | `prompt-design`の[tools and runtime boundaries](../../plugins/agent-design-tools/skills/prompt-design/references/openai-tools-and-runtime.md)と公式資料。Codexなどの管理された製品では、公開されているツール契約を使う |
 | 進行・待機・再開・評価・権限の設計 | `agent-workflow-design`の[共通参照への入口](../../plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md#reference-routing) |
 | Gemini 4、Apps Skills、画像・動画生成向けの指示 | `gemini-instruction-design`を入口に、共通手法と必要な専用参照を読む。別モデルの事例を対象モデルの挙動の証拠や必須構成にはしない |

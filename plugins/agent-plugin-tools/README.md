@@ -1,70 +1,58 @@
 # Agent Plugin Tools
 
-Create, validate, migrate, and locally install portable Agent Plugins v1 packages, assemble a filesystem Marketplace, or edit a GitHub-reference catalog without copying packages. This plugin contains one skill, [plugin-creator-agent-plugins](skills/plugin-creator-agent-plugins/SKILL.md).
+Use [plugin-creator-agent-plugins](skills/plugin-creator-agent-plugins/SKILL.md) to turn skills or an MCP server into a portable Agent Plugins v1 package, check a package you already have, or prepare it for distribution. The plugin includes the authoring skill, Node.js tools, and templates. To use the skill, install `agent-plugin-tools` from a Marketplace that offers it. You can also run the bundled tools directly from a checkout. The standalone workflows need neither the ai-dotfiles CLI nor a separate ai-dotfiles installation.
 
-The portable source uses root `plugin.json`. Use the built-in `plugin-creator` when the intended source format is Codex-specific `.codex-plugin/plugin.json`, and `skill-creator` when creating or structurally changing an individual skill.
+## Choose the package format
+
+A portable plugin has a `plugin.json` at its root. Use this skill to create that package or assess a migration to it. For a Codex-specific source with `.codex-plugin/plugin.json`, use Codex’s built-in `plugin-creator`. For a standalone Codex skill or changes to a contained skill’s structure, use `skill-creator`.
+
+Packaging and validation require no default model. When writing instructions inside a skill, preserve the intended model and runtime. If available, `prompt-design` helps select guidance and revise the wording, and `agent-workflow-design` helps design workflow controls. If `prompt-design` is unavailable and the destination is unspecified, keep the instructions model-independent. Check any required capability against the intended deployment. [Contained skill authoring](skills/plugin-creator-agent-plugins/references/authoring.md)
 
 ## Request the outcome you need
 
-Examples:
+- “Package this skill and validate the source.” This produces a package and the source-check result.
+- “Review this Codex-native package for migration.” This identifies what the portable package can preserve and which features require a client-specific package.
+- “Install this developer source in Codex and keep its version.” This also requires a working Codex CLI and a local catalog entry for the source.
+- “Sync just this plugin to our shared Marketplace.” This updates the selected distribution copy while preserving other contributors’ entries.
+- “Preview adding this GitHub plugin to our catalog.” This shows the proposed reference edit. The upstream package stays in its repository.
 
-- Create a minimal portable plugin containing the supplied skill; finish the source and validation.
-- Review this Codex-native package for portable migration and report any required features that need a separate client package.
-- Install this developer source locally, preserving its version.
-- Sync one selected plugin into an existing shared Marketplace while preserving other contributors' entries.
-- Preview adding a GitHub plugin reference to a human-owned catalog, without fetching or installing it.
-
-Source edits can finish with source validation. Local installation, shared assembly, and publication are separate outcomes; include the stages you need in the request. A review-only request produces findings.
-
-For contained OpenAI or Codex instructions with no established target model, the authoring guidance uses GPT-6 Astra. It preserves an explicit target model and does not change client settings or require Astra to use the package. `prompt-design` and `agent-workflow-design` can assist when available; this plugin has no runtime dependency on them.
+Ask for installation, shared distribution, or publication when that stage is part of the job. A request to review a package can finish with findings, and a source edit can finish with validation.
 
 ## Local development
 
-This plugin bundles the Node.js helpers and templates for portable validation, developer-source installation, repository scaffolding, and standalone Marketplace assembly. No ai-dotfiles checkout is required; Codex installation also needs a working Codex CLI. Prefer an existing command in the plugin's development repository when it also runs the required project checks.
+**To check a package**, run the bundled validator from the `skills/plugin-creator-agent-plugins/` directory of an installed plugin or checkout. This example checks Agent Plugin Tools itself. Replace `../..` with your package root to check another plugin.
 
-For source validation, run from this plugin's `skills/plugin-creator-agent-plugins/` directory, including when using an installed copy, or resolve the script's absolute path there:
-
-```powershell
-node scripts/validate-agent-plugin.mjs 'C:\path\to\plugin-root'
+```sh
+node scripts/validate-agent-plugin.mjs ../..
 ```
 
-For repeated skill authoring, user-scoped links can point to the source. Plugin installation is useful when checking the manifest, MCP servers, client extensions, or distribution path. Avoid testing with same-named source links and installed copies simultaneously; see [Codex integration](skills/plugin-creator-agent-plugins/references/codex-integration.md).
+The validator prints `OK` or `FAILED` and a summary of package contents. For a repository with its own validation command, use that command to include project-specific checks. [Validation scope](skills/plugin-creator-agent-plugins/references/validation.md)
 
-The separate [ai-dotfiles-cli plugin](https://github.com/peaceroad/ai-dotfiles/tree/main/plugins/ai-dotfiles-cli) provides instructions for operating ai-dotfiles-managed targets. Neither that plugin nor the `agent` CLI is required for the standalone workflows here. The CLI, source-link manager, shared-Marketplace orchestrator, and consumer Skill installer are supplied separately; bundled helpers do not replace all of those features.
+**To try a developer source in Codex**, first identify the manager for the source and installation. Use its entry point so that its checks and version policy apply. For a standalone source, the bundled manager requires a matching entry in `<marketplace-root>/.agents/plugins/marketplace.json`. Both the manager and the repository scaffold expect that entry to exist. [Management boundaries](skills/plugin-creator-agent-plugins/references/management-boundaries.md) · [Minimal catalog entry and source path](skills/plugin-creator-agent-plugins/references/codex-integration.md#provide-the-developer-source-catalog-entry)
 
-Before changing an existing managed target, follow [management boundaries](skills/plugin-creator-agent-plugins/references/management-boundaries.md). Ownership is determined from configuration and the established workflow, not from whether `agent` or its companion plugin is installed. Those boundaries remain readable in this package without either dependency.
-
-A developer-source install or repository scaffold requires a matching local entry in `<marketplace-root>/.agents/plugins/marketplace.json`. Neither helper creates that entry. The [catalog setup example](skills/plugin-creator-agent-plugins/references/codex-integration.md#provide-the-developer-source-catalog-entry) shows the minimum JSON and the root-relative source path. Shared assembly creates a generated distribution copy and is a different workflow.
-
-Run the developer manager from this skill's directory:
+From the same skill directory, the following commands inspect a source and install it while preserving its version. Replace the example path with your local plugin root. Run only the status command if you want to inspect the current state.
 
 ```powershell
 node scripts/manage-local-agent-plugin.mjs status 'C:\path\to\plugin-root'
-node scripts/manage-local-agent-plugin.mjs validate 'C:\path\to\plugin-root'
 node scripts/manage-local-agent-plugin.mjs install 'C:\path\to\plugin-root' --keep-version
 ```
 
-These are task-specific alternatives. `install` already includes validation. Preserve the established version policy; if none exists and no version change is requested, use `--keep-version`. Use `--bump-version` only for an intended local-development version policy. A higher-level repository command may require an explicit stored policy.
+Installation includes validation. Use the established version policy. When none exists and no version change was requested, use `--keep-version`. Reserve `--bump-version` for an intended development-version change.
 
-The manager checks reported identity, version, and available source-path information. It does not establish enabled state, byte-for-byte resource equality, or component execution. Confirm required behavior in a new task when integration is in scope. Installation can leave partial effects after failure and has no cross-process lock; inspect the current source and client state before retrying.
+The manager compares the reported plugin identity, version, and source path when available. To verify skill discovery or MCP behavior, check enabled state and exercise the component in a new task. Use one active copy of a given skill name so you can tell which one ran. After an interrupted install, inspect the source, Marketplace registration, and client state before retrying. The manager has no cross-process lock, and some changes may already have taken effect. [Codex integration and recovery](skills/plugin-creator-agent-plugins/references/codex-integration.md)
 
 ## Select a workflow
 
-| Work | Detailed reference |
-| --- | --- |
-| Manifest, contained skills, MCP, and documented client extensions | [Authoring](skills/plugin-creator-agent-plugins/references/authoring.md) |
-| Checks appropriate to the affected behavior and their limits | [Validation](skills/plugin-creator-agent-plugins/references/validation.md) |
-| Codex-native source conversion and preservation of required features | [Migration](skills/plugin-creator-agent-plugins/references/codex-migration.md) |
-| Developer installation, consumer installation, refresh, and recovery | [Codex integration](skills/plugin-creator-agent-plugins/references/codex-integration.md) |
-| Repository-owned checks and generated runners, including `prepare` and `import` | [Repository management](skills/plugin-creator-agent-plugins/references/repository-management.md) |
-| Local, Git, or NAS Marketplace assembly and drift checks | [Marketplace distribution](skills/plugin-creator-agent-plugins/references/marketplace-distribution.md) |
-| GitHub-reference catalog creation, inspection, and guarded edits | [Reference catalogs](skills/plugin-creator-agent-plugins/references/marketplace-catalog.md) |
-| Private assembly definitions, contributor ownership, and orchestration | [Marketplace orchestration](skills/plugin-creator-agent-plugins/references/marketplace-orchestration.md) |
+- **Create or migrate a package.** Use the [authoring guide](skills/plugin-creator-agent-plugins/references/authoring.md) for manifests, skills, MCP configuration, and supported client extensions. Use the [migration guide](skills/plugin-creator-agent-plugins/references/codex-migration.md) to map an existing Codex-native source.
+- **Keep checks with the source repository.** Configure repository checks and version policy in the source project. When adopting a template update, `refresh --check` compares the generated runner files. Run the repository checks separately. [Repository management](skills/plugin-creator-agent-plugins/references/repository-management.md)
+- **Distribute package copies.** The filesystem assembler creates or checks a Marketplace on local storage, Git, or NAS. Consumers install published copies through Codex. For private assembly definitions or multiple contributors, use the established owner’s synchronization process. [Marketplace distribution](skills/plugin-creator-agent-plugins/references/marketplace-distribution.md) · [Marketplace orchestration](skills/plugin-creator-agent-plugins/references/marketplace-orchestration.md)
+- **Maintain a catalog of GitHub references.** Use the catalog helper when the plugins should stay in their source repositories. It can inspect the catalog, preview an edit, or apply a guarded change. [Reference catalogs](skills/plugin-creator-agent-plugins/references/marketplace-catalog.md)
+- **Operate an ai-dotfiles-managed target.** The separate [ai-dotfiles-cli plugin](https://github.com/peaceroad/ai-dotfiles/tree/main/plugins/ai-dotfiles-cli) documents `agent` operations for source links, shared Marketplaces, and installation of standalone skills.
 
-Keep repository-specific behavior in the per-plugin configuration or its check scripts. Refresh generated runners when adopting template changes; `refresh --check` compares generated files without running repository checks. Shared Marketplace consumers install through Codex rather than invoking the developer manager against generated copies.
+## Compatibility and maintenance notes
 
-The [Astra review and follow-up audit](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-plugin-tools/astra-review.md) records the design decisions, frozen evaluation inputs, observed checks, and remaining limits. That record is for maintainers and is not required reading when using the skill.
+**Upgrading a filesystem Marketplace.** If your Marketplace still records package digests in the legacy `sha256:` format, update consumers to support `sha256-tree-v2:` before distributing the new catalog. Run a full sync in the original filesystem environment before moving the Marketplace across operating systems. The current format tracks package content and excludes permission bits, so a permission-only change is handled locally. [Digest format and migration](skills/plugin-creator-agent-plugins/references/marketplace-distribution.md#distribution-boundary)
 
-Marketplace package digests now use the portable `sha256-tree-v2:` content format. Update consumers before distribution, and run a full sync in the original environment to migrate permission-sensitive legacy digests. File permissions remain a local execution concern; permission-only changes do not trigger copying. See the [distribution contract](skills/plugin-creator-agent-plugins/references/marketplace-distribution.md#distribution-boundary).
+**Reading tool diagnostics.** The scaffold, assembler, and built-in instruction probe display paths using `~` or `[external]/<name>` where appropriate. Treat the probe’s JSON `skillPath` as a display label. For a later filesystem operation, use the actual input path.
 
-Diagnostic paths from the scaffold, Marketplace assembler, and built-in instruction probe use `~` or `[external]/<name>` instead of expanded private paths. The probe's JSON `skillPath` is a display label, not a canonical path for later file operations.
+The Japanese [design review and follow-up audit](https://github.com/peaceroad/ai-dotfiles/blob/main/docs/agent-plugin-tools/astra-review.md) records the evaluated cases, observed results, and verification limits.

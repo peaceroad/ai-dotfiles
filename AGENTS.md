@@ -1,48 +1,46 @@
 # Repository instructions
 
-## Privacy of repository content
-
-- Keep useful, publishable evaluation definitions and behavioral evidence for this repository's skills, instructions, and workflows in `evals/`, with interpretation and maintenance rationale in `docs/`. This includes task inputs, responses, criteria, case-level judgments, and relevant source versions, after checking for personal information, secrets, private task material, and actual-environment details covered below. Choose the location by what the evidence helps maintain, not by which plugin performed the evaluation; other projects' evaluations follow their owner's storage policy.
-- Treat details of the user's actual environment as private, even when names and paths are anonymized. Do not record local inventory, configuration details, diagnostic logs, or environment measurements (such as file counts, storage usage, operational timestamps, or machine-performance benchmarks) in repository files unless the user explicitly requests their inclusion. This applies across documentation, notes, examples, tests, and exports.
-- Preserve reusable findings about private environments as generalized behavior, requirements, and verification methods; use synthetic examples or fixtures instead of copying local observations. General platform requirements and facts from public sources may remain, with attribution where appropriate.
-- Local execution alone does not make skill or workflow evaluation evidence private. Keep raw runtime records outside the repository by default; select publishable evidence rather than copying complete logs. Label excerpts and transformations, preserve the meaning and provenance of responses, and state missing conditions that limit interpretation. Do not invent replacements and present them as observed output.
-- Retain evaluation evidence for a concrete maintenance use, such as a baseline, regression case, adoption or rejection rationale, or an evaluator defect. A no-change result can be useful evidence; neither a successful change nor every completed run requires an archived repository record. Publication suitability and maintenance value are separate decisions.
-
-## Public exports
-
-- `home/.agents/` and `home/.codex/` are export destinations for publishable files from the user's home directory. Avoid introducing personal usernames, machine-specific absolute paths, or credentials. These destinations are distinct from repository-root `.agents/` and `.codex/`.
-- For scripts exported to this repository, keep usernames and expanded home-directory paths out of normal output, help, and errors. Use actual paths internally and public-safe forms such as `~` for display.
-- Preserve the sensitive-information checks in `export.js`. Scope any necessary exception to a specific target and check.
-
-## Export validation
-
-- After changing `export.js` or `export.yaml`, run `node --check export.js` and `npm run check` for repository checks with synthetic export inputs. Before publishing home-directory exports, also run `npm run check:export` against the intended real source files. Do not run `npm run build` while that dry run has outstanding findings.
-- For export work in the Windows Codex sandbox, complete the checks and ask the user to run `npm run build`; writes to `home/.agents/` and `home/.codex/` can fail with `EPERM` there.
-
-## Dependencies
-
-- Add an external dependency only when a clear requirement cannot be met with standard modules alone.
+This file guides work on ai-dotfiles. The [root README](README.md) is the Japanese entry point for users. Edit this file for repository-wide rules. For changes to the shared Codex instructions exported to [home/.codex/AGENTS.md](home/.codex/AGENTS.md), follow the public export process below.
 
 ## CLI and plugin ownership
 
-- Keep CLI runtime sources in `tools/agent/` and generic plugin helpers in `plugins/agent-plugin-tools/`. The installer copies a version-matched runtime from those sources; runtime execution must not depend on an installed plugin cache or skill discovery path.
-- Keep ai-dotfiles-specific operating instructions and `codex-history` in `plugins/ai-dotfiles-cli/`. Keep `agent-plugin-tools` independently usable without that plugin or the CLI, including the minimal guidance needed to respect an existing manager. Do not duplicate CLI procedures in generic authoring references.
-- Keep CLI installation separate from skill installation. `scripts/install-agent.mjs` installs runtime files and schemas, not skills or user settings. Preserve existing standalone skills and local edits; any switch between standalone and plugin discovery is an explicit operation, not installer cleanup.
-
-## Codex session maintenance
-
-- Before changing session export or deletion, read the relevant acceptance conditions in `docs/plans/ai-dotfiles-session-preservation-plan.md` and the current contract in `docs/agent-codex.md`. Review selection, saved coverage, pre-operation checks, post-operation verification, and retry behavior together. Do not equate a rollout ID set with a physical file inventory, or an unreadable inventory with an empty one.
-- Keep regression and real CLI compatibility checks in disposable synthetic homes. A successful fake CLI or exit code alone does not establish startup safety or completed deletion. Record supported and unverified conditions separately; mark a plan complete only for the acceptance conditions actually verified. Reuse inventories within one inspection, and rebuild them at confirmation and mutation boundaries.
-- Preserve thread-owned message boards and attachment membership rows across export, pre-delete comparison, completion checks, and retry. Keep referenced paths opaque. Test failed synchronization before deletion separately from hash integrity; OS flush acceptance is not proof of device power-loss durability.
-
-## Documentation layout and language
-
-- Put plugin usage and setup guidance in `plugins/<plugin>/README.md`. Keep individual skill roots free of `README.md`; keep each skill's entry-point instructions and reference-loading conditions in `SKILL.md`. Purpose-specific README files within assets or templates may remain with those resources.
-- Use English by default for this file and for descriptions, instructions, references, READMEs, UI metadata, and generic templates under `plugins/`. Preserve the language needed by language-specific examples, quotations, evaluation inputs, and translation targets.
-- Use Japanese by default for user-facing explanations, public notes, and evaluation write-ups under `docs/`. Create parallel language versions of a document only when there is a concrete user need.
+- Edit plugin source under `plugins/<plugin>/`. Installed plugins, Codex caches, and assembled Marketplace packages are downstream copies. Use the existing manager when testing or updating an installation.
+- The CLI runtime belongs in `tools/agent/`. Generic package validators, local-install helpers, and Marketplace authoring tools belong in `plugins/agent-plugin-tools/`. The installer copies a version-matched set from these sources. Keep the installed CLI independent of plugin caches and skill discovery paths.
+- Put ai-dotfiles-specific operating instructions and `codex-history` in `plugins/ai-dotfiles-cli/`. Keep generic authoring tools usable independently, with just enough guidance to respect an existing manager. Link to CLI procedures where needed.
+- `scripts/install-agent.mjs` installs the CLI runtime and schemas. Preserve user settings, standalone skills, and local edits. Switching a skill between standalone and plugin discovery requires an explicit migration separate from CLI installation.
+- Use standard modules where they meet the requirement. Add an external dependency only for a clear unmet need.
 
 ## Skill and plugin reference placement
 
-- Choose reference placement by its role in execution and its loading cost. Keep needed instructions, contracts, evidence, and source links in the relevant skill or reference, with clear conditions for when to read or verify them.
-- For plugins, prefer `plugins/<plugin>/README.md` for concise background sources and explanations that should accompany the plugin. For standalone skills, prefer suitable existing project notes under `docs/` for background sources and rationale worth retaining. Use project notes for detailed design rationale and evaluation records when useful for maintenance. Choose by role, length, and distribution needs; reuse suitable documents and link between them without making background required reading for ordinary execution.
-- Before moving or removing material, inspect its content and callers, preserve required constraints and attribution, and check that required material remains accessible from the intended installation. Do not relocate links mechanically or optimize for fewer URLs alone.
+- Keep the entry point and decisions needed on ordinary runs in `SKILL.md`. Put specialized instructions, contracts, evidence, and source links in the skill or its bundled references. Say when to read a reference or verify a source.
+- Put setup, usage, and concise background that should ship with a plugin in `plugins/<plugin>/README.md`. Keep individual skill roots free of README files. An asset or template can have its own purpose-specific README.
+- Use existing project notes in `docs/` for standalone skill background, detailed design rationale, and evaluation write-ups. Link to optional background where useful. When moving or removing material, check its content and callers, preserve constraints and attribution, and verify that an installed skill can still reach everything needed at runtime.
+- Write this file and plugin descriptions, instructions, references, READMEs, UI metadata, and generic templates in English by default. Japanese is the default for the root README and for user-facing guides, public notes, and evaluation write-ups under `docs/`. Preserve the language required by examples, quotations, evaluation inputs, and translation targets. Maintain parallel translations only for a concrete reader need.
+
+## Privacy of repository content
+
+- Treat actual-environment details as private even after anonymization. Keep local inventories, configuration details, diagnostic logs, operational timestamps, and measurements such as file counts, storage use, and machine benchmarks out of all repository files unless the user explicitly requests their inclusion. This includes examples, tests, notes, and exports.
+- Express reusable findings as behavior, requirements, or verification methods. Use synthetic fixtures for environment-specific examples. Attribute general platform facts to public sources when appropriate.
+- For skills, instructions, and workflows maintained here, store publishable evaluation definitions and behavioral evidence in [evals/](evals/README.md). Put interpretation and maintenance rationale in `docs/`. Other projects follow their owner's policy, including when they use this repository's evaluator.
+- Retain evidence for a concrete maintenance decision, such as a baseline, a regression, an adopted or rejected change, or an evaluator defect. A no-change result can qualify. Select inputs, responses, criteria, case judgments, and source versions only after checking for personal information, secrets, private task material, and environment details.
+- Keep raw runtime records outside the repository by default. Local runs can yield publishable evidence. Label excerpts, transformations, and synthetic examples, preserve provenance and meaning, and state missing conditions that limit interpretation. Never present invented output as an observation.
+
+## Public exports
+
+- `export.yaml` selects files from the user's home. `export.js` writes the public copies under `home/.agents/` and `home/.codex/`. Make persistent changes at the authorized source before exporting. Repository-root `.agents/` and `.codex/` have separate project scope.
+- Keep usernames, machine-specific absolute paths, and credentials out of public files. In exported scripts, resolve real paths internally and use public-safe forms such as `~` in output, help, and errors. Preserve the sensitive-information checks in `export.js` and scope any necessary exception to a specific target and check.
+- After changing `export.js` or `export.yaml`, run `node --check export.js` and `npm run check` (synthetic export inputs). Before a real export, run `npm run check:export` against the intended home files. Resolve outstanding findings before writing and inspect the generated diff before publication. See the [export guide](docs/export.md).
+- In the Windows Codex sandbox, finish the checks and ask the user to run `npm run build` for the real export. Writes to the public home destinations can fail there with `EPERM`.
+
+## Validation by change
+
+- Use [package.json](package.json) for the current test commands. `npm run check` covers the synthetic export, CLI, skill links, plugin helpers, and package tests. Run the dedicated `npm run check:eval-tools` or `npm run check:dot-toolkit` when changing the corresponding runner, cases, or dot instructions and setup. For a documentation-only change, check the affected commands, paths, and section links, including inbound links to renamed headings.
+- Report what the checks exercised. A package check establishes structure, and a model or host behavior claim needs evidence from the relevant execution path. See the [CLI test conditions](docs/agent-development.md#検証範囲と実環境での確認) for OS-specific, opt-in, and skipped cases.
+
+## Codex session maintenance
+
+Before changing session export or deletion, read the [current contract](docs/agent-codex.md) and the relevant [preservation acceptance conditions](docs/plans/ai-dotfiles-session-preservation-plan.md). Review selection, saved coverage, pre-operation checks, post-operation verification, and retry as one change.
+
+- Verify the physical file inventory as well as rollout IDs. Treat an unreadable inventory as unknown. Reuse an inventory within one inspection and rebuild it at confirmation and mutation boundaries.
+- Preserve thread-owned message boards and attachment membership rows across export, pre-delete comparison, completion checks, and retry. Treat referenced paths as opaque. Test failed synchronization before deletion separately from hash integrity. Report an accepted OS flush separately from any claim about device durability after power loss.
+- Run regression and real CLI compatibility checks in disposable synthetic homes. Verify startup and completed deletion from their actual outcomes. A successful fake CLI or exit code alone is insufficient. Record supported and unverified conditions separately and mark a plan complete only for the acceptance conditions actually verified.

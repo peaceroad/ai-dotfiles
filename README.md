@@ -1,162 +1,69 @@
 # ai-dotfiles
 
-CodexやAIエージェント向けの設定例、`AGENTS.md`、スキルをまとめたプラグイン、管理用の`agent`コマンドを公開する個人用dotfilesリポジトリです。必要なものを選んで利用できます。
+Codexの設定例と、AIエージェントに仕事を頼むためのスキルを公開している個人用dotfilesリポジトリです。スキルやプラグインの開発・配布、Codexの保守に使う `agent` コマンドも提供しています。それぞれ必要なものだけ利用できます。
 
-A personal dotfiles repository for shareable Codex and AI agent settings, instructions, plugins, and the `agent` CLI.
+- [用途からプラグインを選ぶ](#用途からプラグインを選ぶ) — AIにプロンプトを書いてもらう、繰り返し作業を設計する、スキルを評価する。
+- [Codexの設定例を読む](#codexの設定例) — 設定ファイルや共通指示を開き、その項目を採用した理由を調べる。
+- [agentコマンドを導入する](#agentコマンド) — ターミナルからスキルを管理・配布する、Codexの履歴を整理する。
 
-設定は個人の利用環境に合わせたものです。そのまま一括適用せず、ファイルアクセス、ネットワーク、環境変数に関する許可を確認してください。説明ノートに記載した確認時点・対象環境にも注意してください。
+## 用途からプラグインを選ぶ
 
-## 提供しているプラグイン・スキルとコマンド
+スキルは、特定の仕事を依頼したときにエージェントが読む指示です。このリポジトリでは、関連するスキルやツールをAgent Plugins v1形式のプラグインにまとめています。
 
-プラグイン名のリンク先には導入方法と使い方、スキル名のリンク先にはAIが読む指示があります。
+- **プロンプトや作業手順を設計する** — [agent-design-tools](plugins/agent-design-tools/README.md)。依頼文や `AGENTS.md` の曖昧さを直すなら `prompt-design`、定期作業の分担・待機・中断後の再開を設計するなら `agent-workflow-design` を使います。Gemini用の指示や画像・動画用のプロンプトには `gemini-instruction-design` があります。
+- **スキルの変更に効果があったか確かめる** — [agent-eval-tools](plugins/agent-eval-tools/README.md)。実験用の `agent-improve` で変更前後に同じ課題を試し、改善した点と維持できた動作を比較できます。付属ランナーはテキストを扱います。実際のツール呼び出しや待機中の動作を測るには、それらを観測できる実行環境を使います。
+- **自作スキルやMCPサーバーをプラグインとして配る** — [agent-plugin-tools](plugins/agent-plugin-tools/README.md)。`plugin-creator-agent-plugins` と同梱ツールでパッケージの作成・検証・移行や、配布用カタログの管理ができます。このプラグインは単独で使えます。
+- **このリポジトリのCLI操作をAIに頼む** — [ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)。同名のスキルが、導入済みの `agent` を使って開発対象の状態確認やCodexの保守を進めます。保存済みの会話から過去の判断を探すときは、同梱の `codex-history` を使います。
+- **普段使うdotに個別の指示やスキルを用意する** — [dot-toolkit](plugins/dot-toolkit/README.md)。メインのdot向けの非公式・実験的なプラグインです。ChatGPT Webで導入し、メインのdotが `dot-guidelines` を読めることを確認します。初期設定・更新は[日本語ガイド](docs/dot-toolkit/README.md)、定期保守を組む場合は[タスクの設定例](docs/dot-cloud-maintenance.md)を参照してください。
 
-- **[agent-design-tools](plugins/agent-design-tools/README.md)**：指示と作業の進め方を設計するプラグイン。
-  - [prompt-design](plugins/agent-design-tools/skills/prompt-design/SKILL.md)：新しいプロンプトや`AGENTS.md`を書くとき、既存の指示が曖昧・矛盾していて期待する回答や動作にならないときに使います。AIへ伝える目的、条件、出力の要件を整理し、利用するモデルに合わせて指示を見直します。複数の局所修正を比較しやすい場合は「修正前／修正後／理由」で報告する調整を加えています。固定の出力形式ではなく、全面的な書き直しやファイル編集では変更規模と依頼に合わせます。
-  - [agent-workflow-design](plugins/agent-design-tools/skills/agent-workflow-design/SKILL.md)：定期的な確認や長時間の開発など、繰り返し・継続して行う作業の進め方を設計するときに使います。複数のツールやエージェントの役割分担、待機・中断・再開の条件、実行記録を踏まえた改善を検討します。通常の作業を実行するだけなら不要です。
-  - [gemini-instruction-design](plugins/agent-design-tools/skills/gemini-instruction-design/SKILL.md)：Gemini 4（Carbon・Argon・Hydrogen）向けのプロンプト、Apps Skills、CLI・Antigravity・APIの指示、媒体の理解と生成・編集のプロンプトを設計します。このスキルから`prompt-design`と用途別の参照を読み、実行制御を設計するときは`agent-workflow-design`も使います。画像はNano Banana 2.1、動画はOmni 1.2を中心に、指定されたモデル・提供面の違いを扱います。画像・動画を生成するツールではありません。個別に導入する場合は、必要な共通スキルも用意します。
-- **[agent-eval-tools](plugins/agent-eval-tools/README.md)**：スキル・プラグインと改善方法を、実験で評価・改善するための実験的なプラグイン。
-  - [agent-improve](plugins/agent-eval-tools/skills/agent-improve/SKILL.md)：スキルやプラグインの変更前後を比較するとき、予算を決めて改善案を試すとき、蓄積した証拠から改善方法自体を見直すときに使います。付属ランナーは、明示的に渡したテキストの比較と改善を扱います。ツール連携や実行中のイベントなどを観測する場合は、適したハーネスを使います。付属ランナーはこれらと保護された最終評価には未対応です。[利用場面と設計理由](docs/notes/agent-eval-tools-use-cases.md)も参照してください。
-- **[agent-plugin-tools](plugins/agent-plugin-tools/README.md)**：ポータブルなプラグインを作るための汎用スキルとツール。
-  - [plugin-creator-agent-plugins](plugins/agent-plugin-tools/skills/plugin-creator-agent-plugins/SKILL.md)：スキルやMCPサーバーをポータブルなプラグインにまとめるとき、既存パッケージを検証・移行するとき、配布用のMarketplaceを作るときに使います。パッケージ構成の確認からローカルでの導入確認まで、依頼した範囲を同梱ツールで支援します。`agent` CLIなしでも利用できます。
-- **[ai-dotfiles-cli](plugins/ai-dotfiles-cli/README.md)**：このリポジトリのCLI操作をAIへ案内するプラグイン。
-  - [ai-dotfiles-cli](plugins/ai-dotfiles-cli/skills/ai-dotfiles-cli/SKILL.md)：`agent`で管理しているスキルリンクやプラグインの状態を調べるとき、自分の担当分を共有Marketplaceへ同期するとき、Codexの保守やセッション整理を行うときに使います。導入済みCLIのコマンドと確認手順を選び、操作結果を確かめます。CLI自体の開発や汎用的なプラグイン作成は対象外です。
-  - [codex-history](plugins/ai-dotfiles-cli/skills/codex-history/SKILL.md)：以前にエクスポートした会話から、過去の決定理由を探したり、複数のセッションにまたがる経緯を確認したりするときに使う、実験的なスキルです。保存済みファイルを検索・参照し、根拠の場所と記録の不足を示します。進行中の会話の取得や、エクスポート・削除・復元は行いません。
-- **[dot-toolkit](plugins/dot-toolkit/README.md)**：dot自身のクラウドで個別指示とスキルを扱う、非公式・実験的な指示・セットアップツールキット。
-  - [dot-guidelines](plugins/dot-toolkit/skills/dot-guidelines/SKILL.md)：継続的なメインのdot向けの短い共通指示です。通常のファイル作業や保存先の選択にも使い、初期設定・点検・保守・移行の手順を条件付きで読みます。
-- **[agentコマンド](#agentコマンド)**：スキルとは別に実行する管理用CLI。
-  - [`agent dev`](docs/agent-development.md)：開発対象の確認・同期、共有Marketplaceの設定・配布。
-  - [`agent marketplace`](docs/agent-development.md#別マシンで単体skillを利用する)：プラグインに含めず個別に配布されたスキルの一覧表示・導入・更新・削除。
-  - [`agent codex`](docs/agent-codex.md)：Codexアプリの起動・簡易コマンド登録、状態確認・修復、セッション整理、書き出した会話の検索・参照。
+たとえばCodexで「この依頼を繰り返し使えるプロンプトにして」と頼むと、対象モデルが未指定なら `prompt-design` は **GPT-6.2 Astra** 向けに設計します。利用先が決まっていれば、そのモデルに合わせます。GPT-6.2 Solと従来のGPT-6 Astraも指定できます。これは作成するプロンプトの設計基準で、実行中のモデルの設定は変わりません。`agent-workflow-design` は待機や復旧をモデル未指定のまま設計でき、委任先のモデルを選べる場合は仕事の難しさや必要な能力を考慮します。[対象モデルの選び方](plugins/agent-design-tools/README.md#model-targeting) · [依頼例で見るスキルの使い分け](docs/notes/skill-creator-prompt-design-agent-workflow-design.md#具体的な依頼での選び方)
 
-CLIはプラグインなしでも動作します。`ai-dotfiles-cli`プラグインにCLI本体は含まれず、それぞれを別々に導入・更新します。
+### Codexで使うには
 
-`prompt-design`と`agent-workflow-design`は、現在、OpenAI／Codex向けで対象モデルが未指定の場合、GPT-6 Astraのモデルガイドを設計の基準にしています。別の対象モデルが指定されている場合や既存の利用環境から分かる場合は、そのモデルに合わせます。Gemini固有の補足は`gemini-instruction-design`に分けており、別のGemini向けスキルを選ぶこともできます。これは設計時の参照先の選択であり、実行中のモデルを切り替えるものではありません。
+目的のプラグインを配布しているMarketplace（プラグインのカタログ）をCodexに登録し、そこから導入します。このリポジトリのソースを直接試す場合は、ローカルのカタログに開発元を登録します。[Marketplaceからの導入](docs/notes/agent-marketplace-distribution.md#利用者がmarketplaceを登録する) · [ローカル開発版の導入](plugins/agent-plugin-tools/README.md#local-development)
 
-## Codex環境
+スキルを個別に使う場合は、`SKILL.md` と参照資料・スクリプトを含むディレクトリ全体を導入します。開発中なら、ソースを `~/.agents/skills/` から直接参照するスキルリンクも使えます。同名スキルは個別版かプラグイン版のどちらか一方から読み込みます。たとえばGemini向け設計を個別に導入する場合は、共通の `prompt-design`、作業の分担や再開も設計するなら `agent-workflow-design` を併せて用意します。[スキルリンクの手順](docs/skill-links.md) · [設計スキルの導入](plugins/agent-design-tools/README.md#installation-and-updates)
 
-公開用の設定ファイルは[`home/`](home/)にあります。ファイル本体と、設定の意味・注意点を説明するノートを次にまとめています。
+## Codexの設定例
 
-- **ユーザー設定**：[config.toml本体](home/.codex/config.toml)
-  - [ユーザー設定とプロジェクト設定の分け方](docs/notes/codex-config-toml.md)
-  - [新規チャットにモデル設定が反映されない場合](docs/notes/codex-new-chat-model-selection.md)
-- **Browser設定**：[browser/config.toml本体](home/.codex/browser/config.toml)
-  - [設定項目と安全上の注意](docs/notes/codex-browser-config-and-security.md)
-- **Git操作の設定と問題への対処**
-  - [CodexにGit変更操作を任せる場合の設定](docs/notes/git-operations.md)
-  - [WindowsでGitへの書き込みが拒否される場合](docs/notes/codex-windows-git-write-acl-recovery.md)
+[`home/`](home/) にはホームディレクトリから書き出した公開用のコピーがあります。自分の環境に取り入れるときは、ファイルアクセス、ネットワーク、環境変数などに関する設定を確認し、使いたい項目を選んでください。
 
-`home/.codex/config.toml`は公開用のコピーで、このリポジトリ自体に適用する`.codex/config.toml`とは別です。コピーの方向や変更方法は、後述の[設定の公開用エクスポート](#設定の公開用エクスポート)を参照してください。
-
-## ~/.codex/AGENTS.md
-
-Codexへ渡す共通指示の例です。回答の詳しさ、待機中の進め方、ブラウザーの選択、ファイルの読み込みなどに関する方針をまとめています。リポジトリには、ホーム側の`~/.codex/AGENTS.md`から書き出したコピーを置いています。
-
-- [~/.codex/AGENTS.md](home/.codex/AGENTS.md)：共通指示の本文。
-- [指示の日本語訳と設計理由](docs/notes/codex-agents-md-instruction-rationale.md)
-- [変更時の評価方針と確認範囲](docs/notes/codex-agents-md-evaluation.md)
-
-## dot向けの共通指示と構築手順
-
-[dot-toolkit](plugins/dot-toolkit/README.md)は、個別の作業条件や自作スキルの場所をdotへ毎回説明する手間を減らすための、非公式・実験的なプラグインです。メインのdot向けの共通指示`dot-guidelines`と、必要なときだけ読む初期設定・点検・保守・移行の手順を同梱します。
-
-まずChatGPT Webでプラグインをインストールし、メインのdotから`dot-guidelines`を読めることを確認します。その後、個別指示やファイルで管理するスキルが必要なら「dot-toolkitで初期設定して」と依頼します。
-
-- [日本語ガイド](docs/dot-toolkit/README.md)：概要と目的別の案内
-- [インストールと初期設定](docs/dot-toolkit/setup.md)：利用者が行う操作、スキル選択、0.1からの移行、更新
-- [クラウドコンピュータを使う](docs/dot-toolkit/cloud-computer.md)：ターミナルと画面操作、アクセスと確認の範囲
-- [クラウドのファイル管理](docs/dot-toolkit/cloud-workspace.md)：プロジェクト内の作成・保存・整理
-- [スキルとプラグインの管理](docs/dot-toolkit/skills-management.md)：INDEX、採用記録、更新、MCPとの境界
-- [共通指示の日本語訳と解説](docs/dot-toolkit/guidelines.md)：SKILL.mdの全文訳と出典付きの補足
-- [スキル差分比較サンプル](examples/skill-diff-plugin/README.md)：任意の別パッケージ。一つのスキルのローカルスナップショットをCLIまたはMCPで比較
-- [受け入れ確認](evals/dot-toolkit/README.md)：開発・検証担当者向け。ソース検査と、実際のメインdotでの読み込み・選択・継続性を区別
-
-## スキル
-
-このリポジトリのスキルは、冒頭の各プラグイン内で管理しています。個別に導入する場合も、`SKILL.md`だけでなく、必要なリファレンスやスクリプトを含むスキルディレクトリ単位で扱います。開発元を直接参照して使う「スキルリンク」なら、編集のたびに利用先へコピーする必要はありません。
-
-- **選び方・使い分け**
-  - [Agent SkillsとAgent Pluginsの構成と使い分け](docs/notes/codex-skills-and-plugins.md)
-  - [組み込みのskill-creatorと、prompt-design・agent-workflow-designの役割分担](docs/notes/skill-creator-prompt-design-agent-workflow-design.md)
-- **開発中のスキルを使う**
-  - [スキルリンクの登録・変更・検査・解除](docs/skill-links.md)：開発フォルダーをコピーせず、`~/.agents/skills/`から参照する方法。
-  - 同名スキルの直接リンクとインストール済みプラグインは併用せず、日常のスキル開発とプラグイン全体の動作確認で切り替えます。
-- **利用者設定・記録・一時ファイル**
-  - [~/.agents/とプロジェクト内の保存先](docs/agents-directory.md)：CLIの管理領域、`config/`、`notes/`、評価記録、一時ファイルの使い分け。
-  - `agent-workflow-design`や`agent-improve`の保守記録も、既存の保存先を優先します。`config/`や`notes/`は、対応するスキルや運用で採用する任意のローカル規約です。設計理由はガイドから各ノートを参照できます。
-
-## プラグイン
-
-提供するプラグインはAgent Plugins v1形式です。導入は各プラグインのREADME、パッケージの作成や開発環境の準備は次の資料を参照してください。
-
-- [プラグイン作成・検証・移行のガイド](plugins/agent-plugin-tools/README.md)：`agent` CLIに依存しない汎用ツールと導入方法。
-- [agent devによる開発対象の設定と管理](docs/agent-development.md)：登録したローカル開発元の検証とCodexへのインストール・更新。
-- [agent-plugin-toolsの設計・レビュー記録](docs/agent-plugin-tools/astra-review.md)
-
-プラグインは[`plugins/`](plugins/)内のソースを編集し、利用先へ配布・更新します。インストール済みコピーやCodexのキャッシュを開発用に直接編集しません。
-
-## マーケットプレイス
-
-複数のプラグインをまとめて配布する場所としてMarketplaceを使います。このリポジトリのツールでは、プラグインに含めずスキルを個別に配布することもできます。その場合は、スキルの配布用コピーと独自カタログを同じMarketplace内に置きます。
-
-- **作成・配布する**
-  - [プラグインやスキルをNASやGitへ配布する仕組み](docs/notes/agent-marketplace-distribution.md)
-  - [agent devで接続先・担当範囲を設定する](docs/agent-development.md#初回設定と更新)
-  - [ローカルと共有先の状態確認・検査・同期](docs/agent-development.md#使い方)
-- **配布されたものを利用する**
-  - プラグイン：利用するクライアントのプラグイン機能から導入します。[Marketplaceの配布ノート](docs/notes/agent-marketplace-distribution.md)にCodexでの手順があります。
-  - 個別に配布されたスキル：[`agent marketplace skill`による導入・更新・削除](docs/agent-development.md#別マシンで単体skillを利用する)を参照してください。
+- **Codexの設定** — [config.tomlの例](home/.codex/config.toml)と[ユーザー設定・プロジェクト設定の使い分け](docs/notes/codex-config-toml.md)。チャットで想定外のモデルが選ばれる場合は、[新規チャットのモデル選択](docs/notes/codex-new-chat-model-selection.md)を参照してください。
+- **Codexへの共通指示** — [ホーム用のAGENTS.md](home/.codex/AGENTS.md)と[日本語訳・設計理由](docs/notes/codex-agents-md-instruction-rationale.md)。回答の詳しさ、作業中の待機、指示ファイルの読み方などを定めています。このリポジトリで開発するエージェントには、別途[ルートのAGENTS.md](AGENTS.md)が適用されます。
+- **ブラウザーとGitの権限** — [ブラウザー設定例](home/.codex/browser/config.toml)、[ブラウザーの権限](docs/notes/codex-browser-config-and-security.md)、[Git操作を任せるときの設定](docs/notes/git-operations.md)。WindowsでGitへの書き込みが拒否される場合は、[アクセス権の確認と復旧](docs/notes/codex-windows-git-write-acl-recovery.md)を参照してください。
 
 ## agentコマンド
 
-`agent`を使うと、複数のリポジトリで開発するスキル・プラグインを共通のコマンドで確認・更新し、NASなどの共有Marketplaceへ同期できます。ai-dotfilesが提供するCLIで、公式の`codex`コマンドとは別です。
+`agent` は、このリポジトリが提供する管理用CLIです。ターミナルから単独で使えます。AIに操作を頼むための `ai-dotfiles-cli` プラグインは別途導入します。
 
-Node.js 24以降が必要です。macOS／Linuxへの対応は実験的で、実機での動作は未検証です。
+**導入にはNode.js 24以降が必要です。** このリポジトリを取得し、ルートから自分のOSに合うコマンドを実行します。更新時も同じコマンドを使います。
 
-- **導入・更新**：[インストール手順](docs/agent-development.md#配置とインストール)
-  - WindowsのPATH登録とmacOS／Linuxの導入方法を案内しています。
-  - CLIのインストールだけでは、スキルや利用者の設定は作成されません。
-- **開発・配布の操作**：[`agent dev`の利用ガイド](docs/agent-development.md#使い方)
-  - 開発対象の一覧は`agent dev status`、スキルリンクの管理メニューは`agent dev skill link`です。
-- **Codexの保守**：[`agent codex`と単体スクリプトの利用ガイド](docs/agent-codex.md)
-  - [セッションを期間指定でアーカイブ・削除・エクスポートする](docs/agent-codex.md#manage-codex-sessionsmjs)
-  - [書き出した会話を検索・参照する](docs/agent-codex.md#manage-codex-historymjs)
-  - [セッションの保護条件・エクスポートの内容と制限](docs/notes/codex-session-management.md)
+- WindowsのPowerShellでは `.\scripts\install-agent.ps1` を実行します。ユーザーのPATHに追加した場合は新しい端末を開きます。
+- macOS／Linuxでは `node scripts/install-agent.mjs` を実行し、`~/.local/bin` がPATHに含まれていることを確認します。これらのOSでの導入は実験的です。[OS別の導入手順と検証範囲](docs/agent-development.md#配置とインストール)
 
-導入後は`agent`で概要、`agent dev skill`などで各機能のヘルプを表示できます。`agent codex`と`agent dev skill link`は端末では対話メニューを開くため、説明だけ読む場合は`--help`を付けます。各スクリプトをNode.jsやPowerShellから直接実行する方法も、利用ガイドにあります。
+`agent --help` でコマンドの一覧が表示されれば起動できています。`agent info` では実行中のCLIの配置先とNode.jsの版を確認できます。続きは目的に応じて選んでください。
 
-Codexの保守には操作ごとのOS・バージョン制限があります。`agent codex session`によるセッション管理と、`agent codex history`による保存済み会話の検索・参照は実験的な機能です。エクスポートは参照用のコピーであり、復元可能なバックアップではありません。変更操作の前に、検証範囲と安全条件を確認してください。
+- **開発元と配布先を管理する** — `agent dev status` で登録した開発対象を確認します。`agent dev` にはスキルリンクの管理、共有Marketplaceへの同期、GitHub上のプラグインを参照するカタログの編集もあります。[開発環境の設定と使い方](docs/agent-development.md)
+- **配布された単体スキルを導入する** — Marketplaceの接続設定を済ませると、`agent marketplace skill list` で一覧を確認し、必要なスキルを選んで導入・更新できます。[単体スキルの利用手順](docs/agent-development.md#別マシンで単体skillを利用する)
+- **Codexの状態や会話を確認する** — `agent codex --help` で保守機能の一覧を表示します。実験的な `session` は履歴の整理と書き出し、`history` は書き出した会話の検索・参照に使います。セッションの書き出しは閲覧用で、そこから元のセッションを復元する機能はありません。アーカイブ・削除の前に対象と保護条件を確認してください。[Codex保守ガイド](docs/agent-codex.md) · [履歴の保護条件](docs/notes/codex-session-management.md)
 
 ## 設定の公開用エクスポート
 
-自分のdotfilesを公開する場合は、[設定のエクスポートガイド](docs/export.md)を参照してください。対象は[`export.yaml`](export.yaml)で指定し、[`export.js`](export.js)で機密情報の候補を検査してから書き出します。検査だけで誤公開を完全に防げるわけではないため、書き出した差分は人が確認します。
+自分のdotfilesを公開するときのコピー方向は **利用中のホーム → リポジトリの `home/`** です。設定を継続して変更する場合はホーム側の元ファイルを編集します。`home/` だけを編集すると、次の書き出しで上書きされることがあります。
 
-コピー方向は「ホームディレクトリ → このリポジトリの`home/`」です。`home/`を編集しても利用中の設定へは反映されず、次の書き出しで上書きされる場合があります。変更を継続して使う場合は、先にホーム側の元ファイルへ反映してください。これは設定ファイルの公開用書き出しであり、`agent codex session export`による会話の保存とは別の操作です。
-
-利用者の開発対象を記録する`~/.agents/ai-dotfiles/development.json`は公開しません。`~/.agents/ai-dotfiles/skill-links.json`は、このリポジトリ内を参照する宣言だけを公開用コピーへ書き出します。
+1. [export.yaml](export.yaml)で公開対象を選びます。開発対象を記録する `development.json` は非公開です。`skill-links.json` は、このリポジトリ内を参照する宣言だけを書き出します。
+2. リポジトリのルートで `npm run check:export` を実行し、実際のコピー元・コピー先と機密情報の候補を確認します。この段階ではファイルを書き出しません。
+3. 検出事項を解消してから `npm run build` で書き出し、公開前に差分を目視で確認します。[エクスポートの対象・検査・手順](docs/export.md)
 
 ## リポジトリの開発・検証
 
-変更前に[開発ルール](AGENTS.md)を確認してください。主なファイル配置は次のとおりです。
+プラグインの編集元は [plugins/](plugins/)、CLIの編集元は [tools/agent/](tools/agent/) です。配布用のコピーや導入済みキャッシュへの変更は、次回の更新で失われます。配置・公開範囲・変更時の検証条件は[開発用のAGENTS.md](AGENTS.md)にまとめています。
 
-- [`home/`](home/)：ホームから取り込んだ公開用の設定・スクリプト。
-- [`plugins/`](plugins/)：スキル・プラグインのソース。
-- [`tools/agent/`](tools/agent/)：CLIのソース。利用環境への反映にはインストーラーを再実行します。
-- [`scripts/`](scripts/)：CLIのインストーラーとリポジトリの検証用スクリプト。
-- [`docs/`](docs/)：利用ガイド、設計理由、検証・評価の説明。
-- [`evals/`](evals/README.md)：評価入力・応答・manifestの記録。
+検証はNode.js 24以降を使い、リポジトリのルートで実行します。WindowsでインストーラーをテストするにはPowerShell 7（`pwsh`）も必要です。
 
-検証にはNode.js 24以降を使い、Windowsではインストーラーのテスト用にPowerShell 7（`pwsh`）も必要です。次のコマンドはリポジトリのルートで実行します。
+- `npm run check` は通常の一括チェックです。合成データを使った設定エクスポート、CLI、スキルリンク、プラグイン用ツールと配布パッケージを検証します。
+- プラグインの構造・同梱ファイルだけを重点的に調べるときは `npm run check:plugins` を使えます。評価ランナーや改善課題を変えた場合は `npm run check:eval-tools`、dotの指示・構築手順・評価セットを変えた場合は `npm run check:dot-toolkit` で各専用テストを実行します。
 
-- `npm run check`：合成ホームを使ったエクスポートのテスト、CLI・スキルリンク・プラグイン管理ツールのテスト、プラグインの構造・配布テストを実行します。利用者のホームにエクスポート元の設定は不要です。
-- `npm run check:export`：実際のホームと`export.yaml`を使い、公開用エクスポートの計画と機密情報の候補を検査します。ファイルは書き出しません。
-- `npm run check:plugins`：各プラグインの構造と同梱リンク、汎用ツールの単体起動、隔離した評価プラグインのテストを検証します。
-- `npm run check:eval-tools`：評価ランナーと比較処理に加え、リポジトリで保守する改善課題の正解・保持条件を、モデルを使わずに検証します。
-- `npm run check:dot-toolkit`：dot-toolkitの読み取り専用検査、公開ファイルの契約、受け入れ判定と合成証拠を、モデルを使わずに検証します。`npm run check`には含まれないため、dot-toolkitの指示・構築手順・評価セットを変更したときは別途実行してください。実際の読み込み・自動選択・継続の確認は、[受け入れ確認](evals/dot-toolkit/README.md)に従って区別します。
+セッションのエクスポート試験には、その場所にも親を順にたどった先にも `.git` がない、書き込み可能な一時ディレクトリが必要です。標準の一時領域がこの条件を満たさない場合は、Windowsでは `TEMP` と `TMP`、macOS／Linuxでは `TMPDIR` で別の一時領域を指定します。OS・Node.jsの版・オプションによってスキップされる試験は未検証として扱います。[圧縮履歴・公式CLI互換・Windowsのアクセス権などの検証条件](docs/agent-development.md#検証範囲と実環境での確認)
 
-`npm run check`が成功しても、OS・Node.jsの版・明示実行の設定によりスキップされた試験は未検証です。セッションの圧縮回帰、公式CLI互換、大容量境界、および集約チェックに含まれないWindows ACLの試験条件は、[検証範囲と実環境での確認](docs/agent-development.md#検証範囲と実環境での確認)を参照してください。
-
-`npm run check`は一時ディレクトリ内の試験用データだけでエクスポートを検証し、リポジトリの`home/`へ設定ファイルを書き出しません。実際に書き出す`npm run build`は、[エクスポート手順](docs/export.md#使い方)に従い、`npm run check:export`でコピー元と書き出し予定を確認してから実行してください。
-
-セッションのエクスポートを含むテストには、書き込み可能で、自身と祖先に`.git`のない一時ディレクトリが必要です。標準の一時領域がこの条件を満たさない場合は、権限のある別の領域を`TMPDIR`（Linux／macOS）または`TEMP`／`TMP`（Windows）で指定します。指定できない環境では該当テストは検証できません。保護の無効化や`.git`の削除で通さないでください。
-
-スキルの設計変更と評価結果は、[prompt-designの評価](docs/prompt-design/README.md)、[agent-workflow-designの設計・評価](docs/agent-workflow-design/README.md)、[評価記録の一覧](evals/README.md)からたどれます。構造テストの成功と、実際のモデルの動作を評価した結果は区別して記録しています。
+スキルの設計変更とモデルを使った評価は、[プロンプト設計の記録](docs/prompt-design/README.md)、[ワークフロー設計の記録](docs/agent-workflow-design/README.md)、[評価ケースと証拠](evals/README.md)からたどれます。
